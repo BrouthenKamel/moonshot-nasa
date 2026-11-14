@@ -1,4 +1,5 @@
 import { useRideView } from '../../viz/ride/useRideView'
+import { timelineLayout } from '../../viz/ride/rideView'
 import type { BarStatus } from '../../sim/types'
 import { ROCKET_X, SKY_W } from '../../viz/ride/skyPath'
 
@@ -45,21 +46,17 @@ export function RideOverlay() {
   )
 }
 
+const BLOCK_CLASS = {
+  design: 'justify-start bg-slate-700/90 pl-2 text-slate-100',
+  transit: 'justify-center bg-blue-200/30 text-white',
+  mapping: 'justify-center bg-indigo-400/35 text-indigo-100',
+}
+
 export function RideTimeline() {
   const view = useRideView()
-  const t = view.timeline
-  const pos = (turn: number) => `${((turn - 1) / t.turns) * 100}%`
-  const width = (turns: number) => `${(turns / t.turns) * 100}%`
-  const arrived = t.arrivalTurn !== null
-  const flag = (turn: number, label: string, colour: string, above: boolean) => (
-    <div className="absolute top-0 bottom-0" style={{ left: pos(turn) }}>
-      <div className={`absolute ${above ? '-top-5' : 'top-0'} h-[calc(100%+1.25rem)] w-0.5`} style={{ background: colour }} />
-      <div className={`absolute left-1.5 text-xs font-bold whitespace-nowrap ${above ? '-top-6' : '-bottom-5'}`} style={{ color: colour }}>
-        {label}
-      </div>
-    </div>
-  )
-  const launchNote = t.direct ? (t.showMapping ? ' · AT THE MOON 5 DAYS LATER' : t.flyPast ? ' · FLIES PAST THE MOON 5 DAYS LATER' : '') : ''
+  const { blocks, flags } = timelineLayout(view.timeline)
+  const tone = { good: GREEN, bad: RED, plain: '#ffffff', orbit: view.orbit.colour }
+  const pct = (share: number) => `${share * 100}%`
   return (
     <div className="pointer-events-none absolute right-4 bottom-0 left-4 select-none">
       <div className="absolute bottom-[6.75rem] text-center" style={{ left: `${(ROCKET_X / SKY_W) * 100}%`, transform: 'translateX(-50%)' }}>
@@ -69,35 +66,29 @@ export function RideTimeline() {
         </div>
       </div>
       <div className="relative mb-7 h-7 rounded bg-slate-900/90 text-[11px] font-semibold">
-        <div className="absolute inset-y-0 flex items-center bg-slate-700/90 pl-2 text-slate-100" style={{ left: 0, width: width(t.readyTurn) }}>
-          <span className="truncate">DESIGN · BUILD · TEST</span>
-        </div>
-        {arrived && t.transferTurns !== null && t.transferTurns > 0 && (
+        {blocks.map((b) => (
           <div
-            className="absolute inset-y-0 flex items-center justify-center bg-blue-200/30 text-white"
-            style={{ left: pos(t.rideTurn), width: width(t.transferTurns) }}
+            key={b.key}
+            className={`absolute inset-y-0 flex items-center overflow-hidden ${BLOCK_CLASS[b.key]}`}
+            style={{ left: pct(b.from), width: pct(b.to - b.from) }}
           >
-            <span className="truncate px-1">{t.transferTurns} TURNS IN TRANSIT</span>
+            <span className="truncate px-1">{b.label}</span>
           </div>
-        )}
-        {t.showMapping && t.arrivalTurn !== null && (
-          <div
-            className="absolute inset-y-0 flex items-center justify-center bg-indigo-400/35 text-indigo-100"
-            style={{ left: pos(t.arrivalTurn), width: width(12) }}
-          >
-            <span className="truncate px-1">12 TURNS OF MAPPING</span>
-          </div>
-        )}
-        {flag(t.readyTurn, `READY · TURN ${t.readyTurn}`, t.late ? RED : GREEN, false)}
-        {flag(t.rideTurn, `LAUNCH · TURN ${t.rideTurn}${launchNote}`, '#ffffff', true)}
-        {t.arrivalTurn !== null &&
-          !t.direct &&
-          flag(
-            t.arrivalTurn,
-            t.flyPast ? `FLIES PAST · TURN ${t.arrivalTurn}` : `ARRIVE · TURN ${t.arrivalTurn}`,
-            t.flyPast ? RED : view.orbit.colour,
-            true
-          )}
+        ))}
+        {flags.map((f) => {
+          const colour = tone[f.tone]
+          const above = f.side === 'above'
+          return (
+            <div key={f.key} className="absolute top-0 bottom-0" style={{ left: pct(f.at) }}>
+              <div className={`absolute ${above ? '-top-5' : 'top-0'} h-[calc(100%+1.25rem)] w-0.5`} style={{ background: colour }} />
+              {f.label && (
+                <div className={`absolute left-1.5 text-xs font-bold whitespace-nowrap ${above ? '-top-6' : '-bottom-5'}`} style={{ color: colour }}>
+                  {f.label}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

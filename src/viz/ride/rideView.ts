@@ -13,7 +13,7 @@ import { orbitColour, orbitShortName } from './orbitColours'
  */
 
 export type Reach = 'ok' | 'noWay' | 'noPower' | 'flyPast'
-export type RowStatus = 'onTime' | 'tooEarly' | 'tooHeavy' | 'wrongEngine' | 'overBudget'
+export type RowStatus = 'onTime' | 'tooEarly' | 'tooHeavy' | 'wrongEngine' | 'cantReach' | 'overBudget'
 export type DropKind = 'gto' | 'trans-lunar' | 'lunar-vicinity'
 
 export interface BoardRow {
@@ -113,12 +113,17 @@ const DROP_LABEL: Record<DropKind, string> = {
   'lunar-vicinity': 'DROP-OFF: CLOSE TO THE MOON',
 }
 
-const STATUS_LABEL: Record<RowStatus, string> = {
+const STATUS_LABEL: Record<Exclude<RowStatus, 'cantReach' | 'overBudget'>, string> = {
   wrongEngine: 'WRONG ENGINE',
   tooHeavy: 'TOO HEAVY',
   tooEarly: 'TOO EARLY',
-  overBudget: 'OVER BUDGET',
   onTime: 'ON TIME',
+}
+
+const REACH_LABEL: Record<Exclude<Reach, 'ok'>, string> = {
+  noWay: 'NO WAY THROUGH',
+  noPower: 'NO POWER',
+  flyPast: "CAN'T BRAKE",
 }
 
 const BAR_ORDER: BarResource[] = ['Delta-v', 'Mass', 'Time', 'Budget']
@@ -140,16 +145,28 @@ function engineType(design: Design): 'electric' | 'chemical' | 'cold-gas' {
 function boardRow(design: Design, difficulty: Difficulty, ride: Ride, engine: string): BoardRow {
   const b = computeBudgets({ ...design, ride: ride.id }, difficulty)
   const wrongEngine = engine === 'electric' ? !ride.electricCompatible : !ride.chemicalCompatible
-  const overBudget = b.totalCost > b.budgetCap
+  const reach = reachOf(b)
+  // The reserve line is a hard limit (the Budget check is red above what is spendable)
+  const overBudget = b.totalCost > b.spendable
   const status: RowStatus = wrongEngine
     ? 'wrongEngine'
-    : b.massMargin < 0
-      ? 'tooHeavy'
-      : b.readyTurn > ride.departureTurn
-        ? 'tooEarly'
-        : overBudget
-          ? 'overBudget'
-          : 'onTime'
+    : reach !== 'ok'
+      ? 'cantReach'
+      : b.massMargin < 0
+        ? 'tooHeavy'
+        : b.readyTurn > ride.departureTurn
+          ? 'tooEarly'
+          : overBudget
+            ? 'overBudget'
+            : 'onTime'
+  const statusLabel =
+    status === 'cantReach'
+      ? REACH_LABEL[reach as Exclude<Reach, 'ok'>]
+      : status === 'overBudget'
+        ? b.totalCost <= b.budgetCap
+          ? 'INTO THE RESERVE'
+          : 'OVER BUDGET'
+        : STATUS_LABEL[status]
   return {
     id: ride.id,
     name: ride.name.toUpperCase(),
@@ -160,9 +177,9 @@ function boardRow(design: Design, difficulty: Difficulty, ride: Ride, engine: st
     burn: b.captureDeltaV,
     planCost: b.totalCost,
     overBudget,
-    arrivalTurn: b.arrivalTurn,
+    arrivalTurn: reach === 'ok' ? b.arrivalTurn : null,
     status,
-    statusLabel: STATUS_LABEL[status],
+    statusLabel,
     selected: design.ride === ride.id,
   }
 }
@@ -282,4 +299,59 @@ export function buildRideView(design: Design, difficulty: Difficulty, budgets: B
     payload: { mass: b.totalMass, limit: b.massLimit, over: b.totalMass > b.massLimit },
     costLine: `PLAN COST $${b.totalCost.toFixed(1)}M OF $${b.budgetCap}M`,
   }
+}
+
+/* ---------------- timeline ---------------- */
+
+export interface TimelineBlock {
+  key: 'design' | 'transit' | 'mapping'
+  label: string
+  from: number // share of the strip, 0..1
+  to: number
+}
+
+export interface TimelineFlag {
+  key: 'ready' | 'launch' | 'arrive'
+  label: string
+  at: number // share of the strip, 0..1
+  tone: 'good' | 'bad' | 'plain' | 'orbit'
+  side: 'above' | 'below'
+}
+
+/** Transits shorter than this put the arrival in the launch flag's label, so the two never overlap */
+const JOIN_TURNS = 4
+
+/**
+ * Where the timeline's blocks and flags go. Turns are points on the strip
+ * (turn t at t / turns), the same way the game counts the time margin
+ * (ride turn minus ready turn).
+ */
+export function timelineLayout(t: RideView['timeline']): { blocks: TimelineBlock[]; flags: TimelineFlag[] } {
+  const x = (turn: number) => Math.max(0, Math.min(1, turn / t.turns))
+  const blocks: TimelineBlock[] = [{ key: 'design', label: 'DESIGN · BUILD · TEST', from: 0, to: x(t.readyTurn) }]
+  const arrival = t.arrivalTurn
+  if (arrival !== null && t.transferTurns !== null && t.transferTurns > 0) {
+    const n = t.transferTurns
+    blocks.push({ key: 'transit', label: `${n} TURN${n === 1 ? '' : 'S'} IN TRANSIT`, from: x(t.rideTurn), to: x(arrival) })
+  }
+  if (t.showMapping && arrival !== null) blocks.push({ key: 'mapping', label: '12 TURNS OF MAPPING', from: x(arrival), to: x(arrival + 12) })
+
+  const flags: TimelineFlag[] = [
+    { key: 'ready', label: `READY · TURN ${t.readyTurn}`, at: x(t.readyTurn), tone: t.late ? 'bad' : 'good', side: 'below' },
+  ]
+  let launch = `LAUNCH · TURN ${t.rideTurn}`
+  const joined = arrival !== null && !t.direct && arrival - t.rideTurn < JOIN_TURNS
+  if (t.direct && t.showMapping) launch += ' · AT THE MOON 5 DAYS LATER'
+  else if (t.direct && t.flyPast) launch += ' · FLIES PAST THE MOON 5 DAYS LATER'
+  else if (joined) launch += ` → ${t.flyPast ? 'FLIES PAST' : 'ARRIVE'} · TURN ${arrival}`
+  flags.push({ key: 'launch', label: launch, at: x(t.rideTurn), tone: 'plain', side: 'above' })
+  if (arrival !== null && !t.direct)
+    flags.push({
+      key: 'arrive',
+      label: joined ? '' : t.flyPast ? `FLIES PAST · TURN ${arrival}` : `ARRIVE · TURN ${arrival}`,
+      at: x(arrival),
+      tone: t.flyPast ? 'bad' : 'orbit',
+      side: 'above',
+    })
+  return { blocks, flags }
 }
