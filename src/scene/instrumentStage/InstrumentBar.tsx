@@ -1,47 +1,107 @@
+import { useRef } from 'react'
 import { instruments as catalogue } from '../../data/parts'
-import { INSTRUMENT_COLORS, INSTRUMENT_SHORT_NAMES } from './stageModel'
+import { audio } from '../../assets/audio'
+import { ChoiceCard } from '../../ui/kit/ChoiceCard'
 import { instrumentLock } from './labLocks'
+import { altitudeText, instrumentCardView, instrumentColor, instrumentShortName, instrumentStats, rowFocusKey } from './instrumentCards'
 
-/** The four instruments as quick picks, docked under the stage. */
+const MAX = 2
+
+/**
+ * The instrument bay docked under the stage: the four instruments as cards (their 3D portrait,
+ * key numbers and the shadow lesson), and two slots that fill with each instrument's beam colour.
+ * Each card is a toggle (aria-pressed); arrow keys move along the row.
+ * The pick sound comes from the cue director (a design change plays sfx.select), so the cards
+ * only add the hover tick and the "cannot fit" thunk.
+ */
 export function InstrumentBar({ chosen, day, onToggle }: { chosen: string[]; day: number; onToggle: (id: string) => void }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const aboard = chosen.map((id) => catalogue.find((i) => i.id === id)).filter((i) => i !== undefined)
+
   return (
-    <div className="grid grid-cols-4 gap-2 rounded-b-xl border border-t-0 border-slate-800 bg-slate-950 p-2">
-      {catalogue.map((inst) => {
-        const on = chosen.includes(inst.id)
-        const color = INSTRUMENT_COLORS[inst.id] ?? '#94a3b8'
-        const lock = instrumentLock(inst.id, day)
-        const blocked = lock.locked && !on // a locked instrument already aboard stays removable
-        return (
-          <button
-            key={inst.id}
-            type="button"
-            aria-pressed={on}
-            disabled={blocked}
-            title={lock.text || undefined}
-            onClick={() => onToggle(inst.id)}
-            className={`rounded-lg border-2 px-3 py-2 text-left transition-all ${blocked ? 'cursor-not-allowed opacity-50' : 'hover:-translate-y-0.5'}`}
-            style={{
-              borderColor: on ? color : '#334155',
-              background: on ? `${color}26` : '#0f172a',
-              boxShadow: on ? `0 0 18px ${color}66` : 'none',
-            }}
-          >
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
-              {INSTRUMENT_SHORT_NAMES[inst.id] ?? inst.name}
+    <div
+      data-instrument-bar
+      className="flex flex-col gap-4 rounded-b-xl border border-t-0 border-slate-800 bg-[radial-gradient(ellipse_at_top,#0b2a1a_0%,#03050a_70%)] px-4 py-4 lg:flex-row lg:items-stretch"
+    >
+      {/* The bay: what is aboard, slot by slot */}
+      <div className="flex shrink-0 flex-col justify-between gap-3 lg:w-52">
+        <div>
+          <div className="font-mono text-[11px] font-semibold tracking-[0.2em] text-green-400">INSTRUMENT BAY</div>
+          <div className="mt-1 font-display text-lg font-bold leading-tight text-white">Pick up to two</div>
+          <div className="mt-1 text-[11px] leading-snug text-slate-400">A third pick swaps out the oldest. Only shadow-seeing instruments map the ice.</div>
+        </div>
+        <div className="space-y-2" role="group" aria-label={`Aboard: ${aboard.length} of ${MAX}`}>
+          {Array.from({ length: MAX }, (_, slot) => {
+            const inst = aboard[slot]
+            const color = inst ? instrumentColor(inst.id) : undefined
+            return (
+              <div
+                key={slot}
+                className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs transition-colors duration-300 ${inst ? 'text-slate-100' : 'border-dashed border-slate-700 text-slate-500'}`}
+                style={inst ? { borderColor: `${color}aa`, background: `${color}1f`, boxShadow: `0 0 14px ${color}44` } : undefined}
+              >
+                <span className="font-mono text-[10px] text-slate-500">{slot + 1}</span>
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color ?? '#1e293b', boxShadow: color ? `0 0 8px ${color}` : undefined }} />
+                <span className="truncate font-semibold">{inst ? instrumentShortName(inst) : 'Empty slot'}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* The cards */}
+      <div role="group" aria-label="Instruments: pick up to two" className="grid flex-1 grid-cols-2 justify-items-center gap-3 sm:grid-cols-4">
+        {catalogue.map((inst, i) => {
+          const on = chosen.includes(inst.id)
+          const color = instrumentColor(inst.id)
+          const lock = instrumentLock(inst.id, day)
+          const view = instrumentCardView(inst, on, lock)
+          return (
+            <div
+              key={inst.id}
+              className="flex w-full max-w-[160px] flex-col items-stretch gap-2"
+              onClickCapture={() => {
+                if (view.blocked) audio.play('sfx.fit-error')
+              }}
+            >
+              <ChoiceCard
+                id={inst.id}
+                size="sm"
+                title={instrumentShortName(inst)}
+                subtitle={`Like ${inst.flownOn}`}
+                tag={altitudeText(inst)}
+                stats={instrumentStats(inst)}
+                selected={on}
+                disabled={view.blocked}
+                reason={view.reason}
+                ariaLabel={view.ariaLabel}
+                sounds={false}
+                buttonRef={(el) => {
+                  refs.current[i] = el
+                }}
+                onHover={() => {
+                  if (!view.blocked) audio.play('sfx.hover')
+                }}
+                onKeyDown={(e) => {
+                  const next = rowFocusKey(e.key, i, catalogue.length)
+                  if (next === null) return
+                  e.preventDefault()
+                  refs.current[next]?.focus()
+                }}
+                onPick={() => onToggle(inst.id)}
+              />
+              {/* Its beam colour, lit when aboard: the same colour as its beam and readout on the stage */}
+              <div className="flex items-center gap-1.5 px-1" aria-hidden>
+                <span
+                  className="h-1.5 flex-1 rounded-full transition-all duration-300"
+                  style={{ background: on ? color : `${color}33`, boxShadow: on ? `0 0 10px ${color}` : 'none' }}
+                />
+                <span className={`text-[9px] uppercase tracking-wider ${on ? 'text-slate-200' : 'text-slate-500'}`}>beam</span>
+              </div>
             </div>
-            <div className="mt-0.5 text-[11px] text-slate-400">
-              {inst.mass} kg · {Math.abs(inst.power)} W · ${inst.cost}M
-            </div>
-            <div className={`text-[11px] ${inst.seesShadow ? 'text-green-400' : 'text-orange-300'}`}>
-              {inst.seesShadow ? 'sees into shadow' : 'needs sunlight'}
-            </div>
-            {lock.locked && (
-              <div className="text-[11px] font-medium text-amber-300">🔒 Locked · needs Research Lab LV {lock.neededLevel}</div>
-            )}
-          </button>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
