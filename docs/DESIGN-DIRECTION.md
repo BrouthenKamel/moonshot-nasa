@@ -34,7 +34,8 @@ Placeholders for later, not to be built now: agency economy, publicity, building
 - **Title line inside every building**, in the control room's format: `BUILDING · LUNAR ICE MAPPER · STEP`, e.g. `COMMS CENTER · LUNAR ICE MAPPER · MISSION PLANNING`, `RESEARCH LAB · LUNAR ICE MAPPER · INSTRUMENTS`, `FACTORY · LUNAR ICE MAPPER · SPACECRAFT`, `LAUNCH SITE · LUNAR ICE MAPPER · ORBIT` / `· RIDE & TRANSFER`.
 - **Units, written the same everywhere:** kg, U, W, Wh, $M (or "M"), MB and MB/turn, kbps, m/s, km. Time: a turn is one month, so in-scene wording may say months ("2 MONTHS SPARE", "RIDE · END OF MONTH 8", matching the base's "Month" counter); buttons, the dashboard and plain controls say turns. Go / No-Go colours: green, yellow, red.
 - **Words:** plain English, short sentences; say what a number means for the mission ("cannot map ice at this height"), not just the number. Name the real mission a choice comes from where there is one (Lunar Flashlight, Lunar IceCube, LunaH-Map, LRO).
-- **Two sessions in one building** (Launch Site) agree one look together and bring it to Jakob as one.
+- **Two sessions in one building** (Launch Site) agree one look together and bring it to Jakob as one. Agreed between Ride & Transfer and Trajectory: the ride scene draws the launch and the Earth-Moon path, ending in a capture-burn marker on the Moon; the orbit scene starts with the craft arriving there; neither draws the other's half.
+- **One colour per orbit, everywhere an orbit is drawn:** halo loop violet `#a78bfa`, elliptical polar lime `#a3e635`, low circular polar sky blue `#38bdf8`. **Cyan is reserved for ice** (mapped ice, ice signal); don't use it for anything else.
 
 ## 5. Files
 - **Your own:** new files under `src/scene/<your area>/` and `src/viz/<your area>/`, plus your step's screen in `src/ui/steps/`.

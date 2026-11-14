@@ -1,3 +1,5 @@
+/// <reference types="node" />
+// This test reads the files on disk, so it needs Node's types (the app's tsconfig only has browser types)
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
