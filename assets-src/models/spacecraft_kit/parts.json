@@ -1,0 +1,2908 @@
+{
+ "units": "metres",
+ "up": "+Y",
+ "front": "+Z (instrument end)",
+ "envelope_6u_m": [
+  0.2263,
+  0.1,
+  0.366
+ ],
+ "stowed_convention": "node extras.stowed = local Euler XYZ (radians) in stowed pose; exported pose is deployed",
+ "parts": [
+  {
+   "id": "frame_6u",
+   "file": "frame_6u.glb",
+   "label": "6U frame: hard-anodised rails, rail ends, end frames, panel flanges, tie-rods",
+   "tier": 1,
+   "subsystem": "structure",
+   "origin": "geometric centre of the 6U envelope",
+   "size_m": [
+    0.2263,
+    0.1,
+    0.366
+   ],
+   "bounds_min": [
+    -0.1132,
+    -0.05,
+    -0.183
+   ],
+   "bounds_max": [
+    0.1132,
+    0.05,
+    0.183
+   ],
+   "triangles": 9960,
+   "bytes": 358404,
+   "mounts": [
+    {
+     "node": "mount_rail_end_nxnynz",
+     "position": [
+      -0.1089,
+      -0.04575,
+      -0.183
+     ],
+     "rotation_euler_xyz": [
+      3.14159,
+      0.0,
+      3.14159
+     ]
+    },
+    {
+     "node": "mount_rail_end_nxnypz",
+     "position": [
+      -0.1089,
+      -0.04575,
+      0.183
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_rail_end_nxpynz",
+     "position": [
+      -0.1089,
+      0.04575,
+      -0.183
+     ],
+     "rotation_euler_xyz": [
+      3.14159,
+      0.0,
+      3.14159
+     ]
+    },
+    {
+     "node": "mount_rail_end_nxpypz",
+     "position": [
+      -0.1089,
+      0.04575,
+      0.183
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_rail_end_pxnynz",
+     "position": [
+      0.1089,
+      -0.04575,
+      -0.183
+     ],
+     "rotation_euler_xyz": [
+      3.14159,
+      0.0,
+      3.14159
+     ]
+    },
+    {
+     "node": "mount_rail_end_pxnypz",
+     "position": [
+      0.1089,
+      -0.04575,
+      0.183
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_rail_end_pxpynz",
+     "position": [
+      0.1089,
+      0.04575,
+      -0.183
+     ],
+     "rotation_euler_xyz": [
+      3.14159,
+      0.0,
+      3.14159
+     ]
+    },
+    {
+     "node": "mount_rail_end_pxpypz",
+     "position": [
+      0.1089,
+      0.04575,
+      0.183
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_end_frame_nz",
+     "position": [
+      0.0,
+      0.0,
+      -0.1705
+     ],
+     "rotation_euler_xyz": [
+      3.14159,
+      0.0,
+      3.14159
+     ]
+    },
+    {
+     "node": "mount_end_frame_pz",
+     "position": [
+      0.0,
+      0.0,
+      0.1705
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   },
+   "notes": "rail tips have 5.2 mm bores for deploy_switch / separation_spring"
+  },
+  {
+   "id": "face_panels",
+   "file": "face_panels.glb",
+   "label": "Removable face panels (+-X, +-Y, +-Z) with apertures and fasteners",
+   "tier": 1,
+   "subsystem": "structure",
+   "origin": "geometric centre of the 6U envelope; one child node per panel (local +Y = outward)",
+   "size_m": [
+    0.2148,
+    0.0865,
+    0.3535
+   ],
+   "bounds_min": [
+    -0.1074,
+    -0.0432,
+    -0.1767
+   ],
+   "bounds_max": [
+    0.1074,
+    0.0432,
+    0.1767
+   ],
+   "triangles": 14060,
+   "bytes": 466800,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "deploy_switch",
+   "file": "deploy_switch.glb",
+   "label": "Rail-end deployment (separation) switch, plunger shown depressed",
+   "tier": 1,
+   "subsystem": "structure",
+   "origin": "centre of the rail-end face, plunger axis = +Z (outward)",
+   "size_m": [
+    0.0049,
+    0.0049,
+    0.0092
+   ],
+   "bounds_min": [
+    -0.0025,
+    -0.0025,
+    -0.0095
+   ],
+   "bounds_max": [
+    0.0025,
+    0.0025,
+    -0.0003
+   ],
+   "triangles": 528,
+   "bytes": 20676,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   },
+   "note": "plunger node extras.released_offset_m gives the released position (translation)."
+  },
+  {
+   "id": "separation_spring",
+   "file": "separation_spring.glb",
+   "label": "Rail-end separation spring plunger",
+   "tier": 1,
+   "subsystem": "structure",
+   "origin": "centre of the rail-end face, push axis = +Z (outward)",
+   "size_m": [
+    0.0049,
+    0.0049,
+    0.0092
+   ],
+   "bounds_min": [
+    -0.0025,
+    -0.0025,
+    -0.0094
+   ],
+   "bounds_max": [
+    0.0025,
+    0.0025,
+    -0.0002
+   ],
+   "triangles": 1632,
+   "bytes": 52020,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "fasteners_kit",
+   "file": "fasteners_kit.glb",
+   "label": "Standoffs and fasteners kit in a sorting tray",
+   "tier": 1,
+   "subsystem": "structure",
+   "origin": "tray bottom centre",
+   "size_m": [
+    0.14,
+    0.017,
+    0.09
+   ],
+   "bounds_min": [
+    -0.07,
+    0.0,
+    -0.045
+   ],
+   "bounds_max": [
+    0.07,
+    0.017,
+    0.045
+   ],
+   "triangles": 5680,
+   "bytes": 232372,
+   "mounts": [
+    {
+     "node": "mount_bench",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "obc_board",
+   "file": "obc_board.glb",
+   "label": "On-board computer (PC/104): rad-tolerant SoC, memories, oscillator, debug connector",
+   "tier": 1,
+   "subsystem": "avionics",
+   "origin": "board bottom face centre; stack pitch 15.24 mm along +Y",
+   "size_m": [
+    0.0902,
+    0.0255,
+    0.0959
+   ],
+   "bounds_min": [
+    -0.0451,
+    -0.0136,
+    -0.0479
+   ],
+   "bounds_max": [
+    0.0451,
+    0.0119,
+    0.0479
+   ],
+   "triangles": 4720,
+   "bytes": 306984,
+   "mounts": [
+    {
+     "node": "mount_hole_nxnz",
+     "position": [
+      -0.04,
+      0.0,
+      -0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_hole_nxpz",
+     "position": [
+      -0.04,
+      0.0,
+      0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_hole_pxnz",
+     "position": [
+      0.04,
+      0.0,
+      -0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_hole_pxpz",
+     "position": [
+      0.04,
+      0.0,
+      0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_stack_next",
+     "position": [
+      0.0,
+      0.01524,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": [
+     "led_glow"
+    ]
+   }
+  },
+  {
+   "id": "eps_board",
+   "file": "eps_board.glb",
+   "label": "Electrical power system board (PC/104): MPPT converters, toroids, MOSFETs, array terminals",
+   "tier": 1,
+   "subsystem": "power",
+   "origin": "board bottom face centre; stack pitch 15.24 mm along +Y",
+   "size_m": [
+    0.0902,
+    0.0298,
+    0.0959
+   ],
+   "bounds_min": [
+    -0.0451,
+    -0.0136,
+    -0.0479
+   ],
+   "bounds_max": [
+    0.0451,
+    0.0162,
+    0.0479
+   ],
+   "triangles": 8908,
+   "bytes": 507820,
+   "mounts": [
+    {
+     "node": "mount_hole_nxnz",
+     "position": [
+      -0.04,
+      0.0,
+      -0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_hole_nxpz",
+     "position": [
+      -0.04,
+      0.0,
+      0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_hole_pxnz",
+     "position": [
+      0.04,
+      0.0,
+      -0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_hole_pxpz",
+     "position": [
+      0.04,
+      0.0,
+      0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_stack_next",
+     "position": [
+      0.0,
+      0.01524,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": [
+     "led_glow"
+    ]
+   }
+  },
+  {
+   "id": "battery_pack",
+   "file": "battery_pack.glb",
+   "label": "Battery pack: 4 x 18650 Li-ion cells in a machined holder, protection board, heater",
+   "tier": 1,
+   "subsystem": "power",
+   "origin": "carrier board bottom face centre; plugs into the stack like a PC/104 board",
+   "size_m": [
+    0.0917,
+    0.0388,
+    0.0959
+   ],
+   "bounds_min": [
+    -0.0451,
+    -0.0136,
+    -0.0479
+   ],
+   "bounds_max": [
+    0.0466,
+    0.0252,
+    0.0479
+   ],
+   "triangles": 7796,
+   "bytes": 399884,
+   "mounts": [
+    {
+     "node": "mount_hole_nxnz",
+     "position": [
+      -0.04,
+      0.0,
+      -0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_hole_nxpz",
+     "position": [
+      -0.04,
+      0.0,
+      0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_hole_pxnz",
+     "position": [
+      0.04,
+      0.0,
+      -0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_hole_pxpz",
+     "position": [
+      0.04,
+      0.0,
+      0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_stack_next",
+     "position": [
+      0.0,
+      0.01524,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   },
+   "note": "cells along Z; heater uses Kapton texture; thermistor wire white"
+  },
+  {
+   "id": "transceiver_board",
+   "file": "transceiver_board.glb",
+   "label": "UHF/S-band transceiver board (PC/104): RF shield cans, SMA jacks, coax pigtails",
+   "tier": 1,
+   "subsystem": "comms",
+   "origin": "board bottom face centre; stack pitch 15.24 mm along +Y",
+   "size_m": [
+    0.0902,
+    0.0268,
+    0.0959
+   ],
+   "bounds_min": [
+    -0.0451,
+    -0.0136,
+    -0.0479
+   ],
+   "bounds_max": [
+    0.0451,
+    0.0132,
+    0.0479
+   ],
+   "triangles": 6648,
+   "bytes": 379328,
+   "mounts": [
+    {
+     "node": "mount_hole_nxnz",
+     "position": [
+      -0.04,
+      0.0,
+      -0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_hole_nxpz",
+     "position": [
+      -0.04,
+      0.0,
+      0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_hole_pxnz",
+     "position": [
+      0.04,
+      0.0,
+      -0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_hole_pxpz",
+     "position": [
+      0.04,
+      0.0,
+      0.04287
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_stack_next",
+     "position": [
+      0.0,
+      0.01524,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": [
+     "led_glow"
+    ]
+   }
+  },
+  {
+   "id": "backplane",
+   "file": "backplane.glb",
+   "label": "Avionics backplane / motherboard: two stack sockets, harness micro-D connectors",
+   "tier": 1,
+   "subsystem": "avionics",
+   "origin": "board bottom face centre; stack A centre at z=+0.012, stack B at z=-0.088 (board frame)",
+   "size_m": [
+    0.092,
+    0.0136,
+    0.2
+   ],
+   "bounds_min": [
+    -0.046,
+    -0.0034,
+    -0.1
+   ],
+   "bounds_max": [
+    0.046,
+    0.0102,
+    0.1
+   ],
+   "triangles": 6684,
+   "bytes": 354896,
+   "mounts": [
+    {
+     "node": "mount_stack_a",
+     "position": [
+      0.0,
+      0.01524,
+      0.05
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_stack_b",
+     "position": [
+      0.0,
+      0.01524,
+      -0.05
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_harness_j-70",
+     "position": [
+      0.046,
+      0.0049,
+      -0.07
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      -1.5708
+     ]
+    },
+    {
+     "node": "mount_harness_j-34",
+     "position": [
+      0.046,
+      0.0049,
+      -0.034
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      -1.5708
+     ]
+    },
+    {
+     "node": "mount_harness_j48",
+     "position": [
+      0.046,
+      0.0049,
+      0.048
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      -1.5708
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "transponder",
+   "file": "transponder.glb",
+   "label": "Iris-style deep-space X-band transponder: stacked slices, SMA ports, micro-D, thermal fins",
+   "tier": 1,
+   "subsystem": "comms",
+   "origin": "base flange centre (bottom face)",
+   "size_m": [
+    0.086,
+    0.0404,
+    0.1052
+   ],
+   "bounds_min": [
+    -0.04,
+    0.0,
+    -0.052
+   ],
+   "bounds_max": [
+    0.046,
+    0.0404,
+    0.0532
+   ],
+   "triangles": 4248,
+   "bytes": 201020,
+   "mounts": [
+    {
+     "node": "mount_rf_0",
+     "position": [
+      -0.031,
+      0.021,
+      0.053
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_rf_1",
+     "position": [
+      -0.019,
+      0.021,
+      0.053
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_rf_2",
+     "position": [
+      0.019,
+      0.021,
+      0.053
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_rf_3",
+     "position": [
+      0.031,
+      0.021,
+      0.053
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_harness",
+     "position": [
+      0.0,
+      0.021,
+      0.05
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "reaction_wheel",
+   "file": "reaction_wheel.glb",
+   "label": "Single reaction wheel in housing (rotor on spin pivot, removable cover)",
+   "tier": 1,
+   "subsystem": "attitude",
+   "origin": "base flange bottom centre; spin axis +Y",
+   "size_m": [
+    0.0563,
+    0.0274,
+    0.05
+   ],
+   "bounds_min": [
+    -0.025,
+    -0.0039,
+    -0.025
+   ],
+   "bounds_max": [
+    0.0312,
+    0.0235,
+    0.025
+   ],
+   "triangles": 4660,
+   "bytes": 164344,
+   "mounts": [],
+   "animation": {
+    "spin": [
+     {
+      "node": "spin_wheel",
+      "axis_in_part": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "position": [
+       0.0,
+       0.0075,
+       0.0
+      ]
+     }
+    ],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "rw_cluster",
+   "file": "rw_cluster.glb",
+   "label": "3-axis reaction-wheel cluster on a machined bracket with drive electronics",
+   "tier": 1,
+   "subsystem": "attitude",
+   "origin": "bracket base bottom centre; wheels spin about part X, Y, Z",
+   "size_m": [
+    0.0642,
+    0.0364,
+    0.0642
+   ],
+   "bounds_min": [
+    -0.0309,
+    -0.0039,
+    -0.0309
+   ],
+   "bounds_max": [
+    0.0333,
+    0.0325,
+    0.0333
+   ],
+   "triangles": 10128,
+   "bytes": 451196,
+   "mounts": [],
+   "animation": {
+    "spin": [
+     {
+      "node": "spin_y",
+      "axis_in_part": [
+       0.0,
+       1.0,
+       0.0
+      ],
+      "position": [
+       0.011,
+       0.0075,
+       0.011
+      ]
+     },
+     {
+      "node": "spin_x",
+      "axis_in_part": [
+       1.0,
+       0.0,
+       0.0
+      ],
+      "position": [
+       -0.0195,
+       0.0175,
+       0.011
+      ]
+     },
+     {
+      "node": "spin_z",
+      "axis_in_part": [
+       0.0,
+       0.0,
+       1.0
+      ],
+      "position": [
+       0.011,
+       0.0175,
+       -0.0195
+      ]
+     }
+    ],
+    "deployables": [],
+    "material_hooks": [
+     "led_glow"
+    ]
+   }
+  },
+  {
+   "id": "star_tracker",
+   "file": "star_tracker.glb",
+   "label": "Star tracker: electronics housing, lens, conical baffle with internal vanes",
+   "tier": 1,
+   "subsystem": "attitude",
+   "origin": "mounting face centre; boresight +Y",
+   "size_m": [
+    0.0454,
+    0.074,
+    0.0312
+   ],
+   "bounds_min": [
+    -0.0234,
+    0.0,
+    -0.0156
+   ],
+   "bounds_max": [
+    0.022,
+    0.074,
+    0.0156
+   ],
+   "triangles": 4380,
+   "bytes": 158332,
+   "mounts": [
+    {
+     "node": "mount_boresight",
+     "position": [
+      0.0,
+      0.074,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "sun_sensor",
+   "file": "sun_sensor.glb",
+   "label": "Fine sun sensor: quadrant photodiode under a pinhole mask, gold housing",
+   "tier": 1,
+   "subsystem": "attitude",
+   "origin": "mounting face centre; boresight +Y",
+   "size_m": [
+    0.022,
+    0.0175,
+    0.0282
+   ],
+   "bounds_min": [
+    -0.011,
+    -0.0123,
+    -0.0172
+   ],
+   "bounds_max": [
+    0.011,
+    0.0052,
+    0.011
+   ],
+   "triangles": 476,
+   "bytes": 25208,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "magnetorquer_set",
+   "file": "magnetorquer_set.glb",
+   "label": "Magnetorquer set: two ferrite-core torque rods + air-core coil on a bracket",
+   "tier": 1,
+   "subsystem": "attitude",
+   "origin": "bracket base bottom centre",
+   "size_m": [
+    0.08,
+    0.0135,
+    0.08
+   ],
+   "bounds_min": [
+    -0.04,
+    0.0,
+    -0.04
+   ],
+   "bounds_max": [
+    0.04,
+    0.0135,
+    0.04
+   ],
+   "triangles": 7940,
+   "bytes": 212124,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "imu_box",
+   "file": "imu_box.glb",
+   "label": "Inertial measurement unit: machined black housing, flanges, micro-D",
+   "tier": 1,
+   "subsystem": "attitude",
+   "origin": "base flange bottom centre",
+   "size_m": [
+    0.042,
+    0.0195,
+    0.0326
+   ],
+   "bounds_min": [
+    -0.021,
+    0.0,
+    -0.0132
+   ],
+   "bounds_max": [
+    0.021,
+    0.0195,
+    0.0194
+   ],
+   "triangles": 1428,
+   "bytes": 66712,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "narrow_angle_camera",
+   "file": "narrow_angle_camera.glb",
+   "label": "Narrow-angle camera: detector housing with fins, 5-element lens stack, focus ring, sunshade",
+   "tier": 1,
+   "subsystem": "payload",
+   "origin": "optical axis at rear face of detector housing; boresight +Z",
+   "size_m": [
+    0.0574,
+    0.058,
+    0.1205
+   ],
+   "bounds_min": [
+    -0.028,
+    -0.035,
+    -0.0055
+   ],
+   "bounds_max": [
+    0.0294,
+    0.023,
+    0.115
+   ],
+   "triangles": 9240,
+   "bytes": 323376,
+   "mounts": [
+    {
+     "node": "mount_aperture",
+     "position": [
+      0.0,
+      0.0,
+      0.115
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "ir_spectrometer",
+   "file": "ir_spectrometer.glb",
+   "label": "IR point spectrometer: gold optical bench, square telescope baffle, Stirling cryocooler",
+   "tier": 1,
+   "subsystem": "payload",
+   "origin": "optical axis at rear face of the bench; boresight +Z",
+   "size_m": [
+    0.0899,
+    0.0617,
+    0.1109
+   ],
+   "bounds_min": [
+    -0.0404,
+    -0.027,
+    -0.0029
+   ],
+   "bounds_max": [
+    0.0495,
+    0.0347,
+    0.108
+   ],
+   "triangles": 8668,
+   "bytes": 400596,
+   "mounts": [
+    {
+     "node": "mount_harness",
+     "position": [
+      -0.04,
+      -0.014,
+      0.056
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_aperture",
+     "position": [
+      0.0,
+      0.0,
+      0.108
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "laser_reflectometer",
+   "file": "laser_reflectometer.glb",
+   "label": "Laser reflectometer: central receiver telescope with spider, ring of four emitters",
+   "tier": 1,
+   "subsystem": "payload",
+   "origin": "rear mounting plate centre; boresight +Z",
+   "size_m": [
+    0.09,
+    0.09,
+    0.0685
+   ],
+   "bounds_min": [
+    -0.045,
+    -0.045,
+    -0.002
+   ],
+   "bounds_max": [
+    0.045,
+    0.045,
+    0.0665
+   ],
+   "triangles": 5328,
+   "bytes": 188980,
+   "mounts": [
+    {
+     "node": "mount_aperture",
+     "position": [
+      0.0,
+      0.0,
+      0.066
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": [
+     "laser_emitter"
+    ]
+   }
+  },
+  {
+   "id": "neutron_spectrometer",
+   "file": "neutron_spectrometer.glb",
+   "label": "Neutron spectrometer: 2x4 bank of scintillator tubes with PMT bases + electronics box",
+   "tier": 1,
+   "subsystem": "payload",
+   "origin": "electronics box bottom centre",
+   "size_m": [
+    0.084,
+    0.06,
+    0.1056
+   ],
+   "bounds_min": [
+    -0.042,
+    0.0,
+    -0.0576
+   ],
+   "bounds_max": [
+    0.042,
+    0.06,
+    0.048
+   ],
+   "triangles": 7660,
+   "bytes": 260968,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "cold_gas_module",
+   "file": "cold_gas_module.glb",
+   "label": "Cold-gas propulsion module: two spherical Ti tanks, manifold, 4 valves, 4 canted nozzles",
+   "tier": 1,
+   "subsystem": "propulsion",
+   "origin": "base plate bottom centre; nozzles fire toward -Z",
+   "size_m": [
+    0.096,
+    0.0525,
+    0.1058
+   ],
+   "bounds_min": [
+    -0.048,
+    0.0,
+    -0.0583
+   ],
+   "bounds_max": [
+    0.048,
+    0.0525,
+    0.0475
+   ],
+   "triangles": 14036,
+   "bytes": 431200,
+   "mounts": [
+    {
+     "node": "mount_thrust_axis",
+     "position": [
+      0.0,
+      0.0275,
+      -0.0565
+     ],
+     "rotation_euler_xyz": [
+      3.14159,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "green_monoprop_module",
+   "file": "green_monoprop_module.glb",
+   "label": "Green-monopropellant module: propellant tank, He pressurant COPV, latch valve, fill ports, 1 N thruster",
+   "tier": 1,
+   "subsystem": "propulsion",
+   "origin": "base plate bottom centre; thruster fires toward -Z",
+   "size_m": [
+    0.09,
+    0.0602,
+    0.171
+   ],
+   "bounds_min": [
+    -0.045,
+    0.0,
+    -0.099
+   ],
+   "bounds_max": [
+    0.045,
+    0.0602,
+    0.072
+   ],
+   "triangles": 10464,
+   "bytes": 332788,
+   "mounts": [
+    {
+     "node": "mount_thrust_axis",
+     "position": [
+      0.018,
+      0.0175,
+      -0.099
+     ],
+     "rotation_euler_xyz": [
+      3.14159,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "ion_engine",
+   "file": "ion_engine.glb",
+   "label": "Iodine ion engine module (BIT-3 style): iodine tank with sight window, finned PPU, RF thruster head with grid, neutralizer",
+   "tier": 1,
+   "subsystem": "propulsion",
+   "origin": "thruster axis at the -Z end-frame inner face; module extends +Z, thrust exhaust -Z",
+   "size_m": [
+    0.097,
+    0.0742,
+    0.125
+   ],
+   "bounds_min": [
+    -0.0555,
+    -0.034,
+    -0.0077
+   ],
+   "bounds_max": [
+    0.0415,
+    0.0402,
+    0.1173
+   ],
+   "triangles": 12188,
+   "bytes": 519336,
+   "mounts": [
+    {
+     "node": "mount_thrust_axis",
+     "position": [
+      0.0,
+      0.0,
+      -0.0076
+     ],
+     "rotation_euler_xyz": [
+      3.14159,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_end_frame",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": [
+     "iodine",
+     "ion_glow"
+    ]
+   }
+  },
+  {
+   "id": "solar_wing",
+   "file": "solar_wing.glb",
+   "label": "Deployable solar wing: 3 hinged panels of triple-junction cells, spring hinges, burn-wire hold-downs",
+   "tier": 1,
+   "subsystem": "power",
+   "origin": "root hinge axis (Z) at panel mid-thickness; deployed panels extend +X, cells face +Y; stows toward +Y",
+   "size_m": [
+    0.776,
+    0.0088,
+    0.33
+   ],
+   "bounds_min": [
+    -0.1955,
+    -0.0032,
+    -0.165
+   ],
+   "bounds_max": [
+    0.5805,
+    0.0056,
+    0.165
+   ],
+   "triangles": 7356,
+   "bytes": 308660,
+   "mounts": [
+    {
+     "node": "mount_body",
+     "position": [
+      0.001,
+      -0.0023,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [
+     {
+      "node": "hinge_1",
+      "stowed": [
+       0,
+       0,
+       3.141592653589793
+      ],
+      "deployed": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "node": "hinge_2",
+      "stowed": [
+       0,
+       0,
+       -3.141592653589793
+      ],
+      "deployed": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "node": "hinge_3",
+      "stowed": [
+       0,
+       0,
+       3.141592653589793
+      ],
+      "deployed": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ],
+    "material_hooks": []
+   },
+   "stowed_stack_height_m": 0.0067,
+   "stack_direction": "+Y"
+  },
+  {
+   "id": "solar_wing_mirror",
+   "file": "solar_wing_mirror.glb",
+   "label": "Deployable solar wing, mirror-stacked variant (stows toward -Y, cells still face +Y deployed)",
+   "tier": 1,
+   "subsystem": "power",
+   "origin": "root hinge axis (Z) at panel mid-thickness; deployed panels extend +X, cells face +Y; stows toward -Y",
+   "size_m": [
+    0.776,
+    0.0088,
+    0.33
+   ],
+   "bounds_min": [
+    -0.1955,
+    -0.0056,
+    -0.165
+   ],
+   "bounds_max": [
+    0.5805,
+    0.0032,
+    0.165
+   ],
+   "triangles": 7356,
+   "bytes": 308668,
+   "mounts": [
+    {
+     "node": "mount_body",
+     "position": [
+      0.001,
+      0.0023,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [
+     {
+      "node": "hinge_1",
+      "stowed": [
+       0,
+       0,
+       3.141592653589793
+      ],
+      "deployed": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "node": "hinge_2",
+      "stowed": [
+       0,
+       0,
+       -3.141592653589793
+      ],
+      "deployed": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "node": "hinge_3",
+      "stowed": [
+       0,
+       0,
+       3.141592653589793
+      ],
+      "deployed": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ],
+    "material_hooks": []
+   },
+   "stowed_stack_height_m": 0.0067,
+   "stack_direction": "-Y"
+  },
+  {
+   "id": "patch_antenna",
+   "file": "patch_antenna.glb",
+   "label": "S-band patch antenna: ceramic patch on ground plane, SMA feed",
+   "tier": 1,
+   "subsystem": "comms",
+   "origin": "ground-plane back face centre; boresight +Y",
+   "size_m": [
+    0.05,
+    0.014,
+    0.05
+   ],
+   "bounds_min": [
+    -0.025,
+    -0.0092,
+    -0.025
+   ],
+   "bounds_max": [
+    0.025,
+    0.0048,
+    0.025
+   ],
+   "triangles": 960,
+   "bytes": 45052,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "dish_antenna",
+   "file": "dish_antenna.glb",
+   "label": "Deployable X-band dish (150 mm): ribbed reflector, gold feed horn on struts, hinge arm",
+   "tier": 1,
+   "subsystem": "comms",
+   "origin": "hinge base mounting face centre; dish deployed facing +Y",
+   "size_m": [
+    0.152,
+    0.13,
+    0.152
+   ],
+   "bounds_min": [
+    -0.076,
+    0.0,
+    -0.076
+   ],
+   "bounds_max": [
+    0.076,
+    0.13,
+    0.076
+   ],
+   "triangles": 6188,
+   "bytes": 192564,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [
+     {
+      "node": "arm_hinge",
+      "stowed": [
+       0,
+       0,
+       -1.5707963267948966
+      ],
+      "deployed": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "uhf_antenna",
+   "file": "uhf_antenna.glb",
+   "label": "Deployable UHF dipole: tape-spring elements with burn-wire release, stowed flat along the panel",
+   "tier": 1,
+   "subsystem": "comms",
+   "origin": "mounting face centre; local +Y outward, elements deploy along +-X",
+   "size_m": [
+    0.376,
+    0.0157,
+    0.0215
+   ],
+   "bounds_min": [
+    -0.188,
+    -0.0092,
+    -0.0125
+   ],
+   "bounds_max": [
+    0.188,
+    0.0065,
+    0.009
+   ],
+   "triangles": 812,
+   "bytes": 46868,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [
+     {
+      "node": "element_a",
+      "stowed": [
+       0,
+       1.5707963267948966,
+       0
+      ],
+      "deployed": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     {
+      "node": "element_b",
+      "stowed": [
+       0,
+       -1.5707963267948966,
+       0
+      ],
+      "deployed": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "mli_blanket",
+   "file": "mli_blanket.glb",
+   "label": "MLI blanket: crinkled aluminised-Kapton outer layer, sewn binding, Velcro tabs, grounding strap",
+   "tier": 1,
+   "subsystem": "thermal",
+   "origin": "inside bottom-front corner of the blanket (wraps a 95 x 80 x 130 mm box)",
+   "size_m": [
+    0.1058,
+    0.0948,
+    0.1335
+   ],
+   "bounds_min": [
+    -0.0036,
+    -0.0102,
+    0.0
+   ],
+   "bounds_max": [
+    0.1022,
+    0.0846,
+    0.1335
+   ],
+   "triangles": 12556,
+   "bytes": 355860,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "radiator_panel",
+   "file": "radiator_panel.glb",
+   "label": "Radiator panel (-X face): white-painted area, UHF mount, inner copper heat straps and heaters",
+   "tier": 1,
+   "subsystem": "thermal",
+   "origin": "panel inner-face centre (same frame as face_panels/panel_nx); local +Y outward",
+   "size_m": [
+    0.083,
+    0.0097,
+    0.351
+   ],
+   "bounds_min": [
+    -0.0415,
+    -0.0068,
+    -0.1755
+   ],
+   "bounds_max": [
+    0.0415,
+    0.0029,
+    0.1755
+   ],
+   "triangles": 3640,
+   "bytes": 156144,
+   "mounts": [
+    {
+     "node": "mount_uhf",
+     "position": [
+      0.0,
+      0.00165,
+      0.124
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_heat_straps",
+     "position": [
+      0.004,
+      -0.0068,
+      -0.03
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "heater_pads",
+   "file": "heater_pads.glb",
+   "label": "Kapton film heaters (set of 3) with lead wires and connectors, on a release liner",
+   "tier": 1,
+   "subsystem": "thermal",
+   "origin": "release-liner bottom centre",
+   "size_m": [
+    0.11,
+    0.0036,
+    0.0855
+   ],
+   "bounds_min": [
+    -0.055,
+    0.0,
+    -0.0455
+   ],
+   "bounds_max": [
+    0.055,
+    0.0036,
+    0.04
+   ],
+   "triangles": 884,
+   "bytes": 52036,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "access_port_rbf",
+   "file": "access_port_rbf.glb",
+   "label": "Access port: remove-before-flight inhibit pin socket + umbilical charge/test connector",
+   "tier": 1,
+   "subsystem": "power",
+   "origin": "outer face of the -Z panel at the port cutout centre; local +Y = outward",
+   "size_m": [
+    0.032,
+    0.0197,
+    0.032
+   ],
+   "bounds_min": [
+    -0.016,
+    -0.0144,
+    -0.016
+   ],
+   "bounds_max": [
+    0.016,
+    0.0053,
+    0.016
+   ],
+   "triangles": 1688,
+   "bytes": 67712,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "deployer_6u_closed",
+   "file": "deployer_6u_closed.glb",
+   "label": "6U CubeSat deployer, door closed, pusher spring compressed",
+   "tier": 2,
+   "subsystem": "launch",
+   "origin": "centre of the 6U payload volume (drop the CubeSat at the origin)",
+   "size_m": [
+    0.2739,
+    0.1285,
+    0.427
+   ],
+   "bounds_min": [
+    -0.13,
+    -0.067,
+    -0.219
+   ],
+   "bounds_max": [
+    0.1439,
+    0.0615,
+    0.208
+   ],
+   "triangles": 10688,
+   "bytes": 470212,
+   "mounts": [
+    {
+     "node": "mount_lv",
+     "position": [
+      0.0,
+      -0.067,
+      -0.002
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_payload",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [
+     {
+      "node": "door",
+      "stowed": [
+       0,
+       0,
+       0
+      ],
+      "deployed": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    ],
+    "material_hooks": []
+   },
+   "payload_volume": "6U envelope centred on the origin, +Z toward the door"
+  },
+  {
+   "id": "deployer_6u_open",
+   "file": "deployer_6u_open.glb",
+   "label": "6U CubeSat deployer, door open (deployed pose), pusher plate ejected",
+   "tier": 2,
+   "subsystem": "launch",
+   "origin": "centre of the 6U payload volume (drop the CubeSat at the origin)",
+   "size_m": [
+    0.3632,
+    0.1285,
+    0.659
+   ],
+   "bounds_min": [
+    -0.2193,
+    -0.067,
+    -0.219
+   ],
+   "bounds_max": [
+    0.1439,
+    0.0615,
+    0.44
+   ],
+   "triangles": 10688,
+   "bytes": 470240,
+   "mounts": [
+    {
+     "node": "mount_lv",
+     "position": [
+      0.0,
+      -0.067,
+      -0.002
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_payload",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [
+     {
+      "node": "door",
+      "stowed": [
+       0,
+       0,
+       0
+      ],
+      "deployed": [
+       0.0,
+       -1.92,
+       0.0
+      ]
+     }
+    ],
+    "material_hooks": []
+   },
+   "payload_volume": "6U envelope centred on the origin, +Z toward the door"
+  },
+  {
+   "id": "separation_ring",
+   "file": "separation_ring.glb",
+   "label": "Motorised separation ring (15-inch class): upper/lower rings, latch housings, springs, connectors",
+   "tier": 2,
+   "subsystem": "launch",
+   "origin": "separation plane centre; ring axis +Y",
+   "size_m": [
+    0.416,
+    0.0752,
+    0.416
+   ],
+   "bounds_min": [
+    -0.208,
+    -0.0376,
+    -0.208
+   ],
+   "bounds_max": [
+    0.208,
+    0.0376,
+    0.208
+   ],
+   "triangles": 9336,
+   "bytes": 373708,
+   "mounts": [
+    {
+     "node": "mount_upper",
+     "position": [
+      0.0,
+      0.034,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_lower",
+     "position": [
+      0.0,
+      -0.034,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      3.14159,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "payload_adapter_plate",
+   "file": "payload_adapter_plate.glb",
+   "label": "Payload adapter plate: isogrid-machined aluminium, two deployer footprints, LV bolt pattern",
+   "tier": 2,
+   "subsystem": "launch",
+   "origin": "top surface centre; deployer footprints at mount_deployer_a/b",
+   "size_m": [
+    0.56,
+    0.037,
+    0.42
+   ],
+   "bounds_min": [
+    -0.28,
+    0.0,
+    -0.21
+   ],
+   "bounds_max": [
+    0.28,
+    0.037,
+    0.21
+   ],
+   "triangles": 10220,
+   "bytes": 430744,
+   "mounts": [
+    {
+     "node": "mount_deployer_a",
+     "position": [
+      -0.135,
+      0.026,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_deployer_b",
+     "position": [
+      0.135,
+      0.026,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_lv",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      3.14159,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "fairing_half",
+   "file": "fairing_half.glb",
+   "label": "Payload fairing half (1.2 m class), cutaway: composite shell, acoustic blankets, frangible rails",
+   "tier": 2,
+   "subsystem": "launch",
+   "origin": "base of the fairing on the split plane, axis +Y; half occupies z >= 0",
+   "size_m": [
+    1.2252,
+    2.105,
+    0.6107
+   ],
+   "bounds_min": [
+    -0.6126,
+    -0.003,
+    -0.6044
+   ],
+   "bounds_max": [
+    0.6126,
+    2.102,
+    0.0063
+   ],
+   "triangles": 9464,
+   "bytes": 319488,
+   "mounts": [
+    {
+     "node": "mount_base",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "lv_mount_plate",
+   "file": "lv_mount_plate.glb",
+   "label": "Launch-vehicle mounting plate: round machined plate with radial ribs, bolt circle and harness brackets",
+   "tier": 2,
+   "subsystem": "launch",
+   "origin": "top surface centre; LV interface on the underside",
+   "size_m": [
+    0.9,
+    0.105,
+    0.9
+   ],
+   "bounds_min": [
+    -0.45,
+    -0.055,
+    -0.45
+   ],
+   "bounds_max": [
+    0.45,
+    0.05,
+    0.45
+   ],
+   "triangles": 9372,
+   "bytes": 374740,
+   "mounts": [
+    {
+     "node": "mount_adapter",
+     "position": [
+      0.0,
+      0.001,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "assembly_stand",
+   "file": "assembly_stand.glb",
+   "label": "Rotation assembly stand: levelling base, uprights, rotating cradle clamping the 6U rails, handwheel, lock pin",
+   "tier": 3,
+   "subsystem": "cleanroom",
+   "origin": "floor centre; spacecraft centre at mount_spacecraft (0, 0.55, 0), CubeSat Z along stand Z",
+   "size_m": [
+    0.8316,
+    0.657,
+    0.7825
+   ],
+   "bounds_min": [
+    -0.5016,
+    -0.0,
+    -0.33
+   ],
+   "bounds_max": [
+    0.33,
+    0.657,
+    0.4525
+   ],
+   "triangles": 8072,
+   "bytes": 277304,
+   "mounts": [
+    {
+     "node": "mount_spacecraft",
+     "position": [
+      0.0,
+      0.55,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "crane_hook",
+   "file": "crane_hook.glb",
+   "label": "Overhead crane hook block with swivel hook, safety latch, 4-leg round-sling set and shackles",
+   "tier": 3,
+   "subsystem": "cleanroom",
+   "origin": "hook load point (bowl of the hook); sling ends at mount_load_*",
+   "size_m": [
+    0.6,
+    1.784,
+    0.44
+   ],
+   "bounds_min": [
+    -0.3,
+    -0.584,
+    -0.22
+   ],
+   "bounds_max": [
+    0.3,
+    1.2,
+    0.22
+   ],
+   "triangles": 5028,
+   "bytes": 149896,
+   "mounts": [
+    {
+     "node": "mount_load_0",
+     "position": [
+      -0.28,
+      -0.58,
+      -0.2
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_load_1",
+     "position": [
+      -0.28,
+      -0.58,
+      0.2
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_load_2",
+     "position": [
+      0.28,
+      -0.58,
+      -0.2
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_load_3",
+     "position": [
+      0.28,
+      -0.58,
+      0.2
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "esd_workbench",
+   "file": "esd_workbench.glb",
+   "label": "ESD workbench: steel frame, laminate top, blue ESD mat with ground snap and wrist strap, shelf, light bar",
+   "tier": 3,
+   "subsystem": "cleanroom",
+   "origin": "floor centre; work surface at y = 0.90",
+   "size_m": [
+    1.5,
+    1.63,
+    0.896
+   ],
+   "bounds_min": [
+    -0.75,
+    -0.0,
+    -0.521
+   ],
+   "bounds_max": [
+    0.75,
+    1.63,
+    0.375
+   ],
+   "triangles": 6524,
+   "bytes": 221936,
+   "mounts": [
+    {
+     "node": "mount_worksurface",
+     "position": [
+      0.0,
+      0.9022,
+      0.02
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "torque_wrench",
+   "file": "torque_wrench.glb",
+   "label": "1/4-inch click torque wrench: ratchet head, knurled grip, scale window (no markings), lock knob",
+   "tier": 3,
+   "subsystem": "cleanroom",
+   "origin": "square-drive centre; handle along +X",
+   "size_m": [
+    0.31,
+    0.0265,
+    0.03
+   ],
+   "bounds_min": [
+    -0.015,
+    -0.014,
+    -0.015
+   ],
+   "bounds_max": [
+    0.295,
+    0.0125,
+    0.015
+   ],
+   "triangles": 3184,
+   "bytes": 102448,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "screwdriver",
+   "file": "screwdriver.glb",
+   "label": "Precision ESD hex driver: dissipative handle with swivel cap, chrome shaft, hex tip",
+   "tier": 3,
+   "subsystem": "cleanroom",
+   "origin": "tip point; handle along +Y",
+   "size_m": [
+    0.0192,
+    0.158,
+    0.0192
+   ],
+   "bounds_min": [
+    -0.0096,
+    -0.0,
+    -0.0096
+   ],
+   "bounds_max": [
+    0.0096,
+    0.158,
+    0.0096
+   ],
+   "triangles": 1328,
+   "bytes": 34304,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "shipping_container",
+   "file": "shipping_container.glb",
+   "label": "Rugged shipping container: shell, hinged lid (opens), latches, wheels, purge valve, foam with 6U cut-out",
+   "tier": 3,
+   "subsystem": "cleanroom",
+   "origin": "floor centre under the case; lid hinge along X at the back top edge",
+   "size_m": [
+    0.828,
+    0.7583,
+    0.6968
+   ],
+   "bounds_min": [
+    -0.414,
+    0.0,
+    -0.4403
+   ],
+   "bounds_max": [
+    0.414,
+    0.7583,
+    0.2565
+   ],
+   "triangles": 3112,
+   "bytes": 96684,
+   "mounts": [
+    {
+     "node": "mount_payload",
+     "position": [
+      0.0,
+      0.255,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [
+     {
+      "node": "lid",
+      "stowed": [
+       0,
+       0,
+       0
+      ],
+      "deployed": [
+       -1.75,
+       0.0,
+       0.0
+      ]
+     }
+    ],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "flight_covers",
+   "file": "flight_covers.glb",
+   "label": "Non-flight protective covers (red): camera cap, IR aperture cover, thruster cap, star-tracker cap",
+   "tier": 3,
+   "subsystem": "cleanroom",
+   "origin": "spacecraft centre (same frame as assembly_6u); each cover is a node at its instrument",
+   "size_m": [
+    0.1907,
+    0.073,
+    0.3671
+   ],
+   "bounds_min": [
+    -0.0755,
+    -0.0327,
+    -0.1821
+   ],
+   "bounds_max": [
+    0.1152,
+    0.0403,
+    0.185
+   ],
+   "triangles": 2056,
+   "bytes": 69372,
+   "mounts": [
+    {
+     "node": "mount_streamer_camera",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_streamer_ir",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_streamer_thruster",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    },
+    {
+     "node": "mount_streamer_star_tracker",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "rbf_tag",
+   "file": "rbf_tag.glb",
+   "label": "Remove-before-flight streamer (red, no text) with grommet, split ring, lanyard and T-handle pin",
+   "tier": 3,
+   "subsystem": "cleanroom",
+   "origin": "split-ring centre (attach point); streamer hangs toward -Y",
+   "size_m": [
+    0.0959,
+    0.431,
+    0.052
+   ],
+   "bounds_min": [
+    -0.0099,
+    -0.312,
+    -0.026
+   ],
+   "bounds_max": [
+    0.086,
+    0.119,
+    0.026
+   ],
+   "triangles": 1428,
+   "bytes": 44048,
+   "mounts": [
+    {
+     "node": "mount_attach",
+     "position": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "laptop_cart",
+   "file": "laptop_cart.glb",
+   "label": "Test laptop on a two-shelf cart with GSE power supply and cables",
+   "tier": 3,
+   "subsystem": "cleanroom",
+   "origin": "floor centre under the cart",
+   "size_m": [
+    0.6529,
+    1.1034,
+    0.5479
+   ],
+   "bounds_min": [
+    -0.31,
+    0.0,
+    -0.3029
+   ],
+   "bounds_max": [
+    0.3429,
+    1.1034,
+    0.245
+   ],
+   "triangles": 7608,
+   "bytes": 358772,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [
+     {
+      "node": "lid",
+      "stowed": [
+       0,
+       0,
+       0
+      ],
+      "deployed": [
+       -1.85,
+       0.0,
+       0.0
+      ]
+     }
+    ],
+    "material_hooks": [
+     "led_glow"
+    ]
+   }
+  },
+  {
+   "id": "witness_plate",
+   "file": "witness_plate.glb",
+   "label": "Particle fall-out witness plate: polished wafer on a stand with a hinged clear cover",
+   "tier": 3,
+   "subsystem": "cleanroom",
+   "origin": "stand base centre",
+   "size_m": [
+    0.12,
+    0.2455,
+    0.13
+   ],
+   "bounds_min": [
+    -0.06,
+    -0.0,
+    -0.07
+   ],
+   "bounds_max": [
+    0.06,
+    0.2455,
+    0.06
+   ],
+   "triangles": 1244,
+   "bytes": 42960,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [
+     {
+      "node": "cover",
+      "stowed": [
+       0,
+       0,
+       0
+      ],
+      "deployed": [
+       -1.2,
+       0.0,
+       0.0
+      ]
+     }
+    ],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "gse_umbilical_cable",
+   "file": "gse_umbilical_cable.glb",
+   "label": "GSE umbilical test cable: coiled lead with micro-D plug for the access port and a bench connector",
+   "tier": 3,
+   "subsystem": "cleanroom",
+   "origin": "centre of the coil lying on the bench",
+   "size_m": [
+    0.4999,
+    0.0167,
+    0.1864
+   ],
+   "bounds_min": [
+    -0.0939,
+    0.0,
+    -0.0972
+   ],
+   "bounds_max": [
+    0.406,
+    0.0167,
+    0.0892
+   ],
+   "triangles": 4212,
+   "bytes": 127632,
+   "mounts": [],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  },
+  {
+   "id": "harness",
+   "file": "harness.glb",
+   "label": "Spacecraft harness: braided bundles with micro-D plugs, backshells, lacing ties (built for assembly_6u)",
+   "tier": 1,
+   "subsystem": "avionics",
+   "origin": "spacecraft centre (same frame as frame_6u); routes match assembly_6u.json",
+   "size_m": [
+    0.0852,
+    0.0441,
+    0.2518
+   ],
+   "bounds_min": [
+    -0.0224,
+    -0.0351,
+    -0.1208
+   ],
+   "bounds_max": [
+    0.0629,
+    0.009,
+    0.131
+   ],
+   "triangles": 4904,
+   "bytes": 168232,
+   "mounts": [
+    {
+     "node": "mount_backplane_j1",
+     "position": [
+      -0.0059,
+      -0.0321,
+      -0.108
+     ],
+     "rotation_euler_xyz": [
+      0.0,
+      -0.0,
+      0.0
+     ]
+    }
+   ],
+   "animation": {
+    "spin": [],
+    "deployables": [],
+    "material_hooks": []
+   }
+  }
+ ]
+}
