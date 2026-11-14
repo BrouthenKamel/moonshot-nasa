@@ -1,5 +1,4 @@
 import { getOrbitById } from '../data/orbits'
-import { getTransferById } from '../data/transfers'
 import type { Design, DesignStep } from '../sim/types'
 import { computeBudgets } from '../sim/budgets'
 import { useGameStore } from '../state/gameStore'
@@ -25,7 +24,7 @@ export function MissionStrip({ step, design, failingSteps }: MissionStripProps) 
 
   const altitude = getOrbitById(design.orbit)?.altitude
   const ringR = 20 + (Number.isFinite(altitude) ? Math.min(Math.max(altitude as number, 0), 300) : 100) / 300 * 14
-  const duration = getTransferById(design.transfer)?.durationTurns
+  const duration = budgets.transferTurns
   const p = design.planning
 
   return (
@@ -50,7 +49,7 @@ export function MissionStrip({ step, design, failingSteps }: MissionStripProps) 
         strokeWidth={width('ride')}
       />
       <text x={200} y={28} textAnchor="middle" fontSize={9} fill={colour('ride')}>
-        transfer {duration ?? '?'} turn{duration === 1 ? '' : 's'}
+        {duration === null ? 'no way to the Moon' : duration === 0 ? 'transfer about 5 days' : `transfer ${duration} turn${duration === 1 ? '' : 's'}`}
       </text>
       <line
         x1={337}
@@ -63,7 +62,7 @@ export function MissionStrip({ step, design, failingSteps }: MissionStripProps) 
       />
       <text x={200} y={86} textAnchor="middle" fontSize={9} fill={colour('comms')}>downlink</text>
       <text x={8} y={12} fontSize={9} fill={colour('planning')}>
-        Build {p?.buildTurns ?? '?'} · Test {p?.testTurns ?? '?'} · Ride turn {budgets.rideTurn}
+        Build {budgets.buildTurns} · Test {p?.testTurns ?? '?'} · Ride turn {budgets.rideTurn}
       </text>
     </svg>
   )

@@ -74,7 +74,8 @@ export function SpacecraftScreen() {
       <div className="rounded-lg bg-slate-900 p-6">
         <h1 className="text-xl font-bold text-purple-400">3. Spacecraft Configuration</h1>
         <p className="mt-2 text-slate-400">
-          Configure your spacecraft systems. Everything must fit in the 6U box and work together.
+          Everything must fit a 6U box and 14 kg, propellant included. Each part costs mass, volume, power, money and
+          build effort. The radio is chosen in step 6.
         </p>
       </div>
 
@@ -88,7 +89,7 @@ export function SpacecraftScreen() {
         <div className="text-center">
           <div className="text-purple-300">Power</div>
           <div className={`text-lg font-bold ${budgets.powerMargin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {budgets.powerConsumed}W / {budgets.powerGenerated}W
+            {budgets.powerConsumed} W / {budgets.powerGenerated} W
           </div>
         </div>
         <div className="text-center">
@@ -120,7 +121,10 @@ export function SpacecraftScreen() {
         renderStats={(part) => (
           <>
             <span>{part.capacity} Wh capacity</span>
-            <span>Eclipse: {Math.round((part.capacity / budgets.eclipsePowerConsumed) * 60)} min</span>
+            <span>
+              Carries everything for {Math.round(((part.capacity * 0.8) / budgets.eclipsePowerConsumed) * 60)} min
+              {budgets.eclipseDurationMinutes > 0 && ` (this orbit's eclipse: ${budgets.eclipseDurationMinutes.toFixed(0)} min)`}
+            </span>
           </>
         )}
       />
@@ -132,7 +136,8 @@ export function SpacecraftScreen() {
         onSelect={(id) => updateDesign({ computer: id })}
         renderStats={(part) => (
           <>
-            <span>{part.storage} GB storage</span>
+            <span>{part.storage} MB storage</span>
+            <span>Radiation resets x{part.resetFactor}</span>
             {part.redundant && <span className="text-green-500">Redundant</span>}
           </>
         )}
@@ -147,6 +152,7 @@ export function SpacecraftScreen() {
           <>
             <span>Pointing: {part.pointingAccuracy}deg</span>
             {part.hasStarTracker && <span className="text-blue-400">Star tracker</span>}
+            {part.precise && <span className="text-green-500">Laser and dish work at full quality</span>}
           </>
         )}
       />
@@ -160,8 +166,13 @@ export function SpacecraftScreen() {
           <>
             <span>{part.type}</span>
             <span>Isp: {part.isp}s</span>
-            <span>Fuel: {part.propellantMass} kg</span>
-            {part.type === 'electric' && <span className="text-yellow-500">{part.thrustPower}W thrust</span>}
+            <span>Propellant: {part.propellantMass} kg (on top of {part.mass} kg dry)</span>
+            <span>{part.volume} U</span>
+            {part.type === 'electric' && (
+              <span className="text-yellow-500">
+                needs {part.minThrustPower}-{part.thrustPower} W while thrusting
+              </span>
+            )}
           </>
         )}
       />

@@ -132,7 +132,7 @@ export function Dashboard() {
           label="Data Link"
           value={budgets.dataPerTurn}
           limit={budgets.downlinkPerTurn}
-          unit="GB/turn"
+          unit="MB/turn"
           status={getStatus('Data Link')}
           previous={previous?.dataPerTurn}
         />
@@ -162,7 +162,7 @@ export function Dashboard() {
           <div className="mt-2 space-y-1">
             {goNoGo.blockers.map((b: { resource: string; reason: string }, i: number) => (
               <div key={i} className="text-xs text-red-400">
-                {b.resource}: {b.reason.split('.')[0]}.
+                {b.resource}: {b.reason.split('. ')[0].replace(/\.$/, '')}.
               </div>
             ))}
           </div>
@@ -170,9 +170,9 @@ export function Dashboard() {
 
         {goNoGo.warnings.length > 0 && goNoGo.blockers.length === 0 && (
           <div className="mt-2 space-y-1">
-            {goNoGo.warnings.map((w: { resource: string }, i: number) => (
+            {goNoGo.warnings.map((w: { resource: string; reason: string }, i: number) => (
               <div key={i} className="text-xs text-yellow-400">
-                {w.resource}: Watch margin
+                {w.resource}: {w.reason.split('. ')[0].replace(/\.$/, '')}.
               </div>
             ))}
           </div>
@@ -189,8 +189,18 @@ export function Dashboard() {
           <span>{budgets.rideTurn}</span>
         </div>
         <div className="flex justify-between">
+          <span>Arrival turn:</span>
+          <span>{budgets.arrivalTurn ?? '-'}</span>
+        </div>
+        <div className="flex justify-between">
           <span>Reserve:</span>
           <span>${budgets.reserveAmount.toFixed(1)}M</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Projected ice coverage:</span>
+          <span className={budgets.projectedCoverage >= 70 ? 'text-green-400' : 'text-orange-400'}>
+            {budgets.projectedCoverage.toFixed(0)}%
+          </span>
         </div>
       </div>
     </aside>

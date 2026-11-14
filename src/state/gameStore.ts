@@ -17,7 +17,7 @@ import type {
 } from '../sim/types'
 import { createDefaultDesign, computeBudgets } from '../sim/budgets'
 import { goNoGo, type GoNoGoResult } from '../sim/checks'
-import { initSim, stepTurn, getDefaultAction, isSimComplete } from '../sim/simulate'
+import { initSim, stepTurn, flyUntilDecision, getDefaultAction, isSimComplete } from '../sim/simulate'
 import { buildReport } from '../sim/evaluate'
 import { generateSeed } from '../sim/rng'
 
@@ -81,6 +81,9 @@ export interface GameState {
   // Simulation actions
   startSimulation: () => void
   advanceTurn: (action?: TurnAction) => void
+  flyOn: () => void // fly until the mission ends or an event card needs the player
+  answerEvent: (choiceId: string) => void // answer the waiting event card and finish that turn
+  applyFlight: (newState: SimState) => void // store a new flight state; saves the run when it ends
   setAction: (action: Partial<TurnAction>) => void
 
   // Team mode actions
@@ -135,6 +138,7 @@ function encodeDesign(design: Design): string {
     ri: design.ride,
     t: design.transfer,
     g: design.groundStation,
+    h: design.contactHours,
   }
   return btoa(JSON.stringify(data))
 }
@@ -157,6 +161,7 @@ function decodeDesign(code: string): Design | null {
       ride: data.ri,
       transfer: data.t,
       groundStation: data.g,
+      contactHours: data.h,
     }
   } catch {
     return null
@@ -264,8 +269,24 @@ export const useGameStore = create<GameState>()(
       advanceTurn: (action) => {
         const { simState, pendingAction } = get()
         if (!simState || isSimComplete(simState)) return
+        get().applyFlight(stepTurn(simState, action ?? pendingAction))
+      },
 
-        const newState = stepTurn(simState, action ?? pendingAction)
+      flyOn: () => {
+        const { simState, pendingAction } = get()
+        if (!simState || isSimComplete(simState) || simState.pendingDecision) return
+        get().applyFlight(flyUntilDecision(simState, pendingAction))
+      },
+
+      answerEvent: (choiceId) => {
+        const { simState, pendingAction } = get()
+        const decision = simState?.pendingDecision
+        if (!simState || !decision) return
+        const action = { ...pendingAction, choices: { ...pendingAction.choices, [decision.key]: choiceId } }
+        get().applyFlight(stepTurn(simState, action))
+      },
+
+      applyFlight: (newState) => {
         set({
           simState: newState,
           pendingAction: getDefaultAction(),

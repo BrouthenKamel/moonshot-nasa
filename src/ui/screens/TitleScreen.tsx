@@ -37,7 +37,7 @@ export function TitleScreen() {
                   <div className="font-medium">{preset.name}</div>
                   <div className="text-sm opacity-75">{preset.description}</div>
                   <div className="mt-1 text-xs opacity-50">
-                    Budget: ${preset.budgetCap}M | Target: {preset.dataTarget} GB
+                    Budget: ${preset.budgetCap}M | Target: {preset.dataTarget} MB | Bad luck x{preset.eventOddsMultiplier}
                   </div>
                 </button>
               )

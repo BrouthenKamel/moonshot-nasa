@@ -1,5 +1,4 @@
 import { getOrbitById } from '../data/orbits'
-import { getTransferById } from '../data/transfers'
 import type { Design, TurnLog } from '../sim/types'
 
 export interface Pose {
@@ -48,8 +47,12 @@ export function replayPose(
   const idx = Number.isFinite(turnIndex) ? Math.min(last, Math.max(0, Math.trunc(turnIndex))) : 0
   const inRange = logs.slice(0, idx + 1)
 
-  const rawDuration = getTransferById(design.transfer)?.durationTurns
-  const duration = rawDuration !== undefined && Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : 1
+  // Transfer length from the flight itself: launch to capture, or the turns flown so far
+  const launchIdx = logs.findIndex((l) => l.notes.some((n) => n.startsWith('Launched')))
+  const captureIdx = logs.findIndex((l) => l.notes.some((n) => n.startsWith('Capture burn successful')))
+  const flownTransfer = logs.filter((l) => l.phase === 'transfer' || l.phase === 'capture').length
+  const rawDuration = launchIdx >= 0 && captureIdx >= launchIdx ? captureIdx - launchIdx : flownTransfer
+  const duration = Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : 1
 
   const transferTurns = inRange.filter((l) => l.phase === 'transfer').length
   const orbitTurns = inRange.filter((l) => l.phase === 'orbit').length

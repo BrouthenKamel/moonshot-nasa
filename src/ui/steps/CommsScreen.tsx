@@ -34,12 +34,16 @@ function RadioCard({
 
       <div className="mt-4 grid grid-cols-4 gap-2 text-xs">
         <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Data Rate</div>
-          <div className="font-bold text-slate-300">{radio.dataRate} kbps</div>
+          <div className="text-slate-500">From the Moon</div>
+          <div className={`font-bold ${radio.reachesMoon ? 'text-green-400' : 'text-red-400'}`}>
+            {radio.reachesMoon ? `gain x${radio.gain}` : 'does not reach'}
+          </div>
         </div>
         <div className="rounded bg-slate-900 p-2 text-center">
           <div className="text-slate-500">Power</div>
-          <div className="font-bold text-slate-300">{Math.abs(radio.power)} W</div>
+          <div className="font-bold text-slate-300">
+            {radio.listenPower} / {radio.transmitPower} W
+          </div>
         </div>
         <div className="rounded bg-slate-900 p-2 text-center">
           <div className="text-slate-500">Mass</div>
@@ -52,8 +56,10 @@ function RadioCard({
       </div>
 
       <div className="mt-2 flex items-center gap-4 text-xs text-slate-500">
-        <span>Gain: {radio.gain} dBi</span>
-        {radio.deployable && <span className="text-yellow-500">Deployable antenna</span>}
+        <span>Listening / transmitting power</span>
+        <span>{radio.volume} U</span>
+        {radio.deployable && <span className="text-yellow-500">Deployable dish</span>}
+        {radio.needsPrecisePointing && <span className="text-yellow-500">Needs precise pointing</span>}
       </div>
     </button>
   )
@@ -91,25 +97,21 @@ function GroundStationCard({
 
       <div className="mt-4 grid grid-cols-4 gap-2 text-xs">
         <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Contact</div>
-          <div className="font-bold text-slate-300">{station.contactHoursPerDay}h/day</div>
+          <div className="text-slate-500">Rate</div>
+          <div className="font-bold text-slate-300">{station.rateKbps} kbps</div>
         </div>
         <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Rate Mult</div>
-          <div className="font-bold text-slate-300">{station.dataRateMultiplier}x</div>
+          <div className="text-slate-500">Up to</div>
+          <div className="font-bold text-slate-300">{station.contactHoursPerDay} h/day</div>
         </div>
         <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Setup</div>
-          <div className="font-bold text-slate-300">${station.setupCost}M</div>
+          <div className="text-slate-500">Price</div>
+          <div className="font-bold text-slate-300">${station.pricePerHour}M per h/day</div>
         </div>
         <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Per Turn</div>
-          <div className="font-bold text-slate-300">${station.costPerTurn}M</div>
+          <div className="text-slate-500">Outage odds</div>
+          <div className="font-bold text-slate-300">{Math.round(station.outageChance * 100)}% a turn</div>
         </div>
-      </div>
-
-      <div className="mt-2 text-xs text-slate-500">
-        Reliability: {Math.round(station.reliability * 100)}%
       </div>
     </button>
   )
@@ -122,13 +124,16 @@ export function CommsScreen() {
   const getBudgets = useGameStore((s) => s.getBudgets)
 
   const budgets = getBudgets()
+  const station = groundStations.find((g) => g.id === design.groundStation)
+  const maxHours = station?.contactHoursPerDay ?? 1
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="rounded-lg bg-slate-900 p-6">
         <h1 className="text-xl font-bold text-blue-400">6. Communications</h1>
         <p className="mt-2 text-slate-400">
-          Set up your data link. Balance radio capability with ground station coverage to get your science data home.
+          Only data that reaches the ground counts. The Moon is a thousand times farther than low Earth orbit, so the
+          radio and the ground station decide how much gets home.
         </p>
       </div>
 
@@ -136,27 +141,52 @@ export function CommsScreen() {
         <div className="font-medium text-blue-300">Data Link Budget</div>
         <div className="mt-2 grid grid-cols-2 gap-4 text-blue-200">
           <div>
-            Generated: <span className="text-blue-400">{budgets.dataPerTurn.toFixed(1)} GB/turn</span>
+            Instruments make: <span className="text-blue-400">{budgets.dataPerTurn.toFixed(0)} MB/turn</span>
           </div>
           <div>
-            Downlink: <span className={budgets.dataMarginPerTurn >= 0 ? 'text-green-400' : 'text-red-400'}>
-              {budgets.downlinkPerTurn.toFixed(1)} GB/turn
-            </span>
+            Link carries: <span className={budgets.dataMarginPerTurn >= 0 ? 'text-green-400' : 'text-red-400'}>
+              {budgets.downlinkPerTurn.toFixed(0)} MB/turn
+            </span>{' '}
+            <span className="text-blue-200/60">({budgets.linkKbps} kbps)</span>
           </div>
           <div>
-            Storage: <span className="text-blue-400">{budgets.storageCapacity} GB</span>
+            Storage on board: <span className="text-blue-400">{budgets.storageCapacity} MB</span>
           </div>
           <div>
-            Margin: <span className={budgets.dataMarginPerTurn >= 0 ? 'text-green-400' : 'text-red-400'}>
-              {budgets.dataMarginPerTurn >= 0 ? '+' : ''}{budgets.dataMarginPerTurn.toFixed(1)} GB/turn
-            </span>
+            Ground time: <span className="text-blue-400">${budgets.groundCostPerTurn.toFixed(2)}M a turn</span>
           </div>
         </div>
         {budgets.dataMarginPerTurn < 0 && (
           <div className="mt-2 text-red-300">
-            Warning: Data will be lost each turn. Improve your radio or ground station.
+            More data is made than sent. It waits in storage until that is full; after that it is lost, and the ice
+            coverage it held is lost with it.
           </div>
         )}
+        {budgets.transmitShare < 1 && (
+          <div className="mt-2 text-yellow-300">
+            Power only lets the radio transmit {Math.round(budgets.transmitShare * 100)}% of the contact time.
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-lg bg-slate-900 p-6">
+        <h2 className="mb-2 font-semibold text-slate-200">Contact time</h2>
+        <p className="mb-4 text-sm text-slate-400">
+          Hours a day booked on the ground station. More hours carry more data but cost money every turn.
+        </p>
+        <div className="flex items-center gap-4">
+          <input
+            type="range"
+            min={0.25}
+            max={maxHours}
+            step={0.25}
+            value={budgets.contactHours}
+            onChange={(e) => updateDesign({ contactHours: Number(e.target.value) })}
+            className="flex-1"
+          />
+          <span className="w-28 text-right text-lg font-bold text-blue-400">{budgets.contactHours} h/day</span>
+        </div>
+        <div className="mt-2 text-xs text-slate-500">This station gives up to {maxHours} h a day.</div>
       </div>
 
       <div>
@@ -181,7 +211,12 @@ export function CommsScreen() {
               key={station.id}
               station={station}
               selected={design.groundStation === station.id}
-              onSelect={() => updateDesign({ groundStation: station.id })}
+              onSelect={() =>
+                updateDesign({
+                  groundStation: station.id,
+                  contactHours: Math.min(design.contactHours ?? station.defaultHours, station.contactHoursPerDay),
+                })
+              }
             />
           ))}
         </div>

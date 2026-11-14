@@ -2,6 +2,7 @@ import { useGameStore } from '../../state/gameStore'
 import { rides, type Ride } from '../../data/rides'
 import { transfers, type Transfer, isTransferCompatible } from '../../data/transfers'
 import { getPartById, type PropulsionPart } from '../../data/parts'
+import { computeBudgets } from '../../sim/budgets'
 
 function RideCard({
   ride,
@@ -47,8 +48,10 @@ function RideCard({
           <div className="font-bold text-slate-300">{ride.massLimit} kg</div>
         </div>
         <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Delta-v needed</div>
-          <div className="font-bold text-slate-300">{ride.requiredDeltaV} m/s</div>
+          <div className="text-slate-500">Capture burn</div>
+          <div className="font-bold text-slate-300">
+            {ride.extraDeltaV > 0 ? `+${ride.extraDeltaV} m/s` : ride.insertionFactor < 1 ? `x${ride.insertionFactor}` : 'full'}
+          </div>
         </div>
       </div>
 
@@ -72,6 +75,12 @@ function TransferCard({
   compatible: boolean
   onSelect: () => void
 }) {
+  const design = useGameStore((s) => s.design)
+  const difficulty = useGameStore((s) => s.difficulty)
+  // What this transfer would mean for the current design
+  const trial = computeBudgets({ ...design, transfer: transfer.id }, difficulty)
+  const duration =
+    trial.transferTurns === null ? 'not possible' : trial.transferTurns === 0 ? 'about 5 days' : `${trial.transferTurns} turns`
   return (
     <button
       onClick={onSelect}
@@ -98,16 +107,20 @@ function TransferCard({
 
       <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
         <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Duration</div>
-          <div className="font-bold text-slate-300">{transfer.durationTurns} turn(s)</div>
+          <div className="text-slate-500">Takes</div>
+          <div className="font-bold text-slate-300">{duration}</div>
         </div>
         <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Delta-v factor</div>
-          <div className="font-bold text-slate-300">{transfer.deltaVMultiplier}x</div>
+          <div className="text-slate-500">To capture</div>
+          <div className="font-bold text-slate-300">
+            {trial.captureDeltaV === null ? '-' : `${trial.captureDeltaV.toFixed(0)} m/s`}
+          </div>
         </div>
         <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Risk</div>
-          <div className="font-bold text-slate-300">{transfer.riskFactor}x</div>
+          <div className="text-slate-500">Left after capture</div>
+          <div className={`font-bold ${trial.captureDeltaV !== null && trial.deltaVAfterCapture >= 0 ? 'text-slate-300' : 'text-red-400'}`}>
+            {trial.captureDeltaV === null ? '-' : `${trial.deltaVAfterCapture.toFixed(0)} m/s`}
+          </div>
         </div>
       </div>
 
@@ -142,18 +155,26 @@ export function RideScreen() {
         <div className="font-medium text-orange-300">Delta-v Budget</div>
         <div className="mt-2 grid grid-cols-2 gap-4 text-orange-200">
           <div>
-            Available: <span className="text-orange-400">{budgets.deltaVAvailable.toFixed(0)} m/s</span>
+            On board: <span className="text-orange-400">{budgets.deltaVAvailable.toFixed(0)} m/s</span>
+            <span className="text-orange-200/60"> ({budgets.propellantMass} kg propellant)</span>
           </div>
           <div>
-            Required: <span className={budgets.deltaVMargin >= 0 ? 'text-green-400' : 'text-red-400'}>
-              {budgets.deltaVTotal.toFixed(0)} m/s
+            Capture + 12 turns of upkeep:{' '}
+            <span className={budgets.captureDeltaV !== null && budgets.deltaVMargin >= 0 ? 'text-green-400' : 'text-red-400'}>
+              {budgets.captureDeltaV === null ? 'not possible' : `${budgets.deltaVTotal.toFixed(0)} m/s`}
             </span>
           </div>
           <div>
-            Transfer: <span className="text-orange-400">{budgets.deltaVTransfer.toFixed(0)} m/s</span>
+            Climbing out from the drop-off: <span className="text-orange-400">{budgets.deltaVTransfer.toFixed(0)} m/s</span>
           </div>
           <div>
-            Capture: <span className="text-orange-400">{budgets.deltaVCapture.toFixed(0)} m/s</span>
+            Arrival:{' '}
+            <span className="text-orange-400">
+              {budgets.arrivalTurn === null ? '-' : `turn ${budgets.arrivalTurn}`}
+            </span>
+            {budgets.transferTurns !== null && budgets.transferTurns > 0 && (
+              <span className="text-orange-200/60"> ({budgets.transferTurns} turns of running the team in transit)</span>
+            )}
           </div>
         </div>
       </div>

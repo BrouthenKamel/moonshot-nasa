@@ -17,7 +17,8 @@ const TRACKED: { key: keyof Budgets; label: string; unit: string; betterWhenHigh
   { key: 'batteryMarginMinutes', label: 'Eclipse margin', unit: 'min', betterWhenHigher: true },
   { key: 'totalCost', label: 'Cost', unit: '$M', betterWhenHigher: false },
   { key: 'deltaVMargin', label: 'Delta-v margin', unit: 'm/s', betterWhenHigher: true },
-  { key: 'dataMarginPerTurn', label: 'Data margin', unit: 'GB/turn', betterWhenHigher: true },
+  { key: 'dataMarginPerTurn', label: 'Data margin', unit: 'MB/turn', betterWhenHigher: true },
+  { key: 'projectedCoverage', label: 'Projected ice coverage', unit: '%', betterWhenHigher: true },
   { key: 'timeMarginTurns', label: 'Time margin', unit: 'turns', betterWhenHigher: true },
 ]
 

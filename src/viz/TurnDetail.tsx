@@ -12,7 +12,7 @@ function describeEvent(ev: TurnEvent) {
   const impacts: string[] = []
   if (ev.impact.deltavLost) impacts.push(`delta-v -${ev.impact.deltavLost.toFixed(0)} m/s`)
   if (ev.impact.powerLost) impacts.push(`power -${ev.impact.powerLost.toFixed(0)} W`)
-  if (ev.impact.dataLost) impacts.push(`data -${ev.impact.dataLost.toFixed(1)} GB`)
+  if (ev.impact.dataLost) impacts.push(`data -${ev.impact.dataLost.toFixed(0)} MB`)
   if (ev.impact.turnsLost) impacts.push(`${ev.impact.turnsLost} turn(s) lost`)
   if (ev.impact.reserveSpent) impacts.push(`reserve -$${ev.impact.reserveSpent.toFixed(2)}M`)
   return { name: def?.name ?? ev.eventId, choice: choice?.name ?? ev.choiceId, impacts }
@@ -37,10 +37,10 @@ export function TurnDetail({ log }: TurnDetailProps) {
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label="Coverage" value={`${log.coveragePercent.toFixed(1)}%`} tone="text-blue-400" />
-        <Stat label="Data generated" value={`${log.dataGenerated.toFixed(1)} GB`} tone="text-green-400" />
-        <Stat label="Data sent" value={`${log.dataSent.toFixed(1)} GB`} tone="text-green-400" />
-        <Stat label="Data lost" value={`${log.dataLost.toFixed(1)} GB`} tone="text-red-400" />
-        <Stat label="Total returned" value={`${log.totalDataReturned.toFixed(1)} GB`} tone="text-green-400" />
+        <Stat label="Data made" value={`${log.dataGenerated.toFixed(0)} MB`} tone="text-green-400" />
+        <Stat label="Data sent" value={`${log.dataSent.toFixed(0)} MB`} tone="text-green-400" />
+        <Stat label="Data lost" value={`${log.dataLost.toFixed(0)} MB`} tone="text-red-400" />
+        <Stat label="Science home" value={`${log.totalDataReturned.toFixed(0)} MB`} tone="text-green-400" />
         <Stat label="Fuel" value={`${log.fuelRemaining.toFixed(0)} m/s`} tone="text-orange-400" />
         <Stat label="Reserve" value={`$${log.reserveRemaining.toFixed(2)}M`} tone="text-purple-400" />
       </div>
@@ -59,7 +59,7 @@ export function TurnDetail({ log }: TurnDetailProps) {
           <div key={i} className="rounded border border-red-900 bg-red-950/40 p-3 text-sm">
             <div className="font-medium text-red-300">{d.name}</div>
             <div className="text-slate-300">
-              {d.choice ? `Choice: ${d.choice}` : 'No choice made'}
+              {d.choice ? `Choice: ${d.choice}` : 'No choice to make'}
               {ev.choiceSucceeded !== undefined && (
                 <span className={ev.choiceSucceeded ? 'text-green-400' : 'text-red-400'}>
                   {ev.choiceSucceeded ? ' - succeeded' : ' - failed'}
