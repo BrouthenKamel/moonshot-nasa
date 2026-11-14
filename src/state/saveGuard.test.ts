@@ -22,6 +22,18 @@ describe('old saved games load safely (QC #70)', () => {
     expect(out.design).not.toHaveProperty('difficulty')
   })
 
+  it('keeps the rocket the player built, and repairs one with a part that no longer exists', () => {
+    const rocket = { engine: 'engine_cluster9', stage1: 'stage1_long', stage2: 'stage2_long', nose: 'nose_ogive', fins: 'fins_large', boosters: 'boosters_2_heavy' }
+    expect(sanitizeSavedGame({ design: { ...createDefaultDesign(), rocket } }).design?.rocket).toEqual(rocket)
+    const out = sanitizeSavedGame({ design: { ...createDefaultDesign(), rocket: { ...rocket, engine: 'engine_warp' } } })
+    expect(out.design?.rocket?.engine).toBe('engine_cluster3')
+    expect(out.design?.rocket?.nose).toBe('nose_ogive')
+  })
+
+  it('a design saved before the Rocket step still loads, with no rocket', () => {
+    expect(sanitizeSavedGame({ design: createDefaultDesign() }).design?.rocket).toBeUndefined()
+  })
+
   it('a design naming a part that no longer exists falls back to the default design', () => {
     const out = sanitizeSavedGame({ design: { ...createDefaultDesign(), radio: 'radio-gone' } })
     expect(out.design).toEqual(defaults)

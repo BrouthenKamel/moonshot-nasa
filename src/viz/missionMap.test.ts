@@ -103,7 +103,7 @@ describe('mission map', () => {
     expect(over.opens).toBe('report')
     const planning = missionStatus({ budgets, visited: ['brief', 'planning'], sim: null })
     expect(planning.stage).toBe('planning')
-    expect(planning.progress).toBeCloseTo(2 / 8)
+    expect(planning.progress).toBeCloseTo(2 / STEP_ORDER.length)
     expect(planning.next).toContain('Research Lab')
     expect(planning.opens).toBe('research-lab')
   })

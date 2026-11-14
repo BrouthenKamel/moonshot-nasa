@@ -6,6 +6,7 @@ export type DesignStep =
   | 'brief'
   | 'planning'
   | 'instruments'
+  | 'rocket'
   | 'spacecraft'
   | 'orbit'
   | 'ride'
@@ -45,6 +46,8 @@ export interface Design {
 
   // Step 6: Communications
   groundStation: string
+  /** The launch rocket assembled on the Rocket step (part ids per slot). Looks only: it does not change the mission numbers. Missing means the default rocket. */
+  rocket?: Record<'engine' | 'stage1' | 'stage2' | 'nose' | 'fins' | 'boosters', string>
   contactHours?: number // hours a day booked on the ground station; the station's default if missing
 }
 

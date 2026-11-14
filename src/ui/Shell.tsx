@@ -5,7 +5,7 @@ import { Dashboard } from './Dashboard'
 import type { DesignStep } from '../sim/types'
 
 /** Steps that fill the main column edge to edge and show their own numbers (no dashboard). */
-const FULL_BLEED_STEPS: DesignStep[] = ['planning', 'spacecraft', 'orbit', 'ride']
+const FULL_BLEED_STEPS: DesignStep[] = ['planning', 'rocket', 'spacecraft', 'orbit', 'ride']
 
 interface ShellProps {
   children: React.ReactNode
