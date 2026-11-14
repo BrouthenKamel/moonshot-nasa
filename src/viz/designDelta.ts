@@ -18,7 +18,8 @@ const TRACKED: { key: NumericBudgetKey; label: string; unit: string; betterWhenH
   { key: 'totalVolume', label: 'Volume', unit: 'U', betterWhenHigher: false },
   { key: 'powerMargin', label: 'Power margin', unit: 'W', betterWhenHigher: true },
   { key: 'batteryMarginMinutes', label: 'Eclipse margin', unit: 'min', betterWhenHigher: true },
-  { key: 'totalCost', label: 'Cost', unit: '$M', betterWhenHigher: false },
+  // The whole plan's cost (parts, build time, transfer and operations), not just the part's price
+  { key: 'totalCost', label: 'Mission cost', unit: '$M', betterWhenHigher: false },
   { key: 'deltaVMargin', label: 'Delta-v margin', unit: 'm/s', betterWhenHigher: true },
   { key: 'dataMarginPerTurn', label: 'Data margin', unit: 'MB/turn', betterWhenHigher: true },
   { key: 'projectedCoverage', label: 'Projected ice coverage', unit: '%', betterWhenHigher: true },

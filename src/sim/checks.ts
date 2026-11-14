@@ -1,6 +1,6 @@
 import { getRideById } from '../data/rides'
 import { getTransferById, isTransferCompatible } from '../data/transfers'
-import { getPartById, type PropulsionPart, type RadioPart } from '../data/parts'
+import { getPartById, type InstrumentPart, type PropulsionPart, type RadioPart } from '../data/parts'
 import { lunarIceMapperBrief, modelConstants as C } from '../data/brief'
 import type { Design, Budgets, CheckResult, GoNoGoResult, BarStatus, DesignStep } from './types'
 
@@ -211,7 +211,11 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
       '% ice',
       enough
         ? `Projected ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} clean turns.`
-        : `Even with no bad luck this reaches only ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB (needed: ${coverageTarget}% and ${dataTarget} MB). It may fly, but it cannot fully succeed.`,
+        : `${
+            design.instruments.some((id) => (getPartById(id) as InstrumentPart | undefined)?.seesShadow)
+              ? ''
+              : 'No instrument on board can see into the shadowed craters: fit the laser reflectometer or the neutron spectrometer at the Research Lab. '
+          }Even with no bad luck this reaches only ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} turns (needed: ${coverageTarget}% and ${dataTarget} MB); an extended mission of up to ${turns} more turns can add some. It may fly, but it is unlikely to fully succeed.`,
       'instruments'
     )
   checks.push({ ...science, margin: b.projectedCoverage - coverageTarget })

@@ -101,6 +101,13 @@ describe('Go / No-Go', () => {
     expect(status(iceCubeDesign, 'Science')).toBe('yellow')
   })
 
+  it('names the instruments to fit when none can see into shadow', () => {
+    const b = computeBudgets(iceCubeDesign, 'engineer')
+    const science = goNoGo(iceCubeDesign, b).checks.find((c) => c.resource === 'Science')!
+    expect(science.reason).toContain('laser reflectometer')
+    expect(science.reason).toContain('neutron spectrometer')
+  })
+
   it('counts the science margin up from the 70% target (more coverage is better)', () => {
     const b = computeBudgets(flashlightDesign, 'engineer')
     const science = goNoGo(flashlightDesign, b).checks.find((c) => c.resource === 'Science')!
@@ -222,6 +229,22 @@ describe('report explains the misses', () => {
         expect(r.score.total).toBeLessThanOrEqual(1000)
       }
     }
+  })
+
+  it('the "perfect craft" line counts the turns actually flown, so it never contradicts the result', () => {
+    const design = { ...lunahMapDesign, orbit: 'orbit-halo' }
+    for (let seed = 1; seed <= 200; seed++) {
+      const s = runSimulation(design, 'engineer', seed)
+      if (s.flight.scienceTurns <= 12) continue
+      const coverage = buildReport(s).requirements.find((r) => r.id === 'coverage')!
+      const line = coverage.causes.find((c) => c.startsWith('Too few passes'))
+      if (!line) continue
+      expect(line).toContain(`in ${s.flight.scienceTurns} turns`)
+      const ideal = Number(line.match(/maps only (\d+)%/)![1])
+      expect(ideal).toBeGreaterThanOrEqual(Math.floor(s.flight.coverage))
+      return
+    }
+    throw new Error('no extended neutron-halo flight in 200 seeds')
   })
 
   it('neutron on the halo loop: too few passes', () => {
