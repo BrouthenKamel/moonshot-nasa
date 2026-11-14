@@ -173,6 +173,11 @@ export function LinkConsole({ budgets, comms, data, radioId, radioName, stationI
             <span className="font-semibold">Comms:</span> {comms.reason}
           </p>
         )}
+        {budgets.transmitShare < 1 && (
+          <p className="text-amber-300">
+            Power only lets the radio transmit {Math.round(budgets.transmitShare * 100)}% of the contact time.
+          </p>
+        )}
         {short && (
           <p className="text-rose-300">
             More data is made than sent. It waits in storage until that is full; after that it is lost, and the ice coverage it held is lost with it.
@@ -205,7 +210,7 @@ export function LinkRibbon({ budgets, data, visible }: { budgets: Budgets; data:
   const scale = Math.max(made, carried, 1) * 1.1
   return (
     <div className="sticky -top-4 z-30 h-0" aria-hidden={!visible}>
-      <div className={`-mx-2 bg-slate-950/95 px-2 pb-2 pt-4 transition-opacity duration-200 motion-reduce:transition-none ${visible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+      <div className={`-mx-2 bg-slate-950 px-2 pb-2 pt-4 transition-opacity duration-200 motion-reduce:transition-none ${visible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
       <div
         className={`flex items-center gap-4 rounded-xl border border-blue-500/25 bg-[#050a18]/95 px-4 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.6)] backdrop-blur transition-[opacity,transform] duration-200 motion-reduce:transition-none ${
           visible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'

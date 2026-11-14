@@ -49,9 +49,9 @@ export function CommsScreen() {
     <div className="mx-auto max-w-5xl pb-6">
       <LinkRibbon budgets={budgets} data={dataCheck} visible={consoleOut} />
       <div className="space-y-6">
-        <header className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#0b1226] to-[#03050a] px-6 pb-5 pt-6">
+        <header className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#0b1226] to-[#03050a] px-6 pb-4 pt-4">
           <div className="font-mono text-xs tracking-[0.25em] text-blue-400">COMMS CENTER · LUNAR ICE MAPPER · COMMUNICATIONS</div>
-          <h1 className="mt-3 font-display text-3xl font-bold text-white">6. Communications</h1>
+          <h1 className="mt-2 font-display text-2xl font-bold text-white">6. Communications</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-400">
             Only data that reaches the ground counts. The Moon is a thousand times farther than low Earth orbit, so the radio and the
             ground station decide how much gets home.
