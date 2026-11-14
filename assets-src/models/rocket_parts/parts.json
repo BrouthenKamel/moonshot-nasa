@@ -1,0 +1,170 @@
+{
+  "conventions": "Generates swappable low-poly rocket parts as GLB files.\n\nCONVENTIONS (same for every part, so parts can swap without re-positioning):\n  - Y is up, units are \"body radii\": the core rocket body radius is 1.0\n  - Stack parts (stage1, stage2, nose) have their origin at the BOTTOM CENTER\n    and extend upward. Their height is listed in parts.json.\n  - Engines have their origin at their TOP CENTER (the mounting plate)\n    and extend downward (negative Y).\n  - Fins and boosters share the origin of stage1 (bottom center of stage1),\n    so you place them at exactly the same position as stage1.",
+  "parts": [
+    {
+      "id": "engine_single",
+      "category": "engine",
+      "label": "Single Bell Engine",
+      "file": "engine_single.glb",
+      "height": 1.95,
+      "origin": "top",
+      "extends": "down"
+    },
+    {
+      "id": "engine_cluster3",
+      "category": "engine",
+      "label": "Triple Engine Cluster",
+      "file": "engine_cluster3.glb",
+      "height": 1.35,
+      "origin": "top",
+      "extends": "down"
+    },
+    {
+      "id": "engine_cluster9",
+      "category": "engine",
+      "label": "Nine Engine Cluster",
+      "file": "engine_cluster9.glb",
+      "height": 1.1,
+      "origin": "top",
+      "extends": "down"
+    },
+    {
+      "id": "engine_vacuum",
+      "category": "engine",
+      "label": "Large Vacuum Engine",
+      "file": "engine_vacuum.glb",
+      "height": 2.5,
+      "origin": "top",
+      "extends": "down"
+    },
+    {
+      "id": "stage1_short",
+      "category": "stage1",
+      "label": "Short Core Stage",
+      "file": "stage1_short.glb",
+      "height": 6.0,
+      "origin": "bottom",
+      "extends": "up"
+    },
+    {
+      "id": "stage1_medium",
+      "category": "stage1",
+      "label": "Medium Core Stage",
+      "file": "stage1_medium.glb",
+      "height": 9.0,
+      "origin": "bottom",
+      "extends": "up"
+    },
+    {
+      "id": "stage1_long",
+      "category": "stage1",
+      "label": "Long Core Stage (foam tank)",
+      "file": "stage1_long.glb",
+      "height": 12.0,
+      "origin": "bottom",
+      "extends": "up"
+    },
+    {
+      "id": "stage2_short",
+      "category": "stage2",
+      "label": "Short Upper Stage",
+      "file": "stage2_short.glb",
+      "height": 2.5,
+      "origin": "bottom",
+      "extends": "up"
+    },
+    {
+      "id": "stage2_long",
+      "category": "stage2",
+      "label": "Long Upper Stage",
+      "file": "stage2_long.glb",
+      "height": 4.0,
+      "origin": "bottom",
+      "extends": "up"
+    },
+    {
+      "id": "nose_ogive",
+      "category": "nose",
+      "label": "Ogive Nose Cone",
+      "file": "nose_ogive.glb",
+      "height": 3.0,
+      "origin": "bottom",
+      "extends": "up"
+    },
+    {
+      "id": "nose_cone",
+      "category": "nose",
+      "label": "Conical Nose Cone",
+      "file": "nose_cone.glb",
+      "height": 2.52,
+      "origin": "bottom",
+      "extends": "up"
+    },
+    {
+      "id": "nose_fairing",
+      "category": "nose",
+      "label": "Wide Payload Fairing",
+      "file": "nose_fairing.glb",
+      "height": 5.4,
+      "origin": "bottom",
+      "extends": "up"
+    },
+    {
+      "id": "nose_capsule",
+      "category": "nose",
+      "label": "Crew Capsule + Escape Tower",
+      "file": "nose_capsule.glb",
+      "height": 4.1,
+      "origin": "bottom",
+      "extends": "up"
+    },
+    {
+      "id": "fins_small",
+      "category": "fins",
+      "label": "Small Fins (x4)",
+      "file": "fins_small.glb",
+      "height": 2.2,
+      "origin": "stage1_bottom"
+    },
+    {
+      "id": "fins_large",
+      "category": "fins",
+      "label": "Large Swept Fins (x4)",
+      "file": "fins_large.glb",
+      "height": 3.5,
+      "origin": "stage1_bottom"
+    },
+    {
+      "id": "fins_tri",
+      "category": "fins",
+      "label": "Tri Fins (x3)",
+      "file": "fins_tri.glb",
+      "height": 2.8,
+      "origin": "stage1_bottom"
+    },
+    {
+      "id": "boosters_2",
+      "category": "boosters",
+      "label": "2 Solid Boosters",
+      "file": "boosters_2.glb",
+      "height": 5.0,
+      "origin": "stage1_bottom"
+    },
+    {
+      "id": "boosters_4",
+      "category": "boosters",
+      "label": "4 Small Boosters",
+      "file": "boosters_4.glb",
+      "height": 4.0,
+      "origin": "stage1_bottom"
+    },
+    {
+      "id": "boosters_2_heavy",
+      "category": "boosters",
+      "label": "2 Heavy Boosters",
+      "file": "boosters_2_heavy.glb",
+      "height": 7.5,
+      "origin": "stage1_bottom"
+    }
+  ]
+}
