@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useRef, useState, type KeyboardEvent, type PointerEvent, type Ref } from 'react'
 import { audio } from '../../assets/audio'
 import { choiceArt } from '../../assets/catalogueArt'
 import { assetUrl } from '../../assets/url'
@@ -26,11 +26,25 @@ export interface ChoiceCardProps {
   tag?: string
   /** 'portrait' (3D part on a glow, default for parts) or 'scene' (painted card art) */
   look?: 'portrait' | 'scene'
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'md' | 'lg'
   onPick?: () => void
+  /**
+   * Inside a radiogroup (a tray of options where exactly one is picked): the card becomes
+   * role="radio" with aria-checked, and the caller manages tabIndex and arrow keys.
+   */
+  radio?: boolean
+  tabIndex?: number
+  buttonRef?: Ref<HTMLButtonElement>
+  onKeyDown?: (e: KeyboardEvent<HTMLButtonElement>) => void
+  onFocus?: () => void
+  onHover?: () => void
+  /** Accessible name when the visible text is not enough (e.g. "Large array: 2 kg, 120 W") */
+  ariaLabel?: string
+  /** Play sounds on hover and pick (default true) */
+  sounds?: boolean
 }
 
-const WIDTH = { sm: 'w-40', md: 'w-56', lg: 'w-72' } as const
+const WIDTH = { xs: 'w-full', sm: 'w-40', md: 'w-56', lg: 'w-72' } as const
 
 /**
  * A choice shown as a game card: art on top (the part's 3D portrait on a glow in its category
@@ -38,7 +52,28 @@ const WIDTH = { sm: 'w-40', md: 'w-56', lg: 'w-72' } as const
  * Picking plays the choice's own sound; a disabled card thunks and shows why.
  * A real <button>: keyboard and screen readers work as with any button.
  */
-export function ChoiceCard({ id, title, subtitle, stats = [], selected = false, disabled = false, reason, tag, look, size = 'md', onPick }: ChoiceCardProps) {
+export function ChoiceCard({
+  id,
+  title,
+  subtitle,
+  stats = [],
+  selected = false,
+  disabled = false,
+  reason,
+  tag,
+  look,
+  size = 'md',
+  onPick,
+  radio = false,
+  tabIndex,
+  buttonRef,
+  onKeyDown,
+  onFocus,
+  onHover,
+  ariaLabel,
+  sounds = true,
+}: ChoiceCardProps) {
+  const xs = size === 'xs'
   const art = choiceArt(id)
   const accent = art?.accent ?? '#94a3b8'
   const mode = look ?? (art?.portrait ? 'portrait' : 'scene')
@@ -54,28 +89,39 @@ export function ChoiceCard({ id, title, subtitle, stats = [], selected = false, 
   }
   const pick = () => {
     if (disabled) {
-      audio.play('sfx.fit-error')
+      if (sounds) audio.play('sfx.fit-error')
       return
     }
-    audio.play(art?.pick ?? 'sfx.select')
+    if (sounds) audio.play(art?.pick ?? 'sfx.select')
     onPick?.()
   }
-  const onKey = (e: KeyboardEvent) => {
+  const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       pick()
+      return
     }
+    onKeyDown?.(e)
   }
 
   return (
     <button
       type="button"
-      aria-pressed={selected}
+      ref={buttonRef}
+      role={radio ? 'radio' : undefined}
+      aria-checked={radio ? selected : undefined}
+      aria-pressed={radio ? undefined : selected}
+      aria-label={ariaLabel}
+      tabIndex={tabIndex}
+      onFocus={onFocus}
       aria-disabled={disabled}
       aria-describedby={disabled && reason ? `${id}-reason` : undefined}
       onClick={pick}
       onKeyDown={onKey}
-      onPointerEnter={() => !disabled && audio.play('sfx.hover')}
+      onPointerEnter={() => {
+        if (!disabled && sounds) audio.play('sfx.hover')
+        onHover?.()
+      }}
       onPointerMove={onMove}
       onPointerLeave={() => setTilt({ x: 0, y: 0 })}
       className={`group relative ${WIDTH[size]} shrink-0 select-none rounded-2xl text-left transition-[transform,box-shadow] duration-200 ease-out focus:outline-none focus-visible:ring-4 ${
@@ -126,9 +172,9 @@ export function ChoiceCard({ id, title, subtitle, stats = [], selected = false, 
           <div className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
         </div>
         {/* Name plate */}
-        <div className="relative p-3" style={{ borderTop: `2px solid ${accent}` }}>
-          <div className="font-display text-base font-bold leading-tight text-white">{title}</div>
-          {subtitle && <div className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-slate-400">{subtitle}</div>}
+        <div className={`relative ${xs ? 'p-1.5' : 'p-3'}`} style={{ borderTop: `2px solid ${accent}` }}>
+          <div className={`font-display font-bold leading-tight text-white ${xs ? 'text-[11px]' : 'text-base'}`}>{title}</div>
+          {subtitle && <div className={`mt-0.5 leading-snug text-slate-400 ${xs ? 'line-clamp-1 text-[9.5px]' : 'line-clamp-2 text-[11px]'}`}>{subtitle}</div>}
           {stats.length > 0 && (
             <div className="mt-2 grid grid-cols-2 gap-1">
               {stats.map((s) => (
