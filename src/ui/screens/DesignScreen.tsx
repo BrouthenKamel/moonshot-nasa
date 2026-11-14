@@ -5,6 +5,7 @@ import {
   BriefScreen,
   PlanningScreen,
   InstrumentsScreen,
+  RocketScreen,
   SpacecraftScreen,
   OrbitScreen,
   RideScreen,
@@ -20,6 +21,8 @@ function StepScreen({ designStep }: { designStep: string }) {
       return <PlanningScreen />
     case 'instruments':
       return <InstrumentsScreen />
+    case 'rocket':
+      return <RocketScreen />
     case 'spacecraft':
       return <SpacecraftScreen />
     case 'orbit':
@@ -36,7 +39,7 @@ function StepScreen({ designStep }: { designStep: string }) {
 }
 
 /** Steps that draw their own full view instead of the shared diagram panel. */
-const STEPS_WITHOUT_DIAGRAM: DesignStep[] = ['planning', 'instruments', 'spacecraft', 'orbit', 'ride']
+const STEPS_WITHOUT_DIAGRAM: DesignStep[] = ['planning', 'instruments', 'rocket', 'spacecraft', 'orbit', 'ride']
 
 export function DesignScreen() {
   const designStep = useGameStore((s) => s.designStep)

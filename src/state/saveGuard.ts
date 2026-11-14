@@ -6,6 +6,7 @@ import { getTransferById } from '../data/transfers'
 import { getGroundStationById } from '../data/ground'
 import { computeBudgets, createDefaultDesign } from '../sim/budgets'
 import { goNoGo } from '../sim/checks'
+import { normalizeRocket } from '../viz/rocket/rocketView'
 import { buildReport } from '../sim/evaluate'
 import type { Design, DesignStep, Report, RunHistoryEntry, SimState, TurnAction } from '../sim/types'
 
@@ -16,7 +17,7 @@ import type { Design, DesignStep, Report, RunHistoryEntry, SimState, TurnAction 
  * here; anything that does not fit falls back to a fresh value, never a crash.
  */
 
-const STEPS: DesignStep[] = ['brief', 'planning', 'instruments', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']
+const STEPS: DesignStep[] = ['brief', 'planning', 'instruments', 'rocket', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']
 
 const num = z.number().finite()
 
@@ -35,6 +36,7 @@ const DesignSchema = z.object({
   transfer: z.string(),
   groundStation: z.string(),
   contactHours: num.optional(),
+  rocket: z.record(z.string(), z.string()).optional(),
 })
 
 const PART_FIELDS: [keyof Design, PartCategory][] = [
@@ -65,7 +67,8 @@ export function validDesign(raw: unknown): Design | null {
   } catch {
     return null
   }
-  return d
+  // The rocket only changes how the game looks: a save with an unknown part gets the default instead of being dropped
+  return d.rocket ? { ...d, rocket: normalizeRocket(d.rocket).config } : d
 }
 
 const LogSchema = z.object({ turn: num, phase: z.string(), notes: z.array(z.string()), events: z.array(z.unknown()) }).loose()

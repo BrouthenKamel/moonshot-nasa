@@ -155,3 +155,22 @@ AI-generated assets: 83 of 149.
 | `voice.end-success` | voice | elevenlabs | Generated with ElevenLabs (use per ElevenLabs terms for the account plan) | yes |  |
 | `voice.end-partial` | voice | elevenlabs | Generated with ElevenLabs (use per ElevenLabs terms for the account plan) | yes |  |
 | `voice.end-failed` | voice | elevenlabs | Generated with ElevenLabs (use per ElevenLabs terms for the account plan) | yes |  |
+| `model.rocket-engine_single` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Single Bell Engine |
+| `model.rocket-engine_cluster3` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Triple Engine Cluster |
+| `model.rocket-engine_cluster9` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Nine Engine Cluster |
+| `model.rocket-engine_vacuum` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Large Vacuum Engine |
+| `model.rocket-stage1_short` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Short Core Stage |
+| `model.rocket-stage1_medium` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Medium Core Stage |
+| `model.rocket-stage1_long` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Long Core Stage (foam tank) |
+| `model.rocket-stage2_short` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Short Upper Stage |
+| `model.rocket-stage2_long` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Long Upper Stage |
+| `model.rocket-nose_ogive` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Ogive Nose Cone |
+| `model.rocket-nose_cone` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Conical Nose Cone |
+| `model.rocket-nose_fairing` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Wide Payload Fairing |
+| `model.rocket-nose_capsule` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Crew Capsule + Escape Tower |
+| `model.rocket-fins_small` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Small Fins (x4) |
+| `model.rocket-fins_large` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Large Swept Fins (x4) |
+| `model.rocket-fins_tri` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): Tri Fins (x3) |
+| `model.rocket-boosters_2` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): 2 Solid Boosters |
+| `model.rocket-boosters_4` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): 4 Small Boosters |
+| `model.rocket-boosters_2_heavy` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): 2 Heavy Boosters |

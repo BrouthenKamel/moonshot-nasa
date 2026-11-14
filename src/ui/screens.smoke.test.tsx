@@ -84,7 +84,7 @@ describe('screens render', () => {
     }
   })
 
-  const steps: DesignStep[] = ['brief', 'planning', 'instruments', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']
+  const steps: DesignStep[] = ['brief', 'planning', 'instruments', 'rocket', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']
   for (const step of steps) {
     it(`design step ${step}`, () => {
       useGameStore.setState({ screen: 'design', designStep: step })
