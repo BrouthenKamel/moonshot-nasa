@@ -1,8 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { Color, DoubleSide, MOUSE, TOUCH, Vector3, type Group, type InstancedMesh, Object3D } from 'three'
 import { MAP_SIZE, buildPlot, buildings, type BuildingId } from '../data/agency'
+import { buildingIcons } from './buildingIcons'
+import { BuildingList, MapBoundary } from './BuildingList'
+import { canUseWebGL } from './webgl'
 
 /* ------------------------------------------------------------------ */
 /* Layout helpers                                                      */
@@ -509,13 +512,6 @@ export interface BuildingLabel {
   alert?: boolean
 }
 
-const icons: Record<BuildingId, string> = {
-  'research-lab': '🔬',
-  factory: '🏭',
-  'launch-site': '🚀',
-  'comms-center': '📡',
-}
-
 function Label({
   id,
   name,
@@ -528,37 +524,41 @@ function Label({
   onClick?: () => void
 }) {
   const border = label.alert ? 'border-red-500' : label.highlight ? 'border-orange-400' : 'border-slate-700/80'
+  // A real button when it walks in, so it can be reached and pressed by keyboard
+  const Tag = onClick ? 'button' : 'div'
   return (
-    <div
+    <Tag
+      type={onClick ? 'button' : undefined}
       onClick={onClick}
-      role={onClick ? 'button' : undefined}
       title={onClick ? `Enter the ${name}` : undefined}
-      className={`relative w-max max-w-[280px] select-none rounded-xl border-2 bg-white/95 px-3 py-1.5 shadow-lg ${border} ${
-        onClick ? 'pointer-events-auto cursor-pointer transition hover:scale-105' : ''
+      className={`relative block w-max max-w-[280px] select-none rounded-xl border-2 bg-white/95 px-3 py-1.5 text-left shadow-lg ${border} ${
+        onClick
+          ? 'pointer-events-auto cursor-pointer transition hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-orange-400'
+          : ''
       }`}
     >
       {label.highlight && !label.alert && (
         <span className="pointer-events-none absolute -inset-1.5 animate-pulse rounded-2xl ring-4 ring-orange-400/60" />
       )}
-      <div className="flex items-center gap-2">
-        <span className="text-base leading-none">{icons[id]}</span>
+      <span className="flex items-center gap-2">
+        <span className="text-base leading-none">{buildingIcons[id]}</span>
         <span className="whitespace-nowrap font-display text-sm font-bold uppercase tracking-wide text-slate-800">
           {name}
         </span>
         <span className="rounded-md bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
           LV {label.level}
         </span>
-      </div>
-      <div className="mt-0.5 text-[11px] leading-tight text-slate-600">{label.status}</div>
+      </span>
+      <span className="mt-0.5 block text-[11px] leading-tight text-slate-600">{label.status}</span>
       {label.progress !== undefined && (
-        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-          <div
-            className="h-full rounded-full bg-orange-500"
+        <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+          <span
+            className="block h-full rounded-full bg-orange-500"
             style={{ width: `${Math.round(label.progress * 100)}%` }}
           />
-        </div>
+        </span>
       )}
-    </div>
+    </Tag>
   )
 }
 
@@ -621,9 +621,11 @@ export interface BaseMapProps {
   onBuildingClick?: (id: BuildingId) => void
 }
 
-export function BaseMap({ labels, onBuildingClick }: BaseMapProps) {
+function IslandMap({ labels, onBuildingClick }: BaseMapProps) {
   const plotCenter = footprintCenter(buildPlot.tile, buildPlot.size)
   const labelEls = useRef<(HTMLDivElement | null)[]>([])
+  // Until the canvas has drawn, show a placeholder instead of a blank green field
+  const [ready, setReady] = useState(false)
 
   // One anchor per building (above its roof), then one for the build plot
   const anchors = useMemo(() => {
@@ -638,7 +640,14 @@ export function BaseMap({ labels, onBuildingClick }: BaseMapProps) {
 
   return (
     <div className="relative h-full w-full overflow-hidden">
-      <Canvas orthographic shadows camera={{ position: [20, 20, 20], zoom: 30, near: -100, far: 200 }}>
+      <Canvas
+        orthographic
+        shadows
+        camera={{ position: [20, 20, 20], zoom: 30, near: -100, far: 200 }}
+        role="img"
+        aria-label="Map of the agency base. Each building's label is a button."
+        onCreated={() => setReady(true)}
+      >
         <color attach="background" args={['#6fa83f']} />
         <FitCamera />
         <hemisphereLight args={['#ffffff', '#5b7f3a', 0.9]} />
@@ -729,6 +738,29 @@ export function BaseMap({ labels, onBuildingClick }: BaseMapProps) {
           </div>
         </div>
       </div>
+
+      {!ready && (
+        <div
+          role="status"
+          className="absolute inset-0 flex items-center justify-center bg-[#6fa83f] font-display text-lg font-bold text-white"
+        >
+          Loading map…
+        </div>
+      )}
     </div>
+  )
+}
+
+/**
+ * The base map: the 3D island, or a plain list of the buildings when this browser has no
+ * WebGL or the island fails to draw, so the base never turns into a white page (QC #32).
+ */
+export function BaseMap(props: BaseMapProps) {
+  const list = <BuildingList {...props} />
+  if (!canUseWebGL()) return list
+  return (
+    <MapBoundary fallback={list}>
+      <IslandMap {...props} />
+    </MapBoundary>
   )
 }

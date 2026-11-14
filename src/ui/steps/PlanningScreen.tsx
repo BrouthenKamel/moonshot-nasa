@@ -112,8 +112,23 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
           onChange={(e) => set({ reservePercent: Number(e.target.value) })}
           onFocus={() => onFocus('reserve')}
           onBlur={() => onFocus(null)}
+          list="planning-reserve-ticks"
           className="w-full"
         />
+        <datalist id="planning-reserve-ticks">
+          {[0, 5, 10, 15, 20].map((v) => (
+            <option key={v} value={v} />
+          ))}
+        </datalist>
+        {/* The CubeSat 101 advice, marked under its place on the slider (QC #57) */}
+        <div className="relative h-4 text-[11px] font-semibold text-amber-400" aria-hidden="true">
+          <span
+            className="absolute -translate-x-1/2 whitespace-nowrap"
+            style={{ left: `${(turnConstants.recommendedReservePercent / 20) * 100}%` }}
+          >
+            ▲ {turnConstants.recommendedReservePercent}% recommended (CubeSat 101)
+          </span>
+        </div>
         <div className="mt-2 text-xs text-slate-500">
           Recommended: {turnConstants.recommendedReservePercent}%. Reserve ${budgets.reserveAmount.toFixed(1)}M, spendable $
           {budgets.spendable.toFixed(1)}M, plan costs ${budgets.totalCost.toFixed(1)}M of the ${budgets.budgetCap}M cap.

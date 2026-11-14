@@ -52,6 +52,8 @@ export interface OrbitOption {
   iceInRange: boolean
   stripTone: StripTone
   verdict: { tone: Tone; text: string }
+  /** The check the verdict comes from, so its heading does not read as a verdict on the ice number (QC #49) */
+  verdictCheck: string | null
   checks: OrbitCheck[]
 }
 
@@ -81,6 +83,12 @@ function passesLine(passes: number): string {
   return 'One pass every two hours.'
 }
 
+interface Verdict {
+  tone: Tone
+  text: string
+  check?: string
+}
+
 interface VerdictInput {
   status: Record<string, BarStatus | undefined>
   captureDeltaV: number | null
@@ -95,30 +103,34 @@ interface VerdictInput {
 }
 
 /** The design doc's verdict table, first match wins. Red rows follow goNoGo's own order of tests. */
-function verdictOf(v: VerdictInput): { tone: Tone; text: string } {
+function verdictOf(v: VerdictInput): Verdict {
   const s = v.status
   if (s['Delta-v'] === 'red') {
-    if (v.captureDeltaV === null) return { tone: 'bad', text: 'CANNOT REACH THIS ORBIT' }
-    if (v.thrustLevel === 0) return { tone: 'bad', text: 'NO POWER TO FLY THERE' }
-    if (v.deltaVAvailable < v.captureDeltaV) return { tone: 'bad', text: 'NOT ENOUGH FUEL TO GET IN' }
-    return { tone: 'bad', text: 'CANNOT HOLD THE ORBIT' }
+    if (v.captureDeltaV === null) return { tone: 'bad', text: 'CANNOT REACH THIS ORBIT', check: 'Delta-v' }
+    if (v.thrustLevel === 0) return { tone: 'bad', text: 'NO POWER TO FLY THERE', check: 'Delta-v' }
+    if (v.deltaVAvailable < v.captureDeltaV) return { tone: 'bad', text: 'NOT ENOUGH FUEL TO GET IN', check: 'Delta-v' }
+    return { tone: 'bad', text: 'CANNOT HOLD THE ORBIT', check: 'Delta-v' }
   }
   if (s['Power'] === 'red') {
-    if (v.scienceDuty <= 0) return { tone: 'bad', text: 'NO POWER FOR THE INSTRUMENTS' }
-    return { tone: 'bad', text: 'BATTERY TOO SMALL FOR THE SHADOW' }
+    if (v.scienceDuty <= 0) return { tone: 'bad', text: 'NO POWER FOR THE INSTRUMENTS', check: 'Power' }
+    return { tone: 'bad', text: 'BATTERY TOO SMALL FOR THE SHADOW', check: 'Power' }
   }
   // The reserve line is a hard limit (Jakob, 14 Nov): spending into it is as red as going over the cap
   if (s['Budget'] === 'red')
-    return { tone: 'bad', text: v.totalCost <= v.budgetCap ? 'INTO THE RESERVE WITH THIS ORBIT' : 'OVER BUDGET WITH THIS ORBIT' }
-  if (s['Data Link'] === 'red') return { tone: 'bad', text: 'NOTHING CAN BE SENT HOME' }
-  if (!v.hasIce) return { tone: 'warn', text: 'NO ICE INSTRUMENT ON BOARD' }
-  if (!v.iceInRange) return { tone: 'warn', text: 'TOO HIGH FOR THE ICE INSTRUMENTS' }
-  if (v.projectedCoverage < COVERAGE_GOAL) return { tone: 'warn', text: 'MAPS TOO SLOWLY' }
-  if (s['Science'] === 'yellow') return { tone: 'warn', text: 'TOO LITTLE DATA SENT HOME' }
-  if (s['Delta-v'] === 'yellow') return { tone: 'warn', text: 'LITTLE FUEL TO SPARE' }
-  if (s['Power'] === 'yellow') return { tone: 'warn', text: 'POWER LIMITS THE SCIENCE' }
-  if (s['Data Link'] && s['Data Link'] !== 'green') return { tone: 'warn', text: 'DATA LINK NEARLY FULL' }
+    return { tone: 'bad', text: v.totalCost <= v.budgetCap ? 'INTO THE RESERVE WITH THIS ORBIT' : 'OVER BUDGET WITH THIS ORBIT', check: 'Budget' }
+  if (s['Data Link'] === 'red') return { tone: 'bad', text: 'NOTHING CAN BE SENT HOME', check: 'Data Link' }
+  if (!v.hasIce) return { tone: 'warn', text: 'NO ICE INSTRUMENT ON BOARD', check: 'Science' }
+  if (!v.iceInRange) return { tone: 'warn', text: 'TOO HIGH FOR THE ICE INSTRUMENTS', check: 'Science' }
+  if (v.projectedCoverage < COVERAGE_GOAL) return { tone: 'warn', text: 'MAPS TOO SLOWLY', check: 'Science' }
+  if (s['Science'] === 'yellow') return { tone: 'warn', text: 'TOO LITTLE DATA SENT HOME', check: 'Science' }
+  if (s['Delta-v'] === 'yellow') return { tone: 'warn', text: 'LITTLE FUEL TO SPARE', check: 'Delta-v' }
+  if (s['Power'] === 'yellow') return { tone: 'warn', text: 'POWER LIMITS THE SCIENCE', check: 'Power' }
+  if (s['Data Link'] && s['Data Link'] !== 'green') return { tone: 'warn', text: 'DATA LINK NEARLY FULL', check: 'Data Link' }
   return { tone: 'good', text: 'GOOD MAPPING ORBIT' }
+}
+
+function splitVerdict({ check, ...verdict }: Verdict) {
+  return { verdict, verdictCheck: check ?? null }
 }
 
 function pickChecks(all: CheckResult[]): OrbitCheck[] {
@@ -182,7 +194,7 @@ export function buildOrbitView(design: Design, difficulty: Difficulty): OrbitVie
       iceInstruments,
       iceInRange,
       stripTone: iceInstruments.length === 0 ? 'none' : iceInRange ? 'ice' : 'blind',
-      verdict: verdictOf({
+      ...splitVerdict(verdictOf({
         status,
         captureDeltaV: b.captureDeltaV,
         thrustLevel: b.thrustLevel,
@@ -193,7 +205,7 @@ export function buildOrbitView(design: Design, difficulty: Difficulty): OrbitVie
         projectedCoverage: b.projectedCoverage,
         totalCost: b.totalCost,
         budgetCap: b.budgetCap,
-      }),
+      })),
       checks: pickChecks(all),
     }
   })

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../state/gameStore'
 import type { BarStatus } from '../sim/types'
+import { checkFigures, marginLine } from '../viz/checkMargin'
+import { glossaryKeyForLabel } from '../data/glossary'
+import { Tooltip } from './Tooltip'
 import { fixLocation } from '../viz/missionMap'
 
 interface ResourceBarProps {
@@ -11,9 +14,14 @@ interface ResourceBarProps {
   status: BarStatus
   showMargin?: boolean
   previous?: number
+  /** The check's reason: a red bar shows it instead of a margin */
+  reason?: string
+  /** The margin line when it is not plain limit minus value (the budget) */
+  marginText?: string
+  note?: string
 }
 
-function ResourceBar({ label, value, limit, unit, status, showMargin = true, previous }: ResourceBarProps) {
+function ResourceBar({ label, value, limit, unit, status, showMargin = true, previous, reason = '', marginText, note }: ResourceBarProps) {
   const [settledValue, setSettledValue] = useState<number | null>(null)
   const changed = previous !== undefined && Math.abs(value - previous) > 1e-9
   const flash = changed && settledValue !== value
@@ -45,7 +53,9 @@ function ResourceBar({ label, value, limit, unit, status, showMargin = true, pre
       }`}
     >
       <div className="flex justify-between text-xs">
-        <span className="text-slate-400">{label}</span>
+        <span className="text-slate-400">
+          <Tooltip term={glossaryKeyForLabel(label) ?? ''}>{label}</Tooltip>
+        </span>
         <span className={textColor}>
           {value.toFixed(1)} / {limit.toFixed(1)} {unit}
         </span>
@@ -57,10 +67,11 @@ function ResourceBar({ label, value, limit, unit, status, showMargin = true, pre
         />
       </div>
       {showMargin && (
-        <div className={`text-xs ${margin >= 0 ? 'text-slate-500' : 'text-red-400'}`}>
-          {margin >= 0 ? `+${margin.toFixed(1)}` : margin.toFixed(1)} {unit} margin
+        <div className={`text-xs ${status !== 'red' ? 'text-slate-500' : 'text-red-400'}`}>
+          {marginText ?? marginLine(status, margin, unit, reason)}
         </div>
       )}
+      {note && <div className="text-xs text-slate-500">{note}</div>}
     </div>
   )
 }
@@ -78,6 +89,9 @@ export function Dashboard() {
     const check = goNoGo.checks.find((c: { resource: string }) => c.resource === resource)
     return check?.status ?? 'green'
   }
+  const getReason = (resource: string) => goNoGo.checks.find((c) => c.resource === resource)?.reason ?? ''
+  const budgetCheck = goNoGo.checks.find((c) => c.resource === 'Budget')
+  const budgetFig = budgetCheck ? checkFigures(budgetCheck, budgets) : undefined
 
   return (
     <aside className="w-64 border-l border-slate-800 bg-slate-900 p-4">
@@ -90,6 +104,7 @@ export function Dashboard() {
           limit={budgets.massLimit}
           unit="kg"
           status={getStatus('Mass')}
+          reason={getReason('Mass')}
           previous={previous?.totalMass}
         />
 
@@ -99,6 +114,7 @@ export function Dashboard() {
           limit={budgets.volumeLimit}
           unit="U"
           status={getStatus('Volume')}
+          reason={getReason('Volume')}
           previous={previous?.totalVolume}
         />
 
@@ -108,16 +124,19 @@ export function Dashboard() {
           limit={budgets.powerGenerated}
           unit="W"
           status={getStatus('Power')}
+          reason={getReason('Power')}
           previous={previous?.powerConsumed}
         />
 
         <ResourceBar
-          label="Budget"
+          label="Budget (spendable)"
           value={budgets.totalCost}
-          limit={budgets.budgetCap}
+          limit={budgets.spendable}
           unit="$M"
           status={getStatus('Budget')}
           previous={previous?.totalCost}
+          marginText={budgetFig?.margin}
+          note={budgetFig?.note}
         />
 
         <ResourceBar
@@ -126,6 +145,7 @@ export function Dashboard() {
           limit={budgets.deltaVAvailable}
           unit="m/s"
           status={getStatus('Delta-v')}
+          reason={getReason('Delta-v')}
           previous={previous?.deltaVTotal}
         />
 
@@ -135,6 +155,7 @@ export function Dashboard() {
           limit={budgets.downlinkPerTurn}
           unit="MB/turn"
           status={getStatus('Data Link')}
+          reason={getReason('Data Link')}
           previous={previous?.dataPerTurn}
         />
       </div>

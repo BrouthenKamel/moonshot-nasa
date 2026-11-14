@@ -96,6 +96,13 @@ describe('screens render', () => {
     expect(text()).not.toContain('has not unlocked')
   })
 
+  it('a red Go/No-Go row offers a button that walks to the building that fixes it', () => {
+    const heavy = { ...flashlightDesign, solar: 'solar-body' }
+    useGameStore.setState({ screen: 'design', designStep: 'go-nogo', design: heavy })
+    const html = renderToString(<App />).replace(/<!-- -->/g, '')
+    expect(html).toMatch(/<button[^>]*>Fix at the [A-Z][^<]*<\/button>/)
+  })
+
   it('the ride and comms screens show real numbers', () => {
     useGameStore.setState({ screen: 'design', designStep: 'ride', design: flashlightDesign })
     expect(renderToString(<App />)).toContain('m/s')

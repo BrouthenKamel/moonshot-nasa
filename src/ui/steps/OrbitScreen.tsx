@@ -224,6 +224,9 @@ function PlainOrbit() {
 
         <div className="rounded-lg bg-slate-900 p-4" aria-live="polite">
           <div className={`mb-2 text-sm font-bold tracking-wider ${TONE_TEXT[view.selected.verdict.tone]}`}>
+            {view.selected.verdictCheck && (
+              <span className="font-semibold text-slate-400">Worst check, {view.selected.verdictCheck}: </span>
+            )}
             {view.selected.verdict.text}
           </div>
           <CheckRows checks={view.selected.checks} />
@@ -279,7 +282,13 @@ function ReadoutPanel({ o, months }: { o: OrbitOption; months: number }) {
   const fits = cap !== null && o.deltaVAvailable >= cap
   return (
     <div className={`${PANEL} pointer-events-auto absolute top-16 right-3 bottom-[150px] w-[290px] overflow-y-auto p-3.5`}>
+      {o.verdictCheck && (
+        <div aria-hidden="true" className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          Worst check: {o.verdictCheck}
+        </div>
+      )}
       <div aria-live="polite" className={`rounded-lg border px-2.5 py-1.5 text-center text-[13px] font-bold tracking-wider ${TONE_CHIP[o.verdict.tone]}`}>
+        {o.verdictCheck && <span className="sr-only">Worst check, {o.verdictCheck}: </span>}
         {o.verdict.text}
       </div>
 

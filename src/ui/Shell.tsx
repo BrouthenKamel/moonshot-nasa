@@ -20,7 +20,7 @@ export function Shell({ children }: ShellProps) {
   const fullBleed = showDesignUI && FULL_BLEED_STEPS.includes(designStep)
 
   return (
-    <div className="flex h-screen flex-col bg-slate-950 text-slate-100">
+    <div className="dark-steps flex h-screen flex-col bg-slate-950 text-slate-100">
       <Header />
       <div className="flex flex-1 overflow-hidden">
         {showDesignUI && <StepRail />}

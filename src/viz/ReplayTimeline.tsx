@@ -20,6 +20,9 @@ const PHASE_COLOURS: Record<TurnLog['phase'], string> = {
   failed: 'bg-red-800',
 }
 
+/** Each turn button's name, for the tooltip and for screen readers (QC #40) */
+const turnTitle = (log: TurnLog) => `Turn ${log.turn}: ${log.phase}${log.events.length ? `, ${log.events.length} event(s)` : ''}`
+
 interface Segment {
   phase: TurnLog['phase']
   start: number
@@ -79,7 +82,9 @@ export function ReplayTimeline({ logs, turnIndex, onSelect, playing, onTogglePla
                   <button
                     key={i}
                     onClick={() => onSelect(i)}
-                    title={`Turn ${log.turn}: ${log.phase}${log.events.length ? `, ${log.events.length} event(s)` : ''}`}
+                    title={turnTitle(log)}
+                    aria-label={turnTitle(log)}
+                    aria-pressed={selected}
                     className={`relative h-6 min-w-3 flex-1 rounded-sm ${PHASE_COLOURS[log.phase]} ${
                       selected ? 'ring-2 ring-white' : i < current ? 'opacity-90' : 'opacity-50'
                     }`}

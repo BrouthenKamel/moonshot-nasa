@@ -280,3 +280,18 @@ describe('gameStore event card odds', () => {
     expect(options.find((o) => o.id === 'cut-test')!.label).not.toMatch(/x\d/)
   })
 })
+
+// QC D3: team mode is gone; a save from before drops its keys
+describe('gameStore without team mode', () => {
+  it('saves no team-mode keys and drops them from an older save', async () => {
+    const opts = useGameStore.persist.getOptions()
+    const saved = opts.partialize!(useGameStore.getState()) as Record<string, unknown>
+    for (const key of ['mode', 'players', 'signOffs']) expect(key in saved).toBe(false)
+    expect(opts.version).toBe(1)
+    const old = { mode: 'team', players: [{ name: 'A', role: 'ground' }], signOffs: [], designStep: 'orbit' }
+    const migrated = (await opts.migrate!(old, 0)) as Record<string, unknown>
+    expect(migrated).toEqual({ designStep: 'orbit' })
+    const state = useGameStore.getState() as unknown as Record<string, unknown>
+    for (const key of ['mode', 'players', 'signOffs', 'setMode', 'setPlayers', 'toggleSignOff']) expect(key in state).toBe(false)
+  })
+})

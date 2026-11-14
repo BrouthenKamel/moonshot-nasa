@@ -589,7 +589,3 @@ export const allParts: Part[] = [
 export function getPartById(id: string): Part | undefined {
   return allParts.find((p) => p.id === id)
 }
-
-export function getPartsByCategory<T extends Part>(category: PartCategory): T[] {
-  return allParts.filter((p) => p.category === category) as T[]
-}

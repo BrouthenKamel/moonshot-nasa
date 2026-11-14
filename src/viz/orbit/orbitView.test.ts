@@ -65,6 +65,9 @@ describe('buildOrbitView', () => {
     expect(bo.totalCost).toBeGreaterThan(bo.budgetCap)
     expect(over.verdict).toEqual({ tone: 'bad', text: 'OVER BUDGET WITH THIS ORBIT' })
     for (const o of v.options) expect(o.verdict.text).not.toBe('EATS INTO THE RESERVE')
+    // The heading names the check it comes from, not the ice number under it (QC #49)
+    expect(opt(v, 'orbit-elliptical').verdictCheck).toBe('Budget')
+    expect(opt(buildOrbitView(lunahMapDesign, 'engineer'), 'orbit-elliptical').verdictCheck).toBeNull()
   })
 
   it('blocks orbits the tank cannot reach', () => {

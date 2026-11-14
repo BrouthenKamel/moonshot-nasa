@@ -49,9 +49,3 @@ export function isTransferCompatible(
 export function getTransferById(id: string): Transfer | undefined {
   return transfers.find((t) => t.id === id)
 }
-
-export function getCompatibleTransfers(
-  propulsionType: 'electric' | 'chemical' | 'cold-gas'
-): Transfer[] {
-  return transfers.filter((t) => isTransferCompatible(t, propulsionType))
-}

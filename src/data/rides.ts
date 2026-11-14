@@ -79,9 +79,3 @@ export const missedRideWaitTurns = 6
 export function getRideById(id: string): Ride | undefined {
   return rides.find((r) => r.id === id)
 }
-
-export function getNextRide(currentTurn: number): Ride | undefined {
-  return rides
-    .filter((r) => r.departureTurn > currentTurn)
-    .sort((a, b) => a.departureTurn - b.departureTurn)[0]
-}

@@ -5,4 +5,18 @@
 }
 
 html, body, #root { height: 100%; }
+
+/*
+ * Projector contrast (Jakob, 14 Nov): on the dark step screens the grey captions that
+ * carry rules ("Works at any altitude", "Target: 300") must reach WCAG AA 4.5:1.
+ * One shared place: slate-400/500/600 text reads as slate-300 inside the step shell.
+ * :where() keeps it at utility strength, so hover and other variants still win.
+ */
+@layer utilities {
+  :where(.dark-steps) .text-slate-400,
+  :where(.dark-steps) .text-slate-500,
+  :where(.dark-steps) .text-slate-600 {
+    color: var(--color-slate-300, #cbd5e1);
+  }
+}
 body { margin: 0; font-family: Inter, system-ui, sans-serif; }

@@ -1,4 +1,5 @@
 import { knobAngle, KNOB_VALUES, FADER_VALUES, faderX } from './controlMath'
+import { turnConstants } from '../../data/brief'
 import { METER_MAX, type PlanningView } from './planningView'
 
 /**
@@ -108,12 +109,18 @@ export function paintConsole(ctx: CanvasRenderingContext2D, view: PlanningView):
   title('BUDGET RESERVE', fx, '#fcd34d')
   for (const v of FADER_VALUES) {
     const x = faderX(v, fader.x0, fader.x1)
+    const recommended = v === turnConstants.recommendedReservePercent
     ctx.font = `700 28px ${FONT}`
     ctx.fillStyle = v === view.reservePercent ? '#fef3c7' : '#64748b'
     ctx.fillText(String(v), px(x), pz(fader.z - 0.2))
-    ctx.fillStyle = '#334155'
-    ctx.fillRect(px(x) - 2, pz(fader.z - 0.13), 4, 18)
+    ctx.fillStyle = recommended ? '#fbbf24' : '#334155'
+    ctx.fillRect(px(x) - (recommended ? 4 : 2), pz(fader.z - 0.13), recommended ? 8 : 4, 18)
   }
+  // The recommended reserve, under the fader (CubeSat 101 advice, QC #57)
+  const rx = faderX(turnConstants.recommendedReservePercent, fader.x0, fader.x1)
+  ctx.font = `700 22px ${FONT}`
+  ctx.fillStyle = '#fbbf24'
+  ctx.fillText(`${turnConstants.recommendedReservePercent}% RECOMMENDED (CUBESAT 101)`, px(rx), pz(fader.z + 0.2))
   readout(view.readouts.reserve, fx, '#fcd34d', view.readouts.reserveOdds)
   ctx.restore()
 }
