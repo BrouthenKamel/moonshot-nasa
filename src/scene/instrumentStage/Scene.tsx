@@ -4,6 +4,7 @@ import { OrbitControls, Stars } from '@react-three/drei'
 import * as THREE from 'three'
 import { TILE_LENGTH, TILE_WIDTH, bakeGround } from './ground'
 import { Beam } from './beams'
+import { InstrumentModel } from './InstrumentModel'
 import { FAR_PLANE_NEAR_EDGE, SAT_SCALE, TILE_COPIES, advancePass, holdOverCrater, groundAt, lookY, makeGlowTexture, slotX, targetZ, type Pass } from './frame'
 import type { InstrumentView } from './stageModel'
 
@@ -134,15 +135,8 @@ function Satellite({ h, views }: { h: number; views: InstrumentView[] }) {
         <meshStandardMaterial color="#64748b" />
       </mesh>
       {views.map((v, i) => (
-        <group key={v.id} position={[slotX(i, views.length), -0.42, -0.2]}>
-          <mesh>
-            <boxGeometry args={[0.34, 0.34, 0.7]} />
-            <meshStandardMaterial color={v.color} emissive={v.color} emissiveIntensity={0.9} roughness={0.5} />
-          </mesh>
-          <mesh position={[0, -0.2, -0.1]}>
-            <cylinderGeometry args={[0.1, 0.13, 0.08, 16]} />
-            <meshBasicMaterial color="#ffffff" />
-          </mesh>
+        <group key={v.id} position={[slotX(i, views.length), 0, -0.2]}>
+          <InstrumentModel id={v.id} color={v.color} />
         </group>
       ))}
     </group>

@@ -38,9 +38,6 @@ export type Cue =
   | { kind: 'sfx'; id: AudioId }
   | { kind: 'voice'; id: AudioId }
 
-/** Design fields chosen at the Factory: changing one snaps a part onto the craft */
-const SPACECRAFT_FIELDS = ['solar', 'battery', 'computer', 'attitude', 'propulsion']
-
 /** Voice for each event, when it happens or its card appears */
 export const EVENT_VOICE: Partial<Record<EventType, AudioId>> = {
   'build-delay': 'voice.build-delay',
@@ -71,11 +68,9 @@ export function cuesFor(prev: Snapshot, next: Snapshot): Cue[] {
   // Moving around
   if (next.screen !== prev.screen || (next.screen === 'design' && next.designStep !== prev.designStep)) sfx('sfx.whoosh')
 
-  // Design: a part snaps on, other choices click; Go / No-Go turning green or red
+  // Design: Go / No-Go turning green or red when any design field changes
   if (next.screen === 'design' && prev.screen === 'design') {
     const changed = Object.keys(next.design).filter((k) => next.design[k] !== prev.design[k])
-    if (changed.some((k) => SPACECRAFT_FIELDS.includes(k))) sfx('sfx.snap')
-    else if (changed.length > 0) sfx('sfx.select')
     if (next.canGo !== prev.canGo && changed.length > 0) sfx(next.canGo ? 'sfx.go' : 'sfx.error')
   }
 

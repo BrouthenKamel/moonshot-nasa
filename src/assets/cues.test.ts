@@ -28,10 +28,10 @@ describe('audio cues', () => {
     expect(musicFor({ ...base, screen: 'report', outcome: 'success' })).toBe('music.success')
   })
 
-  it('a Factory part snaps, other choices click, Go / No-Go turning green chimes', () => {
+  it('Go / No-Go turning green chimes; turning red errors; plain design changes are silent', () => {
     const d = { ...base, screen: 'design' }
-    expect(ids(d, { ...d, design: { ...d.design, solar: 'b' } })).toContain('sfx.snap')
-    expect(ids(d, { ...d, design: { ...d.design, radio: 'y' } })).toEqual(['sfx.select'])
+    expect(ids(d, { ...d, design: { ...d.design, solar: 'b' } })).toEqual([]) // card plays its own sound
+    expect(ids(d, { ...d, design: { ...d.design, radio: 'y' } })).toEqual([]) // card plays its own sound
     expect(ids(d, { ...d, canGo: true, design: { ...d.design, radio: 'y' } })).toContain('sfx.go')
     expect(ids(d, { ...d, canGo: true })).toEqual([]) // no design change, no chime
   })
