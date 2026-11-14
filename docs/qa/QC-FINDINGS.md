@@ -87,3 +87,29 @@ QC tested group D1 in its own worktree: removing it keeps typecheck, 224/224 tes
 | 55 | Info | Keep: the Planning room's knob and slider are labelled range inputs, with instant feedback | — | info | — |
 | 56 | Low | The long Go/No-Go advice line is cut off at the right edge of the Planning board (1280 px) | A | waits-jakob | Integration (planning room) |
 | 57 | Low | No "recommended" marker on the reserve slider; mark 10% (CubeSat 101 advice) | A | waits-jakob | Integration (planning room) |
+
+**Jakob, 18:38:**
+- A list: yes.
+- Deletions D1-D4: yes. D5 (repo weight) is not part of it.
+- Tooltips (#54): wire them in.
+
+All of these are being built on branch fix/qc-round-3 (round-3 builder), except the A items that depend on round 2 (#13 badge, #19, #26, #38), which come after round 2 merges.
+
+## Batch 15: balance (headless simulation runs)
+
+| # | Sev | Finding | Group | Status | Owner |
+|---|-----|---------|-------|--------|-------|
+| 58 | High | About 2 winning recipes: 6000 perturbations collapse into 8 winning combos (laser+halo+chemical+1-wing, or neutron/laser+elliptical+ion+2-wing) | F1 | waits-jakob | — |
+| 59 | Med | ~10 of ~35 options never win (UHF, cold gas, 100 km orbit, GTO, direct transfer, large chemical, X-band, body solar, 20% reserve, any two instruments). Traps with a lesson, or trim? | F1 | waits-jakob | — |
+| 60 | Med | Flight Director is unwinnable with the reference designs (moot once difficulty is removed) | — | info | — |
+| 61 | Med | The Planning dials do little: test turns 0→2 moves success 82%→88%, and a reserve above 4% changes nothing | F2 | waits-jakob | — |
+| 62 | Low | Best win rate is 88%, but the player is never told the odds; add "chance of success ~85%" in Go/No-Go | F2 | waits-jakob | — |
+
+## Batch 16: decisions in flight
+
+| # | Sev | Finding | Group | Status | Owner |
+|---|-----|---------|-------|--------|-------|
+| 63 | High | The 12 science turns have no player decision, although the sim supports them (TurnAction mode full/reduced/safe, buyExtraPass, useReserve; nothing in the UI sets them). Add a "this month" panel, or delete that code | F3 | waits-jakob | — |
+| 64 | Med | Only 3 of 8 events offer a choice; the 5 orbit events are notifications only | F3 | waits-jakob | — |
+| 65 | Low | The thruster card doesn't show what "accept" means for the player's own engine | A2 | waits-jakob | — |
+| 66 | Low | The build-delay card's "x1.4 → x2" reads as hand-waving; show the success percentage | F2 | waits-jakob | — |
