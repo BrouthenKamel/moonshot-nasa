@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { useWorldStore, type Speed } from '../../state/worldStore'
-import { missionFunding } from '../../game/economy'
+import { fundingPerDay, grantShare, missionFunding, popularityEffects } from '../../game/economy'
+import { lunarPapers } from '../../game/research'
+import { useUiStore } from '../../state/uiStore'
 import { campaign, phaseProgress, type CampaignPhase } from '../../game/campaign'
 import { backgroundNews } from '../../game/news'
 import type { FeedItem } from '../../game/world'
@@ -125,23 +127,88 @@ function Flash({ value, children }: { value: number; children: ReactNode }) {
 export function AgencyWallet() {
   const funds = useWorldStore((s) => s.funds)
   const popularity = useWorldStore((s) => s.popularity)
-  const chip = 'flex items-center gap-1.5 rounded-full border border-white/20 bg-white/5 px-3 py-1'
+  const detail = useUiStore((s) => s.agencyWalletDetail)
+  const setDetail = useUiStore((s) => s.setAgencyWalletDetail)
+  const toggle = (key: 'funds' | 'popularity') => setDetail(detail === key ? null : key)
+  const chip = (active: boolean) =>
+    `flex items-center gap-1.5 rounded-full border px-3 py-1 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-400 ${
+      active ? 'border-orange-400 bg-orange-500/20' : 'border-white/20 bg-white/5 hover:border-white/40 hover:bg-white/10'
+    }`
   return (
-    <div className="flex items-center gap-2" aria-label="Agency">
-      <div className={chip} title="Agency money. Government funding comes in all the time, more with higher popularity. Papers earn more.">
+    <div className="relative flex items-center gap-2" aria-label="Agency">
+      <button
+        type="button"
+        onClick={() => toggle('funds')}
+        aria-pressed={detail === 'funds'}
+        className={chip(detail === 'funds')}
+        title="Agency money. Click for where it comes from."
+      >
         <Icon name="coins" className="h-4 w-4 text-amber-300" />
         <span className="text-[10px] font-semibold tracking-wider text-slate-300">FUNDS</span>
         <span className="font-display text-lg font-bold tabular-nums">
           <Flash value={funds}>{money(funds)}</Flash>
         </span>
-      </div>
-      <div className={chip} title="Public support. Successes and papers raise it; failures lower it. It sets your funding and the government's share of each mission.">
+      </button>
+      <button
+        type="button"
+        onClick={() => toggle('popularity')}
+        aria-pressed={detail === 'popularity'}
+        className={chip(detail === 'popularity')}
+        title="Public support. Click for what it changes."
+      >
         <Icon name="heart" className="h-4 w-4 text-pink-300" />
         <span className="text-[10px] font-semibold tracking-wider text-slate-300">POPULARITY</span>
         <span className="font-display text-lg font-bold tabular-nums">
           <Flash value={Math.round(popularity)}>{Math.round(popularity)}%</Flash>
         </span>
+      </button>
+      {detail && <WalletBreakdown detail={detail} onClose={() => setDetail(null)} />}
+    </div>
+  )
+}
+
+/** Where the money comes from, or what popularity changes (opened from the top bar) */
+function WalletBreakdown({ detail, onClose }: { detail: 'funds' | 'popularity'; onClose: () => void }) {
+  const popularity = useWorldStore((s) => s.popularity)
+  const research = useWorldStore((s) => s.research)
+  const difficulty = useGameStore((s) => s.difficulty)
+  const budget = difficultyPresets[difficulty].budgetCap
+  const next = missionFunding(budget, popularity)
+  const papersLeft = lunarPapers
+    .filter((spec) => !research.papers.some((p) => p.id === spec.id && p.publishedDay !== null))
+    .reduce((sum, spec) => sum + spec.money, 0)
+  const rows: [string, string][] =
+    detail === 'funds'
+      ? [
+          ['Government funding', `+${money(fundingPerDay(popularity) * 30)} a month`],
+          ['Papers still to publish', `+${money(papersLeft)}`],
+          ['Your share of the next launch', `−${money(next.agencyPays)}`],
+          ['Unspent mission budget', 'comes back at the end'],
+        ]
+      : [
+          ['Government pays per mission', `${Math.round(grantShare(popularity) * 100)}% of the budget`],
+          ['Funding multiplier', `${(0.5 + popularity / 100).toFixed(2)}×`],
+          ['Launch / full success', `+${popularityEffects.launch}% / +${popularityEffects.missionSuccess}%`],
+          ['Mission lost', `${popularityEffects.missionFailed}%`],
+        ]
+  return (
+    <div className="absolute right-0 top-full z-40 mt-2 w-72 rounded-2xl border border-white/10 bg-[#0b1226]/90 p-3 text-white shadow-2xl backdrop-blur-md">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          {detail === 'funds' ? 'Where money comes from' : 'What popularity changes'}
+        </span>
+        <button type="button" aria-label="Close" onClick={onClose} className="rounded p-0.5 text-slate-400 hover:bg-white/10 hover:text-white">
+          <Icon name="close" className="h-3.5 w-3.5" />
+        </button>
       </div>
+      <ul className="space-y-1 text-xs">
+        {rows.map(([k, v]) => (
+          <li key={k} className="flex justify-between gap-3">
+            <span className="text-slate-300">{k}</span>
+            <span className="text-right font-semibold tabular-nums">{v}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

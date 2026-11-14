@@ -4,7 +4,9 @@ import { BaseMap } from '../../scene/BaseMap'
 import type { BuildingId } from '../../data/agency'
 import { computeBudgets } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
+import { isSimComplete } from '../../sim/simulate'
 import {
+  BUILDING_STEPS,
   flightFeed,
   missionClockLabel,
   missionLabels,
@@ -185,6 +187,7 @@ export function BaseScreen() {
   const simState = useGameStore((s) => s.simState)
   const currentReport = useGameStore((s) => s.currentReport)
   const openBuilding = useGameStore((s) => s.openBuilding)
+  const reviseAt = useGameStore((s) => s.reviseAt)
   const showReport = useGameStore((s) => s.showReport)
 
   const budgets = computeBudgets(design, difficulty)
@@ -225,12 +228,14 @@ export function BaseScreen() {
   }
 
   // Walking into a building. While the craft flies, the design is fixed and the buildings only show its state.
+  // After the flight, a building opens its step to revise the design and fly again.
   // With no mission chosen yet, a building asks for one first.
-  const onBuildingClick = simState
+  const flying = !!simState && !isSimComplete(simState)
+  const onBuildingClick = flying
     ? undefined
-    : missionOpen
-      ? (id: BuildingId) => openBuilding(id)
-      : () => setDialog('new-mission')
+    : !missionOpen
+      ? () => setDialog('new-mission')
+      : (id: BuildingId) => (simState ? reviseAt(BUILDING_STEPS[id][0]) : openBuilding(id))
 
   return (
     <div className="flex min-h-screen flex-col bg-[#14213d] lg:h-screen lg:min-h-0">
@@ -247,7 +252,7 @@ export function BaseScreen() {
             <BaseMap labels={labels} onBuildingClick={onBuildingClick} hq={hq} />
           )}
           <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-black/30 px-2 py-1 text-[11px] text-white lg:left-1/2 lg:-translate-x-1/2">
-            {simState ? 'Drag to move · scroll to zoom' : 'Click a building to walk in · drag to move · scroll to zoom'}
+            {onBuildingClick ? 'Click a building to walk in · drag to move · scroll to zoom' : 'Drag to move · scroll to zoom'}
           </div>
         </div>
         {/* The space view has the whole map: no side panels, only its own Back to agency */}

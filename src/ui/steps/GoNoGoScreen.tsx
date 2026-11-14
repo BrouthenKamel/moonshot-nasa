@@ -7,6 +7,7 @@ import { percent } from '../../sim/odds'
 import type { Budgets, CheckResult } from '../../sim/types'
 import { useGameStore } from '../../state/gameStore'
 import { checkFigures } from '../../viz/checkMargin'
+import { SynergyStrip } from '../../viz/DesignDeltaLine'
 import { POLL_ORDER, ROLE_INFO, stations, type Role, type Station } from '../../viz/gonogo/stations'
 import { fixLocation } from '../../viz/missionMap'
 import { Tooltip } from '../Tooltip'
@@ -29,18 +30,18 @@ function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) 
   const fig = checkFigures(check, budgets)
   const setDesignStep = useGameStore((s) => s.setDesignStep)
   const tone = {
-    green: 'border-emerald-500/30 bg-emerald-950/30',
-    yellow: 'border-amber-500/30 bg-amber-950/30',
-    red: 'border-rose-500/40 bg-rose-950/40',
+    green: 'border-emerald-500/35 bg-emerald-950/30',
+    yellow: 'border-amber-500/35 bg-amber-950/30',
+    red: 'border-rose-500/45 bg-rose-950/40',
   }[check.status]
   return (
-    <div className={`rounded-xl border p-4 ${tone}`}>
+    <div className={`hud-panel p-4 ${tone}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="font-semibold text-slate-100">
             <Tooltip term={glossaryKeyForLabel(check.resource) ?? ''}>{check.resource}</Tooltip>
           </div>
-          <div className="mt-1 text-sm text-slate-300">
+          <div className="mt-1 font-mono text-xs tabular-nums text-slate-300">
             {fig.value.toFixed(1)} / {fig.limit.toFixed(1)} {check.unit}
             {check.resource === 'Budget' && ' spendable'}
             {/* A red row with room left on paper: its blocking reason is right below, no "+ margin" */}
@@ -48,7 +49,9 @@ function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) 
             {fig.note && ` · ${fig.note}`}
           </div>
         </div>
-        <span className={`rounded bg-black/30 px-2 py-1 text-xs font-bold ${LAMP[check.status].text}`}>{LAMP[check.status].label}</span>
+        <span className={`rounded border border-white/10 bg-black/40 px-2 py-1 font-mono text-xs font-bold ${LAMP[check.status].text}`}>
+          {LAMP[check.status].label}
+        </span>
       </div>
       <div className="mt-2 text-sm text-slate-200">{check.reason}</div>
       {/* The brightest line of the card: where to fix it, one click away (QC contrast round) */}
@@ -70,17 +73,57 @@ function SuccessOdds() {
   const design = useGameStore((s) => s.design)
   const difficulty = useGameStore((s) => s.difficulty)
   const odds = useSuccessEstimate(design, difficulty)
+  const total = odds ? odds.success + odds.partial + odds.failed : 1
+  const sPct = odds && total > 0 ? (odds.success / total) * 100 : 0
+  const pPct = odds && total > 0 ? (odds.partial / total) * 100 : 0
+  const fPct = odds && total > 0 ? (odds.failed / total) * 100 : 0
+
   return (
-    <div className="mt-3 text-slate-200" aria-live="polite">
+    <div className="hud-panel mt-4 bg-slate-950/75 p-4 text-slate-200" aria-live="polite">
       {odds ? (
         <>
-          <div className="text-lg font-semibold">{`Chance of full success: about ${percent(odds.success)}`}</div>
-          <div className="mt-1 text-sm text-slate-400">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div className="font-mono text-base font-bold tabular-nums text-cyan-300">
+              {`Chance of full success: about ${percent(odds.success)}`}
+            </div>
+            <div className="font-mono text-[11px] tabular-nums text-slate-400">
+              <span className="text-emerald-300">Full {percent(odds.success)}</span> ·{' '}
+              <span className="text-amber-300">Partial {percent(odds.partial)}</span> ·{' '}
+              <span className="text-rose-300">Mission Lost {percent(odds.failed)}</span>
+            </div>
+          </div>
+          <div className="relative mt-2.5 h-4 overflow-hidden rounded border border-slate-700/70 bg-slate-900">
+            <div className="flex h-full">
+              {sPct > 0 && (
+                <div
+                  style={{ width: `${sPct}%` }}
+                  className="bg-emerald-500/85 transition-all duration-300"
+                  title={`Full Success: ${percent(odds.success)}`}
+                />
+              )}
+              {pPct > 0 && (
+                <div
+                  style={{ width: `${pPct}%` }}
+                  className="border-l border-slate-950 bg-amber-400/85 transition-all duration-300"
+                  title={`Partial Science: ${percent(odds.partial)}`}
+                />
+              )}
+              {fPct > 0 && (
+                <div
+                  style={{ width: `${fPct}%` }}
+                  className="border-l border-slate-950 bg-rose-500/85 transition-all duration-300"
+                  title={`Mission Lost: ${percent(odds.failed)}`}
+                />
+              )}
+            </div>
+            <div className="hud-bar-segments pointer-events-none absolute inset-0" />
+          </div>
+          <div className="mt-2 font-mono text-xs tabular-nums text-slate-400">
             {`From ${odds.runs} test flights of this design on standing orders: ${percent(odds.partial)} return only part of the science, ${percent(odds.failed)} fail.`}
           </div>
         </>
       ) : (
-        <div className="text-sm text-slate-400">Working out the chance of full success…</div>
+        <div className="font-mono text-sm text-slate-400">Working out the chance of full success…</div>
       )}
     </div>
   )
@@ -92,7 +135,7 @@ function StationCard({ station, revealed, active }: { station: Station; revealed
   const lamp = LAMP[station.status]
   return (
     <div
-      className={`relative rounded-2xl border bg-[#070b16] p-4 transition ${active ? 'scale-[1.02] border-white/40' : 'border-white/10'}`}
+      className={`hud-panel relative bg-[#070b16]/90 p-4 transition ${active ? 'scale-[1.02] border-white/40' : ''}`}
       style={{ boxShadow: active ? `0 0 0 2px ${info.color}55, 0 10px 40px ${info.color}33` : undefined }}
     >
       <div className="flex items-center gap-2.5">
@@ -102,8 +145,8 @@ function StationCard({ station, revealed, active }: { station: Station; revealed
         </div>
         <div className={`whitespace-nowrap font-mono text-xs font-bold ${revealed ? lamp.text : 'text-slate-600'}`}>{revealed ? lamp.label : '···'}</div>
       </div>
-      <div className="mt-0.5 truncate text-[11px] text-slate-400">{info.buildingName}</div>
-      <div className="mt-2 text-xs text-slate-500">
+      <div className="mt-0.5 truncate font-mono text-[11px] uppercase tracking-wider text-slate-400">{info.buildingName}</div>
+      <div className="mt-2 text-xs text-slate-400">
         {station.checks.length === 0 ? 'Nothing to check here' : station.checks.map((c) => c.resource).join(' · ')}
       </div>
     </div>
@@ -168,12 +211,14 @@ export function GoNoGoScreen() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#0b1226] to-[#03050a] p-6">
-        <div className="font-mono text-xs tracking-[0.25em] text-sky-400">COMMS CENTER · LUNAR ICE MAPPER · GO / NO-GO</div>
+      <div className="hud-step-header">
+        <div className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--role-accent)]">
+          COMMS CENTER · LUNAR ICE MAPPER · GO / NO-GO
+        </div>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-xl">
-            <h1 className="font-display text-3xl font-bold text-white">7. Go / No-Go poll</h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <h1 className="font-display text-3xl font-bold text-slate-50">7. Go / No-Go poll</h1>
+            <p className="mt-1 text-sm text-slate-300">
               Before every launch the flight director asks each station, one by one, whether it is go. A station is no-go when a check
               fixed in its building is red.
             </p>
@@ -182,37 +227,43 @@ export function GoNoGoScreen() {
             <div className={`font-display text-4xl font-bold ${verdictColor}`}>
               {result.canGo ? (doomed ? 'GO, BUT IT CANNOT MEET THE BRIEF' : 'GO') : 'NO-GO'}
             </div>
-            <div className="text-sm text-slate-300">{summary}</div>
+            <div className="font-mono text-xs tabular-nums text-slate-300">{summary}</div>
           </div>
         </div>
-        {doomed && scienceReason && <div className="mt-3 rounded-xl bg-amber-500/10 p-3 text-sm text-amber-200">{scienceReason}</div>}
+        {doomed && scienceReason && <div className="hud-panel mt-3 border-amber-400/35 bg-amber-500/10 p-3 text-sm text-amber-200">{scienceReason}</div>}
         <SuccessOdds />
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {st.map((s, i) => (
             <StationCard key={s.role} station={s} revealed={step === null || step >= i} active={step === i} />
           ))}
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-          <button onClick={() => setDesignStep('comms')} className="rounded-xl bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/10">
+          <button
+            type="button"
+            onClick={() => setDesignStep('comms')}
+            className="tactical-btn-back"
+          >
             ← Back to Design
           </button>
           <div className="flex flex-wrap items-center gap-3">
             <button
+              type="button"
               onClick={runPoll}
               disabled={step !== null && step < POLL_ORDER.length}
-              className="rounded-xl border border-sky-400/40 bg-sky-500/10 px-5 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/20 disabled:opacity-50"
+              className="rounded-lg border border-sky-400/45 bg-sky-500/15 px-5 py-2.5 font-mono text-xs font-semibold uppercase tracking-wider text-sky-200 transition hover:bg-sky-500/25 disabled:opacity-50"
             >
               {polled ? 'Poll again' : 'Run the poll'}
             </button>
             <button
+              type="button"
               onClick={() => result.canGo && startSimulation()}
               disabled={!result.canGo}
-              className={`rounded-xl px-7 py-2.5 font-display text-lg font-bold text-white transition ${
+              className={`rounded-lg px-7 py-2.5 font-display text-lg font-bold text-white transition ${
                 result.canGo
-                  ? `bg-orange-500 hover:bg-orange-400 ${polled ? 'animate-pulse shadow-[0_0_40px_rgba(249,115,22,0.6)]' : ''}`
-                  : 'cursor-not-allowed bg-slate-700 opacity-60'
+                  ? `bg-orange-500 shadow-[0_0_24px_rgba(249,115,22,0.5)] hover:bg-orange-400 ${polled ? 'animate-pulse shadow-[0_0_40px_rgba(249,115,22,0.7)]' : ''}`
+                  : 'cursor-not-allowed border border-slate-700 bg-slate-800 text-slate-400 opacity-70'
               }`}
             >
               {result.canGo ? 'Launch Mission' : 'Fix Issues First'}
@@ -220,6 +271,8 @@ export function GoNoGoScreen() {
           </div>
         </div>
       </div>
+
+      <SynergyStrip step="go-nogo" />
 
       {[
         { list: critical, title: `Critical Issues (${critical.length})`, cls: 'text-rose-300' },
@@ -229,7 +282,7 @@ export function GoNoGoScreen() {
         .filter((g) => g.list.length > 0)
         .map((g) => (
           <div key={g.title}>
-            <h2 className={`mb-3 font-semibold ${g.cls}`}>{g.title}</h2>
+            <h2 className={`mb-3 font-mono text-xs uppercase tracking-[0.18em] ${g.cls}`}>{g.title}</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {g.list.map((check, i) => (
                 <CheckRow key={i} check={check} budgets={budgets} />

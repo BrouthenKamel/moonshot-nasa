@@ -25,15 +25,15 @@ export function AudioControls({ tone = 'dark' }: { tone?: 'dark' | 'navy' }) {
   const btn =
     tone === 'navy'
       ? 'border-white/20 bg-white/5 text-slate-100 hover:bg-white/10'
-      : 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700'
+      : 'border-white/15 bg-[#0a1122] text-slate-200 hover:border-white/30 hover:bg-[#0f1930]'
   return (
-    <div ref={box} className="relative flex items-center gap-1">
+    <div ref={box} className="relative flex items-center gap-1.5">
       <button
         onClick={() => setMuted(!muted)}
         aria-pressed={muted}
         aria-label={muted ? 'Unmute sound' : 'Mute sound'}
         title={muted ? 'Sound off' : 'Sound on'}
-        className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm ${btn}`}
+        className={`flex h-8 w-8 items-center justify-center rounded-lg border text-sm transition ${btn}`}
       >
         {muted ? '🔇' : '🔊'}
       </button>
@@ -42,15 +42,20 @@ export function AudioControls({ tone = 'dark' }: { tone?: 'dark' | 'navy' }) {
         aria-expanded={open}
         aria-label="Sound and graphics settings"
         title="Sound and graphics"
-        className={`flex h-8 w-8 items-center justify-center rounded-full border text-sm ${btn}`}
+        className={`flex h-8 w-8 items-center justify-center rounded-lg border text-sm transition ${btn}`}
       >
         ⚙
       </button>
       {open && (
-        <div className="absolute right-0 top-10 z-50 w-64 rounded-xl border border-slate-700 bg-slate-900/95 p-4 text-sm text-slate-200 shadow-2xl backdrop-blur">
+        <div className="hud-panel absolute right-0 top-10 z-50 w-64 rounded-xl p-4 text-sm text-slate-200">
+          <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+            Audio &amp; Telemetry
+          </div>
           {(['music', 'sfx', 'voice'] as const).map((g) => (
-            <label key={g} className="mb-2 flex items-center justify-between gap-3">
-              <span className="w-16">{g === 'sfx' ? 'Effects' : g === 'voice' ? 'Voice' : 'Music'}</span>
+            <label key={g} className="mb-2.5 flex items-center justify-between gap-3">
+              <span className="w-16 font-mono text-xs text-slate-300">
+                {g === 'sfx' ? 'Effects' : g === 'voice' ? 'Voice' : 'Music'}
+              </span>
               <input
                 type="range"
                 min={0}
@@ -58,21 +63,23 @@ export function AudioControls({ tone = 'dark' }: { tone?: 'dark' | 'navy' }) {
                 step={0.05}
                 value={volume[g]}
                 onChange={(e) => setVolume(g, +e.target.value)}
-                className="flex-1 accent-orange-500"
+                className="tactical-range flex-1 accent-orange-500"
               />
             </label>
           ))}
-          <div className="mt-3 border-t border-slate-700 pt-3">
-            <div className="mb-1.5 text-xs uppercase tracking-wider text-slate-400">Graphics</div>
-            <div className="flex gap-1" role="radiogroup" aria-label="Graphics quality">
+          <div className="mt-3 border-t border-white/10 pt-3">
+            <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400">Graphics</div>
+            <div className="flex gap-1.5" role="radiogroup" aria-label="Graphics quality">
               {(['high', 'low'] as const).map((q) => (
                 <button
                   key={q}
                   role="radio"
                   aria-checked={quality === q}
                   onClick={() => setQuality(q)}
-                  className={`flex-1 rounded-lg px-2 py-1 text-xs font-semibold ${
-                    quality === q ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  className={`flex-1 rounded-lg border px-2 py-1 font-mono text-xs font-semibold transition ${
+                    quality === q
+                      ? 'border-orange-400/70 bg-orange-500 text-white shadow-[0_0_12px_rgba(249,115,22,0.4)]'
+                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
                   }`}
                 >
                   {q === 'high' ? 'Cinematic' : 'Fast'}

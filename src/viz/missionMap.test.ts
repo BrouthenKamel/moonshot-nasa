@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { computeBudgets } from '../sim/budgets'
 import { goNoGo } from '../sim/checks'
 import { flashlightDesign } from '../sim/fixtures'
-import type { Design, DesignStep } from '../sim/types'
-import { runSimulation } from '../sim/simulate'
+import type { Design, DesignStep, TurnAction } from '../sim/types'
+import { getDefaultAction, initSim, isSimComplete, runSimulation, stepTurn } from '../sim/simulate'
 import { buildReport } from '../sim/evaluate'
 import {
   BUILDING_STEPS,
@@ -139,5 +139,50 @@ describe('mission map', () => {
   it('names the building where a step is fixed', () => {
     expect(fixLocation('spacecraft')).toBe('the Factory (Spacecraft)')
     expect(fixLocation('comms')).toBe('the Communications Center (Comms)')
+  })
+
+  it('flightLabels carry live progress and highlight the active building across phases', () => {
+    const budgets = computeBudgets(flashlightDesign, 'engineer')
+    const checks = goNoGo(flashlightDesign, budgets)
+    const action: TurnAction = { ...getDefaultAction(), autoDecide: true }
+    let s = initSim(flashlightDesign, 'engineer', 1)
+
+    const seenPhases = new Set<string>()
+    let guard = 0
+    while (!isSimComplete(s) && guard++ < 40) {
+      const labels = missionLabels({ design: flashlightDesign, budgets, checks, visited: [], sim: s })
+      for (const label of Object.values(labels)) {
+        expect(label.status).not.toMatch(/\bturns?\b|\bdays?\b/i)
+        if (label.progress !== undefined) {
+          expect(label.progress).toBeGreaterThanOrEqual(0)
+          expect(label.progress).toBeLessThanOrEqual(1)
+        }
+      }
+
+      if (s.phase === 'build' || s.phase === 'test') {
+        expect(labels.factory.highlight).toBe(true)
+        expect(labels.factory.progress).toBeDefined()
+        seenPhases.add(s.phase)
+      } else if (s.phase === 'wait') {
+        expect(labels['launch-site'].highlight).toBe(true)
+        expect(labels['launch-site'].progress).toBeDefined()
+        seenPhases.add('wait')
+      } else if (s.currentTurn === s.flight.launchedTurn) {
+        expect(labels['launch-site'].highlight).toBe(true)
+        seenPhases.add('launch')
+      } else if (s.phase === 'transfer' || s.phase === 'orbit') {
+        expect(labels['comms-center'].highlight).toBe(true)
+        expect(labels['research-lab'].highlight).toBe(true)
+        seenPhases.add(s.phase)
+      }
+
+      s = stepTurn(s, action)
+    }
+
+    expect(seenPhases.has('build')).toBe(true)
+    expect(seenPhases.has('test')).toBe(true)
+    expect(seenPhases.has('launch')).toBe(true)
+    expect(seenPhases.has('transfer')).toBe(true)
+    expect(seenPhases.has('orbit')).toBe(true)
   })
 })

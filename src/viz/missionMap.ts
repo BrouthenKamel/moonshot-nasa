@@ -1,4 +1,5 @@
 import { buildings, type BuildingId } from '../data/agency'
+import { difficultyPresets } from '../data/brief'
 import { getPartById } from '../data/parts'
 import type { BuildingLabel } from '../scene/BaseMap'
 import type { Budgets, Design, DesignStep, GoNoGoResult, SimState, TurnLog } from '../sim/types'
@@ -57,26 +58,79 @@ function goWord(checks: GoNoGoResult): string {
   return checks.warnings.length ? `Go with ${checks.warnings.length} warning${checks.warnings.length === 1 ? '' : 's'}` : 'Go'
 }
 
+const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
+
 /** Labels while the flight runs */
 function flightLabels(budgets: Budgets, sim: SimState): Record<BuildingId, BuildingLabel> {
   const f = sim.flight
   const launched = f.launchedTurn !== null
-  const factory = !launched
-    ? `${sim.phase === 'test' ? 'Testing' : sim.phase === 'wait' ? 'Ready, waiting for the ride' : 'Building'} · ride in month ${f.launchTurn}`
-    : 'Craft delivered to the ride'
   const over = sim.phase === 'complete' || sim.phase === 'failed'
-  const launch = over
-    ? `${sim.phase === 'failed' ? 'Mission lost' : 'Mission over'}: ${f.end}`
-    : !launched
-      ? `Ride leaves in month ${f.launchTurn}`
-      : f.captured
-        ? `Launched in month ${f.launchedTurn} · in lunar orbit`
-        : `Launched in month ${f.launchedTurn} · transfer, ${months(Math.max(0, f.transferLeft ?? 0))} left`
+  const buildLeft = f.stages.design + f.stages.build + f.stages.test + f.stages.integration
+  const totalPrep = Math.max(1, budgets.totalPrepTurns)
+  const buildProgress = clamp01(1 - buildLeft / totalPrep)
+  const isLaunchTurn = launched && sim.currentTurn === f.launchedTurn
+  const dataTarget = difficultyPresets[sim.difficulty]?.dataTarget ?? 300
+
+  let factory: BuildingLabel
+  if (!launched) {
+    if (sim.phase === 'wait') {
+      factory = { status: `Ready · ride in month ${f.launchTurn}`, progress: 1 }
+    } else {
+      const stageWord = sim.phase === 'test' ? 'Testing' : 'Building'
+      factory = {
+        status: `${stageWord} · ${Math.round(buildProgress * 100)}% · ${months(buildLeft)} left`,
+        progress: buildProgress,
+        highlight: !over,
+      }
+    }
+  } else {
+    factory = { status: 'Craft delivered to the ride' }
+  }
+
+  let launchSite: BuildingLabel
+  if (over) {
+    launchSite = {
+      status: `${sim.phase === 'failed' ? 'Mission lost' : 'Mission over'}: ${f.end}`,
+      alert: sim.phase === 'failed',
+    }
+  } else if (!launched) {
+    const waitProgress = clamp01(sim.currentTurn / Math.max(1, f.launchTurn))
+    launchSite = {
+      status: sim.phase === 'wait' ? `Pad ready · ride leaves in month ${f.launchTurn}` : `Ride leaves in month ${f.launchTurn}`,
+      ...(sim.phase === 'wait' ? { progress: waitProgress, highlight: true } : {}),
+    }
+  } else if (f.captured) {
+    launchSite = {
+      status: `Launched in month ${f.launchedTurn} · in lunar orbit`,
+      highlight: isLaunchTurn,
+      ...(isLaunchTurn ? { progress: 1 } : {}),
+    }
+  } else {
+    const elapsed = Math.max(0, sim.currentTurn - (f.launchedTurn ?? sim.currentTurn))
+    const left = Math.max(0, f.transferLeft ?? 0)
+    const transferProgress = clamp01(elapsed / Math.max(1, elapsed + left))
+    launchSite = {
+      status: `Launched in month ${f.launchedTurn} · transfer, ${months(left)} left`,
+      progress: transferProgress,
+      highlight: isLaunchTurn,
+    }
+  }
+
+  const activeOps = !over && launched && !isLaunchTurn
+
   return {
-    'comms-center': { status: `${f.data.toFixed(0)} MB home · ${budgets.linkKbps} kbps` },
-    'research-lab': { status: `Ice ${f.coverage.toFixed(0)}% mapped` },
-    factory: { status: factory },
-    'launch-site': { status: launch },
+    'comms-center': {
+      status: `${f.data.toFixed(0)} MB home · ${budgets.linkKbps} kbps`,
+      progress: clamp01(f.data / dataTarget),
+      highlight: activeOps,
+    },
+    'research-lab': {
+      status: `Ice ${f.coverage.toFixed(0)}% mapped`,
+      progress: clamp01(f.coverage / 70),
+      highlight: activeOps,
+    },
+    factory,
+    'launch-site': launchSite,
   }
 }
 

@@ -1,4 +1,8 @@
 import { useGameStore } from '../../state/gameStore'
+import { useUiStore } from '../../state/uiStore'
+import { useDesignPreview } from '../useDesignPreview'
+import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
+import { difficultyPresets } from '../../data/brief'
 import { getPartById } from '../../data/parts'
 import { getGroundStationById } from '../../data/ground'
 import { useEffect, useRef, useState } from 'react'
@@ -7,6 +11,10 @@ import { RadioTray } from './comms/RadioTray'
 import { StationTray } from './comms/StationTray'
 import { hoursAfterSwitch } from './comms/hours'
 import { ContactSlider } from './comms/ContactSlider'
+
+function hoveredChoiceId(target: EventTarget | null): string | null {
+  return target instanceof Element ? target.closest<HTMLElement>('[data-choice-id]')?.dataset.choiceId ?? null : null
+}
 
 /**
  * Step 6 at the Communications Center: the comms console. The link budget sits on top as a
@@ -19,16 +27,22 @@ export function CommsScreen() {
   const difficulty = useGameStore((s) => s.difficulty)
   const updateDesign = useGameStore((s) => s.updateDesign)
   const setDesignStep = useGameStore((s) => s.setDesignStep)
-  const getBudgets = useGameStore((s) => s.getBudgets)
-  const getGoNoGo = useGameStore((s) => s.getGoNoGo)
+  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
+  const { budgets, checks: goNoGo, previewBudgets, previewChecks, previewPatch } = useDesignPreview()
+  const activeBudgets = previewBudgets ?? budgets
+  const activeGoNoGo = previewChecks ?? goNoGo
 
-  const budgets = getBudgets()
-  const checks = getGoNoGo().checks
-  const radio = getPartById(design.radio)
-  const station = getGroundStationById(design.groundStation)
+  useEffect(() => () => setPreviewPatch(null), [setPreviewPatch])
+
+  const checks = activeGoNoGo.checks
+  const radioId = previewPatch?.radio ?? design.radio
+  const stationId = previewPatch?.groundStation ?? design.groundStation
+  const radio = getPartById(radioId)
+  const station = getGroundStationById(stationId)
   const maxHours = station?.contactHoursPerDay ?? 1
   const commsCheck = checks.find((c) => c.resource === 'Comms')
   const dataCheck = checks.find((c) => c.resource === 'Data Link')
+  const dataTarget = (difficultyPresets[difficulty] ?? difficultyPresets.engineer).dataTarget
 
   // Show the slim link ribbon once the full console has scrolled out of view
   const consoleRef = useRef<HTMLDivElement>(null)
@@ -47,12 +61,14 @@ export function CommsScreen() {
 
   return (
     <div className="mx-auto max-w-5xl pb-6">
-      <LinkRibbon budgets={budgets} data={dataCheck} visible={consoleOut} />
-      <div className="space-y-6">
-        <header className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#0b1226] to-[#03050a] px-6 pb-4 pt-4">
-          <div className="font-mono text-xs tracking-[0.25em] text-blue-400">COMMS CENTER · LUNAR ICE MAPPER · COMMUNICATIONS</div>
-          <h1 className="mt-2 font-display text-2xl font-bold text-white">6. Communications</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate-400">
+      <LinkRibbon budgets={activeBudgets} data={dataCheck} visible={consoleOut} />
+      <div className="space-y-5">
+        <header className="hud-step-header">
+          <div className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--role-accent)]">
+            COMMS CENTER · LUNAR ICE MAPPER · COMMUNICATIONS
+          </div>
+          <h1 className="mt-1 font-display text-2xl font-bold text-slate-50">6. Communications</h1>
+          <p className="mt-1.5 max-w-2xl text-sm text-slate-300">
             Only data that reaches the ground counts. The Moon is a thousand times farther than low Earth orbit, so the radio and the
             ground station decide how much gets home.
           </p>
@@ -60,42 +76,82 @@ export function CommsScreen() {
 
         <div ref={consoleRef}>
           <LinkConsole
-            budgets={budgets}
+            budgets={activeBudgets}
             comms={commsCheck}
             data={dataCheck}
-            radioId={design.radio}
+            radioId={radioId}
             radioName={radio?.name ?? 'No radio'}
-            stationId={design.groundStation}
+            stationId={stationId}
             stationName={station?.name ?? 'No station'}
+            dataTarget={dataTarget}
           />
         </div>
 
-        <RadioTray design={design} difficulty={difficulty} onPick={(id) => updateDesign({ radio: id })} />
+        <SynergyStrip step="comms" />
+        <DesignDeltaLine />
 
-        <StationTray
-          design={design}
-          difficulty={difficulty}
-          onPick={(s) => updateDesign({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })}
-        />
+        <div
+          onMouseOver={(e) => {
+            const id = hoveredChoiceId(e.target)
+            setPreviewPatch(id ? { radio: id } : null)
+          }}
+          onMouseLeave={() => setPreviewPatch(null)}
+          onFocus={(e) => {
+            const id = hoveredChoiceId(e.target)
+            if (id) setPreviewPatch({ radio: id })
+          }}
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPreviewPatch(null)
+          }}
+        >
+          <RadioTray design={design} difficulty={difficulty} onPick={(id) => updateDesign({ radio: id })} />
+        </div>
 
-        <ContactSlider
-          hours={budgets.contactHours}
-          maxHours={maxHours}
-          stationName={station?.name ?? 'The station'}
-          costPerMonth={budgets.groundCostPerTurn}
-          onChange={(h) => updateDesign({ contactHours: h })}
-        />
+        <div
+          onMouseOver={(e) => {
+            const id = hoveredChoiceId(e.target)
+            const s = id ? getGroundStationById(id) : undefined
+            setPreviewPatch(s ? { groundStation: s.id, contactHours: hoursAfterSwitch(design, s) } : null)
+          }}
+          onMouseLeave={() => setPreviewPatch(null)}
+          onFocus={(e) => {
+            const id = hoveredChoiceId(e.target)
+            const s = id ? getGroundStationById(id) : undefined
+            if (s) setPreviewPatch({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })
+          }}
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPreviewPatch(null)
+          }}
+        >
+          <StationTray
+            design={design}
+            difficulty={difficulty}
+            onPick={(s) => updateDesign({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })}
+          />
+        </div>
+
+        <div className="hud-panel p-4">
+          <ContactSlider
+            hours={activeBudgets.contactHours}
+            maxHours={maxHours}
+            stationName={station?.name ?? 'The station'}
+            costPerMonth={activeBudgets.groundCostPerTurn}
+            onChange={(h) => updateDesign({ contactHours: h })}
+          />
+        </div>
 
         <div className="flex justify-between">
           <button
+            type="button"
             onClick={() => setDesignStep('ride')}
-            className="rounded-xl bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/10"
+            className="tactical-btn-back"
           >
             ← Back
           </button>
           <button
+            type="button"
             onClick={() => setDesignStep('go-nogo')}
-            className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-[0_0_24px_rgba(59,130,246,0.45)] hover:bg-blue-500"
+            className="tactical-btn-next"
           >
             Go/No-Go Review →
           </button>

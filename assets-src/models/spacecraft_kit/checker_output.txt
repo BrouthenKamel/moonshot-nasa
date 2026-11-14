@@ -1,0 +1,91 @@
+== 1. Budgets (per part <= 30,000 tris and <= 600 KB; kit <= 12 MB) ==
+  frame_6u                       9960 tris   350.0 KB  ok
+  face_panels                   14060 tris   455.9 KB  ok
+  deploy_switch                   528 tris    20.2 KB  ok
+  separation_spring              1632 tris    50.8 KB  ok
+  fasteners_kit                  5680 tris   226.9 KB  ok
+  obc_board                      4720 tris   299.8 KB  ok
+  eps_board                      8908 tris   495.9 KB  ok
+  battery_pack                   7796 tris   390.5 KB  ok
+  transceiver_board              6648 tris   370.4 KB  ok
+  backplane                      6684 tris   346.6 KB  ok
+  transponder                    4248 tris   196.3 KB  ok
+  reaction_wheel                 4660 tris   160.5 KB  ok
+  rw_cluster                    10128 tris   440.6 KB  ok
+  star_tracker                   4380 tris   154.6 KB  ok
+  sun_sensor                      476 tris    24.6 KB  ok
+  magnetorquer_set               7940 tris   207.2 KB  ok
+  imu_box                        1428 tris    65.1 KB  ok
+  narrow_angle_camera            9240 tris   315.8 KB  ok
+  ir_spectrometer                8668 tris   391.2 KB  ok
+  laser_reflectometer            5328 tris   184.6 KB  ok
+  neutron_spectrometer           7660 tris   254.9 KB  ok
+  cold_gas_module               14036 tris   421.1 KB  ok
+  green_monoprop_module         10464 tris   325.0 KB  ok
+  ion_engine                    12188 tris   507.2 KB  ok
+  solar_wing                     7356 tris   301.4 KB  ok
+  solar_wing_mirror              7356 tris   301.4 KB  ok
+  patch_antenna                   960 tris    44.0 KB  ok
+  dish_antenna                   6188 tris   188.1 KB  ok
+  uhf_antenna                     812 tris    45.8 KB  ok
+  mli_blanket                   12556 tris   347.5 KB  ok
+  radiator_panel                 3640 tris   152.5 KB  ok
+  heater_pads                     884 tris    50.8 KB  ok
+  access_port_rbf                1688 tris    66.1 KB  ok
+  deployer_6u_closed            10688 tris   459.2 KB  ok
+  deployer_6u_open              10688 tris   459.2 KB  ok
+  separation_ring                9336 tris   364.9 KB  ok
+  payload_adapter_plate         10220 tris   420.6 KB  ok
+  fairing_half                   9464 tris   312.0 KB  ok
+  lv_mount_plate                 9372 tris   366.0 KB  ok
+  assembly_stand                 8072 tris   270.8 KB  ok
+  crane_hook                     5028 tris   146.4 KB  ok
+  esd_workbench                  6524 tris   216.7 KB  ok
+  torque_wrench                  3184 tris   100.0 KB  ok
+  screwdriver                    1328 tris    33.5 KB  ok
+  shipping_container             3112 tris    94.4 KB  ok
+  flight_covers                  2056 tris    67.7 KB  ok
+  rbf_tag                        1428 tris    43.0 KB  ok
+  laptop_cart                    7608 tris   350.4 KB  ok
+  witness_plate                  1244 tris    42.0 KB  ok
+  gse_umbilical_cable            4212 tris   124.6 KB  ok
+  harness                        4904 tris   164.3 KB  ok
+  TOTAL 51 parts  11.90 MB  ok
+
+== 2. Assembly in stowed pose: envelope + interpenetration > 1 mm ==
+  envelope  frame            min [-113.2  -50.  -183. ] max [113.2  50.  183. ] mm  ok
+  envelope  panels           min [-104.5  -43.2 -176.7] max [107.4  43.2 176.7] mm  ok
+  envelope  radiator         min [-107.5  -41.5 -175.5] max [-97.8  41.5 175.5] mm  ok
+  envelope  uhf              min [-112.8  -24.   -54. ] max [-97.1  24.  133. ] mm  ok
+  envelope  patch            min [ 97. -25.  80.] max [110.9  25.  130. ] mm  ok
+  envelope  sun_sensor       min [  93.9    9.  -137.2] max [ 111.3   31.  -109. ] mm  ok
+  envelope  wing_py          min [-100.1   42.  -165. ] max [100.5  49.9 165. ] mm  ok
+  envelope  wing_ny          min [-100.5  -49.9 -165. ] max [100.1 -42.  165. ] mm  ok
+  envelope  backplane        min [ -97.5  -40.4 -138. ] max [ -5.5 -26.8  62. ] mm  ok
+  envelope  eps              min [-96.6 -35.4 -35.9] max [-6.4 -5.6 59.9] mm  ok
+  envelope  obc              min [-96.6 -20.2 -35.9] max [-6.4  5.4 59.9] mm  ok
+  envelope  transceiver      min [-96.6  -4.9 -35.9] max [-6.4 21.9 59.9] mm  ok
+  envelope  battery          min [ -96.6  -35.4 -135.9] max [ -4.9   3.4 -40.1] mm  ok
+  envelope  magnetorquers    min [ -91.5    8.  -128. ] max [-11.5  21.5 -48. ] mm  ok
+  envelope  imu              min [-56.   20.5  -1.2] max [-14.   40.   31.4] mm  ok
+  envelope  camera           min [-79.5 -35.   60. ] max [-22.1  23.  180.5] mm  ok
+  envelope  ir_spectrometer  min [  3.6 -27.   69.1] max [ 93.5  34.7 180. ] mm  ok
+  envelope  transponder      min [ 12.  -40.4 -46. ] max [98.  -0.  59.2] mm  ok
+  envelope  rw_cluster       min [24.1  0.1  2.6] max [88.3 36.5 66.8] mm  ok
+  envelope  star_tracker     min [ 38.7  -0.1 -44. ] max [112.7  31.1   1.4] mm  ok
+  envelope  ion_engine       min [   0.5  -38.  -175. ] max [ 97.5  36.2 -50. ] mm  ok
+  envelope  harness          min [ -22.4  -35.1 -120.8] max [ 62.8   9.  131. ] mm  ok
+  envelope  access_port      min [ -76.   -32.  -180.8] max [ -44.     0.  -161.1] mm  ok
+  envelope  switch_a         min [ 106.5   43.3 -182.7] max [ 111.4   48.2 -173.5] mm  ok
+  envelope  switch_b         min [-111.3  -48.2 -182.7] max [-106.4  -43.3 -173.5] mm  ok
+  envelope  spring_a         min [-111.4   43.3  173.6] max [-106.4   48.2  182.8] mm  ok
+  envelope  spring_b         min [106.4 -48.2 173.6] max [111.4 -43.3 182.8] mm  ok
+
+  instance pairs with overlapping bounds: 65; shell pairs tested with exact booleans: 73
+  deepest contact found: 0.094 mm (frame/frame_6u vs star_tracker/star_tracker)
+  ok: no interpenetration deeper than 1 mm
+
+== 3. Visible z-fighting: coplanar same-facing faces overlapping > 0.5 mm^2, not occluded ==
+  total: 0  ok
+
+RESULT: PASS

@@ -1,5 +1,8 @@
-import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useGameStore } from '../../state/gameStore'
+import { useUiStore } from '../../state/uiStore'
+import { useDesignPreview } from '../useDesignPreview'
+import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { getPartById, type InstrumentPart } from '../../data/parts'
 import { canUseWebGL } from '../../scene/webgl'
 import { lunarOrbits } from '../../data/orbits'
@@ -36,7 +39,11 @@ const TONE_CHIP: Record<Tone, string> = {
   bad: 'border-red-400/45 bg-red-500/15 text-red-400',
 }
 const DOT: Record<OrbitCheck['status'], string> = { green: 'bg-green-400', yellow: 'bg-amber-400', red: 'bg-red-400' }
-const PANEL = 'rounded-xl border border-slate-400/20 bg-slate-950/70 backdrop-blur-md'
+const PANEL = 'hud-panel backdrop-blur-md'
+
+function hoveredChoiceId(target: EventTarget | null): string | null {
+  return target instanceof Element ? target.closest<HTMLElement>('[data-choice-id]')?.dataset.choiceId ?? null : null
+}
 
 /* ------------------------------------------------------------------ */
 /* Plain screen: used without 3D, in tests, and in narrow columns      */
@@ -63,16 +70,18 @@ function StepButtons({ overlay }: { overlay: boolean }) {
   const setDesignStep = useGameStore((s) => s.setDesignStep)
   const back = (
     <button
+      type="button"
       onClick={() => setDesignStep('spacecraft')}
-      className="rounded-lg bg-slate-700/90 px-6 py-2 font-medium text-slate-200 backdrop-blur hover:bg-slate-600"
+      className="tactical-btn-back"
     >
       ← Back
     </button>
   )
   const next = (
     <button
+      type="button"
       onClick={() => setDesignStep('ride')}
-      className="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white shadow-lg shadow-blue-900/50 hover:bg-blue-500"
+      className="tactical-btn-next"
     >
       Choose Ride →
     </button>
@@ -96,64 +105,81 @@ function PlainOrbit() {
   const design = useGameStore((s) => s.design)
   const difficulty = useGameStore((s) => s.difficulty)
   const updateDesign = useGameStore((s) => s.updateDesign)
-  const getBudgets = useGameStore((s) => s.getBudgets)
-  const budgets = getBudgets()
+  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
+  const { budgets, previewBudgets } = useDesignPreview()
+  const activeBudgets = previewBudgets ?? budgets
+  const [scrubMonth, setScrubMonth] = useState(MISSION_MONTHS)
+  const [playing, setPlaying] = useState(false)
+
+  useEffect(() => {
+    if (!playing) return
+    const timer = window.setInterval(() => {
+      setScrubMonth((m) => (m >= MISSION_MONTHS ? 1 : m + 1))
+    }, 850)
+    return () => window.clearInterval(timer)
+  }, [playing])
+
   const view = useMemo(() => buildOrbitView(design, difficulty), [design, difficulty])
   const instruments = design.instruments
     .map((id) => getPartById(id) as InstrumentPart | undefined)
     .filter((i): i is InstrumentPart => !!i)
+  const scrubbedCoverage = Math.round(coverageAt(view.selected, scrubMonth))
 
   return (
     <div className="h-full overflow-auto p-4">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <div className="rounded-lg bg-slate-900 p-6">
-          <div className="text-xs font-semibold tracking-widest" style={{ color: ACCENT }}>
+      <div className="mx-auto max-w-3xl space-y-5">
+        <header className="hud-step-header">
+          <div className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--role-accent)]">
             LAUNCH SITE · LUNAR ICE MAPPER · ORBIT
           </div>
-          <h1 className="mt-1 text-xl font-bold text-orange-400">4. Orbit Selection</h1>
-          <p className="mt-2 text-slate-400">
+          <h1 className="mt-1 font-display text-2xl font-bold text-slate-50">4. Orbit Selection</h1>
+          <p className="mt-1.5 text-sm text-slate-300">
             Only a polar orbit passes over the south pole. More and lower passes map faster, but the orbit costs more to
             reach and to hold. The ice instruments only work close to the surface.
           </p>
-        </div>
+        </header>
 
-        <div className="rounded-lg bg-orange-950 p-4 text-sm">
-          <div className="font-medium text-orange-300">This orbit with your design</div>
-          <div className="mt-2 grid grid-cols-2 gap-4 text-orange-200">
+        <div className="hud-panel border-[var(--role-border)] bg-[var(--role-surface)] p-4 text-sm">
+          <div className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--role-accent)]">
+            This orbit with your design
+          </div>
+          <div className="mt-2.5 grid grid-cols-2 gap-4 font-mono text-xs tabular-nums text-orange-100">
             <div>
               Projected ice coverage in 12 clean months:{' '}
-              <span className={budgets.projectedCoverage >= COVERAGE_GOAL ? 'text-green-400' : 'text-red-400'}>
-                {budgets.projectedCoverage.toFixed(0)}%
+              <span className={activeBudgets.projectedCoverage >= COVERAGE_GOAL ? 'font-bold text-[#22d3ee]' : 'font-bold text-rose-400'}>
+                {activeBudgets.projectedCoverage.toFixed(0)}%
               </span>{' '}
               (need {COVERAGE_GOAL}%)
             </div>
             <div>
               Instruments can run:{' '}
-              <span className={budgets.scienceDuty >= 1 ? 'text-green-400' : 'text-orange-400'}>
-                {Math.round(budgets.scienceDuty * 100)}% of the time
+              <span className={activeBudgets.scienceDuty >= 1 ? 'font-bold text-emerald-400' : 'font-bold text-orange-300'}>
+                {Math.round(activeBudgets.scienceDuty * 100)}% of the time
               </span>
             </div>
             <div>
-              Eclipse needs <span className="text-orange-400">{budgets.batteryNeedWh.toFixed(0)} Wh</span>; battery gives{' '}
-              <span className={budgets.batteryOk ? 'text-green-400' : 'text-red-400'}>{budgets.batteryUsableWh.toFixed(0)} Wh</span>
+              Eclipse needs <span className="text-orange-300">{activeBudgets.batteryNeedWh.toFixed(0)} Wh</span>; battery gives{' '}
+              <span className={activeBudgets.batteryOk ? 'font-bold text-emerald-400' : 'font-bold text-rose-400'}>
+                {activeBudgets.batteryUsableWh.toFixed(0)} Wh
+              </span>
             </div>
             <div>
-              {budgets.captureDeltaV === null ? (
+              {activeBudgets.captureDeltaV === null ? (
                 <>
-                  Holding the orbit: <span className="text-orange-400">{budgets.deltaVStationKeeping} m/s a month</span>
+                  Holding the orbit: <span className="text-orange-300">{activeBudgets.deltaVStationKeeping} m/s a month</span>
                 </>
               ) : (
-                <span className={budgets.upkeepTurns < MISSION_MONTHS ? 'text-red-400' : undefined}>
-                  {upkeepLine({ upkeepTurns: budgets.upkeepTurns, holdDeltaV: budgets.deltaVStationKeeping })}
+                <span className={activeBudgets.upkeepTurns < MISSION_MONTHS ? 'text-rose-400' : undefined}>
+                  {upkeepLine({ upkeepTurns: activeBudgets.upkeepTurns, holdDeltaV: activeBudgets.deltaVStationKeeping })}
                 </span>
               )}
             </div>
           </div>
           {instruments.length > 0 && (
-            <ul className="mt-3 space-y-1 text-xs text-orange-200/80">
+            <ul className="mt-3 space-y-1 text-xs text-orange-100/80">
               {instruments.map((i) => (
                 <li key={i.id}>
-                  {i.name}: works at {Math.round((budgets.quality[i.id] ?? 0) * 100)}% quality here
+                  {i.name}: works at <span className="font-mono tabular-nums">{Math.round((activeBudgets.quality[i.id] ?? 0) * 100)}%</span> quality here
                   {!i.seesShadow && ' (cannot see into shadow: does not count as ice coverage)'}
                 </li>
               ))}
@@ -161,8 +187,48 @@ function PlainOrbit() {
           )}
         </div>
 
-        <div className="rounded-lg bg-slate-900 p-4" aria-live="polite">
-          <div className={`mb-2 text-sm font-bold tracking-wider ${TONE_TEXT[view.selected.verdict.tone]}`}>
+        <div className="hud-panel p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label htmlFor="orbit-timelapse-plain" className="font-mono text-xs uppercase tracking-[0.18em] text-slate-300">
+              Time-Lapse Scrubber · Month <span className="font-bold tabular-nums text-cyan-300">{scrubMonth}</span> / {MISSION_MONTHS}
+            </label>
+            <div className="flex items-center gap-3">
+              <span className={`font-mono text-xs font-bold tabular-nums ${scrubbedCoverage >= COVERAGE_GOAL ? 'text-[#22d3ee]' : 'text-amber-300'}`}>
+                {scrubbedCoverage}% mapped
+              </span>
+              <button
+                type="button"
+                onClick={() => setPlaying((p) => !p)}
+                className="rounded border border-slate-600/80 bg-slate-900 px-2.5 py-1 font-mono text-[11px] font-semibold text-slate-200 hover:border-slate-400"
+              >
+                {playing ? '❚❚ Pause' : '▶ Play'}
+              </button>
+            </div>
+          </div>
+          <input
+            id="orbit-timelapse-plain"
+            type="range"
+            min={1}
+            max={MISSION_MONTHS}
+            step={1}
+            value={scrubMonth}
+            onChange={(e) => {
+              setPlaying(false)
+              setScrubMonth(Number(e.target.value))
+            }}
+            className="tactical-range mt-2"
+          />
+          <div className="relative mt-2 h-2.5 overflow-hidden rounded bg-slate-950">
+            <div
+              className={`h-full transition-all duration-200 ${scrubbedCoverage >= COVERAGE_GOAL ? 'bg-[#22d3ee]' : 'bg-amber-400'}`}
+              style={{ width: `${Math.min(100, scrubbedCoverage)}%` }}
+            />
+            <div className="absolute inset-y-0 w-0.5 bg-[#22d3ee] shadow-[0_0_6px_#22d3ee]" style={{ left: `${COVERAGE_GOAL}%` }} />
+          </div>
+        </div>
+
+        <div className="hud-panel p-4" aria-live="polite">
+          <div className={`mb-2 font-mono text-sm font-bold tracking-wider ${TONE_TEXT[view.selected.verdict.tone]}`}>
             {view.selected.verdictCheck && (
               <span className="font-semibold text-slate-400">Worst check, {view.selected.verdictCheck}: </span>
             )}
@@ -171,7 +237,23 @@ function PlainOrbit() {
           <CheckRows checks={view.selected.checks} />
         </div>
 
-        <div>
+        <SynergyStrip step="orbit" />
+        <DesignDeltaLine />
+
+        <div
+          onMouseOver={(e) => {
+            const id = hoveredChoiceId(e.target)
+            setPreviewPatch(id ? { orbit: id } : null)
+          }}
+          onMouseLeave={() => setPreviewPatch(null)}
+          onFocus={(e) => {
+            const id = hoveredChoiceId(e.target)
+            if (id) setPreviewPatch({ orbit: id })
+          }}
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPreviewPatch(null)
+          }}
+        >
           <OrbitCardTray
             options={view.options}
             selectedId={view.selectedId}
@@ -181,7 +263,7 @@ function PlainOrbit() {
             }}
             full
           />
-          <p className="mt-3 text-sm leading-snug text-slate-400">
+          <p className="mt-3 text-sm leading-snug text-slate-300">
             <b className="font-semibold" style={{ color: view.selected.color }}>
               {view.selected.shortName}.
             </b>{' '}
@@ -213,7 +295,7 @@ function Row({ label, value, children }: { label: string; value: string; childre
     <div className="mt-3 text-xs">
       <div className="flex justify-between text-slate-400">
         <span>{label}</span>
-        <b className="text-slate-100 tabular-nums">{value}</b>
+        <b className="font-mono text-slate-100 tabular-nums">{value}</b>
       </div>
       {children}
     </div>
@@ -223,40 +305,40 @@ function Row({ label, value, children }: { label: string; value: string; childre
 function ReadoutPanel({ o, months }: { o: OrbitOption; months: number }) {
   const now = coverageAt(o, months)
   const final = coverageAt(o, MISSION_MONTHS)
-  const numberColour = now >= COVERAGE_GOAL ? 'text-green-400' : final <= 0 ? 'text-amber-400' : 'text-slate-100'
+  const numberColour = now >= COVERAGE_GOAL ? 'text-[#22d3ee]' : final <= 0 ? 'text-amber-400' : 'text-slate-100'
   const cap = o.captureDeltaV
   const fits = cap !== null && o.deltaVAvailable >= cap
   return (
     <div className={`${PANEL} pointer-events-auto absolute top-16 right-3 bottom-3 w-[290px] overflow-y-auto p-3.5`}>
       {o.verdictCheck && (
-        <div aria-hidden="true" className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        <div aria-hidden="true" className="mb-1 text-center font-mono text-[10px] font-semibold uppercase tracking-wider text-slate-400">
           Worst check: {o.verdictCheck}
         </div>
       )}
-      <div aria-live="polite" className={`rounded-lg border px-2.5 py-1.5 text-center text-[13px] font-bold tracking-wider ${TONE_CHIP[o.verdict.tone]}`}>
+      <div aria-live="polite" className={`rounded-lg border px-2.5 py-1.5 text-center font-mono text-[13px] font-bold tracking-wider ${TONE_CHIP[o.verdict.tone]}`}>
         {o.verdictCheck && <span className="sr-only">Worst check, {o.verdictCheck}: </span>}
         {o.verdict.text}
       </div>
 
       <div className="mt-3 flex items-baseline justify-between">
-        <div className={`text-[38px] leading-none font-extrabold tabular-nums ${numberColour}`}>{Math.round(now)}%</div>
-        <div className="text-right text-xs leading-snug text-slate-400">
+        <div className={`font-mono text-[38px] leading-none font-extrabold tabular-nums ${numberColour}`}>{Math.round(now)}%</div>
+        <div className="text-right font-mono text-xs leading-snug tabular-nums text-slate-400">
           of the polar ice mapped
           <br />
           {Math.round(final)}% after 12 months
         </div>
       </div>
-      <Bar pct={now} color={now >= COVERAGE_GOAL ? '#4ade80' : '#22d3ee'} tick={COVERAGE_GOAL} />
-      <div className="mt-1 text-right text-[11px] text-slate-500">goal {COVERAGE_GOAL}%</div>
+      <Bar pct={now} color={now >= COVERAGE_GOAL ? '#22d3ee' : '#fb923c'} tick={COVERAGE_GOAL} />
+      <div className="mt-1 text-right font-mono text-[11px] tabular-nums text-slate-500">goal {COVERAGE_GOAL}%</div>
 
-      <div className="mt-1 rounded-lg bg-slate-900/60 p-2.5">
-        <div className="mb-1.5 text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
+      <div className="mt-1 rounded-lg border border-slate-700/60 bg-slate-900/60 p-2.5">
+        <div className="mb-1.5 font-mono text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
           GO / NO-GO
         </div>
         <CheckRows checks={o.checks} />
       </div>
 
-      <div className="mt-3 text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
+      <div className="mt-3 font-mono text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
         THIS ORBIT
       </div>
       <p className="mt-1 text-xs leading-snug text-slate-300">
@@ -362,14 +444,30 @@ function prefersReducedMotion() {
   return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }
 
-/** The 12-month time-lapse: 14 s, a 3.5 s hold, then again; restarts when resetKey changes. */
-function useLapse(resetKey: string, reduced: boolean): { clock: RefObject<LapseClock>; shownMonths: number } {
+/** The 12-month time-lapse: 14 s, a 3.5 s hold, plus manual scrubber & Play/Pause control. */
+function useLapse(
+  resetKey: string,
+  reduced: boolean,
+): {
+  clock: RefObject<LapseClock>
+  shownMonths: number
+  playing: boolean
+  togglePlay: () => void
+  scrub: (months: number) => void
+} {
   const clock = useRef<LapseClock>({ months: reduced ? MISSION_MONTHS : 0 })
   const [shownMonths, setShown] = useState(reduced ? MISSION_MONTHS : 0)
+  const [playing, setPlaying] = useState(!reduced)
+
   useEffect(() => {
-    // Reduced motion never changes during the step: state and clock start at month 12
-    if (reduced) return
-    const start = performance.now()
+    clock.current.months = reduced || !playing ? MISSION_MONTHS : 0
+    setShown(clock.current.months)
+  }, [resetKey, reduced]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (reduced || !playing) return
+    const resumeOffsetMs = (Math.min(MISSION_MONTHS, Math.max(0, clock.current.months)) / MISSION_MONTHS) * LAPSE_MS
+    const start = performance.now() - resumeOffsetMs
     let tenth = -1
     let raf = 0
     const tick = (now: number) => {
@@ -385,8 +483,26 @@ function useLapse(resetKey: string, reduced: boolean): { clock: RefObject<LapseC
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [resetKey, reduced])
-  return { clock, shownMonths }
+  }, [resetKey, reduced, playing])
+
+  const scrub = useCallback((m: number) => {
+    const clamped = Math.max(0, Math.min(MISSION_MONTHS, m))
+    setPlaying(false)
+    clock.current.months = clamped
+    setShown(clamped)
+  }, [])
+
+  const togglePlay = useCallback(() => {
+    setPlaying((p) => {
+      if (!p && clock.current.months >= MISSION_MONTHS - 0.05) {
+        clock.current.months = 0
+        setShown(0)
+      }
+      return !p
+    })
+  }, [])
+
+  return { clock, shownMonths, playing, togglePlay, scrub }
 }
 
 function useWidth(ref: RefObject<HTMLDivElement | null>): number | null {
@@ -447,9 +563,13 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
   const design = useGameStore((s) => s.design)
   const difficulty = useGameStore((s) => s.difficulty)
   const updateDesign = useGameStore((s) => s.updateDesign)
+  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
   const view = useMemo(() => buildOrbitView(design, difficulty), [design, difficulty])
   const reduced = useMemo(() => prefersReducedMotion(), [])
-  const { clock, shownMonths } = useLapse(`${view.selectedId}|${design.instruments.join(',')}|${design.propulsion}`, reduced)
+  const { clock, shownMonths, playing, togglePlay, scrub } = useLapse(
+    `${view.selectedId}|${design.instruments.join(',')}|${design.propulsion}`,
+    reduced,
+  )
   // Cards play their own pick sound; arrow keys and clicks in the 3D scene play it here
   const pick = (id: string, quiet = false) => {
     if (id === useGameStore.getState().design.orbit) return
@@ -486,16 +606,38 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
       </div>
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-3 left-1/2 -translate-x-1/2 text-center">
-          <div className="text-xs font-semibold tracking-[0.18em] whitespace-nowrap" style={{ color: ACCENT }}>
+          <div className="font-mono text-xs font-semibold tracking-[0.2em] whitespace-nowrap" style={{ color: ACCENT }}>
             LAUNCH SITE · LUNAR ICE MAPPER · ORBIT
           </div>
-          <div className={`${PANEL} mt-1.5 inline-block px-3.5 py-1 text-xs tracking-widest whitespace-nowrap text-slate-400`}>
+          <div className={`${PANEL} pointer-events-auto mt-1.5 inline-flex flex-col items-center gap-1.5 px-3.5 py-2 font-mono text-xs tracking-widest whitespace-nowrap text-slate-300`}>
             {o.reachable ? (
               <>
-                TIME-LAPSE · MONTH <b className="text-slate-100 tabular-nums">{months}</b> OF 12
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={togglePlay}
+                    aria-label={playing ? 'Pause time-lapse' : 'Play time-lapse'}
+                    className="rounded border border-slate-600/80 bg-slate-900/90 px-2 py-0.5 text-[10px] font-semibold text-cyan-300 hover:border-cyan-400/60"
+                  >
+                    {playing ? '❚❚ PAUSE' : '▶ PLAY'}
+                  </button>
+                  <span>
+                    TIME-LAPSE · MONTH <b className="text-slate-50 tabular-nums">{months}</b> OF 12
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  aria-label="Time-lapse month scrubber"
+                  min={0}
+                  max={MISSION_MONTHS}
+                  step={0.25}
+                  value={shownMonths}
+                  onChange={(e) => scrub(Number(e.target.value))}
+                  className="tactical-range w-52"
+                />
               </>
             ) : (
-              <span className="text-red-400">THE CRAFT NEVER ARRIVES IN THIS ORBIT</span>
+              <span className="text-rose-400">THE CRAFT NEVER ARRIVES IN THIS ORBIT</span>
             )}
           </div>
           <div className="mt-1 text-[11px] text-slate-500">Drag to look around, scroll to zoom. Heights are exaggerated.</div>
@@ -504,9 +646,23 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
         {side && <SidePanel o={o} />}
         <div
           ref={setCardsEl}
-          className="pointer-events-auto absolute bottom-3"
+          className="pointer-events-auto absolute bottom-3 space-y-1.5"
           style={{ left: cardsLeft, right: READOUT_W + 24, maxWidth: CARDS_MAX_W, marginInline: 'auto' }}
+          onMouseOver={(e) => {
+            const id = hoveredChoiceId(e.target)
+            setPreviewPatch(id ? { orbit: id } : null)
+          }}
+          onMouseLeave={() => setPreviewPatch(null)}
+          onFocus={(e) => {
+            const id = hoveredChoiceId(e.target)
+            if (id) setPreviewPatch({ orbit: id })
+          }}
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPreviewPatch(null)
+          }}
         >
+          <SynergyStrip step="orbit" compact />
+          <DesignDeltaLine />
           <OrbitCardTray options={view.options} selectedId={view.selectedId} onPick={(id, fromKeyboard) => pick(id, !fromKeyboard)} />
         </div>
         <StepButtons overlay />
@@ -528,6 +684,8 @@ function useKnownOrbit() {
 
 export function OrbitScreen() {
   useKnownOrbit()
+  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
+  useEffect(() => () => setPreviewPatch(null), [setPreviewPatch])
   // The 3D scene starts only in a browser with WebGL; server rendering and tests take the plain path
   const [scene, setScene] = useState(canUseWebGL)
   const wrap = useRef<HTMLDivElement>(null)
