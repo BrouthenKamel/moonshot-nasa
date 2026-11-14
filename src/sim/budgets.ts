@@ -248,7 +248,8 @@ export function computeBudgets(design: Design, difficulty: Difficulty): Budgets 
   for (const inst of instruments) {
     const limit = inst.maxAltitudeKm
     const altitude = orbit?.altitude ?? 0
-    let q = limit === null || altitude <= limit ? 1 : (limit / altitude) ** 2
+    // Above its altitude limit an ice instrument maps nothing (its signal is lost)
+    let q = limit === null || altitude <= limit ? 1 : 0
     if (!precise) q *= inst.qualityWithoutPrecisePointing
     quality[inst.id] = q
     coverageRate[inst.id] = 1 - Math.exp(-(orbit?.passesPerTurn ?? 0) * inst.footprint * q * scienceDuty)

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../state/gameStore'
 import type { BarStatus } from '../sim/types'
+import { fixLocation } from '../viz/missionMap'
 
 interface ResourceBarProps {
   label: string
@@ -160,9 +161,10 @@ export function Dashboard() {
 
         {goNoGo.blockers.length > 0 && (
           <div className="mt-2 space-y-1">
-            {goNoGo.blockers.map((b: { resource: string; reason: string }, i: number) => (
+            {goNoGo.blockers.map((b, i) => (
               <div key={i} className="text-xs text-red-400">
-                {b.resource}: {b.reason.split('. ')[0].replace(/\.$/, '')}.
+                {b.resource}: {b.reason.split('. ')[0].replace(/\.$/, '')}
+                {b.fixStep ? ` (fix at ${fixLocation(b.fixStep)})` : ''}.
               </div>
             ))}
           </div>

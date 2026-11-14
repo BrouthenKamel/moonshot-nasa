@@ -57,6 +57,19 @@ describe('instruments and orbits shape the science', () => {
     expect(b.projectedCoverage).toBeLessThan(50)
   })
 
+  it('an ice instrument above its altitude limit maps nothing', () => {
+    const laser100 = { ...flashlightDesign, orbit: 'orbit-100km' }
+    const b = computeBudgets(laser100, 'engineer')
+    expect(b.quality['inst-laser']).toBe(0)
+    expect(b.coverageRate['inst-laser']).toBe(0)
+    expect(b.projectedCoverage).toBe(0)
+  })
+
+  it('the IR spectrometer has no altitude limit', () => {
+    const b = computeBudgets({ ...iceCubeDesign, orbit: 'orbit-100km' }, 'engineer')
+    expect(b.quality['inst-ir-spec']).toBe(1)
+  })
+
   it('a laser without precise pointing loses half its quality', () => {
     const b = computeBudgets({ ...flashlightDesign, attitude: 'attitude-basic' }, 'engineer')
     expect(b.quality['inst-laser']).toBeCloseTo(0.5)

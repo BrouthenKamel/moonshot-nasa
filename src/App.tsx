@@ -5,6 +5,8 @@ import { ReplayPanel } from './viz/ReplayPanel'
 import { isSimComplete } from './sim/simulate'
 import { computeBudgets } from './sim/budgets'
 import { difficultyPresets } from './data/brief'
+import { EventCard } from './ui/flight/EventCard'
+import { FlightControls } from './ui/flight/FlightControls'
 
 const PHASE_TEXT: Record<string, string> = {
   build: 'Building',
@@ -27,40 +29,8 @@ function SimStat({ label, value, sub, tone }: { label: string; value: string; su
   )
 }
 
-function EventCard() {
-  const decision = useGameStore((s) => s.simState?.pendingDecision)
-  const answerEvent = useGameStore((s) => s.answerEvent)
-  const flight = useGameStore((s) => s.simState?.flight)
-  if (!decision || !flight) return null
-  return (
-    <div className="rounded-lg border-2 border-yellow-500 bg-yellow-950/60 p-5">
-      <div className="text-xs font-semibold uppercase tracking-wide text-yellow-400">Event, turn {decision.turn}</div>
-      <div className="mt-1 text-lg font-bold text-yellow-200">{decision.title}</div>
-      <div className="mt-2 text-sm text-slate-200">{decision.text}</div>
-      {decision.realMission && <div className="mt-1 text-xs text-slate-400">Real mission: {decision.realMission}</div>}
-      <div className="mt-2 text-xs text-slate-400">
-        Money {flight.main.toFixed(1)} M, reserve {Math.max(0, flight.reserve).toFixed(1)} M
-      </div>
-      <div className="mt-4 space-y-2">
-        {decision.options.map((o) => (
-          <button
-            key={o.id}
-            onClick={() => answerEvent(o.id)}
-            className="w-full rounded-lg bg-slate-800 p-3 text-left text-sm text-slate-100 hover:bg-slate-700"
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function SimulationPlaceholder() {
   const simState = useGameStore((s) => s.simState)
-  const advanceTurn = useGameStore((s) => s.advanceTurn)
-  const flyOn = useGameStore((s) => s.flyOn)
-  const showReport = useGameStore((s) => s.showReport)
 
   if (!simState) return null
 
@@ -68,7 +38,6 @@ function SimulationPlaceholder() {
   const f = simState.flight
   const b = computeBudgets(simState.design, simState.difficulty)
   const dataTarget = difficultyPresets[simState.difficulty]?.dataTarget ?? 300
-  const waiting = !!simState.pendingDecision
   const lastNotes = simState.turnLogs[simState.turnLogs.length - 1]?.notes ?? []
 
   return (
@@ -127,31 +96,7 @@ function SimulationPlaceholder() {
         compact
       />
 
-      {complete && (
-        <button
-          onClick={() => showReport()}
-          className="w-full rounded-lg bg-green-600 py-3 font-medium text-white hover:bg-green-500"
-        >
-          See report
-        </button>
-      )}
-
-      {!complete && !waiting && (
-        <div className="flex gap-4">
-          <button
-            onClick={() => advanceTurn()}
-            className="flex-1 rounded-lg bg-slate-700 py-3 font-medium text-white hover:bg-slate-600"
-          >
-            Advance one turn
-          </button>
-          <button
-            onClick={() => flyOn()}
-            className="flex-1 rounded-lg bg-blue-600 py-3 font-medium text-white hover:bg-blue-500"
-          >
-            Fly until something happens
-          </button>
-        </div>
-      )}
+      <FlightControls />
     </div>
   )
 }

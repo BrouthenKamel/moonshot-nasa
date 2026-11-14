@@ -2,11 +2,12 @@
  * Agency base mockup data: buildings, example missions and the event timeline.
  *
  * Time on the base runs in days (continuous), not turns. Day 0 is the day the
- * agency was founded. The demo state opens on day 112 (about month 4), with the
- * Lunar Ice Mapper ride leaving on day 240 (turn 8 on the board).
+ * agency was founded. The demo state opens on day 112 (about month 4). Once the
+ * Lunar Ice Mapper flies, the base day follows its turns (one turn = 30 days).
  *
  * Everything here is mock content for the MVP: the only real game link is the
- * Lunar Ice Mapper mission, which is planned with the existing design steps.
+ * Lunar Ice Mapper mission, planned from the buildings and flown on the base
+ * with the logic core (src/sim).
  */
 
 /** Day the demo state starts on */
@@ -15,9 +16,6 @@ export const DEMO_START_DAY = 112
 /** Starting money and public support for the demo state */
 export const DEMO_START_FUNDS = 18.4 // $M
 export const DEMO_START_SUPPORT = 68 // %
-
-/** Day the Lunar Ice Mapper's rideshare leaves (turn 8 x 30 days) */
-export const LUNAR_RIDE_DAY = 240
 
 /** Simulation speeds: game days per real second */
 export const SPEEDS = {
@@ -296,21 +294,9 @@ export const agencyEvents: AgencyEvent[] = [
     tone: 'good',
     supportDelta: 5,
   },
-  {
-    id: 'lim-integration',
-    day: 225,
-    title: 'Integration deadline',
-    detail: 'Lunar Ice Mapper must be built and tested',
-    tone: 'warning',
-  },
-  {
-    id: 'lim-ride',
-    day: LUNAR_RIDE_DAY,
-    title: 'Lunar rideshare leaves',
-    detail: 'Next one 180 days later',
-    tone: 'info',
-  },
 ]
+// The Lunar Ice Mapper's own milestones (build, ride, capture) come from the logic core's
+// flight log, on the base calendar from the moment it launches (src/viz/missionMap.ts).
 
 /** Funds history before the demo starts, so the trend chart has something to show */
 export function seedFundsHistory(): { day: number; funds: number }[] {

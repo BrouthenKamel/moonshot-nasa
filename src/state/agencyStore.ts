@@ -26,12 +26,35 @@ export interface AgencyState {
   fundsHistory: { day: number; funds: number }[]
   /** Day the player started planning the Lunar Ice Mapper, or null */
   lunarMissionStartedDay: number | null
+  /** Day the Lunar Ice Mapper's flight started (turn 0). While set, the clock follows the mission turns. */
+  missionStartDay: number | null
 
   setSpeed: (speed: Speed) => void
-  /** Advance the clock by real seconds at the current speed */
+  /** Advance the clock by real seconds at the current speed (not while a mission clock runs) */
   tick: (seconds: number) => void
   markLunarMissionStarted: () => void
+  /** The flight starts: from now on the base day follows the mission turns */
+  startMissionClock: () => void
+  /** Back to the free-running clock (new mission, or the flight was lost on reload) */
+  resetMissionClock: () => void
+  /** Move the clock to the day of a mission turn; never rewinds */
+  syncToMissionTurn: (turn: number) => void
   resetAgency: () => void
+}
+
+/** One mission turn is one month on the base calendar */
+export const DAYS_PER_TURN = 30
+
+/** Saved state from an older version: version 1 had no mission clock */
+export function migrateAgencyState(persisted: unknown, version: number): AgencyState {
+  const state = (persisted ?? {}) as Partial<AgencyState>
+  if (version < 2) return { ...state, missionStartDay: null } as AgencyState
+  return state as AgencyState
+}
+
+/** Base day of a mission turn */
+export function missionDay(startDay: number, turn: number): number {
+  return startDay + turn * DAYS_PER_TURN
 }
 
 const initialState = () => ({
@@ -41,6 +64,7 @@ const initialState = () => ({
   speed: 'normal' as Speed,
   fundsHistory: seedFundsHistory(),
   lunarMissionStartedDay: null as number | null,
+  missionStartDay: null as number | null,
 })
 
 const round2 = (x: number) => Math.round(x * 100) / 100
@@ -83,9 +107,9 @@ export const useAgencyStore = create<AgencyState>()(
       setSpeed: (speed) => set({ speed }),
 
       tick: (seconds) => {
-        const { speed } = get()
+        const { speed, missionStartDay } = get()
         const rate = SPEEDS[speed]
-        if (rate === 0 || seconds <= 0) return
+        if (missionStartDay !== null || rate === 0 || seconds <= 0) return
         set((state) => advanceAgency(state, state.day + rate * seconds))
       },
 
@@ -94,11 +118,22 @@ export const useAgencyStore = create<AgencyState>()(
           lunarMissionStartedDay: state.lunarMissionStartedDay ?? Math.floor(state.day),
         })),
 
+      startMissionClock: () => set((state) => ({ missionStartDay: Math.floor(state.day) })),
+
+      resetMissionClock: () => set({ missionStartDay: null }),
+
+      syncToMissionTurn: (turn) => {
+        const { missionStartDay } = get()
+        if (missionStartDay === null) return
+        set((state) => advanceAgency(state, missionDay(missionStartDay, turn)))
+      },
+
       resetAgency: () => set(initialState()),
     }),
     {
       name: 'moonshot-agency',
-      version: 1,
+      version: 2,
+      migrate: migrateAgencyState,
     }
   )
 )
