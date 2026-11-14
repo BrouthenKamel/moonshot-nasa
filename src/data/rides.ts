@@ -15,6 +15,7 @@ export const RideSchema = z.object({
   dropOffOrbit: z.enum(['trans-lunar', 'gto', 'lunar-vicinity']),
   extraDeltaV: z.number(), // m/s to climb from the drop-off to a trans-lunar path
   insertionFactor: z.number(), // multiplies the capture delta-v (1 = from a trans-lunar path)
+  cruiseTurns: z.number(), // turns of coasting on a low-energy transfer before the capture
   requiredDeltaV: z.number(), // shown: extra delta-v before the capture burn
   electricCompatible: z.boolean(),
   chemicalCompatible: z.boolean(),
@@ -33,6 +34,7 @@ export const rides: Ride[] = [
     dropOffOrbit: 'gto',
     extraDeltaV: 1500,
     insertionFactor: 1,
+    cruiseTurns: 4,
     requiredDeltaV: 1500,
     electricCompatible: true,
     chemicalCompatible: false,
@@ -48,6 +50,7 @@ export const rides: Ride[] = [
     dropOffOrbit: 'trans-lunar',
     extraDeltaV: 0,
     insertionFactor: 1,
+    cruiseTurns: 4,
     requiredDeltaV: 0,
     electricCompatible: true,
     chemicalCompatible: true,
@@ -63,6 +66,7 @@ export const rides: Ride[] = [
     dropOffOrbit: 'lunar-vicinity',
     extraDeltaV: 0,
     insertionFactor: 0.4,
+    cruiseTurns: 1,
     requiredDeltaV: 0,
     electricCompatible: true,
     chemicalCompatible: true,

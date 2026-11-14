@@ -1,303 +1,307 @@
-import { difficultyPresets, lunarIceMapperBrief, scoreWeights } from '../data/brief'
+import {
+  difficultyPresets,
+  lunarIceMapperBrief,
+  scoreWeights,
+  partialShare,
+  modelConstants as C,
+} from '../data/brief'
+import { getPartById, type InstrumentPart, type PropulsionPart, type AttitudePart } from '../data/parts'
+import { getOrbitById } from '../data/orbits'
+import { missedRideWaitTurns } from '../data/rides'
+import { getEventById } from '../data/events'
 import { computeBudgets } from './budgets'
-import type {
-  SimState,
-  Report,
-  RequirementResult,
-  ScoreBreakdown,
-  ChangeHint,
-} from './types'
+import type { Budgets, SimState, Report, RequirementResult, ScoreBreakdown, ChangeHint } from './types'
+
+/**
+ * The final report: each requirement met or missed, with the chain behind
+ * every miss walked back to the decisions and events that caused it.
+ * Ported from prototype/lunar_ice_mapper/evaluation.py (branch python-core-logic).
+ */
+
+const NEVER_ARRIVED = 'The craft never reached its science orbit.'
+const BAD_LUCK = 'Bad luck stacked up over the mission; the margins were too thin to absorb it.'
+const COVERAGE_TARGET = 70
+
+function countOf(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`
+}
+
+function instrumentsOf(state: SimState): InstrumentPart[] {
+  return state.design.instruments
+    .map((id) => getPartById(id))
+    .filter((p): p is InstrumentPart => p !== undefined && p.category === 'instrument')
+}
+
+function nouns(list: InstrumentPart[]): string {
+  const lower = (name: string) =>
+    name
+      .replace(/\s*\(.*\)/, '')
+      .split(' ')
+      .map((w) => (w.length > 1 && w === w.toUpperCase() ? w : w.toLowerCase()))
+      .join(' ')
+  return list.map((i) => lower(i.name)).join(' and ')
+}
+
+function eventsThatCostScience(state: SimState): string[] {
+  const n = state.flight.counts
+  const out: string[] = []
+  if (n['radiation-reset'])
+    out.push(
+      `Radiation resets cost ${countOf(n['radiation-reset'], 'science turn')}.` +
+        (state.design.computer === 'computer-redundant' ? '' : ' A radiation-hard computer resets far less often.')
+    )
+  if (n['long-eclipse'])
+    out.push(`Long eclipses drained the battery on ${countOf(n['long-eclipse'], 'turn')}. The large battery rides them out.`)
+  if (n['instrument-degrades'])
+    out.push(
+      `The instrument degraded ${countOf(n['instrument-degrades'], 'time')}, leaving ${Math.round(state.flight.scienceFactor * 100)}% of its science per turn. More test turns lower the odds.`
+    )
+  if (n['station-outage']) out.push(`Ground station outages halved the downlink on ${countOf(n['station-outage'], 'turn')}.`)
+  return out
+}
+
+function moneyDrains(state: SimState, b: Budgets): string[] {
+  const f = state.flight
+  const out: string[] = []
+  if (f.missedRides) {
+    const wait = f.missedRides * missedRideWaitTurns
+    out.push(
+      `Missing the ride meant ${wait} more turns of team cost (${(wait * C.teamCostPrelaunch).toFixed(1)} M). Slack in the schedule protects against build delays.`
+    )
+  }
+  if (b.totalCost > b.spendable)
+    out.push(`The plan already cost ${b.totalCost.toFixed(1)} M against ${b.spendable.toFixed(1)} M spendable.`)
+  if (b.transferTurns && b.transferTurns > C.cruiseTurns)
+    out.push(
+      `The ${b.transferTurns}-turn electric transfer cost ${(b.transferTurns * b.transferCostPerTurn).toFixed(1)} M in team and ground time before any science.`
+    )
+  const propulsion = getPartById(state.design.propulsion) as PropulsionPart | undefined
+  if (f.counts.thruster && !f.thrusterOk && propulsion && !propulsion.impulsive)
+    out.push('The weak thruster stretched the transfer, and every extra turn costs money.')
+  const extra = f.scienceTurns - lunarIceMapperBrief.missionDurationTurns
+  if (extra > 0)
+    out.push(
+      `The extended mission ran ${countOf(extra, 'turn')} past the planned ${lunarIceMapperBrief.missionDurationTurns}, at ${b.opsCostPerTurn.toFixed(2)} M a turn.`
+    )
+  if (b.reserveAmount === 0) out.push('No reserve was held back for surprises (CubeSat 101 advises at least 10%).')
+  return out.length ? out : ['Running costs and fixes ate the budget before the mission was over.']
+}
+
+function whyNoCapture(state: SimState, b: Budgets): string[] {
+  const f = state.flight
+  const out: string[] = []
+  if (f.end === 'lost contact after deployment') {
+    out.push('Contact was lost right after deployment, as happened to Lunar IceCube.')
+    if (f.testTurns < 2)
+      out.push(`Only ${countOf(f.testTurns, 'test turn')} had been flown: that made this x${f.testFactor} as likely. More testing lowers the odds.`)
+    const cost = getEventById('no-signal')!.choices.find((c) => c.id === 'recover')!.reserveCost
+    out.push(b.reserveAmount < cost ? 'There was no reserve to pay for emergency tracking.' : 'Emergency tracking did not find the craft.')
+  } else if (f.end === 'not enough delta-v left to capture') {
+    out.push(
+      `Only ${Math.max(0, f.dvLeft).toFixed(0)} m/s was left at the Moon; capture needed ${(b.captureDeltaV ?? 0).toFixed(0)}. The design carried ${b.deltaVAvailable.toFixed(0)}.`
+    )
+    out.push(
+      f.counts.thruster
+        ? 'The weak thruster cost the margin. More delta-v margin, more testing or a reserve for the fix would have saved it.'
+        : 'Carry more propellant or choose an orbit that is cheaper to reach.'
+    )
+  } else if (f.end === 'this craft cannot reach the science orbit') {
+    out.push('With this engine, ride and transfer the craft has no way into the chosen orbit. The Go / No-Go check flags this in red.')
+  } else if (f.end.startsWith('budget ran out')) {
+    out.push(`The money ran out on turn ${state.currentTurn}, before the craft reached orbit.`)
+    out.push(...moneyDrains(state, b))
+  } else {
+    out.push(`The programme was closed on turn ${state.currentTurn} with the craft still on its way.`)
+    if (f.missedRides) out.push(`It missed ${countOf(f.missedRides, 'ride')} and waited ${missedRideWaitTurns} turns for each next one.`)
+    if (f.counts.thruster && !f.thrusterOk) out.push('The weak thruster doubled what was left of the transfer.')
+  }
+  return out
+}
+
+function whyShortLife(state: SimState, b: Budgets): string[] {
+  const f = state.flight
+  if (!f.captured) return [NEVER_ARRIVED]
+  if (f.end === 'out of propellant, orbit lost' || f.dvLeft < 0)
+    return [
+      `The propellant ran out after ${countOf(f.scienceTurns, 'turn')}: holding this orbit costs ${b.deltaVStationKeeping} m/s a turn and ${b.deltaVAfterCapture.toFixed(0)} m/s was left after capture.`,
+    ]
+  if (f.end.startsWith('budget ran out'))
+    return [`The money ran out after ${countOf(f.scienceTurns, 'science turn')}.`, ...moneyDrains(state, b)]
+  return [`The programme was closed on turn ${state.currentTurn}: the craft reached orbit too late (captured on turn ${f.captureTurn}).`]
+}
+
+function linkCause(state: SimState, b: Budgets): string {
+  const crowd = instrumentsOf(state).filter((i) => i.kind === 'outreach')
+  let text =
+    `${state.flight.science.lost.toFixed(0)} MB of data never got home: the instruments made ${b.dataPerTurn.toFixed(0)} MB a turn, ` +
+    `the link carried ${b.downlinkPerTurn.toFixed(0)} and storage holds ${b.storageCapacity} MB. The coverage in the lost data was lost with it.`
+  if (crowd.length && state.design.instruments.length > 1) text += ` The ${nouns(crowd)} data crowded out the ice data.`
+  return text + ' More contact time, a bigger dish on the ground or a dish antenna on board would carry it.'
+}
+
+/** Chain: sees shadow -> passes -> altitude and pointing -> power -> data home -> science turns -> events */
+function whyCoverageShort(state: SimState, b: Budgets): string[] {
+  const f = state.flight
+  const turns = lunarIceMapperBrief.missionDurationTurns
+  if (!f.captured) return [NEVER_ARRIVED]
+  const all = instrumentsOf(state)
+  const ice = all.filter((i) => i.seesShadow)
+  if (ice.length === 0)
+    return [
+      `The ${nouns(all)} cannot see into the shadowed craters where the ice is: it needs sunlight. Only the laser reflectometer and the neutron spectrometer can.`,
+    ]
+  const orbit = getOrbitById(state.design.orbit)
+  const best = ice.reduce((a, c) => ((b.coverageRate[c.id] ?? 0) > (b.coverageRate[a.id] ?? 0) ? c : a))
+  const noun = nouns([best])
+  const out: string[] = []
+  const passes = orbit?.passesPerTurn ?? 0
+  const ideal = 100 * (1 - Math.exp(-passes * best.footprint * turns))
+  if (ideal < COVERAGE_TARGET)
+    out.push(
+      `Too few passes: this orbit (${orbit?.name}) crosses the pole ${passes} times a turn and the ${noun} sees a narrow strip each time. ` +
+        `Even a perfect craft maps only ${ideal.toFixed(0)}% in ${turns} turns. It takes an orbit with more passes or an instrument with a wider view.`
+    )
+  if (best.maxAltitudeKm !== null && orbit && orbit.altitude > best.maxAltitudeKm) {
+    const share = (best.maxAltitudeKm / orbit.altitude) ** 2
+    out.push(
+      `Too high: the ${noun} works up to ${best.maxAltitudeKm} km and this orbit passes the pole at ${orbit.altitude} km, so it sees only ${Math.round(share * 100)}% of what it could.`
+    )
+  }
+  const attitude = getPartById(state.design.attitude) as AttitudePart | undefined
+  if (!attitude?.precise && best.qualityWithoutPrecisePointing < 1)
+    out.push(`Without precise pointing the ${noun} works at ${Math.round(best.qualityWithoutPrecisePointing * 100)}% of its quality.`)
+  if (b.scienceDuty < 1) out.push(`Too little power: the instruments ran only ${Math.round(b.scienceDuty * 100)}% of the time they could.`)
+  if (f.science.lost > 1) out.push(linkCause(state, b))
+  if (b.projectedCoverage >= COVERAGE_TARGET) out.push(...eventsThatCostScience(state)) // good enough on paper: the flight cost it
+  if (f.scienceTurns < turns) out.push(...whyShortLife(state, b))
+  return out.length ? out : [BAD_LUCK]
+}
+
+function whyDataShort(state: SimState, b: Budgets, need: number): string[] {
+  const f = state.flight
+  const turns = lunarIceMapperBrief.missionDurationTurns
+  if (!f.captured) return [NEVER_ARRIVED]
+  const all = instrumentsOf(state)
+  const science = all.filter((i) => i.kind !== 'outreach')
+  if (science.length === 0)
+    return [`The ${nouns(all)} returns outreach pictures (${f.outreach.toFixed(0)} MB came home), which do not count as science data.`]
+  const made = science.reduce((s, i) => s + i.dataPerTurn, 0) * b.scienceDuty
+  const out: string[] = []
+  if (made * turns < need) {
+    out.push(
+      `The science instruments make ${made.toFixed(0)} MB a turn: ${(made * turns).toFixed(0)} MB in ${turns} turns, short of ${need} MB before anything goes wrong.`
+    )
+    if (b.scienceDuty < 1) out.push(`Power held them to ${Math.round(b.scienceDuty * 100)}% of the time they could run.`)
+  }
+  if (f.science.lost > 1) out.push(linkCause(state, b))
+  if (b.projectedData >= need) out.push(...eventsThatCostScience(state))
+  if (f.scienceTurns < turns) out.push(...whyShortLife(state, b))
+  return out.length ? out : [BAD_LUCK]
+}
 
 /**
  * Build the final mission report from simulation state.
  */
 export function buildReport(state: SimState): Report {
-  const budgets = computeBudgets(state.design, state.difficulty)
-  const preset = difficultyPresets[state.difficulty]
-  const brief = lunarIceMapperBrief
-
-  // Evaluate each requirement
-  const requirements: RequirementResult[] = []
-
-  // 1. Capture into orbit
-  requirements.push({
-    id: 'capture',
-    name: 'Lunar Orbit Insertion',
-    met: state.capturedIntoOrbit,
-    target: 1,
-    actual: state.capturedIntoOrbit ? 1 : 0,
-    unit: '',
-    reason: state.capturedIntoOrbit
-      ? 'Successfully captured into lunar polar orbit.'
-      : state.failureReason ?? 'Failed to capture into lunar orbit.',
-    traceToDecision: state.capturedIntoOrbit
-      ? undefined
-      : 'Check propulsion system and transfer trajectory.',
-  })
-
-  // 2. Coverage
-  const coverageTarget = 70
-  const coverageMet = state.coveragePercent >= coverageTarget
-  requirements.push({
-    id: 'coverage',
-    name: 'South Polar Coverage',
-    met: coverageMet,
-    target: coverageTarget,
-    actual: Math.round(state.coveragePercent),
-    unit: '%',
-    reason: coverageMet
-      ? `Achieved ${state.coveragePercent.toFixed(0)}% coverage of the south polar region.`
-      : `Only achieved ${state.coveragePercent.toFixed(0)}% coverage. ${coverageTarget}% required.`,
-    traceToDecision: coverageMet
-      ? undefined
-      : 'Consider a lower orbit for faster coverage, or longer mission duration.',
-  })
-
-  // 3. Data return
+  const b = computeBudgets(state.design, state.difficulty)
+  const preset = difficultyPresets[state.difficulty] ?? difficultyPresets.engineer
+  const f = state.flight
+  const turnsNeeded = lunarIceMapperBrief.missionDurationTurns
   const dataTarget = preset.dataTarget
-  const dataMet = state.totalDataReturned >= dataTarget
-  requirements.push({
-    id: 'data',
-    name: 'Science Data Return',
-    met: dataMet,
-    target: dataTarget,
-    actual: parseFloat(state.totalDataReturned.toFixed(1)),
-    unit: 'GB',
-    reason: dataMet
-      ? `Returned ${state.totalDataReturned.toFixed(1)} GB of science data.`
-      : `Only returned ${state.totalDataReturned.toFixed(1)} GB. Target was ${dataTarget} GB.`,
-    traceToDecision: dataMet
-      ? undefined
-      : state.totalDataLost > 0
-        ? `Lost ${state.totalDataLost.toFixed(1)} GB due to insufficient downlink capacity.`
-        : 'Consider higher data rate instruments or better ground station.',
-  })
+  const moneyLeft = f.main + Math.max(f.reserve, 0)
 
-  // 4. Mission lifetime
-  const lifetimeTarget = brief.missionDurationTurns
-  const lifetimeMet = state.turnsInOrbit >= lifetimeTarget
-  requirements.push({
-    id: 'lifetime',
-    name: 'Mission Lifetime',
-    met: lifetimeMet,
-    target: lifetimeTarget,
-    actual: state.turnsInOrbit,
-    unit: 'turns',
-    reason: lifetimeMet
-      ? `Operated for ${state.turnsInOrbit} months in lunar orbit.`
-      : `Mission ended after ${state.turnsInOrbit} months. ${lifetimeTarget} required.`,
-    traceToDecision: lifetimeMet
-      ? undefined
-      : state.contactLost
-        ? 'Communication lost. Consider redundant computer or higher reliability radio.'
-        : 'Mission ended prematurely.',
-  })
-
-  // 5. Budget
-  const budgetMet = budgets.budgetMargin >= 0
-  requirements.push({
-    id: 'budget',
-    name: 'Budget Compliance',
-    met: budgetMet,
-    target: preset.budgetCap,
-    actual: parseFloat(budgets.totalCost.toFixed(1)),
-    unit: '$M',
-    reason: budgetMet
-      ? `Mission cost $${budgets.totalCost.toFixed(1)}M, within $${preset.budgetCap}M cap.`
-      : `Mission cost $${budgets.totalCost.toFixed(1)}M, exceeding $${preset.budgetCap}M cap by $${(-budgets.budgetMargin).toFixed(1)}M.`,
-    traceToDecision: budgetMet
-      ? undefined
-      : 'Choose cheaper parts or a lower-cost ride.',
-  })
-
-  // Calculate outcome
-  const criticalRequirements = requirements.filter(
-    (r) => r.id === 'capture' || r.id === 'lifetime'
-  )
-  const criticalMet = criticalRequirements.every((r) => r.met)
-  const allMet = requirements.every((r) => r.met)
-
-  let outcome: 'success' | 'partial' | 'failed'
-  let outcomeReason: string
-
-  if (!state.capturedIntoOrbit) {
-    outcome = 'failed'
-    outcomeReason = 'Failed to capture into lunar orbit. No science data returned.'
-  } else if (state.contactLost) {
-    outcome = 'failed'
-    outcomeReason = 'Lost contact with spacecraft before mission completion.'
-  } else if (allMet) {
-    outcome = 'success'
-    outcomeReason = 'All mission requirements met. Full success!'
-  } else if (criticalMet) {
-    outcome = 'partial'
-    const missed = requirements.filter((r) => !r.met).map((r) => r.name)
-    outcomeReason = `Partial success. Missed: ${missed.join(', ')}.`
-  } else {
-    outcome = 'failed'
-    outcomeReason = 'Critical requirements not met.'
+  const req = (
+    id: string,
+    name: string,
+    met: boolean,
+    target: number,
+    actual: number,
+    unit: string,
+    reason: string,
+    causes: () => string[]
+  ): RequirementResult => {
+    const why = met ? [] : causes()
+    return { id, name, met, target, actual, unit, reason, traceToDecision: why[0], causes: why }
   }
 
-  // Calculate score
-  const score = calculateScore(state, requirements, budgets)
+  const requirements: RequirementResult[] = [
+    req('capture', 'Lunar Orbit Insertion', f.captured, 1, f.captured ? 1 : 0, '',
+      f.captured ? `Captured into the science orbit on turn ${f.captureTurn}.` : 'Never captured into lunar orbit.',
+      () => whyNoCapture(state, b)),
+    req('coverage', 'Ice Coverage', f.coverage >= COVERAGE_TARGET, COVERAGE_TARGET, Math.round(f.coverage * 10) / 10, '%',
+      `${f.coverage.toFixed(1)}% of the south polar region mapped by an instrument that sees into shadow, with its data home.`,
+      () => whyCoverageShort(state, b)),
+    req('data', 'Science Data Return', f.data >= dataTarget, dataTarget, Math.round(f.data), 'MB',
+      `${f.data.toFixed(0)} MB of science data on the ground.`,
+      () => whyDataShort(state, b, dataTarget)),
+    req('lifetime', 'Mission Lifetime', f.scienceTurns >= turnsNeeded, turnsNeeded, f.scienceTurns, 'turns',
+      `${f.scienceTurns} turns in the science orbit.`,
+      () => whyShortLife(state, b)),
+    req('budget', 'Budget Compliance', f.reserve >= 0, 1, f.reserve >= 0 ? 1 : 0, '',
+      f.reserve >= 0 ? `${moneyLeft.toFixed(1)} M left.` : `Reserve overdrawn by ${(-f.reserve).toFixed(1)} M.`,
+      () => moneyDrains(state, b)),
+  ]
 
-  // Generate improvement hints
-  const hints = generateHints(state, requirements, budgets)
+  // Success level
+  const allMet = requirements.every((r) => r.met)
+  let outcome: Report['outcome']
+  if (allMet) outcome = 'success'
+  else if (f.captured && (f.coverage >= COVERAGE_TARGET * partialShare || f.data >= dataTarget * partialShare)) outcome = 'partial'
+  else outcome = 'failed'
 
-  // Count events handled well
-  const eventsHandledWell = state.allEvents.filter((e) => e.choiceSucceeded).length
+  const missed = requirements.filter((r) => !r.met).map((r) => r.name)
+  const ending = f.end || 'mission over'
+  const outcomeReason =
+    outcome === 'success'
+      ? 'All mission requirements met.'
+      : `${ending.charAt(0).toUpperCase() + ending.slice(1)}. Missed: ${missed.join(', ')}.`
+
+  // Score (out of 1000)
+  const w = scoreWeights
+  const parts = f.captured
+    ? {
+        coverage: w.coverage * Math.min(1, f.coverage / COVERAGE_TARGET),
+        data: w.data * Math.min(1, f.data / dataTarget),
+        lifetime: w.lifetime * Math.min(1, f.scienceTurns / turnsNeeded),
+        context: w.context * Math.min(1, f.context / COVERAGE_TARGET),
+        money: (w.money * Math.max(0, moneyLeft)) / b.budgetCap,
+      }
+    : { coverage: 0, data: 0, lifetime: 0, context: 0, money: 0 }
+  const score: ScoreBreakdown = {
+    coverage: Math.round(parts.coverage),
+    data: Math.round(parts.data),
+    lifetime: Math.round(parts.lifetime),
+    context: Math.round(parts.context),
+    money: Math.round(parts.money),
+    total: Math.round(parts.coverage + parts.data + parts.lifetime + parts.context + parts.money),
+  }
+
+  // One hint per missed requirement: the first link of its chain
+  const hints: ChangeHint[] = requirements
+    .filter((r) => !r.met && r.causes.length)
+    .map((r) => ({ area: r.name, suggestion: r.causes[0], priority: r.id === 'capture' ? 'high' : 'medium' }))
 
   return {
     outcome,
     outcomeReason,
-
     requirements,
     requirementsMet: requirements.filter((r) => r.met).length,
     requirementsTotal: requirements.length,
-
     score,
-
-    totalCost: budgets.totalCost,
-    dataReturned: state.totalDataReturned,
-    coverageAchieved: state.coveragePercent,
-    turnsInOrbit: state.turnsInOrbit,
+    totalCost: b.budgetCap - moneyLeft,
+    dataReturned: f.data,
+    outreachReturned: f.outreach,
+    coverageAchieved: f.coverage,
+    turnsInOrbit: f.scienceTurns,
     eventsEncountered: state.allEvents.length,
-    eventsHandledWell,
-
-    playerMass: budgets.totalMass,
-    playerCost: budgets.totalCost,
-
+    eventsHandledWell: state.allEvents.filter((e) => e.choiceSucceeded).length,
+    playerMass: b.totalMass,
+    playerCost: b.totalCost,
     hints,
-
     design: state.design,
     difficulty: state.difficulty,
     timestamp: Date.now(),
   }
-}
-
-/**
- * Calculate score breakdown.
- */
-function calculateScore(
-  state: SimState,
-  requirements: RequirementResult[],
-  budgets: ReturnType<typeof computeBudgets>
-): ScoreBreakdown {
-  // Requirements score (600 points)
-  const reqMet = requirements.filter((r) => r.met).length
-  const reqTotal = requirements.length
-  const requirementsScore = Math.round((reqMet / reqTotal) * scoreWeights.requirements)
-
-  // Science score (200 points) - based on data returned and coverage
-  const dataRatio = Math.min(
-    1,
-    state.totalDataReturned / difficultyPresets[state.difficulty].dataTarget
-  )
-  const coverageRatio = Math.min(1, state.coveragePercent / 100)
-  const scienceScore = Math.round(((dataRatio + coverageRatio) / 2) * scoreWeights.science)
-
-  // Efficiency score (100 points) - based on cost efficiency
-  const budgetUsed = budgets.totalCost / budgets.budgetCap
-  const efficiencyRatio = state.capturedIntoOrbit
-    ? Math.min(1, Math.max(0, 1 - (budgetUsed - 0.7))) // Bonus for coming in under budget, capped at 1
-    : 0
-  const efficiencyScore = Math.round(efficiencyRatio * scoreWeights.efficiency)
-
-  // Risk handling score (100 points) - based on surviving events
-  const eventsEncountered = state.allEvents.length
-  const eventsHandledWell = state.allEvents.filter((e) => e.choiceSucceeded).length
-  const riskRatio =
-    eventsEncountered > 0 ? eventsHandledWell / eventsEncountered : 1
-  const riskScore = Math.round(riskRatio * scoreWeights.riskHandling)
-
-  return {
-    requirements: requirementsScore,
-    science: scienceScore,
-    efficiency: efficiencyScore,
-    riskHandling: riskScore,
-    total: requirementsScore + scienceScore + efficiencyScore + riskScore,
-  }
-}
-
-/**
- * Generate improvement hints based on results.
- */
-function generateHints(
-  state: SimState,
-  requirements: RequirementResult[],
-  budgets: ReturnType<typeof computeBudgets>
-): ChangeHint[] {
-  const hints: ChangeHint[] = []
-
-  // Check for capture failure
-  if (!state.capturedIntoOrbit) {
-    hints.push({
-      area: 'Propulsion',
-      suggestion:
-        'Consider more fuel (larger propulsion system) or a low-energy transfer to reduce delta-v needs.',
-      priority: 'high',
-    })
-  }
-
-  // Check for data issues
-  const dataReq = requirements.find((r) => r.id === 'data')
-  if (dataReq && !dataReq.met) {
-    if (state.totalDataLost > 1) {
-      hints.push({
-        area: 'Communications',
-        suggestion:
-          'Data was lost due to downlink bottleneck. Consider a higher-gain antenna or DSN ground station.',
-        priority: 'high',
-      })
-    } else {
-      hints.push({
-        area: 'Instruments',
-        suggestion: 'Add more instruments or choose higher data-rate options.',
-        priority: 'medium',
-      })
-    }
-  }
-
-  // Check for coverage issues
-  const coverageReq = requirements.find((r) => r.id === 'coverage')
-  if (coverageReq && !coverageReq.met) {
-    hints.push({
-      area: 'Orbit',
-      suggestion:
-        'Try a lower orbit for faster coverage, or extend mission duration.',
-      priority: 'medium',
-    })
-  }
-
-  // Check for budget issues
-  const budgetReq = requirements.find((r) => r.id === 'budget')
-  if (budgetReq && !budgetReq.met) {
-    hints.push({
-      area: 'Budget',
-      suggestion:
-        'Choose less expensive parts or ground station. Consider body-mounted solar panels.',
-      priority: 'high',
-    })
-  }
-
-  // Check for close calls
-  if (budgets.deltaVMargin < 200 && state.capturedIntoOrbit) {
-    hints.push({
-      area: 'Fuel Margin',
-      suggestion: 'Delta-v margin was tight. Consider more propellant for reliability.',
-      priority: 'low',
-    })
-  }
-
-  if (budgets.powerMargin < 10) {
-    hints.push({
-      area: 'Power',
-      suggestion: 'Power margin is low. May struggle in non-optimal sun angles.',
-      priority: 'low',
-    })
-  }
-
-  return hints
 }
 
 /**
