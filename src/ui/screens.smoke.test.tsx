@@ -28,12 +28,26 @@ import type { DesignStep } from '../sim/types'
 describe('screens render', () => {
   beforeEach(() => useGameStore.getState().newGame())
 
-  it('the game starts on the agency map, with the difficulty picked there', () => {
+  it('the game starts on the agency map', () => {
     expect(useGameStore.getState().screen).toBe('base')
     const html = renderToString(<App />)
     expect(html).toContain('Agency dashboard')
-    expect(html).toContain('Engineer')
     expect(html).not.toContain('Select Difficulty')
+  })
+
+  // Jakob, 14 Nov: no difficulty levels for now; one fixed setting (the Engineer values)
+  it('shows no difficulty anywhere and plays on the fixed Engineer values', () => {
+    useGameStore.setState({ difficulty: 'cadet' })
+    useGameStore.getState().newGame()
+    expect(useGameStore.getState().difficulty).toBe('engineer')
+    const pages = [renderToString(<App />)]
+    for (const step of ['brief', 'planning', 'go-nogo'] as DesignStep[]) {
+      useGameStore.setState({ screen: 'design', designStep: step })
+      pages.push(renderToString(<App />))
+    }
+    for (const html of pages) {
+      expect(html).not.toMatch(/Difficulty|Cadet|Flight Director|>Engineer</)
+    }
   })
 
   const steps: DesignStep[] = ['brief', 'planning', 'instruments', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']

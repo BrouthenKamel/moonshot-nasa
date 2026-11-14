@@ -24,6 +24,9 @@ import type { BuildingId } from '../data/agency'
 import { BUILDING_STEPS, suggestedStep } from '../viz/missionMap'
 import { useAgencyStore } from './agencyStore'
 
+/** Difficulty levels are off for now (Jakob, 14 Nov): the game plays on the Engineer values */
+export const FIXED_DIFFICULTY: Difficulty = 'engineer'
+
 /** Screen the player is on */
 export type Screen =
   | 'title'
@@ -195,7 +198,7 @@ export const useGameStore = create<GameState>()(
       designStep: 'brief',
       mode: 'solo',
       players: [],
-      difficulty: 'engineer',
+      difficulty: FIXED_DIFFICULTY,
       design: createDefaultDesign(),
       simState: null,
       pendingAction: getDefaultAction(),
@@ -278,7 +281,8 @@ export const useGameStore = create<GameState>()(
       showReport: () => set({ screen: 'report' }),
 
       // Configuration
-      setDifficulty: (difficulty) => set({ difficulty }),
+      // Difficulty levels are off for now: the setting stays on the Engineer values
+      setDifficulty: () => set({ difficulty: FIXED_DIFFICULTY }),
       setMode: (mode) => set({ mode }),
       setPlayers: (players) => set({ players }),
 
@@ -455,6 +459,8 @@ export const useGameStore = create<GameState>()(
       // Full reset
       newGame: () =>
         set({
+          // No difficulty levels for now (Jakob, 14 Nov): always the Engineer values
+          difficulty: FIXED_DIFFICULTY,
           screen: 'base',
           designStep: 'brief',
           design: createDefaultDesign(),
@@ -485,8 +491,9 @@ export const useGameStore = create<GameState>()(
     {
       name: 'moonshot-game-storage',
       storage: skipUnchangedWrites(createJSONStorage(() => createSafeStorage(getBaseStorage()) as StateStorage)!) as never,
+      // Difficulty is not saved: a stored Cadet or Flight Director setting from before is ignored
+      merge: (persisted, current) => ({ ...current, ...(persisted as Partial<GameState>), difficulty: FIXED_DIFFICULTY }),
       partialize: (state) => ({
-        difficulty: state.difficulty,
         mode: state.mode,
         // Keep the mission being planned, so the base can show and resume it
         design: state.design,
