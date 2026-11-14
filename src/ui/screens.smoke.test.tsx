@@ -195,7 +195,7 @@ describe('screens render', () => {
     useAgencyStore.getState().markLunarMissionStarted()
     useGameStore.setState({ screen: 'base', simState: null, design: flashlightDesign })
     const html = renderToString(<App />)
-    expect(html).toContain('14.0 / 14 kg')
+    expect(html).toContain('13.2 / 14 kg') // 14.0 before the balance redesign (lighter chemical module)
     expect(html).toContain('Click a building to walk in')
     expect(html).toContain('month 8')
     expect(html).not.toMatch(/\bturns?\b/i)

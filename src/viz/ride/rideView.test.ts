@@ -12,18 +12,30 @@ function view(design: Design, patch: Partial<Budgets> = {}, checks?: CheckResult
 
 const layer = (v: RideView, key: string) => v.tank.layers.find((l) => l.key === key)?.value
 const row = (v: RideView, id: string) => v.rows.find((r) => r.id === id)!
+// Over the 25 M cap on the GTO ride, yet on time and able to get there (balance redesign, 14 Nov:
+// the untested default craft no longer costs that much)
+const overCap: Design = {
+  ...iceCubeDesign,
+  planning: { ...iceCubeDesign.planning, testTurns: 0 },
+  groundStation: 'ground-dsn',
+  computer: 'computer-redundant',
+  attitude: 'attitude-precision',
+  radio: 'radio-xband',
+}
 
 describe('buildRideView', () => {
   it('default craft on the lunar ride with low-energy transfer', () => {
     const v = view(iceCubeDesign)
     expect(v.reach).toBe('ok')
-    expect(v.tank.available).toBeCloseTo(2628, 0)
+    // Balance redesign: the IR spectrometer is lighter (2.4 kg), so the same tank gives more delta-v
+    expect(v.tank.available).toBeCloseTo(2815, 0)
     expect(v.tank.layers.map((l) => l.key)).toEqual(['capture', 'hold', 'spare'])
     expect(layer(v, 'capture')).toBe(1000)
     expect(layer(v, 'hold')).toBe(60)
-    expect(layer(v, 'spare')).toBeCloseTo(1568, 0)
-    expect(v.path.dots).toBe(11)
-    expect(v.timeline).toMatchObject({ readyTurn: 7, rideTurn: 8, transferTurns: 11, arrivalTurn: 19 })
+    expect(layer(v, 'spare')).toBeCloseTo(1755, 0)
+    expect(v.path.dots).toBe(10)
+    // A one-instrument craft builds in 3 months now; the lighter craft spirals in 10
+    expect(v.timeline).toMatchObject({ readyTurn: 6, rideTurn: 8, transferTurns: 10, arrivalTurn: 18 })
     expect(v.status).toBe(v.bars.some((b) => b.status === 'red') ? 'nogo' : v.bars.some((b) => b.status === 'yellow') ? 'caution' : 'go')
     expect(v.orbit.colour).toBe('#a3e635')
   })
@@ -63,7 +75,7 @@ describe('buildRideView', () => {
   it('chemical craft on lunar + direct flies past', () => {
     const v = view({ ...flashlightDesign, transfer: 'transfer-direct' })
     expect(v.reach).toBe('flyPast')
-    expect(v.tank.shortBy).toBeCloseTo(215, 0)
+    expect(v.tank.shortBy).toBeCloseTo(136, 0) // Isp 190 (was 150) since the balance redesign
     expect(v.timeline.direct).toBe(true)
     expect(v.timeline.showMapping).toBe(false)
     expect(v.status).toBe('nogo')
@@ -73,30 +85,31 @@ describe('buildRideView', () => {
     const f = view(flashlightDesign)
     expect(row(f, 'ride-gto').status).toBe('wrongEngine')
     expect(row(f, 'ride-lunar').status).toBe('onTime')
-    expect(row(f, 'ride-commercial').status).toBe('tooHeavy')
+    // The lander takes 14 kg since the balance redesign (was 12), so this craft fits; its 4.5 M fee reaches into the reserve
+    expect(row(f, 'ride-commercial')).toMatchObject({ status: 'overBudget', statusLabel: 'INTO THE RESERVE' })
 
     const i = view(iceCubeDesign)
-    expect(row(i, 'ride-gto')).toMatchObject({ status: 'tooEarly', limitKg: 14, burn: 2500, overBudget: true, arrivalTurn: 27 })
+    // Balance redesign: GTO leaves in month 7 for 0.5 M, and the default craft is ready in month 6 and affordable
+    expect(row(i, 'ride-gto')).toMatchObject({ status: 'onTime', limitKg: 14, burn: 2500, overBudget: false, arrivalTurn: 27 })
     // The reserve line is a hard limit: under the cap but over what is spendable reads INTO THE RESERVE
     const reserve = view({ ...flashlightDesign, planning: { ...flashlightDesign.planning, reservePercent: 20 } })
     expect(row(reserve, 'ride-lunar')).toMatchObject({ status: 'overBudget', statusLabel: 'INTO THE RESERVE', overBudget: true })
-    expect(row(i, 'ride-gto').planCost).toBeCloseTo(27.5, 1)
-    expect(row(i, 'ride-lunar').planCost).toBeCloseTo(24.9, 1)
-    expect(row(i, 'ride-lunar').arrivalTurn).toBe(19)
-    expect(row(i, 'ride-commercial').burn).toBe(400)
-    expect(i.rows.map((r) => r.turn)).toEqual([6, 8, 10])
+    expect(row(i, 'ride-gto').planCost).toBeCloseTo(22.2, 1)
+    expect(row(i, 'ride-lunar').planCost).toBeCloseTo(21.3, 1)
+    expect(row(i, 'ride-lunar').arrivalTurn).toBe(18)
+    expect(row(i, 'ride-commercial').burn).toBe(500) // the lander halves the burn (was 0.4)
+    expect(i.rows.map((r) => r.turn)).toEqual([7, 8, 10])
     expect(i.rows.filter((r) => r.selected)).toHaveLength(1)
 
-    const untested = view({ ...iceCubeDesign, planning: { ...iceCubeDesign.planning, testTurns: 0 } })
-    expect(row(untested, 'ride-gto').status).toBe('overBudget')
-    expect(row(untested, 'ride-gto').statusLabel).toBe('OVER BUDGET')
+    expect(row(view(overCap), 'ride-gto').status).toBe('overBudget')
+    expect(row(view(overCap), 'ride-gto').statusLabel).toBe('OVER BUDGET')
   })
 
   it('GTO ride adds the spiral', () => {
     const v = view({ ...iceCubeDesign, ride: 'ride-gto' })
     expect(v.path.spiral).toBe(true)
     expect(v.tank.layers[0]).toMatchObject({ key: 'climb', value: 1500 })
-    expect(v.path.dots).toBe(21)
+    expect(v.path.dots).toBe(20)
     expect(v.timeline.turns).toBe(40)
   })
 
@@ -142,12 +155,12 @@ describe('buildRideView', () => {
   })
 
   it('reasons list red first, then yellow, at most three', () => {
-    const v = view({ ...iceCubeDesign, ride: 'ride-gto' })
+    const v = view({ ...overCap, ride: 'ride-gto' })
     expect(v.reasons.length).toBeLessThanOrEqual(3)
     const order = v.reasons.map((r) => r.status)
     expect(order).toEqual([...order].sort((a, b) => (a === b ? 0 : a === 'red' ? -1 : 1)))
     expect(v.reasons[0].status).toBe('red')
-    expect(v.costLine).toBe('PLAN COST $27.5M OF $25M')
+    expect(v.costLine).toBe('PLAN COST $26.4M OF $25M')
   })
 })
 
@@ -156,7 +169,7 @@ describe('board rows say whether that ride gets the craft there', () => {
     const v = view({ ...flashlightDesign, transfer: 'transfer-direct' })
     expect(row(v, 'ride-lunar')).toMatchObject({ status: 'cantReach', statusLabel: "CAN'T BRAKE", arrivalTurn: null })
     // The commercial ride halves the burn: the tank can brake there, so its own status shows
-    expect(row(v, 'ride-commercial')).toMatchObject({ status: 'tooHeavy', arrivalTurn: 10 })
+    expect(row(v, 'ride-commercial')).toMatchObject({ status: 'overBudget', arrivalTurn: 10 })
   })
 
   it('an ion engine on the direct transfer has no way through on any ride', () => {
@@ -174,8 +187,7 @@ describe('board rows say whether that ride gets the craft there', () => {
   })
 
   it('over the cap reads OVER BUDGET', () => {
-    const untested = view({ ...iceCubeDesign, planning: { ...iceCubeDesign.planning, testTurns: 0 } })
-    expect(row(untested, 'ride-gto').statusLabel).toBe('OVER BUDGET')
+    expect(row(view(overCap), 'ride-gto').statusLabel).toBe('OVER BUDGET')
   })
 })
 
@@ -184,20 +196,21 @@ describe('timelineLayout', () => {
   const flag = (l: ReturnType<typeof timelineLayout>, key: string) => l.flags.find((f) => f.key === key)!
   const block = (l: ReturnType<typeof timelineLayout>, key: string) => l.blocks.find((b) => b.key === key)!
 
-  it('the READY flag sits at the end of the design block, one turn of margin before launch', () => {
+  it('the READY flag sits at the end of the design block, two months of margin before launch', () => {
     const v = view(iceCubeDesign)
     const l = timelineLayout(v.timeline)
     expect(flag(l, 'ready').at).toBeCloseTo(block(l, 'design').to, 9)
-    expect(flag(l, 'launch').at - flag(l, 'ready').at).toBeCloseTo(1 / v.timeline.turns, 9)
-    expect(block(l, 'transit')).toMatchObject({ label: '11 MONTHS IN TRANSIT' })
-    expect(flag(l, 'arrive').label).toBe('ARRIVE · MONTH 19')
+    expect(flag(l, 'launch').at - flag(l, 'ready').at).toBeCloseTo(2 / v.timeline.turns, 9)
+    expect(block(l, 'transit')).toMatchObject({ label: '10 MONTHS IN TRANSIT' })
+    expect(flag(l, 'arrive').label).toBe('ARRIVE · MONTH 18')
   })
 
   it('a short transit joins launch and arrival in one label', () => {
     const l = layout({ ...flashlightDesign, ride: 'ride-commercial' })
-    expect(flag(l, 'launch').label).toBe('LAUNCH · MONTH 10 → ARRIVE · MONTH 11')
+    // The lander's low-energy loop takes 2 months since the balance redesign (was 1)
+    expect(flag(l, 'launch').label).toBe('LAUNCH · MONTH 10 → ARRIVE · MONTH 12')
     expect(flag(l, 'arrive').label).toBe('')
-    expect(block(l, 'transit').label).toBe('1 MONTH IN TRANSIT')
+    expect(block(l, 'transit').label).toBe('2 MONTHS IN TRANSIT')
   })
 
   it('a direct transfer arrives five days after launch', () => {
