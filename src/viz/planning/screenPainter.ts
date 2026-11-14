@@ -313,13 +313,15 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   const xs = mx(Math.min(ready, n + 0.3))
   const satColor = missed ? '#fca5a5' : '#e2e8f0'
   satellite(ctx, xs, BY - 46, satColor)
-  ctx.font = font(700, 34)
-  ctx.fillStyle = satColor
-  const readyLabel = missed ? 'READY TOO LATE' : 'READY'
-  const lw = ctx.measureText(readyLabel).width
-  const nearRocket = Math.abs(xs - xr) < lw / 2 + 40
-  ctx.textAlign = nearRocket ? 'right' : 'center'
-  ctx.fillText(readyLabel, nearRocket ? Math.max(xs - 30, X0 + lw) : xs, BY - 92)
+  if (!missed) {
+    // When late, the red overlay and the headline say it; a label here would collide with the ride label
+    ctx.font = font(700, 34)
+    ctx.fillStyle = satColor
+    const lw = ctx.measureText('READY').width
+    const nearRocket = Math.abs(xs - xr) < lw / 2 + 40
+    ctx.textAlign = nearRocket ? 'right' : 'center'
+    ctx.fillText('READY', nearRocket ? Math.max(xs - 30, X0 + lw) : xs, BY - 92)
+  }
 
   ctx.textAlign = 'left'
   ctx.font = font(600, 34)

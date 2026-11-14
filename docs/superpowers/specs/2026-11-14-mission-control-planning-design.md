@@ -1,6 +1,8 @@
 # Mission control room for step 1 (Mission Planning): design
 
-Status: draft for approval. Date: 2026-11-14. Branch: `claude/mission-planning-game-interface-b31773`, fast-forwarded to `integrate-core-logic` (commit 295a794), which holds the game rules this design uses.
+Status: approved by Jakob on 2026-11-14 ("Implement it") and implemented. Branch: `claude/mission-planning-game-interface-b31773`, on top of `main` (9c6d745), which holds the logic core (PR #5) and the agency base (PR #4).
+
+Context from the Integration session (14 Nov): each design step now lives inside a building on the agency map. Mission Planning belongs to the **Comms Center** (Ground / mission control), so the room is that building's mission control; the big screen's header reads `COMMS CENTER · LUNAR ICE MAPPER · MISSION PLANNING`. Map wiring is the Integration session's work, not this one.
 
 Reference, approved by Jakob on 2026-11-14 as the direction:
 
@@ -75,7 +77,7 @@ Three ways of building it were considered. Jakob left the technical choice to Cl
 - On the Planning step the room fills the whole main column, edge to edge (no page padding, no scroll), from under the header to the bottom of the window.
 - On the Planning step only, `DesignDiagramPanel` is not shown: the big screen replaces it. **(Claude's call.)**
 - On the Planning step only, the right-hand `Dashboard` is hidden, so the room gets the width and the big-screen text stays readable; the numbers that matter in this step (budget, reserve, ready turn, ride turn) are on the big screen. `StepRail` stays. **(Claude's call; see "Calls Claude made".)**
-- "← Back" (to the brief) and "Select Instruments →" stay as ordinary buttons, overlaid on the bottom corners of the room.
+- "← Back" (to the brief) and "Select Instruments →" stay as ordinary buttons, overlaid on the top corners of the room (the bottom corners would cover the console readouts).
 - Supported window: 1280 × 720 and larger, landscape.
 
 ### The room
@@ -138,8 +140,8 @@ One wide picture in three framed panels with a header strip. Values on it move s
 - Blocks in order: DESIGN (`modelConstants.designTurns`), BUILD (`budgets.buildTurns`), TEST (`testTurns`, absent at 0), FIT (`modelConstants.integrationTurns`). They end at `budgets.readyTurn`.
 - A gold vertical marker at the end of month `budgets.rideTurn`, labelled `RIDE LEAVES · END OF MONTH 8`, with a rocket standing on it.
 - If the craft is ready early, the gap up to the marker is a green hatched block labelled SPARE. If it is late, the part past the marker is overlaid red.
-- A small satellite icon sits above the track at the ready point, labelled `READY` (or `READY TOO LATE`).
-- A large headline at the top right of the panel: `2 MONTHS SPARE` (green), `NO SPARE TIME` (amber) or `MISSED BY 1 MONTH` (red). When missed, a line under the title says the rocket left without the craft and when the next ride leaves (ride turn + `missedRideWaitTurns` from `src/data/rides.ts`).
+- A small satellite icon sits above the track at the ready point, labelled `READY` (no label when late: the red overlay and headline say it).
+- A large headline under the panel title: `2 MONTHS SPARE` (green), `NO SPARE TIME` (amber) or `MISSED BY 1 MONTH` (red). When missed, a line under it says `Not ready when the ride leaves: launch is blocked.` (in the design phase a red Time check blocks launch; the six-turn wait only happens in flight).
 - When the plan flips to "missed", the rocket lifts off the marker with a flame, climbs out of the panel and fades, leaving a faint outline; it plays once and resets when the plan is back in time.
 - A legend line under the track names the block colours, including "Build (from your parts)" and "Test (your knob)".
 
@@ -149,7 +151,7 @@ One wide picture in three framed panels with a header strip. Values on it move s
 - A needle, the value in large type (`×1.4`), and a plain caption: "failures in flight more likely" above 1, "normal odds of failure in flight" at 1, "failures in flight less likely" below 1.
 - Three lamps under it, `TEST 1`, `TEST 2`, `TEST 3`, lit up to the number of test turns.
 
-**Readable text.** No text on the big screen may appear smaller than 12 CSS pixels in a 1280 × 720 window. If something does not fit at that size, shorten or drop the legends first, never the headline numbers.
+**Readable text.** No text on the big screen may appear smaller than 12 CSS pixels in a 1280 × 720 window. (Built: the screen canvas is 2400 px wide and its smallest font is 34 px; at 1280 × 720 the screen shows about 970 CSS px wide, so the smallest text is about 13.7 px.) If something does not fit at that size, shorten or drop the legends first, never the headline numbers.
 
 ### Room status
 
@@ -157,8 +159,8 @@ One status for the room, shown as the header chip and as lighting:
 
 | Level | When | Chip | Room |
 |---|---|---|---|
-| Alert | Go/No-Go `Time` check is red, or `Budget` check is red | `RIDE MISSED` or `OVER BUDGET` (time first), blinking red | Light turns red and pulses, the two wall beacons flash, the screen's glow turns red |
-| Caution | Otherwise, the first that applies: test time is 0; reserve is 0; `Time` check is yellow; `Budget` check is yellow | `CAUTION: UNTESTED`, `CAUTION: NO RESERVE`, `CAUTION: NO SPARE TIME`, `CAUTION: EATING THE RESERVE` | A slight amber tint |
+| Alert | Go/No-Go `Time` check is red | `RIDE MISSED`, blinking red | Light turns red and pulses, the two wall beacons flash, the screen's glow turns red |
+| Caution | Otherwise, the first that applies: `Budget` check is red; test time is 0; reserve is 0; `Time` check is yellow; `Budget` check is yellow | `OVER BUDGET`, `CAUTION: UNTESTED`, `CAUTION: NO RESERVE`, `CAUTION: NO SPARE TIME`, `CAUTION: EATING THE RESERVE` | A slight amber tint |
 | Nominal | Otherwise | `ALL NOMINAL`, green | Calm blue |
 
 Only these conditions drive the room in this step; red checks that belong to other steps (mass, power and so on) do not.
@@ -209,6 +211,14 @@ Suggested split; the builder may adjust it, but the three pure modules must stay
 - File names and the exact component split.
 
 ## Calls Claude made (please check)
+
+Made during the build, after the builder check:
+
+7. **Over budget is amber, not the red alarm.** The builder check worked out that with the real numbers the default Engineer design costs about $24.9M against a $25M cap, so the room would open amber and the knob at 2 would sound the red alarm for a problem the parts cause (Go/No-Go sends it to the spacecraft step). Only a missed ride, which the knob causes, raises the alarm here; over budget shows `OVER BUDGET` in amber and a red overflow in the tank.
+8. **Budget figures in the plain block.** With the Dashboard hidden, the no-3D fallback shows reserve, spendable, plan cost and cap in text, so the reserve is never set blind.
+9. **The no-diagram rule is a list** (`STEPS_WITHOUT_DIAGRAM` in `DesignScreen.tsx`) so the instrument-step work can add its step without a merge conflict.
+
+Made while writing the design:
 
 1. **Dashboard hidden on this step.** With the dashboard visible, the room is about 960 px wide on a 1440 px laptop and the big-screen text gets too small. The cost: on this one step the player does not see mass, power and the other bars (none of which this step changes).
 2. **`DesignDiagramPanel` hidden on this step.** The big screen does its job here.
