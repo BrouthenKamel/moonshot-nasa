@@ -341,22 +341,39 @@ function fit(ctx: Ctx, text: string, width: number): string {
   return `${t.trimEnd()}…`
 }
 
+/**
+ * A Go/No-Go reason that fits one line. Too long, it keeps the advice (the sentences after
+ * the first, which the tank and the road already show) rather than cutting it off (QC #56).
+ */
+export function checkLine(ctx: Ctx, reason: string, width: number): string {
+  if (ctx.measureText(reason).width <= width) return reason
+  const sentences = reason.split(/(?<=\.)\s+/)
+  for (let i = 1; i < sentences.length; i++) {
+    const rest = sentences.slice(i).join(' ')
+    if (ctx.measureText(rest).width <= width) return rest
+  }
+  return fit(ctx, reason, width)
+}
+
+const CHECK_WORD = { green: 'GO', yellow: 'CAUTION', red: 'NO-GO' } as const
+
 function paintChecks(ctx: Ctx, view: PlanningView) {
   const top = 700
   ctx.fillStyle = '#071226'
   ctx.fillRect(0, top, SCREEN_W, SCREEN_H - top)
+  ctx.font = font(800, 34)
+  const labels = view.checks.map((c) => `${CHECK_WORD[c.status]} · ${c.resource.toUpperCase()}`)
+  const x = 66 + Math.max(0, ...labels.map((l) => ctx.measureText(l).width)) + 30
   view.checks.forEach((c, i) => {
     const y = top + 24 + i * 42
     ctx.fillStyle = CHECK_COLORS[c.status]
     ctx.beginPath(); ctx.arc(42, y, 11, 0, Math.PI * 2); ctx.fill()
     ctx.textAlign = 'left'
     ctx.font = font(800, 34)
-    const label = c.resource === 'Time' ? 'GO / NO-GO · TIME' : 'GO / NO-GO · BUDGET'
-    ctx.fillText(label, 66, y + 1)
+    ctx.fillText(labels[i], 66, y + 1)
     ctx.font = font(600, 34)
     ctx.fillStyle = '#cbd5e1'
-    const x = 66 + 430
-    ctx.fillText(fit(ctx, c.reason, SCREEN_W - x - 30), x, y + 1)
+    ctx.fillText(checkLine(ctx, c.reason, SCREEN_W - x - 30), x, y + 1)
   })
 }
 

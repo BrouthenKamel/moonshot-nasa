@@ -96,7 +96,7 @@ export function goNoGo(
       b.rideTurn,
       'turn',
       status === 'red'
-        ? `Ready on turn ${b.readyTurn} (build effort ${b.buildEffort} points = ${b.buildTurns} turns, plus testing), but the ride leaves on turn ${b.rideTurn}. Test less, choose simpler parts, or take a later ride.`
+        ? `Ready on turn ${b.readyTurn} (${b.buildTurns} month${b.buildTurns === 1 ? '' : 's'} of building, plus testing), but the ride leaves on turn ${b.rideTurn}. Test less, choose simpler parts, or take a later ride.`
         : status === 'yellow'
           ? 'Ready exactly on the ride turn. One build delay and you miss the ride.'
           : `Ready ${b.timeMarginTurns} turn(s) before the ride.`,
@@ -192,9 +192,12 @@ export function goNoGo(
   } else if (b.downlinkPerTurn >= b.dataPerTurn * (1 + C.greenMargin)) {
     status = 'green'
     reason = `The link carries ${b.downlinkPerTurn.toFixed(0)} MB a turn; the instruments make ${b.dataPerTurn.toFixed(0)}.`
+  } else if (b.downlinkPerTurn < b.dataPerTurn) {
+    status = 'yellow'
+    reason = `The instruments make ${b.dataPerTurn.toFixed(0)} MB a turn but the link carries ${b.downlinkPerTurn.toFixed(0)}: ${(b.dataPerTurn - b.downlinkPerTurn).toFixed(0)} MB a turn is lost once the ${b.storageCapacity} MB storage is full, and its coverage with it.`
   } else {
     status = 'yellow'
-    reason = `The link has less than ${spare}% to spare. What cannot be sent waits in storage (${b.storageCapacity} MB); overflow is lost, and its coverage with it.`
+    reason = `The link carries ${b.downlinkPerTurn.toFixed(0)} MB a turn and the instruments make ${b.dataPerTurn.toFixed(0)}: less than ${spare}% to spare. What cannot be sent waits in storage (${b.storageCapacity} MB); overflow is lost, and its coverage with it.`
   }
   checks.push(check('Data Link', status, b.dataPerTurn, b.downlinkPerTurn, 'MB/turn', reason, 'comms'))
 

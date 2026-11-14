@@ -1,9 +1,11 @@
 import { useGameStore } from '../../state/gameStore'
 import { cannotMeetBrief, getGoNoGoSummary } from '../../sim/checks'
-import type { CheckResult } from '../../sim/types'
+import type { Budgets, CheckResult } from '../../sim/types'
+import { checkFigures } from '../../viz/checkMargin'
 import { fixLocation } from '../../viz/missionMap'
 
-function CheckRow({ check }: { check: CheckResult }) {
+function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) {
+  const fig = checkFigures(check, budgets)
   const statusColors = {
     green: 'bg-green-900 text-green-300 border-green-700',
     yellow: 'bg-yellow-900 text-yellow-300 border-yellow-700',
@@ -22,9 +24,11 @@ function CheckRow({ check }: { check: CheckResult }) {
         <div>
           <div className="font-semibold">{check.resource}</div>
           <div className="mt-1 text-sm opacity-80">
-            {check.value.toFixed(1)} / {check.limit.toFixed(1)} {check.unit}
-            {check.margin >= 0 && ` (+${check.margin.toFixed(1)} margin)`}
-            {check.margin < 0 && ` (${check.margin.toFixed(1)} over limit)`}
+            {fig.value.toFixed(1)} / {fig.limit.toFixed(1)} {check.unit}
+            {check.resource === 'Budget' && ' spendable'}
+            {/* A red row with room left on paper: its blocking reason is right below, no "+ margin" */}
+            {!fig.margin.startsWith('Blocked') && ` (${fig.margin})`}
+            {fig.note && ` · ${fig.note}`}
           </div>
         </div>
         <span className="rounded bg-black/20 px-2 py-1 text-xs font-bold">
@@ -43,6 +47,8 @@ function CheckRow({ check }: { check: CheckResult }) {
 
 export function GoNoGoScreen() {
   const getGoNoGo = useGameStore((s) => s.getGoNoGo)
+  const getBudgets = useGameStore((s) => s.getBudgets)
+  const budgets = getBudgets()
   const setDesignStep = useGameStore((s) => s.setDesignStep)
   const startSimulation = useGameStore((s) => s.startSimulation)
 
@@ -107,7 +113,7 @@ export function GoNoGoScreen() {
           </h2>
           <div className="space-y-3">
             {criticalChecks.map((check, i) => (
-              <CheckRow key={i} check={check} />
+              <CheckRow key={i} check={check} budgets={budgets} />
             ))}
           </div>
         </div>
@@ -120,7 +126,7 @@ export function GoNoGoScreen() {
           </h2>
           <div className="space-y-3">
             {warningChecks.map((check, i) => (
-              <CheckRow key={i} check={check} />
+              <CheckRow key={i} check={check} budgets={budgets} />
             ))}
           </div>
         </div>
@@ -133,7 +139,7 @@ export function GoNoGoScreen() {
           </h2>
           <div className="space-y-3">
             {passedChecks.map((check, i) => (
-              <CheckRow key={i} check={check} />
+              <CheckRow key={i} check={check} budgets={budgets} />
             ))}
           </div>
         </div>

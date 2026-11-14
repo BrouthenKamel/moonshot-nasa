@@ -1,4 +1,5 @@
 import { getEventById } from '../data/events'
+import { choiceResultText } from './eventChoice'
 import type { Design, TurnEvent, TurnLog } from '../sim/types'
 
 interface TurnDetailProps {
@@ -60,10 +61,8 @@ export function TurnDetail({ log }: TurnDetailProps) {
             <div className="font-medium text-red-300">{d.name}</div>
             <div className="text-slate-300">
               {d.choice ? `Choice: ${d.choice}` : 'No choice to make'}
-              {ev.choiceSucceeded !== undefined && (
-                <span className={ev.choiceSucceeded ? 'text-green-400' : 'text-red-400'}>
-                  {ev.choiceSucceeded ? ' - succeeded' : ' - failed'}
-                </span>
+              {choiceResultText(ev) && (
+                <span className={ev.choiceSucceeded ? 'text-green-400' : 'text-red-400'}>{choiceResultText(ev)}</span>
               )}
             </div>
             <div className="text-slate-400">{d.impacts.length ? d.impacts.join(', ') : 'No impact'}</div>

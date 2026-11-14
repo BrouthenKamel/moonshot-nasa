@@ -8,7 +8,6 @@ import {
 import { getPartById, type InstrumentPart, type PropulsionPart, type AttitudePart } from '../data/parts'
 import { getOrbitById } from '../data/orbits'
 import { missedRideWaitTurns } from '../data/rides'
-import { getEventById } from '../data/events'
 import { computeBudgets } from './budgets'
 import type { Budgets, SimState, Report, RequirementResult, ScoreBreakdown, ChangeHint } from './types'
 
@@ -94,8 +93,15 @@ function whyNoCapture(state: SimState, b: Budgets): string[] {
     out.push('Contact was lost right after deployment, as happened to Lunar IceCube.')
     if (f.testTurns < 2)
       out.push(`Only ${countOf(f.testTurns, 'test turn')} had been flown: that made this x${f.testFactor} as likely. More testing lowers the odds.`)
-    const cost = getEventById('no-signal')!.choices.find((c) => c.id === 'recover')!.reserveCost
-    out.push(b.reserveAmount < cost ? 'There was no reserve to pay for emergency tracking.' : 'Emergency tracking did not find the craft.')
+    // Say what the player actually chose at the card (QC #35)
+    const choice = state.allEvents.find((e) => e.eventId === 'no-signal')?.choiceId
+    out.push(
+      choice === 'give-up'
+        ? 'You chose to stop searching; the craft was lost.'
+        : choice === 'recover'
+          ? 'Emergency tracking did not find the craft.'
+          : 'There was no reserve to pay for emergency tracking.'
+    )
   } else if (f.end === 'not enough delta-v left to capture') {
     out.push(
       `Only ${Math.max(0, f.dvLeft).toFixed(0)} m/s was left at the Moon; capture needed ${(b.captureDeltaV ?? 0).toFixed(0)}. The design carried ${b.deltaVAvailable.toFixed(0)}.`
