@@ -134,3 +134,35 @@ describe('gameStore visualiser state', () => {
     expect(useGameStore.getState().runHistory.length).toBe(20)
   })
 })
+
+// Jakob, 14 Nov: the flight plays turn by turn and stops at events and milestones
+describe('gameStore turn-by-turn flight', () => {
+  beforeEach(reset)
+
+  it('plays one turn per tick and stops by itself at the next milestone', () => {
+    useGameStore.getState().startSimulation()
+    useGameStore.getState().startAutoFly()
+    expect(useGameStore.getState().autoFly).toBe(true)
+    const startPhase = useGameStore.getState().simState!.phase
+    const startTurn = useGameStore.getState().simState!.currentTurn
+    let ticks = 0
+    while (useGameStore.getState().autoFly && ticks < 200) {
+      useGameStore.getState().autoFlyTick()
+      ticks++
+    }
+    const s = useGameStore.getState().simState!
+    expect(useGameStore.getState().autoFly).toBe(false)
+    expect(s.currentTurn - startTurn).toBe(ticks) // one turn per tick
+    const log = s.turnLogs[s.turnLogs.length - 1]
+    expect(s.phase !== startPhase || log.events.length > 0 || !!s.pendingDecision || isSimComplete(s)).toBe(true)
+  })
+
+  it('a tick after stopping does nothing', () => {
+    useGameStore.getState().startSimulation()
+    useGameStore.getState().startAutoFly()
+    useGameStore.getState().stopAutoFly()
+    const turn = useGameStore.getState().simState!.currentTurn
+    useGameStore.getState().autoFlyTick()
+    expect(useGameStore.getState().simState!.currentTurn).toBe(turn)
+  })
+})

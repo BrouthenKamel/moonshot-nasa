@@ -20,7 +20,7 @@ import { difficultyPresets, type Difficulty } from '../../data/brief'
 import { computeBudgets } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
 import { isSimComplete } from '../../sim/simulate'
-import { buildingForStep, flightFeed, lunarMissionView, missionLabels, suggestedStep } from '../../viz/missionMap'
+import { buildingForStep, flightFeed, lunarMissionView, missionClockLabel, missionLabels, suggestedStep } from '../../viz/missionMap'
 import { EventCard } from '../flight/EventCard'
 import { FlightControls } from '../flight/FlightControls'
 
@@ -67,7 +67,7 @@ function FlightOverlay({ sim }: { sim: SimState }) {
     <>
       <div className="pointer-events-none absolute left-2 top-2 rounded-xl bg-[#14213d]/90 px-3 py-2 text-xs text-white shadow-lg">
         <div className="font-display text-sm font-bold">
-          🛰️ Lunar Ice Mapper · turn {sim.currentTurn}
+          🛰️ Lunar Ice Mapper · {missionClockLabel(sim.currentTurn)}
         </div>
         <div className="text-slate-300">{PHASE_TEXT[sim.phase]}</div>
         <div className="mt-1 grid grid-cols-2 gap-x-3 tabular-nums text-slate-200">
