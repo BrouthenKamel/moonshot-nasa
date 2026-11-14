@@ -2,7 +2,6 @@ import {
   difficultyPresets,
   lunarIceMapperBrief,
   scoreWeights,
-  partialShare,
   modelConstants as C,
 } from '../data/brief'
 import { getPartById, type InstrumentPart, type PropulsionPart, type AttitudePart } from '../data/parts'
@@ -249,11 +248,14 @@ export function buildReport(state: SimState): Report {
       () => moneyDrains(state, b)),
   ]
 
-  // Success level
+  // Success level (Jakob, QC #91): success = all five met; partial = the ice coverage
+  // met but another missed; failed = the ice coverage missed, or the mission ended
+  // lost or out of money (every such end stops the craft: flight.alive is false)
   const allMet = requirements.every((r) => r.met)
+  const coverageMet = requirements.find((r) => r.id === 'coverage')!.met
   let outcome: Report['outcome']
   if (allMet) outcome = 'success'
-  else if (f.captured && (f.coverage >= COVERAGE_TARGET * partialShare || f.data >= dataTarget * partialShare)) outcome = 'partial'
+  else if (coverageMet && f.alive) outcome = 'partial'
   else outcome = 'failed'
 
   const missed = requirements.filter((r) => !r.met).map((r) => r.name)

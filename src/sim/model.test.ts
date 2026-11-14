@@ -144,12 +144,62 @@ describe('flight', () => {
     }
     const flashlight = rates(flashlightDesign) // logic map: 84 / 13 / 2
     expect(flashlight.full).toBeGreaterThan(0.78)
-    expect(flashlight.fail).toBeLessThan(0.06)
-    const icecube = rates(iceCubeDesign) // logic map: 0 / 84 / 15
+    // Since QC #91 a run that misses the ice coverage is failed, not partial: the logic map's
+    // partials that fell short on ice now count here, so this is full + partial against lost
+    expect(flashlight.fail).toBeLessThan(0.2)
+    expect(flashlight.full + flashlight.partial).toBeGreaterThan(0.8)
+    // Stricter labels (Jakob, QC #91): the IR spectrometer maps no ice, so the starting design always fails
+    const icecube = rates(iceCubeDesign)
     expect(icecube.full).toBe(0)
-    // Starts with no reserve since the reserve line became a hard limit (14 Nov), so unpaid fixes lose a few more
-    expect(icecube.partial).toBeGreaterThan(0.7)
+    expect(icecube.partial).toBe(0)
+    expect(icecube.fail).toBe(1)
   }, 20_000) // 3000 simulated missions
+
+  // Jakob, QC #91: success = all five met; partial = ice coverage met but another missed;
+  // failed = ice coverage missed, or the mission ended lost or out of money
+  describe('outcome labels', () => {
+    const outcomeOf = (d: Design, seed: number) => {
+      const s = runSimulation(d, 'engineer', seed)
+      return { s, r: buildReport(s) }
+    }
+    const cov = (r: ReturnType<typeof buildReport>) => r.requirements.find((q) => q.id === 'coverage')!.met
+
+    it('a 0%-ice run full of IR data is failed, not partial', () => {
+      for (let seed = 1; seed <= 20; seed++) {
+        const { r } = outcomeOf(iceCubeDesign, seed)
+        expect(r.coverageAchieved).toBe(0)
+        expect(r.outcome).toBe('failed')
+      }
+    })
+
+    it('follows the rule on every run of the reference designs', () => {
+      for (const d of [flashlightDesign, lunahMapDesign, iceCubeDesign, { ...flashlightDesign, attitude: 'attitude-basic' }]) {
+        for (let seed = 1; seed <= 150; seed++) {
+          const { s, r } = outcomeOf(d, seed)
+          const lostOrBroke = !s.flight.alive
+          const expected = r.requirements.every((q) => q.met)
+            ? 'success'
+            : cov(r) && !lostOrBroke
+              ? 'partial'
+              : 'failed'
+          expect(r.outcome).toBe(expected)
+        }
+      }
+    })
+
+    it('a run that met ice coverage but missed something else is partial', () => {
+      let found = false
+      const designs = [flashlightDesign, lunahMapDesign, { ...flashlightDesign, attitude: 'attitude-basic' }]
+      for (let i = 0; i < 900 && !found; i++) {
+        const { s, r } = outcomeOf(designs[i % 3], Math.floor(i / 3) + 1)
+        if (s.flight.alive && cov(r) && !r.requirements.every((q) => q.met)) {
+          expect(r.outcome).toBe('partial')
+          found = true
+        }
+      }
+      expect(found).toBe(true)
+    })
+  })
 
   it('pauses on an event card and replays the turn with the same dice once answered', () => {
     let found: SimState | null = null

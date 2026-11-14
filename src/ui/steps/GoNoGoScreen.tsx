@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { cannotMeetBrief, getGoNoGoSummary } from '../../sim/checks'
 import type { Budgets, CheckResult } from '../../sim/types'
@@ -7,6 +8,7 @@ import { Tooltip } from '../Tooltip'
 import { fixLocation } from '../../viz/missionMap'
 import { percent } from '../../sim/odds'
 import { useSuccessEstimate } from '../useOdds'
+import { LaunchSequence } from './LaunchSequence'
 
 function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) {
   const fig = checkFigures(check, budgets)
@@ -84,6 +86,8 @@ export function GoNoGoScreen() {
   const budgets = getBudgets()
   const setDesignStep = useGameStore((s) => s.setDesignStep)
   const startSimulation = useGameStore((s) => s.startSimulation)
+  // "Launch Mission" plays the launch sequence first; it starts the flight when it ends or is skipped
+  const [launching, setLaunching] = useState(false)
 
   const result = getGoNoGo()
   const summary = getGoNoGoSummary(result)
@@ -187,7 +191,7 @@ export function GoNoGoScreen() {
           ← Back to Design
         </button>
         <button
-          onClick={startSimulation}
+          onClick={() => result.canGo && setLaunching(true)}
           disabled={!result.canGo}
           className={`rounded-lg px-6 py-2 font-medium text-white ${
             result.canGo
@@ -198,6 +202,8 @@ export function GoNoGoScreen() {
           {result.canGo ? 'Launch Mission' : 'Fix Issues First'}
         </button>
       </div>
+
+      {launching && <LaunchSequence checks={result.checks} onDone={startSimulation} />}
     </div>
   )
 }
