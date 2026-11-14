@@ -1,4 +1,5 @@
 import { getEventById } from '../data/events'
+import { choiceResultText } from './eventChoice'
 import type { Design, TurnEvent, TurnLog } from '../sim/types'
 
 interface TurnDetailProps {
@@ -13,7 +14,7 @@ function describeEvent(ev: TurnEvent) {
   if (ev.impact.deltavLost) impacts.push(`delta-v -${ev.impact.deltavLost.toFixed(0)} m/s`)
   if (ev.impact.powerLost) impacts.push(`power -${ev.impact.powerLost.toFixed(0)} W`)
   if (ev.impact.dataLost) impacts.push(`data -${ev.impact.dataLost.toFixed(0)} MB`)
-  if (ev.impact.turnsLost) impacts.push(`${ev.impact.turnsLost} turn(s) lost`)
+  if (ev.impact.turnsLost) impacts.push(`${ev.impact.turnsLost} month(s) lost`)
   if (ev.impact.reserveSpent) impacts.push(`reserve -$${ev.impact.reserveSpent.toFixed(2)}M`)
   return { name: def?.name ?? ev.eventId, choice: choice?.name ?? ev.choiceId, impacts }
 }
@@ -31,7 +32,7 @@ export function TurnDetail({ log }: TurnDetailProps) {
   return (
     <div className="space-y-3 rounded-lg bg-slate-900 p-4">
       <div className="flex items-baseline justify-between">
-        <div className="font-medium text-slate-200">Turn {log.turn}</div>
+        <div className="font-medium text-slate-200">Month {log.turn}</div>
         <div className="text-sm capitalize text-slate-400">Phase: {log.phase}</div>
       </div>
 
@@ -60,10 +61,8 @@ export function TurnDetail({ log }: TurnDetailProps) {
             <div className="font-medium text-red-300">{d.name}</div>
             <div className="text-slate-300">
               {d.choice ? `Choice: ${d.choice}` : 'No choice to make'}
-              {ev.choiceSucceeded !== undefined && (
-                <span className={ev.choiceSucceeded ? 'text-green-400' : 'text-red-400'}>
-                  {ev.choiceSucceeded ? ' - succeeded' : ' - failed'}
-                </span>
+              {choiceResultText(ev) && (
+                <span className={ev.choiceSucceeded ? 'text-green-400' : 'text-red-400'}>{choiceResultText(ev)}</span>
               )}
             </div>
             <div className="text-slate-400">{d.impacts.length ? d.impacts.join(', ') : 'No impact'}</div>

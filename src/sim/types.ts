@@ -1,15 +1,6 @@
 import type { Difficulty } from '../data/brief'
 import type { EventType } from '../data/events'
 
-/** Player role in team mode */
-export type Role = 'ground' | 'science' | 'space' | 'launch'
-
-/** Player in team mode */
-export interface Player {
-  name: string
-  role: Role
-}
-
 /** Design step IDs */
 export type DesignStep =
   | 'brief'
@@ -361,6 +352,8 @@ export interface Report {
 
   // Score
   score: ScoreBreakdown
+  /** What cost the missing points: one plain line per score part below its maximum */
+  scoreNotes: string[]
 
   // Stats
   totalCost: number
@@ -396,15 +389,4 @@ export interface RunRecord {
   seed: number
   turnLogs: TurnLog[]
   allEvents: TurnEvent[]
-}
-
-/** Game mode */
-export type GameMode = 'solo' | 'team'
-
-/** Team sign-off state for Go/No-Go */
-export interface SignOff {
-  role: Role
-  playerName: string
-  approved: boolean
-  concern?: string
 }

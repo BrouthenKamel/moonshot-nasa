@@ -1,205 +1,153 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { SPEEDS, type Speed } from '../data/agency'
 import {
-  advanceDays,
-  approveMission,
-  initialWorld,
-  missionCanStep,
-  missionTurned,
-  nextMissionTurnDay,
-  DAYS_PER_TURN,
-  type World,
-} from '../game/world'
-import {
-  MISSION_NAME,
-  answerDecision,
-  clearFlight,
-  currentSim,
-  missionBudget,
-  onMissionChange,
-  restoreFlight,
-  saveFlightCopy,
-  snapshotOf,
-  startPlanning,
-  stepMission,
-} from '../game/missionLink'
+  DEMO_START_DAY,
+  DEMO_START_FUNDS,
+  DEMO_START_SUPPORT,
+  SPEEDS,
+  agencyEvents,
+  missionsInFlight,
+  mockMissionViews,
+  monthlyIncome,
+  monthlySpending,
+  seedFundsHistory,
+  type Speed,
+} from '../data/agency'
 
 /**
- * The agency base: one clock, one wallet. The clock runs in days while the
- * base screen is open and stands still during planning. The real mission
- * takes one turn every 30 days of agency time.
+ * Agency base state: a continuous day clock with money and public support.
+ * Saved in the browser so the base picks up where it was left.
  */
-export interface AgencyState extends World {
+export interface AgencyState {
+  day: number // continuous, fractional
+  funds: number // $M
+  support: number // %
   speed: Speed
-  /** Why the clock stopped by itself, shown as a banner */
-  pauseReason: string | null
-  /** Set while the player is in the planning steps for a new mission */
-  planningSinceDay: number | null
+  fundsHistory: { day: number; funds: number }[]
+  /** Day the player started planning the Lunar Ice Mapper, or null */
+  lunarMissionStartedDay: number | null
+  /** Day the Lunar Ice Mapper's flight started (turn 0); kept after the flight for the activity feed */
+  missionStartDay: number | null
+  /** While true the clock follows the mission turns instead of running by itself */
+  missionClockRunning: boolean
 
   setSpeed: (speed: Speed) => void
-  /** Advance the clock by real seconds at the current speed */
+  /** Advance the clock by real seconds at the current speed (not while a mission clock runs) */
   tick: (seconds: number) => void
-  /** Jump to the next thing worth seeing (up to a year) */
-  skipToNextEvent: () => void
-  /** Open the planning steps for a new mission */
-  beginPlanning: () => void
-  /** Give up a plan that was never approved */
-  cancelPlanning: () => void
-  /** Answer the mission's event card and let the clock run again */
-  answer: (optionId: string) => void
+  markLunarMissionStarted: () => void
+  /** The flight starts: from now on the base day follows the mission turns */
+  startMissionClock: () => void
+  /** The flight is over: the clock runs by itself again; the start day stays for the feed */
+  endMissionClock: () => void
+  /** Back to the free-running clock and no mission (new mission, or the flight was lost on reload) */
+  resetMissionClock: () => void
+  /** Move the clock to the day of a mission turn; never rewinds */
+  syncToMissionTurn: (turn: number) => void
   resetAgency: () => void
 }
 
-const pickWorld = (s: AgencyState): World => ({
-  day: s.day,
-  funds: s.funds,
-  popularity: s.popularity,
-  history: s.history,
-  feed: s.feed,
-  mission: s.mission,
-  research: s.research,
+/** One mission turn is one month on the base calendar */
+export const DAYS_PER_TURN = 30
+
+/** Saved state from an older version: version 1 had no mission clock */
+export function migrateAgencyState(persisted: unknown, version: number): AgencyState {
+  const state = (persisted ?? {}) as Partial<AgencyState>
+  if (version < 2) return { ...state, missionStartDay: null, missionClockRunning: false } as AgencyState
+  return state as AgencyState
+}
+
+/** Saved state on load: the clock always comes back paused, so it waits for the player (Jakob, 14 Nov) */
+export function mergeAgencyState(persisted: unknown, current: AgencyState): AgencyState {
+  return { ...current, ...((persisted ?? {}) as Partial<AgencyState>), speed: 'paused' }
+}
+
+/** Base day of a mission turn */
+export function missionDay(startDay: number, turn: number): number {
+  return startDay + turn * DAYS_PER_TURN
+}
+
+const initialState = () => ({
+  day: DEMO_START_DAY,
+  funds: DEMO_START_FUNDS,
+  support: DEMO_START_SUPPORT,
+  // Paused until the player acts (Jakob, 14 Nov): nothing happens while they read
+  speed: 'paused' as Speed,
+  fundsHistory: seedFundsHistory(),
+  lunarMissionStartedDay: null as number | null,
+  missionStartDay: null as number | null,
+  missionClockRunning: false,
 })
 
-/** Set by the mission listener so a running loop knows what the last turn did */
-let lastTurn = { notable: false, pause: false }
+const round2 = (x: number) => Math.round(x * 100) / 100
 
-/**
- * Run the clock to `target`, stepping the mission on its turn days.
- * In skip mode, stops at the first notable thing.
- */
-function runUntil(target: number, skip: boolean) {
-  const store = useAgencyStore
-  for (let guard = 0; guard < 2000; guard++) {
-    let world = pickWorld(store.getState())
-    if (world.day >= target) return
+/** Advance from one day to a later one: daily cash flow plus any scripted events passed */
+export function advanceAgency(
+  state: Pick<AgencyState, 'day' | 'funds' | 'support' | 'fundsHistory'>,
+  toDay: number
+): Pick<AgencyState, 'day' | 'funds' | 'support' | 'fundsHistory'> {
+  const fromDay = state.day
+  if (toDay <= fromDay) return state
 
-    const m = world.mission
-    const turnDay = missionCanStep(m) ? nextMissionTurnDay(m) : Infinity
-    const stepTo = Math.min(target, turnDay)
-    const r = advanceDays(world, stepTo)
-    world = r.world
-    store.setState(world)
-    if (skip && r.notable) return
+  const flying = missionsInFlight(mockMissionViews(fromDay))
+  const netPerDay = (monthlyIncome(state.support) - monthlySpending(flying)) / 30
+  let funds = state.funds + netPerDay * (toDay - fromDay)
+  let support = state.support
 
-    if (m && world.day >= turnDay) {
-      // The game store may have dropped the flight (reload, New Game): bring it back
-      if (!currentSim()) restoreFlight(m.seed)
-      lastTurn = { notable: false, pause: false }
-      stepMission() // the mission listener below books the result
-      const after = store.getState().mission
-      const moved = !!after && (after.last.turn !== m.last.turn || !!after.last.decisionTitle || after.last.ended)
-      if (!moved) return // the flight is gone: stop instead of spinning
-      if (lastTurn.pause) return
-      if (skip && lastTurn.notable) return
+  for (const event of agencyEvents) {
+    if (event.day > fromDay && event.day <= toDay) {
+      funds += event.fundsDelta ?? 0
+      support += event.supportDelta ?? 0
     }
   }
+  support = Math.max(0, Math.min(100, support))
+
+  // One history point per whole day crossed, capped to keep storage small
+  let fundsHistory = state.fundsHistory
+  if (Math.floor(toDay) > Math.floor(fromDay)) {
+    fundsHistory = [...fundsHistory, { day: Math.floor(toDay), funds: round2(funds) }].slice(-400)
+  }
+
+  return { day: toDay, funds, support, fundsHistory }
 }
 
 export const useAgencyStore = create<AgencyState>()(
   persist(
     (set, get) => ({
-      ...initialWorld(),
-      speed: 'normal' as Speed,
-      pauseReason: null,
-      planningSinceDay: null,
+      ...initialState(),
 
-      setSpeed: (speed) => set({ speed, pauseReason: speed === 'paused' ? get().pauseReason : null }),
+      setSpeed: (speed) => set({ speed }),
 
       tick: (seconds) => {
-        const rate = SPEEDS[get().speed]
-        if (rate === 0 || seconds <= 0) return
-        runUntil(get().day + rate * seconds, false)
+        const { speed, missionClockRunning } = get()
+        const rate = SPEEDS[speed]
+        if (missionClockRunning || rate === 0 || seconds <= 0) return
+        set((state) => advanceAgency(state, state.day + rate * seconds))
       },
 
-      skipToNextEvent: () => {
-        const m = get().mission
-        if (m && m.last.decisionTitle && !m.last.ended) {
-          set({ speed: 'paused', pauseReason: `Decision needed: ${m.last.decisionTitle}` })
-          return
-        }
-        set({ pauseReason: null })
-        runUntil(get().day + 365, true)
-        set({ speed: 'paused' })
+      markLunarMissionStarted: () =>
+        set((state) => ({
+          lunarMissionStartedDay: state.lunarMissionStartedDay ?? Math.floor(state.day),
+        })),
+
+      startMissionClock: () => set((state) => ({ missionStartDay: Math.floor(state.day), missionClockRunning: true })),
+
+      endMissionClock: () => set({ missionClockRunning: false }),
+
+      resetMissionClock: () => set({ missionStartDay: null, missionClockRunning: false }),
+
+      syncToMissionTurn: (turn) => {
+        const { missionStartDay, missionClockRunning } = get()
+        if (missionStartDay === null || !missionClockRunning) return
+        set((state) => advanceAgency(state, missionDay(missionStartDay, turn)))
       },
 
-      beginPlanning: () => {
-        set({ planningSinceDay: Math.floor(get().day) })
-        startPlanning()
-      },
-
-      cancelPlanning: () => set({ planningSinceDay: null }),
-
-      answer: (optionId) => {
-        answerDecision(optionId)
-        const m = get().mission
-        if (!m?.last.decisionTitle) set({ pauseReason: null, speed: m?.last.ended ? 'paused' : 'normal' })
-      },
-
-      resetAgency: () => {
-        clearFlight()
-        set({ ...initialWorld(), speed: 'normal', pauseReason: null, planningSinceDay: null })
-      },
+      resetAgency: () => set(initialState()),
     }),
     {
       name: 'moonshot-agency',
       version: 2,
-      // Older saves came from the first mockup: start fresh
-      migrate: () => ({ ...initialWorld(), speed: 'normal', pauseReason: null, planningSinceDay: null }) as never,
-      partialize: (s) => ({ ...pickWorld(s), speed: s.speed, pauseReason: s.pauseReason, planningSinceDay: s.planningSinceDay }),
+      migrate: migrateAgencyState,
+      merge: (persisted, current) => mergeAgencyState(persisted, current),
     }
   )
 )
-
-/* ------------------------------------------------------------------ */
-/* Listening to the mission model                                      */
-/* ------------------------------------------------------------------ */
-
-/**
- * Every change of the mission, whichever screen caused it (the base clock,
- * the mission team's own simulation screen, an answered event card), is
- * booked here. If the mission got ahead of the agency clock, the clock
- * catches up, paying the days in between.
- */
-function bookMissionChange() {
-  onMissionChange((sim) => {
-    if (!sim) return
-    const store = useAgencyStore
-    let world = pickWorld(store.getState())
-    const snap = snapshotOf(sim)
-
-    if (!world.mission || world.mission.seed !== sim.seed) {
-      // A new flight appeared: that is the Go of a mission plan
-      if (sim.currentTurn !== 0 || snap.ended) return
-      world = approveMission(world, { name: MISSION_NAME, budget: missionBudget(), snapshot: snap })
-      store.setState({ ...world, planningSinceDay: null, speed: 'normal', pauseReason: null })
-      saveFlightCopy(sim)
-      return
-    }
-
-    const due = world.mission.approvedDay + snap.turn * DAYS_PER_TURN
-    if (world.day < due) world = advanceDays(world, due).world
-
-    const r = missionTurned(world, snap)
-    lastTurn = { notable: r.notable, pause: r.pause }
-    store.setState(r.world)
-    if (r.pause) {
-      store.setState({
-        speed: 'paused',
-        pauseReason: snap.decisionTitle
-          ? `Decision needed: ${snap.decisionTitle}`
-          : snap.ended
-            ? `${MISSION_NAME} is over: see the report at Headquarters`
-            : null,
-      })
-    }
-    saveFlightCopy(sim)
-  })
-}
-
-// Bring back a flight the game store lost on reload, then start listening
-{
-  const m = useAgencyStore.getState().mission
-  if (m && !m.last.ended) restoreFlight(m.seed)
-  bookMissionChange()
-}

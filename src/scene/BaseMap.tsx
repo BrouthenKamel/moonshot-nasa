@@ -1,18 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { Color, MOUSE, TOUCH, Vector3, type Group, type InstancedMesh, type Mesh, Object3D } from 'three'
-import { MAP_SIZE, buildings, lockedPlot, type BuildingId } from '../data/agency'
-import {
-  CommsCenter,
-  Factory,
-  Headquarters,
-  LaunchSite,
-  ResearchLab,
-  TestFacility,
-  Traffic,
-  type ModelProps,
-} from './buildings'
+import { Color, DoubleSide, MOUSE, TOUCH, Vector3, type Group, type InstancedMesh, Object3D } from 'three'
+import { MAP_SIZE, buildings, type BuildingId } from '../data/agency'
+import { buildingIcons } from './buildingIcons'
+import { BuildingList, MapBoundary } from './BuildingList'
+import { canUseWebGL } from './webgl'
+import { BaseEffects, ChimneySmoke, Clouds, Truck } from './base/Life'
 
 /* ------------------------------------------------------------------ */
 /* Layout helpers                                                      */
@@ -35,15 +29,12 @@ const key = (x: number, z: number) => `${x},${z}`
 function roadTiles(): Set<string> {
   const roads = new Set<string>()
   for (let x = 1; x <= 18; x++) roads.add(key(x, 7))
-  for (let z = 1; z <= 18; z++) roads.add(key(7, z))
+  for (let z = 1; z <= 17; z++) roads.add(key(7, z))
   ;[
-    [3, 6], [4, 6], // headquarters
-    [10, 6], [11, 6], // factory
-    [15, 6], [16, 6], // test facility
-    [6, 10], [6, 11], // research lab
-    [6, 15], [6, 16], // communications center
+    [4, 6], [3, 6], // research lab
+    [11, 6], // factory
+    [6, 11], [6, 12], // comms center
     [8, 11], // launch site
-    [16, 8], // locked plot
   ].forEach(([x, z]) => roads.add(key(x, z)))
   return roads
 }
@@ -55,7 +46,6 @@ function occupiedTiles(): Set<string> {
       for (let z = tile[1] - pad; z < tile[1] + size[1] + pad; z++) used.add(key(x, z))
   }
   buildings.forEach((b) => add(b.tile, b.size, 1))
-  add(lockedPlot.tile, lockedPlot.size, 1)
   return used
 }
 
@@ -75,8 +65,9 @@ function mulberry32(seed: number) {
 /* Ground                                                              */
 /* ------------------------------------------------------------------ */
 
-const GRASS = new Color('#7cc04f')
-const ROAD = new Color('#ecd9b0')
+const GRASS_A = new Color('#8cc152')
+const GRASS_B = new Color('#80b84a')
+const ROAD = new Color('#e3c99a')
 
 function Ground() {
   const ref = useRef<InstancedMesh>(null)
@@ -86,19 +77,15 @@ function Ground() {
     const mesh = ref.current
     if (!mesh) return
     const dummy = new Object3D()
-    const rand = mulberry32(3)
-    const c = new Color()
     let i = 0
     for (let x = 0; x < MAP_SIZE; x++) {
       for (let z = 0; z < MAP_SIZE; z++) {
         const [wx, wz] = tileToWorld(x + 0.5, z + 0.5)
         const isRoad = roads.has(key(x, z))
-        dummy.position.set(wx, isRoad ? 0.01 : 0, wz)
+        dummy.position.set(wx, isRoad ? 0.005 : 0, wz)
         dummy.updateMatrix()
         mesh.setMatrixAt(i, dummy.matrix)
-        // Subtle per-tile variation instead of a checkerboard
-        c.copy(isRoad ? ROAD : GRASS).offsetHSL(0, 0, (rand() - 0.5) * (isRoad ? 0.03 : 0.05))
-        mesh.setColorAt(i, c)
+        mesh.setColorAt(i, isRoad ? ROAD : (x + z) % 2 === 0 ? GRASS_A : GRASS_B)
         i++
       }
     }
@@ -111,63 +98,18 @@ function Ground() {
       {/* Tiles */}
       <instancedMesh ref={ref} args={[undefined, undefined, MAP_SIZE * MAP_SIZE]} receiveShadow>
         <boxGeometry args={[1, 0.1, 1]} />
-        <meshStandardMaterial roughness={0.95} />
+        <meshStandardMaterial />
       </instancedMesh>
-      {/* Grass lip and earth layers under the island */}
-      <mesh position={[0, -0.12, 0]}>
-        <boxGeometry args={[MAP_SIZE + 0.02, 0.18, MAP_SIZE + 0.02]} />
-        <meshStandardMaterial color="#5f9d3a" />
+      {/* Earth block under the island */}
+      <mesh position={[0, -0.45, 0]}>
+        <boxGeometry args={[MAP_SIZE, 0.8, MAP_SIZE]} />
+        <meshStandardMaterial color="#9b6b43" />
       </mesh>
-      <mesh position={[0, -0.75, 0]}>
-        <boxGeometry args={[MAP_SIZE - 0.2, 1.1, MAP_SIZE - 0.2]} />
-        <meshStandardMaterial color="#a8774b" />
+      {/* Grass beyond the island */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.86, 0]} receiveShadow>
+        <planeGeometry args={[200, 200]} />
+        <meshStandardMaterial color="#6fa83f" />
       </mesh>
-      <mesh position={[0, -1.6, 0]}>
-        <boxGeometry args={[MAP_SIZE - 1.2, 0.6, MAP_SIZE - 1.2]} />
-        <meshStandardMaterial color="#86603e" />
-      </mesh>
-      <mesh position={[0, -2.1, 0]}>
-        <boxGeometry args={[MAP_SIZE - 3, 0.4, MAP_SIZE - 3]} />
-        <meshStandardMaterial color="#6b4c33" />
-      </mesh>
-    </group>
-  )
-}
-
-/** Soft low-poly clouds drifting around the island */
-function Clouds() {
-  const ref = useRef<Group>(null)
-  const clouds = useMemo(() => {
-    const rand = mulberry32(11)
-    return Array.from({ length: 7 }, (_, i) => {
-      const angle = (i / 7) * Math.PI * 2 + rand() * 0.5
-      const r = MAP_SIZE * 0.72 + rand() * 4
-      return {
-        pos: [Math.cos(angle) * r, -1.5 + rand() * 4, Math.sin(angle) * r] as [number, number, number],
-        scale: 0.8 + rand() * 0.8,
-      }
-    })
-  }, [])
-  useFrame(({ clock }) => {
-    if (ref.current) ref.current.rotation.y = clock.elapsedTime * 0.01
-  })
-  return (
-    <group ref={ref}>
-      {clouds.map((c, i) => (
-        <group key={i} position={c.pos} scale={c.scale}>
-          {[
-            [0, 0, 0, 1],
-            [0.9, -0.15, 0.2, 0.75],
-            [-0.85, -0.2, -0.1, 0.7],
-            [0.2, 0.35, -0.3, 0.65],
-          ].map(([x, y, z, s], j) => (
-            <mesh key={j} position={[x, y, z]} scale={s}>
-              <icosahedronGeometry args={[0.9, 1]} />
-              <meshStandardMaterial color="#ffffff" flatShading roughness={1} transparent opacity={0.92} />
-            </mesh>
-          ))}
-        </group>
-      ))}
     </group>
   )
 }
@@ -240,106 +182,385 @@ function Scenery() {
 /* Buildings                                                           */
 /* ------------------------------------------------------------------ */
 
-function LockedPlot() {
-  const [w, d] = lockedPlot.size
-  const posts = useMemo(() => {
-    const out: [number, number][] = []
-    for (let t = -w / 2 + 0.2; t <= w / 2 - 0.2 + 1e-6; t += 0.4) {
-      out.push([t, -d / 2 + 0.2], [t, d / 2 - 0.2])
-    }
-    for (let t = -d / 2 + 0.6; t <= d / 2 - 0.6 + 1e-6; t += 0.4) {
-      out.push([-w / 2 + 0.2, t], [w / 2 - 0.2, t])
-    }
-    return out
-  }, [w, d])
+const WALL = '#eef1f6'
+const ROOF = '#2c3e6b'
+const GLASS = '#5aa9e6'
+const ACCENT = '#f28c28'
+const CONCRETE = '#c9ccd1'
+
+function Pad({ w, d }: { w: number; d: number }) {
+  return (
+    <mesh position={[0, 0.1, 0]} receiveShadow>
+      <boxGeometry args={[w - 0.2, 0.1, d - 0.2]} />
+      <meshStandardMaterial color={CONCRETE} />
+    </mesh>
+  )
+}
+
+function ResearchLab() {
   return (
     <group>
-      <mesh position={[0, 0.08, 0]} receiveShadow>
-        <boxGeometry args={[w - 0.3, 0.06, d - 0.3]} />
-        <meshStandardMaterial color="#b9a88a" />
+      <Pad w={4} d={4} />
+      {/* Main block */}
+      <mesh position={[-0.2, 0.85, -0.2]} castShadow receiveShadow>
+        <boxGeometry args={[2.8, 1.4, 2.4]} />
+        <meshStandardMaterial color={WALL} />
       </mesh>
-      {posts.map(([x, z], i) => (
-        <mesh key={i} position={[x, 0.25, z]}>
-          <boxGeometry args={[0.05, 0.35, 0.05]} />
-          <meshStandardMaterial color="#f2f3f5" />
+      <mesh position={[-0.2, 1.6, -0.2]} castShadow>
+        <boxGeometry args={[2.95, 0.12, 2.55]} />
+        <meshStandardMaterial color={ROOF} />
+      </mesh>
+      {/* Window bands on the two visible sides */}
+      {[0.6, 1.15].map((y) => (
+        <group key={y}>
+          <mesh position={[-0.2, y, 1.01]}>
+            <boxGeometry args={[2.4, 0.28, 0.02]} />
+            <meshStandardMaterial color={GLASS} emissive={GLASS} emissiveIntensity={0.15} />
+          </mesh>
+          <mesh position={[1.21, y, -0.2]}>
+            <boxGeometry args={[0.02, 0.28, 2.0]} />
+            <meshStandardMaterial color={GLASS} emissive={GLASS} emissiveIntensity={0.15} />
+          </mesh>
+        </group>
+      ))}
+      {/* Entrance awning */}
+      <mesh position={[0.4, 0.55, 1.2]} castShadow>
+        <boxGeometry args={[0.9, 0.06, 0.4]} />
+        <meshStandardMaterial color={ACCENT} />
+      </mesh>
+      {/* Observatory dome with telescope */}
+      <group position={[-0.5, 1.66, -0.5]}>
+        <mesh castShadow>
+          <cylinderGeometry args={[0.72, 0.72, 0.25, 24]} />
+          <meshStandardMaterial color="#d7dbe2" />
+        </mesh>
+        <mesh position={[0, 0.12, 0]} castShadow>
+          <sphereGeometry args={[0.68, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshStandardMaterial color="#b9c0cb" metalness={0.3} roughness={0.4} />
+        </mesh>
+        <mesh position={[0.35, 0.65, 0.35]} rotation={[-0.6, Math.PI / 4, 0]} castShadow>
+          <cylinderGeometry args={[0.1, 0.13, 0.9, 12]} />
+          <meshStandardMaterial color="#59616e" />
+        </mesh>
+      </group>
+      {/* Side annex */}
+      <mesh position={[1.2, 0.45, 1.2]} castShadow>
+        <boxGeometry args={[1, 0.6, 0.9]} />
+        <meshStandardMaterial color="#dfe4ec" />
+      </mesh>
+    </group>
+  )
+}
+
+function Factory() {
+  return (
+    <group>
+      <Pad w={5} d={4} />
+      {/* Hall */}
+      <mesh position={[-0.2, 0.75, -0.2]} castShadow receiveShadow>
+        <boxGeometry args={[4, 1.2, 2.8]} />
+        <meshStandardMaterial color="#e3e6eb" />
+      </mesh>
+      {/* Sawtooth roof: triangular prisms running along x */}
+      {[-1.1, -0.2, 0.7].map((z) => (
+        <group key={z} position={[-0.2, 1.5, z]}>
+          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[0.52, 0.52, 3.9, 3]} />
+            <meshStandardMaterial color={ROOF} flatShading />
+          </mesh>
+        </group>
+      ))}
+      {/* Big doors */}
+      <mesh position={[-1.1, 0.55, 1.21]}>
+        <boxGeometry args={[1.2, 0.85, 0.03]} />
+        <meshStandardMaterial color={ACCENT} />
+      </mesh>
+      <mesh position={[0.6, 0.55, 1.21]}>
+        <boxGeometry args={[1.2, 0.85, 0.03]} />
+        <meshStandardMaterial color={ACCENT} />
+      </mesh>
+      {/* Windows on the side */}
+      <mesh position={[1.81, 0.9, -0.2]}>
+        <boxGeometry args={[0.02, 0.3, 2.2]} />
+        <meshStandardMaterial color={GLASS} />
+      </mesh>
+      {/* Chimney */}
+      <mesh position={[1.3, 2.0, -1.2]} castShadow>
+        <cylinderGeometry args={[0.15, 0.18, 1.2, 10]} />
+        <meshStandardMaterial color="#8d939c" />
+      </mesh>
+      <ChimneySmoke position={[1.3, 2.65, -1.2]} />
+      {/* Crates waiting outside */}
+      {[
+        [2.1, 0.35, 1.3],
+        [2.1, 0.35, 0.8],
+        [2.1, 0.75, 1.05],
+      ].map((p, i) => (
+        <mesh key={i} position={p as [number, number, number]} castShadow>
+          <boxGeometry args={[0.4, 0.4, 0.4]} />
+          <meshStandardMaterial color={i === 2 ? '#c98a3d' : '#e0a24f'} />
         </mesh>
       ))}
     </group>
   )
 }
 
-const models: Record<BuildingId, (p: ModelProps) => React.ReactElement> = {
-  hq: Headquarters,
-  factory: Factory,
-  'test-facility': TestFacility,
-  'launch-site': LaunchSite,
-  'comms-center': CommsCenter,
-  'research-lab': ResearchLab,
-}
+/** The launch playing on the pad: when the countdown started (performance.now()), or the rocket already gone */
+const LaunchContext = createContext<{ launchAt: number | null; gone: boolean }>({ launchAt: null, gone: false })
 
-/** How tall each model is, so its label floats just above it */
-const labelHeight: Record<BuildingId, number> = {
-  hq: 4.5,
-  factory: 3.0,
-  'test-facility': 1.9,
-  'launch-site': 3.6,
-  'comms-center': 2.4,
-  'research-lab': 2.9,
-}
+/** Seconds from the countdown start to ignition; matches LAUNCH.ignitionS in src/state/uiStore.ts */
+const IGNITION_S = 5.2
+const PUFFS = 28
 
-/** A building on the map: lifts a little under the mouse */
-function Placed({
-  position,
-  onClick,
-  children,
-}: {
-  position: [number, number, number]
-  onClick: (e: ThreeEvent<MouseEvent>) => void
-  children: React.ReactNode
-}) {
-  const ref = useRef<Group>(null)
-  const hovered = useRef(false)
-  useFrame((_, dt) => {
-    if (!ref.current) return
-    const target = hovered.current ? 0.12 : 0
-    ref.current.position.y += (position[1] + target - ref.current.position.y) * Math.min(1, dt * 10)
+/** Exhaust, flame light and smoke for the launch, driven by the clock */
+function LaunchEffects({ rocket }: { rocket: React.RefObject<Group | null> }) {
+  const { launchAt } = useContext(LaunchContext)
+  const flame = useRef<Group>(null)
+  const light = useRef<import('three').PointLight>(null)
+  useFrame(() => {
+    const r = rocket.current
+    if (!r) return
+    if (launchAt === null) {
+      r.position.set(0, 0, 0)
+      if (flame.current) flame.current.visible = false
+      if (light.current) light.current.intensity = 0
+      return
+    }
+    const t = (performance.now() - launchAt) / 1000
+    const lift = Math.max(0, t - IGNITION_S)
+    // Engines light, the clamps hold for half a second, then the climb speeds up
+    const climb = Math.max(0, lift - 0.5)
+    const shake = t > IGNITION_S - 0.6 && climb < 1.5 ? 0.025 * Math.sin(t * 90) : 0
+    r.position.set(shake, 0.6 * climb * climb, shake * 0.6)
+    const burning = t > IGNITION_S - 0.3
+    if (flame.current) {
+      flame.current.visible = burning
+      const flicker = 0.85 + 0.15 * Math.sin(t * 60)
+      flame.current.scale.set(1, (0.8 + Math.min(1, lift) * 1.4) * flicker, 1)
+    }
+    if (light.current) light.current.intensity = burning ? 6 + 4 * Math.sin(t * 40) : 0
   })
   return (
-    <group
-      ref={ref}
-      position={position}
-      onClick={onClick}
-      onPointerOver={(e) => {
-        e.stopPropagation()
-        hovered.current = true
-        document.body.style.cursor = 'pointer'
-      }}
-      onPointerOut={() => {
-        hovered.current = false
-        document.body.style.cursor = ''
-      }}
-    >
-      {children}
+    <>
+      <group ref={flame} visible={false} position={[0, 0.12, 0]}>
+        <mesh rotation={[Math.PI, 0, 0]} position={[0, -0.35, 0]}>
+          <coneGeometry args={[0.2, 0.9, 14, 1, true]} />
+          <meshBasicMaterial color="#ffb347" transparent opacity={0.9} />
+        </mesh>
+        <mesh rotation={[Math.PI, 0, 0]} position={[0, -0.22, 0]}>
+          <coneGeometry args={[0.11, 0.5, 12, 1, true]} />
+          <meshBasicMaterial color="#fff6d5" />
+        </mesh>
+        <pointLight ref={light} position={[0, -0.3, 0]} color="#ffa040" intensity={0} distance={6} />
+      </group>
+    </>
+  )
+}
+
+/** Smoke rolling out from the pad at ignition, slowly fading */
+function LaunchSmoke() {
+  const { launchAt } = useContext(LaunchContext)
+  const puffs = useRef<(import('three').Mesh | null)[]>([])
+  const seeds = useMemo(() => {
+    const rnd = mulberry32(7)
+    return Array.from({ length: PUFFS }, () => ({ a: rnd() * Math.PI * 2, s: 0.6 + rnd() * 0.8, d: 0.6 + rnd() * 1.6, b: rnd() }))
+  }, [])
+  useFrame(() => {
+    const t = launchAt === null ? -1 : (performance.now() - launchAt) / 1000
+    puffs.current.forEach((p, i) => {
+      if (!p) return
+      const seed = seeds[i]
+      const age = t - (IGNITION_S - 0.4 + seed.b * 2.2)
+      if (launchAt === null || age <= 0 || age > 9) {
+        p.visible = false
+        return
+      }
+      p.visible = true
+      const spread = Math.min(1, age / 2.5)
+      p.position.set(Math.cos(seed.a) * seed.d * spread * 1.6, 0.35 + age * 0.12, Math.sin(seed.a) * seed.d * spread * 1.6)
+      p.scale.setScalar(seed.s * (0.25 + Math.min(1, age / 1.8)) * Math.max(0.01, 1 - age / 9))
+    })
+  })
+  return (
+    <group>
+      {seeds.map((_, i) => (
+        <mesh key={i} ref={(m) => { puffs.current[i] = m }} visible={false}>
+          <icosahedronGeometry args={[0.5, 1]} />
+          <meshStandardMaterial color="#f3f1ec" roughness={1} flatShading />
+        </mesh>
+      ))}
     </group>
   )
 }
 
-/** Pulsing ring around the building where the mission is right now */
-function ActiveRing({ size }: { size: [number, number] }) {
-  const ref = useRef<Mesh>(null)
-  useFrame(({ clock }) => {
-    if (!ref.current) return
-    const t = (Math.sin(clock.elapsedTime * 3) + 1) / 2
-    ref.current.scale.setScalar(1 + t * 0.04)
-    ;(ref.current.material as unknown as { opacity: number }).opacity = 0.45 + t * 0.4
-  })
-  const r = Math.max(size[0], size[1]) * 0.62
+function Rocket() {
+  const rocket = useRef<Group>(null)
+  const { gone } = useContext(LaunchContext)
+  if (gone) return null
   return (
-    <mesh ref={ref} position={[0, 0.17, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[r - 0.12, r, 48]} />
-      <meshBasicMaterial color="#ff8a1f" transparent opacity={0.7} />
-    </mesh>
+    <group ref={rocket}>
+      <LaunchEffects rocket={rocket} />
+      <mesh position={[0, 1.2, 0]} castShadow>
+        <cylinderGeometry args={[0.22, 0.22, 2, 16]} />
+        <meshStandardMaterial color="#f7f8fa" />
+      </mesh>
+      <mesh position={[0, 1.6, 0]}>
+        <cylinderGeometry args={[0.225, 0.225, 0.18, 16]} />
+        <meshStandardMaterial color={ROOF} />
+      </mesh>
+      <mesh position={[0, 2.45, 0]} castShadow>
+        <coneGeometry args={[0.22, 0.5, 16]} />
+        <meshStandardMaterial color={ACCENT} />
+      </mesh>
+      {[0, 1, 2].map((i) => (
+        <mesh
+          key={i}
+          position={[Math.cos((i * 2 * Math.PI) / 3) * 0.25, 0.35, Math.sin((i * 2 * Math.PI) / 3) * 0.25]}
+          rotation={[0, (-i * 2 * Math.PI) / 3, 0]}
+          castShadow
+        >
+          <boxGeometry args={[0.25, 0.4, 0.04]} />
+          <meshStandardMaterial color={ROOF} />
+        </mesh>
+      ))}
+    </group>
   )
+}
+
+function LaunchSite() {
+  return (
+    <group>
+      <Pad w={5} d={5} />
+      {/* Launch mount */}
+      <mesh position={[0, 0.2, 0]} receiveShadow castShadow>
+        <cylinderGeometry args={[1.5, 1.6, 0.2, 32]} />
+        <meshStandardMaterial color="#b4b8bf" />
+      </mesh>
+      <mesh position={[0, 0.31, 0]}>
+        <boxGeometry args={[0.6, 0.03, 2.6]} />
+        <meshStandardMaterial color="#4a4f57" />
+      </mesh>
+      <group position={[0, 0.1, 0]}>
+        <Rocket />
+      </group>
+      <LaunchSmoke />
+      {/* Service tower */}
+      <group position={[-0.75, 0, -0.3]}>
+        <mesh position={[0, 1.65, 0]} castShadow>
+          <boxGeometry args={[0.45, 3.1, 0.45]} />
+          <meshStandardMaterial color="#d9452b" wireframe />
+        </mesh>
+        <mesh position={[0, 1.65, 0]} castShadow>
+          <boxGeometry args={[0.12, 3.1, 0.12]} />
+          <meshStandardMaterial color="#d9452b" />
+        </mesh>
+        <mesh position={[0.35, 2.3, 0.15]} castShadow>
+          <boxGeometry args={[0.6, 0.08, 0.1]} />
+          <meshStandardMaterial color="#d9452b" />
+        </mesh>
+      </group>
+      {/* Propellant tanks */}
+      {[
+        [1.6, 1.4],
+        [1.6, 0.8],
+      ].map(([x, z]) => (
+        <mesh key={z} position={[x, 0.45, z]} castShadow>
+          <sphereGeometry args={[0.3, 16, 12]} />
+          <meshStandardMaterial color="#f2f3f5" />
+        </mesh>
+      ))}
+      {/* Light poles */}
+      {[
+        [-1.9, -1.9],
+        [1.9, -1.9],
+        [-1.9, 1.9],
+      ].map(([x, z]) => (
+        <group key={`${x}${z}`} position={[x, 0, z]}>
+          <mesh position={[0, 0.9, 0]} castShadow>
+            <cylinderGeometry args={[0.03, 0.03, 1.6, 6]} />
+            <meshStandardMaterial color="#6b717a" />
+          </mesh>
+          <mesh position={[0, 1.72, 0]}>
+            <boxGeometry args={[0.2, 0.08, 0.12]} />
+            <meshStandardMaterial color="#fff6c8" emissive="#fff6c8" emissiveIntensity={0.6} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function Dish({ position, phase }: { position: [number, number, number]; phase: number }) {
+  const ref = useRef<Group>(null)
+  useFrame(({ clock }) => {
+    if (ref.current) ref.current.rotation.y = phase + Math.sin(clock.elapsedTime * 0.15 + phase) * 0.6
+  })
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.35, 0]} castShadow>
+        <cylinderGeometry args={[0.1, 0.18, 0.7, 10]} />
+        <meshStandardMaterial color="#9aa1ab" />
+      </mesh>
+      <group ref={ref} position={[0, 0.8, 0]}>
+        <group rotation={[-0.75, 0, 0]}>
+          <mesh castShadow>
+            <sphereGeometry args={[0.75, 24, 8, 0, Math.PI * 2, 0, 0.75]} />
+            <meshStandardMaterial color="#f4f5f7" side={DoubleSide} />
+          </mesh>
+          <mesh position={[0, -0.35, 0]}>
+            <cylinderGeometry args={[0.03, 0.03, 0.75, 6]} />
+            <meshStandardMaterial color="#6b717a" />
+          </mesh>
+        </group>
+      </group>
+    </group>
+  )
+}
+
+function CommsCenter() {
+  return (
+    <group>
+      <Pad w={4} d={4} />
+      <mesh position={[-0.6, 0.6, 0.6]} castShadow receiveShadow>
+        <boxGeometry args={[2.2, 0.9, 1.8]} />
+        <meshStandardMaterial color={WALL} />
+      </mesh>
+      <mesh position={[-0.6, 1.1, 0.6]} castShadow>
+        <boxGeometry args={[2.35, 0.1, 1.95]} />
+        <meshStandardMaterial color={ROOF} />
+      </mesh>
+      <mesh position={[-0.6, 0.65, 1.51]}>
+        <boxGeometry args={[1.8, 0.3, 0.02]} />
+        <meshStandardMaterial color={GLASS} />
+      </mesh>
+      <mesh position={[0.51, 0.65, 0.6]}>
+        <boxGeometry args={[0.02, 0.3, 1.4]} />
+        <meshStandardMaterial color={GLASS} />
+      </mesh>
+      {/* Mast on the roof */}
+      <mesh position={[-1.3, 1.6, 0.2]} castShadow>
+        <cylinderGeometry args={[0.03, 0.03, 1, 6]} />
+        <meshStandardMaterial color="#6b717a" />
+      </mesh>
+      <Dish position={[0.9, 0.1, -0.9]} phase={0.6} />
+      <Dish position={[-0.9, 0.1, -1.1]} phase={2.2} />
+    </group>
+  )
+}
+
+const models: Record<BuildingId, () => React.ReactElement> = {
+  'research-lab': ResearchLab,
+  factory: Factory,
+  'launch-site': LaunchSite,
+  'comms-center': CommsCenter,
+}
+
+/** How tall each model is, so its label floats just above it */
+const labelHeight: Record<BuildingId, number> = {
+  'research-lab': 3.0,
+  factory: 2.6,
+  'launch-site': 3.4,
+  'comms-center': 2.2,
 }
 
 /* ------------------------------------------------------------------ */
@@ -350,64 +571,63 @@ export interface BuildingLabel {
   status: string
   /** 0-1 progress bar under the status */
   progress?: number
-  /** The mission is here right now */
-  active?: boolean
-  /** Something waits for the player here */
-  attention?: boolean
+  highlight?: boolean
+  /** A gentle glow that points a new player here (the Research Lab's first lesson) */
+  pulse?: boolean
+  /** A red Go / No-Go bar is fixed in this building */
+  alert?: boolean
 }
 
 function Label({
+  id,
   name,
   label,
-  selected,
   onClick,
 }: {
+  id: BuildingId
   name: string
   label: BuildingLabel
-  selected: boolean
-  onClick: () => void
+  onClick?: () => void
 }) {
-  // Quiet buildings show just their name; where something happens, the label opens up
-  const expanded = label.active || label.attention || selected
+  const border = label.alert ? 'border-red-500' : label.highlight ? 'border-orange-400' : 'border-slate-700/80'
+  // A real button when it walks in, so it can be reached and pressed by keyboard
+  const Tag = onClick ? 'button' : 'div'
   return (
-    <button
+    <Tag
+      type={onClick ? 'button' : undefined}
       onClick={onClick}
-      className={`pointer-events-auto flex w-max max-w-[240px] select-none flex-col items-center text-center transition hover:-translate-y-0.5 ${
-        expanded ? 'z-10' : ''
+      title={onClick ? `Enter the ${name}` : undefined}
+      className={`relative block w-max max-w-[280px] select-none rounded-xl border-2 bg-white/95 px-3 py-1.5 text-left shadow-lg ${border} ${
+        onClick
+          ? 'pointer-events-auto cursor-pointer transition hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-orange-400'
+          : ''
       }`}
     >
-      <div
-        className={`rounded-xl px-2.5 py-1 shadow-[0_3px_0_rgba(0,0,0,0.25)] ${
-          label.attention
-            ? 'animate-pulse bg-red-500 text-white'
-            : expanded
-              ? 'bg-orange-500 text-white'
-              : 'bg-[#14213d]/85 text-white'
-        }`}
-      >
-        <div className="flex items-center gap-1.5">
-
-          <span className="whitespace-nowrap font-display text-[13px] font-semibold tracking-wide">{name}</span>
-          {label.attention && <span className="rounded bg-white px-1 text-[10px] font-bold text-red-600">!</span>}
-        </div>
-        {expanded && (
-          <>
-            <div className="mt-0.5 text-[11px] leading-tight text-white/90">{label.status}</div>
-            {label.progress !== undefined && (
-              <div className="mx-auto mt-1 h-1.5 w-full min-w-24 overflow-hidden rounded-full bg-white/30">
-                <div className="h-full rounded-full bg-white" style={{ width: `${Math.round(label.progress * 100)}%` }} />
-              </div>
-            )}
-          </>
-        )}
-      </div>
-      {/* Little pointer down to the building */}
-      <div
-        className={`h-0 w-0 border-x-[6px] border-t-[7px] border-x-transparent ${
-          label.attention ? 'border-t-red-500' : expanded ? 'border-t-orange-500' : 'border-t-[#14213d]/85'
-        }`}
-      />
-    </button>
+      {label.highlight && !label.alert && (
+        <span className="pointer-events-none absolute -inset-1.5 rounded-2xl ring-4 ring-orange-400/60 motion-safe:animate-pulse" />
+      )}
+      {label.pulse && !label.alert && (
+        <span
+          data-testid="label-pulse"
+          className="pointer-events-none absolute -inset-3 rounded-3xl ring-4 ring-emerald-400/70 shadow-[0_0_24px_rgba(52,211,153,0.6)] motion-safe:animate-pulse"
+        />
+      )}
+      <span className="flex items-center gap-2">
+        <span className="text-base leading-none">{buildingIcons[id]}</span>
+        <span className="whitespace-nowrap font-display text-sm font-bold uppercase tracking-wide text-slate-800">
+          {name}
+        </span>
+      </span>
+      <span className="mt-0.5 block text-[11px] leading-tight text-slate-600">{label.status}</span>
+      {label.progress !== undefined && (
+        <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+          <span
+            className="block h-full rounded-full bg-orange-500"
+            style={{ width: `${Math.round(label.progress * 100)}%` }}
+          />
+        </span>
+      )}
+    </Tag>
   )
 }
 
@@ -420,7 +640,8 @@ function FitCamera() {
   const camera = useThree((s) => s.camera)
   const size = useThree((s) => s.size)
   useEffect(() => {
-    const zoom = Math.min(size.width / 30, size.height / 23)
+    // The whole island and the labels above the back buildings fit, also on a wide map
+    const zoom = Math.min(size.width / 22, size.height / 20)
     camera.zoom = Math.max(14, zoom)
     camera.updateProjectionMatrix()
   }, [camera, size.width, size.height])
@@ -434,6 +655,7 @@ function FitCamera() {
 /**
  * Labels are plain DOM elements laid over the canvas. Each frame this projects
  * their 3D anchor points to screen pixels and moves the elements there.
+ * (One overlay instead of drei's Html, which creates a React root per label.)
  */
 function LabelProjector({
   anchors,
@@ -463,56 +685,48 @@ function LabelProjector({
 /* Map                                                                 */
 /* ------------------------------------------------------------------ */
 
-export type MapTarget = BuildingId | 'locked'
-
 export interface BaseMapProps {
   labels: Record<BuildingId, BuildingLabel>
-  selected: MapTarget | null
-  onSelect: (target: MapTarget) => void
-  /** The current mission's rocket has left the pad */
-  launched: boolean
+  /** Walking into a building: clicking its model or its label */
+  onBuildingClick?: (id: BuildingId) => void
+  /** The launch on the pad: performance.now() when the countdown started */
+  launchAt?: number | null
+  /** The rocket has left (the craft is flying) */
+  rocketGone?: boolean
 }
 
-export function BaseMap({ labels, selected, onSelect, launched }: BaseMapProps) {
+function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = false }: BaseMapProps) {
+  const launch = useMemo(() => ({ launchAt, gone: rocketGone }), [launchAt, rocketGone])
   const labelEls = useRef<(HTMLDivElement | null)[]>([])
+  // Until the canvas has drawn, show a placeholder instead of a blank green field
+  const [ready, setReady] = useState(false)
 
-  // One anchor per building (above its roof), then one for the locked plot
-  const anchors = useMemo(() => {
-    const list = buildings.map((b) => {
-      const [x, , z] = footprintCenter(b.tile, b.size)
-      return new Vector3(x, labelHeight[b.id], z)
-    })
-    const [px, , pz] = footprintCenter(lockedPlot.tile, lockedPlot.size)
-    list.push(new Vector3(px, 0.9, pz))
-    return list
-  }, [])
-
-  /** A click, not the end of a drag */
-  const clickOn = (target: MapTarget) => (e: ThreeEvent<MouseEvent>) => {
-    e.stopPropagation()
-    if (e.delta > 6) return
-    onSelect(target)
-  }
-  const [lx, , lz] = footprintCenter(lockedPlot.tile, lockedPlot.size)
+  // One anchor per building, above its roof
+  const anchors = useMemo(
+    () =>
+      buildings.map((b) => {
+        const [x, , z] = footprintCenter(b.tile, b.size)
+        return new Vector3(x, labelHeight[b.id], z)
+      }),
+    []
+  )
 
   return (
-    <div
-      className="relative h-full w-full overflow-hidden"
-      style={{ background: 'radial-gradient(ellipse at 50% 35%, #cfeaff 0%, #8ec5f2 45%, #4f86c6 100%)' }}
-    >
+    <div className="relative h-full w-full overflow-hidden">
       <Canvas
         orthographic
-        shadows="soft"
-        gl={{ alpha: true, antialias: true }}
+        shadows
         camera={{ position: [20, 20, 20], zoom: 30, near: -100, far: 200 }}
+        role="img"
+        aria-label="Map of the agency base. Each building's label is a button."
+        onCreated={() => setReady(true)}
       >
+        <color attach="background" args={['#6fa83f']} />
         <FitCamera />
-        <hemisphereLight args={['#e8f4ff', '#6d8f4e', 1.0]} />
-        <ambientLight intensity={0.15} />
+        <hemisphereLight args={['#ffffff', '#5b7f3a', 0.9]} />
         <directionalLight
-          position={[14, 22, 4]}
-          intensity={1.9}
-          color="#fff3dc"
+          position={[12, 20, 6]}
+          intensity={1.6}
           castShadow
           shadow-mapSize={[2048, 2048]}
           shadow-camera-left={-16}
@@ -520,32 +734,39 @@ export function BaseMap({ labels, selected, onSelect, launched }: BaseMapProps) 
           shadow-camera-top={16}
           shadow-camera-bottom={-16}
           shadow-bias={-0.0005}
-          shadow-radius={4}
         />
-        <directionalLight position={[-10, 8, 12]} intensity={0.35} color="#bcd8ff" />
 
+        <LaunchContext.Provider value={launch}>
         <Ground />
         <Scenery />
         <Clouds />
+        <Truck z={7.5 - HALF} from={-7} to={6} />
 
         {buildings.map((b) => {
           const Model = models[b.id]
           const [x, , z] = footprintCenter(b.tile, b.size)
           return (
-            <Placed key={b.id} position={[x, 0.05, z]} onClick={clickOn(b.id)}>
-              <Model active={!!labels[b.id].active} launched={launched} />
-              {(labels[b.id].active || selected === b.id) && <ActiveRing size={b.size} />}
-            </Placed>
+            <group
+              key={b.id}
+              position={[x, 0.05, z]}
+              onClick={
+                onBuildingClick
+                  ? (e) => {
+                      e.stopPropagation()
+                      onBuildingClick(b.id)
+                    }
+                  : undefined
+              }
+              onPointerOver={onBuildingClick ? () => (document.body.style.cursor = 'pointer') : undefined}
+              onPointerOut={onBuildingClick ? () => (document.body.style.cursor = '') : undefined}
+            >
+              <Model />
+            </group>
           )
         })}
 
-        <Placed position={[lx, 0.05, lz]} onClick={clickOn('locked')}>
-          <LockedPlot />
-        </Placed>
-
-        {/* Main streets: row z = 7 and column x = 7 (tile centres) */}
-        <Traffic streetA={7.5 - HALF} streetB={7.5 - HALF} from={1.5 - HALF} to={18.5 - HALF} />
-
+        </LaunchContext.Provider>
+        <BaseEffects />
         <LabelProjector anchors={anchors} elements={labelEls} />
 
         <OrbitControls
@@ -569,28 +790,37 @@ export function BaseMap({ labels, selected, onSelect, launched }: BaseMapProps) 
             className="invisible absolute left-0 top-0"
           >
             <Label
-
+              id={b.id}
               name={b.name}
               label={labels[b.id]}
-              selected={selected === b.id}
-              onClick={() => onSelect(b.id)}
+              onClick={onBuildingClick ? () => onBuildingClick(b.id) : undefined}
             />
           </div>
         ))}
-        <div
-          ref={(el) => {
-            labelEls.current[buildings.length] = el
-          }}
-          className="invisible absolute left-0 top-0"
-        >
-          <button
-            onClick={() => onSelect('locked')}
-            className="pointer-events-auto w-max select-none rounded-xl bg-white/70 px-2.5 py-1 font-display text-[12px] font-semibold text-slate-600 shadow-[0_3px_0_rgba(0,0,0,0.15)] backdrop-blur-sm"
-          >
-            {lockedPlot.name} · locked
-          </button>
-        </div>
       </div>
+
+      {!ready && (
+        <div
+          role="status"
+          className="absolute inset-0 flex items-center justify-center bg-[#6fa83f] font-display text-lg font-bold text-white"
+        >
+          Loading map…
+        </div>
+      )}
     </div>
+  )
+}
+
+/**
+ * The base map: the 3D island, or a plain list of the buildings when this browser has no
+ * WebGL or the island fails to draw, so the base never turns into a white page (QC #32).
+ */
+export function BaseMap(props: BaseMapProps) {
+  const list = <BuildingList {...props} />
+  if (!canUseWebGL()) return list
+  return (
+    <MapBoundary fallback={list}>
+      <IslandMap {...props} />
+    </MapBoundary>
   )
 }

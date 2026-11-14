@@ -1,10 +1,20 @@
 import { useGameStore } from './state/gameStore'
 import { Shell } from './ui/Shell'
-import { TitleScreen, DesignScreen, BaseScreen } from './ui/screens'
+import { DesignScreen, BaseScreen } from './ui/screens'
+import { Opening } from './ui/Opening'
+import { ReportScreen } from './ui/report/ReportScreen'
+import { useUiStore } from './state/uiStore'
+import { canUseWebGL } from './scene/webgl'
+import { useAudioDirector } from './assets/director'
+import { audio } from './assets/audio'
+import { Captions } from './ui/kit/Captions'
 import { ReplayPanel } from './viz/ReplayPanel'
 import { isSimComplete } from './sim/simulate'
 import { computeBudgets } from './sim/budgets'
 import { difficultyPresets } from './data/brief'
+import { EventCard } from './ui/flight/EventCard'
+import { FlightControls } from './ui/flight/FlightControls'
+import { Narrator } from './ui/narrator/Narrator'
 
 const PHASE_TEXT: Record<string, string> = {
   build: 'Building',
@@ -27,40 +37,8 @@ function SimStat({ label, value, sub, tone }: { label: string; value: string; su
   )
 }
 
-function EventCard() {
-  const decision = useGameStore((s) => s.simState?.pendingDecision)
-  const answerEvent = useGameStore((s) => s.answerEvent)
-  const flight = useGameStore((s) => s.simState?.flight)
-  if (!decision || !flight) return null
-  return (
-    <div className="rounded-lg border-2 border-yellow-500 bg-yellow-950/60 p-5">
-      <div className="text-xs font-semibold uppercase tracking-wide text-yellow-400">Event, turn {decision.turn}</div>
-      <div className="mt-1 text-lg font-bold text-yellow-200">{decision.title}</div>
-      <div className="mt-2 text-sm text-slate-200">{decision.text}</div>
-      {decision.realMission && <div className="mt-1 text-xs text-slate-400">Real mission: {decision.realMission}</div>}
-      <div className="mt-2 text-xs text-slate-400">
-        Money {flight.main.toFixed(1)} M, reserve {Math.max(0, flight.reserve).toFixed(1)} M
-      </div>
-      <div className="mt-4 space-y-2">
-        {decision.options.map((o) => (
-          <button
-            key={o.id}
-            onClick={() => answerEvent(o.id)}
-            className="w-full rounded-lg bg-slate-800 p-3 text-left text-sm text-slate-100 hover:bg-slate-700"
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function SimulationPlaceholder() {
   const simState = useGameStore((s) => s.simState)
-  const advanceTurn = useGameStore((s) => s.advanceTurn)
-  const flyOn = useGameStore((s) => s.flyOn)
-  const showReport = useGameStore((s) => s.showReport)
 
   if (!simState) return null
 
@@ -68,7 +46,6 @@ function SimulationPlaceholder() {
   const f = simState.flight
   const b = computeBudgets(simState.design, simState.difficulty)
   const dataTarget = difficultyPresets[simState.difficulty]?.dataTarget ?? 300
-  const waiting = !!simState.pendingDecision
   const lastNotes = simState.turnLogs[simState.turnLogs.length - 1]?.notes ?? []
 
   return (
@@ -76,9 +53,9 @@ function SimulationPlaceholder() {
       <div className="rounded-lg bg-slate-900 p-6">
         <h1 className="text-xl font-bold text-blue-400">Mission Simulation</h1>
         <p className="mt-2 text-slate-400">
-          Turn {simState.currentTurn}: {PHASE_TEXT[simState.phase] ?? simState.phase}
+          Month {simState.currentTurn}: {PHASE_TEXT[simState.phase] ?? simState.phase}
           {simState.phase === 'build' || simState.phase === 'test' || simState.phase === 'wait'
-            ? `. The ride leaves on turn ${f.launchTurn}.`
+            ? `. The ride leaves in month ${f.launchTurn}.`
             : ''}
         </p>
         {lastNotes.length > 0 && <p className="mt-1 text-sm text-slate-500">{lastNotes.join(' ')}</p>}
@@ -98,7 +75,7 @@ function SimulationPlaceholder() {
           tone={simState.totalDataReturned >= dataTarget ? 'text-green-400' : 'text-blue-400'}
         />
         <SimStat
-          label="Turns in orbit"
+          label="Months in orbit"
           value={`${simState.turnsInOrbit}`}
           sub="need 12"
           tone={simState.turnsInOrbit >= 12 ? 'text-green-400' : 'text-purple-400'}
@@ -106,7 +83,7 @@ function SimulationPlaceholder() {
         <SimStat
           label="Delta-v left"
           value={`${Math.max(0, simState.fuelRemaining).toFixed(0)} m/s`}
-          sub={f.captured ? `${b.deltaVStationKeeping} m/s a turn to hold the orbit` : `capture needs ${(b.captureDeltaV ?? 0).toFixed(0)} m/s`}
+          sub={f.captured ? `${b.deltaVStationKeeping} m/s a month to hold the orbit` : `capture needs ${(b.captureDeltaV ?? 0).toFixed(0)} m/s`}
           tone="text-orange-400"
         />
         <SimStat label="Money" value={`${f.main.toFixed(1)} M`} sub="main budget" tone="text-slate-200" />
@@ -127,31 +104,7 @@ function SimulationPlaceholder() {
         compact
       />
 
-      {complete && (
-        <button
-          onClick={() => showReport()}
-          className="w-full rounded-lg bg-green-600 py-3 font-medium text-white hover:bg-green-500"
-        >
-          See report
-        </button>
-      )}
-
-      {!complete && !waiting && (
-        <div className="flex gap-4">
-          <button
-            onClick={() => advanceTurn()}
-            className="flex-1 rounded-lg bg-slate-700 py-3 font-medium text-white hover:bg-slate-600"
-          >
-            Advance one turn
-          </button>
-          <button
-            onClick={() => flyOn()}
-            className="flex-1 rounded-lg bg-blue-600 py-3 font-medium text-white hover:bg-blue-500"
-          >
-            Fly until something happens
-          </button>
-        </div>
-      )}
+      <FlightControls />
     </div>
   )
 }
@@ -202,185 +155,21 @@ function ReplayScreen() {
   )
 }
 
-function ReportPlaceholder() {
-  const currentReport = useGameStore((s) => s.currentReport)
-  const runHistory = useGameStore((s) => s.runHistory)
-  const newGame = useGameStore((s) => s.newGame)
-  const loadDesignFromHistory = useGameStore((s) => s.loadDesignFromHistory)
-  const openReplay = useGameStore((s) => s.openReplay)
-  const simState = useGameStore((s) => s.simState)
-
-  if (!currentReport && runHistory.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center">
-          <div className="text-slate-400">No missions completed yet</div>
-          <button
-            onClick={newGame}
-            className="mt-4 rounded-lg bg-blue-600 px-6 py-2 text-white"
-          >
-            Start a Mission
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  const report = currentReport ?? runHistory[0]?.report
-
-  if (!report) return null
-
-  return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div
-        className={`rounded-lg p-6 text-center ${
-          report.outcome === 'success'
-            ? 'bg-green-950'
-            : report.outcome === 'partial'
-              ? 'bg-yellow-950'
-              : 'bg-red-950'
-        }`}
-      >
-        <div
-          className={`text-3xl font-bold ${
-            report.outcome === 'success'
-              ? 'text-green-400'
-              : report.outcome === 'partial'
-                ? 'text-yellow-400'
-                : 'text-red-400'
-          }`}
-        >
-          {report.outcome === 'success'
-            ? 'Mission Success'
-            : report.outcome === 'partial'
-              ? 'Partial Success'
-              : 'Mission Failed'}
-        </div>
-        <div className="mt-2 text-slate-300">{report.outcomeReason}</div>
-        <div className="mt-4 text-4xl font-bold text-white">{report.score.total} / 1000</div>
-      </div>
-
-      <div className="space-y-3">
-        {report.requirements.map((req) => (
-          <div key={req.id} className={`rounded-lg p-4 ${req.met ? 'bg-green-950' : 'bg-red-950'}`}>
-            <div className="flex items-baseline justify-between">
-              <div className={`font-medium ${req.met ? 'text-green-300' : 'text-red-300'}`}>
-                {req.met ? '✔' : '✘'} {req.name}
-              </div>
-              <div className="text-sm text-slate-400">{req.reason}</div>
-            </div>
-            {req.causes?.length > 0 && (
-              <ul className="mt-2 space-y-1 text-sm text-slate-300">
-                {req.causes.map((c, i) => (
-                  <li key={i}>
-                    <span className="text-red-400">why:</span> {c}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded-lg bg-slate-900 p-4 text-sm text-slate-400">
-        <div className="font-medium text-slate-300">Score</div>
-        <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
-          <span>Ice coverage {report.score.coverage ?? 0} / 400</span>
-          <span>Science data {report.score.data ?? 0} / 250</span>
-          <span>Turns in orbit {report.score.lifetime ?? 0} / 150</span>
-          <span>Sunlit-ground map {report.score.context ?? 0} / 100</span>
-          <span>Money left {report.score.money ?? 0} / 100</span>
-        </div>
-        {report.outreachReturned > 0 && (
-          <div className="mt-2">
-            {report.outreachReturned.toFixed(0)} MB of camera pictures came home: great for the public, but not science
-            data.
-          </div>
-        )}
-      </div>
-
-      <div className="flex gap-4">
-        <button
-          onClick={newGame}
-          className="flex-1 rounded-lg bg-blue-600 py-3 font-medium text-white hover:bg-blue-500"
-        >
-          New Mission
-        </button>
-        {currentReport && simState && simState.turnLogs.length > 0 && (
-          <button
-            onClick={() => openReplay()}
-            className="flex-1 rounded-lg bg-purple-600 py-3 font-medium text-white hover:bg-purple-500"
-          >
-            Watch replay
-          </button>
-        )}
-        {currentReport && (
-          <button
-            onClick={() => loadDesignFromHistory(runHistory[0]?.id ?? '')}
-            className="flex-1 rounded-lg bg-slate-700 py-3 font-medium text-slate-300 hover:bg-slate-600"
-          >
-            Retry with Changes
-          </button>
-        )}
-      </div>
-
-      {runHistory.length > 1 && (
-        <div className="rounded-lg bg-slate-900 p-4">
-          <div className="font-medium text-slate-300">Run History</div>
-          <div className="mt-2 space-y-2">
-            {runHistory.slice(0, 5).map((entry) => (
-              <div key={entry.id} className="flex gap-2">
-                <button
-                  onClick={() => loadDesignFromHistory(entry.id)}
-                  className="flex-1 rounded bg-slate-800 p-2 text-left text-sm hover:bg-slate-700"
-                >
-                  <span
-                    className={
-                      entry.report.outcome === 'success'
-                        ? 'text-green-400'
-                        : entry.report.outcome === 'partial'
-                          ? 'text-yellow-400'
-                          : 'text-red-400'
-                    }
-                  >
-                    {entry.report.outcome}
-                  </span>{' '}
-                  - Score: {entry.report.score.total}
-                </button>
-                {entry.run && (
-                  <button
-                    onClick={() => openReplay(entry.id)}
-                    className="rounded bg-purple-700 px-3 text-sm text-white hover:bg-purple-600"
-                  >
-                    Replay
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 export default function App() {
   const screen = useGameStore((s) => s.screen)
+  const openingDone = useUiStore((s) => s.openingDone)
+  useAudioDirector()
 
-  // Title screen doesn't use Shell
-  if (screen === 'title') {
-    return (
-      <main className="flex h-screen flex-col bg-slate-950 text-slate-100">
-        <TitleScreen />
-      </main>
-    )
-  }
-
-  // Agency base is a full-screen game view
-  if (screen === 'base') {
+  // The game starts on the agency map, a full-screen game view ('title' is an old name for it)
+  if (screen === 'base' || screen === 'title') {
+    // The opening curtain covers the base once per session (only where the 3D picture can be drawn)
+    if (!openingDone && canUseWebGL()) return <Opening onBegin={() => audio.play('sfx.reveal')} />
     return (
       <main className="h-screen text-slate-100">
         <BaseScreen />
+        <Narrator />
+        <Captions />
       </main>
     )
   }
@@ -396,7 +185,7 @@ export default function App() {
       content = <SimulationPlaceholder />
       break
     case 'report':
-      content = <ReportPlaceholder />
+      content = <ReportScreen />
       break
     case 'replay':
       content = <ReplayScreen />
@@ -405,5 +194,12 @@ export default function App() {
       content = <div>Unknown screen</div>
   }
 
-  return <Shell>{content}</Shell>
+  return (
+    <>
+      <Shell>{content}</Shell>
+      {/* The mission mentor, over every screen; it never blocks play */}
+      <Narrator />
+      <Captions />
+    </>
+  )
 }

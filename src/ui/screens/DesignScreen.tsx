@@ -1,5 +1,6 @@
 import { useGameStore } from '../../state/gameStore'
 import { DesignDiagramPanel } from '../../viz/DesignDiagramPanel'
+import type { DesignStep } from '../../sim/types'
 import {
   BriefScreen,
   PlanningScreen,
@@ -34,12 +35,15 @@ function StepScreen({ designStep }: { designStep: string }) {
   }
 }
 
+/** Steps that draw their own full view instead of the shared diagram panel. */
+const STEPS_WITHOUT_DIAGRAM: DesignStep[] = ['planning', 'instruments', 'spacecraft', 'orbit', 'ride']
+
 export function DesignScreen() {
   const designStep = useGameStore((s) => s.designStep)
 
   return (
     <>
-      <DesignDiagramPanel step={designStep} />
+      {!STEPS_WITHOUT_DIAGRAM.includes(designStep) && <DesignDiagramPanel step={designStep} />}
       <StepScreen designStep={designStep} />
     </>
   )

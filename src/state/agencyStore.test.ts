@@ -1,68 +1,68 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { useGameStore } from './gameStore'
-import { useAgencyStore } from './agencyStore'
-import { flashlightDesign } from '../sim/fixtures'
-import { missionFunding } from '../game/economy'
-import { DAYS_PER_TURN } from '../game/world'
+import { describe, it, expect, beforeEach } from 'vitest'
+import { useAgencyStore, missionDay, migrateAgencyState, mergeAgencyState, type AgencyState } from './agencyStore'
 
-/** Run the base clock until the mission ends, answering every event card with its first option */
-function flyOnTheClock(maxMonths = 80) {
-  for (let i = 0; i < maxMonths * 2; i++) {
+describe('agency clock and the mission', () => {
+  beforeEach(() => useAgencyStore.getState().resetAgency())
+
+  // Jakob, 14 Nov: the base clock waits until the player acts
+  it('starts paused: the clock does not run until the player presses play', () => {
+    const before = useAgencyStore.getState().day
+    expect(useAgencyStore.getState().speed).toBe('paused')
+    useAgencyStore.getState().tick(10)
+    expect(useAgencyStore.getState().day).toBe(before)
+    useAgencyStore.getState().setSpeed('normal')
+    useAgencyStore.getState().tick(1)
+    expect(useAgencyStore.getState().day).toBeGreaterThan(before)
+  })
+
+  it('comes back paused after a reload, even if it was playing', () => {
+    const merged = mergeAgencyState({ day: 200, speed: 'fast' }, useAgencyStore.getState())
+    expect(merged.day).toBe(200)
+    expect(merged.speed).toBe('paused')
+  })
+
+  it('maps turns to days', () => {
+    expect(missionDay(112, 0)).toBe(112)
+    expect(missionDay(112, 8)).toBe(352)
+  })
+
+  it('follows the turns once the mission clock runs, and stops ticking by itself', () => {
     const a = useAgencyStore.getState()
-    if (a.mission?.last.ended) return
-    const decision = useGameStore.getState().simState?.pendingDecision
-    if (decision) useGameStore.getState().answerEvent(decision.options[0].id)
-    useAgencyStore.getState().setSpeed('fast')
-    useAgencyStore.getState().tick(1.5) // 15 days
-  }
-}
-
-describe('agency clock drives the real mission', () => {
-  beforeEach(() => {
-    useAgencyStore.getState().resetAgency()
-    useGameStore.setState({ simState: null, currentReport: null, design: flashlightDesign, difficulty: 'engineer' })
+    a.setSpeed('normal')
+    a.startMissionClock()
+    a.tick(5)
+    expect(useAgencyStore.getState().day).toBe(112)
+    a.syncToMissionTurn(3)
+    expect(useAgencyStore.getState().day).toBe(202)
+    a.syncToMissionTurn(2) // never rewinds
+    expect(useAgencyStore.getState().day).toBe(202)
   })
 
-  it('pays the agency share when the plan is approved', () => {
-    const before = useAgencyStore.getState()
-    useAgencyStore.getState().beginPlanning()
-    useGameStore.setState({ design: flashlightDesign })
-    useGameStore.getState().startSimulation()
-    const after = useAgencyStore.getState()
-    expect(after.mission?.approvedDay).toBe(Math.floor(before.day))
-    expect(after.funds).toBeCloseTo(before.funds - missionFunding(25, before.popularity).agencyPays, 5)
-    expect(after.planningSinceDay).toBeNull()
-  })
-
-  it('flies a whole mission month by month and settles it once', () => {
-    useGameStore.getState().startSimulation()
-    flyOnTheClock()
+  it('runs freely again after the mission clock is reset', () => {
     const a = useAgencyStore.getState()
-    const m = a.mission!
-    expect(m.last.ended).toBe(true)
-    expect(m.settled).toBe(true)
-    // The agency clock and the mission agree: one turn per 30 days
-    expect(a.day).toBeGreaterThanOrEqual(m.approvedDay + m.last.turn * DAYS_PER_TURN)
-    expect(a.feed.some((f) => f.title.includes('launched'))).toBe(true)
-    expect(a.speed).toBe('paused')
-    expect(a.funds).toBeGreaterThanOrEqual(0)
+    a.startMissionClock()
+    a.resetMissionClock()
+    a.setSpeed('normal')
+    const before = useAgencyStore.getState().day
+    a.tick(1)
+    expect(useAgencyStore.getState().day).toBeGreaterThan(before)
   })
 
-  it('catches the clock up when the mission screen flies ahead', () => {
-    useGameStore.getState().startSimulation()
-    const approvedDay = useAgencyStore.getState().mission!.approvedDay
-    useGameStore.getState().advanceTurn()
-    useGameStore.getState().advanceTurn()
-    const turn = useGameStore.getState().simState!.currentTurn
-    expect(useAgencyStore.getState().day).toBeGreaterThanOrEqual(approvedDay + turn * DAYS_PER_TURN)
-  })
-
-  it('stops a skip at the next notable thing', () => {
-    useGameStore.getState().startSimulation()
-    const before = useAgencyStore.getState().feed.length
-    useAgencyStore.getState().skipToNextEvent()
+  it('runs freely again once the flight is over, keeping the start day for the feed', () => {
     const a = useAgencyStore.getState()
-    expect(a.feed.length).toBeGreaterThan(before)
-    expect(a.speed).toBe('paused')
+    a.setSpeed('normal')
+    a.startMissionClock()
+    a.syncToMissionTurn(20)
+    a.endMissionClock()
+    const ended = useAgencyStore.getState().day
+    a.tick(1)
+    expect(useAgencyStore.getState().day).toBeGreaterThan(ended)
+    expect(useAgencyStore.getState().missionStartDay).toBe(112)
+  })
+
+  it('loads state saved by version 1', () => {
+    const migrated: AgencyState = migrateAgencyState({ day: 130, funds: 18, support: 70 }, 1)
+    expect(migrated.missionStartDay).toBeNull()
+    expect(migrated.day).toBe(130)
   })
 })

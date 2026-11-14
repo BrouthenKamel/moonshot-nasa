@@ -6,6 +6,7 @@ import { buildReport } from './evaluate'
 import { flashlightDesign, lunahMapDesign, iceCubeDesign } from './fixtures'
 import { getPartById, type PropulsionPart } from '../data/parts'
 import { getOrbitById } from '../data/orbits'
+import { modelConstants as C } from '../data/brief'
 import type { Design, SimState } from './types'
 
 const status = (d: Design, resource: string) =>
@@ -19,22 +20,36 @@ describe('calculator reproduces the logic map', () => {
     const ion = getPartById('prop-ion') as PropulsionPart
     expect(insertionDeltaV(ion, 'direct', getOrbitById('orbit-halo'))).toBeNull()
 
+    // Balance redesign (14 Nov): the chemical module is 2.8 kg dry (was 3.6) and its Isp the nominal 190 s
+    // (was an effective 150), so the craft is lighter and carries more delta-v; team costs fell (0.45 M a
+    // month before launch, a smaller cruise team), so it costs less. Volume is unchanged.
     const flashlight = computeBudgets(flashlightDesign, 'engineer')
-    expect(flashlight.totalMass).toBeCloseTo(14.0, 1)
+    expect(flashlight.totalMass).toBeCloseTo(13.2, 1) // was 14.0
     expect(flashlight.totalVolume).toBeCloseTo(5.9, 2)
-    expect(flashlight.deltaVAvailable).toBeCloseTo(227, 0)
-    expect(flashlight.totalCost).toBeCloseTo(21.0, 1)
+    expect(flashlight.deltaVAvailable).toBeCloseTo(306, 0) // was 227
+    expect(flashlight.totalCost).toBeCloseTo(20.0, 1) // was 21.0
 
     expect(computeBudgets(lunahMapDesign, 'engineer').transferTurns).toBe(10) // Lunar IceCube plan 9, LunaH-Map 15
     const icecube = computeBudgets(iceCubeDesign, 'engineer')
-    expect(icecube.totalMass).toBeCloseTo(12.8, 1)
-    expect(icecube.totalCost).toBeCloseTo(24.9, 1)
+    // Balance redesign: the IR spectrometer is 2.4 kg and 2.2 M (was 3.2 kg and 3.0 M), so it fits beside an ice instrument
+    expect(icecube.totalMass).toBeCloseTo(12.0, 1) // was 12.8
+    expect(icecube.totalCost).toBeCloseTo(21.3, 1) // was 24.9
   })
 
   it('counts propellant in the mass and the reserve inside the budget', () => {
     const b = computeBudgets(lunahMapDesign, 'engineer')
     expect(b.totalMass - b.dryMass).toBeCloseTo(1.5)
     expect(b.spendable + b.reserveAmount).toBeCloseTo(b.budgetCap)
+  })
+
+  // Balance redesign (14 Nov): the months of cruise run on a smaller team than the science phase,
+  // so a long electric transfer is a real trade, not an automatic loss
+  it('runs the transfer on the cruise team', () => {
+    const b = computeBudgets(lunahMapDesign, 'engineer')
+    expect(b.transferCostPerTurn).toBeCloseTo(C.teamCostCruise + b.groundCostPerTurn + C.electricNavCost)
+    expect(b.transferCostPerTurn).toBeLessThan(b.opsCostPerTurn + C.electricNavCost)
+    const chem = computeBudgets(flashlightDesign, 'engineer')
+    expect(chem.transferCostPerTurn).toBeCloseTo(C.teamCostCruise + chem.groundCostPerTurn)
   })
 
   it('derives build time from the parts', () => {
@@ -55,6 +70,31 @@ describe('instruments and orbits shape the science', () => {
   it('the neutron spectrometer on the halo loop sees too few passes', () => {
     const b = computeBudgets({ ...lunahMapDesign, orbit: 'orbit-halo' }, 'engineer')
     expect(b.projectedCoverage).toBeLessThan(50)
+  })
+
+  it('an ice instrument above its altitude limit maps nothing', () => {
+    const laser100 = { ...flashlightDesign, orbit: 'orbit-100km' }
+    const b = computeBudgets(laser100, 'engineer')
+    expect(b.quality['inst-laser']).toBe(0)
+    expect(b.coverageRate['inst-laser']).toBe(0)
+    expect(b.projectedCoverage).toBe(0)
+  })
+
+  it('the IR spectrometer has no altitude limit', () => {
+    const b = computeBudgets({ ...iceCubeDesign, orbit: 'orbit-100km' }, 'engineer')
+    expect(b.quality['inst-ir-spec']).toBe(1)
+  })
+
+  // Balance redesign (14 Nov): a second ice instrument maps strips the first one missed,
+  // so two of them together cover more than either alone (before, only the best one counted)
+  it('two ice instruments together map more than either alone', () => {
+    const base = { ...flashlightDesign, propulsion: 'prop-coldgas', ride: 'ride-commercial' }
+    const laser = computeBudgets({ ...base, instruments: ['inst-laser'] }, 'engineer').projectedCoverage
+    const neutron = computeBudgets({ ...base, instruments: ['inst-neutron'] }, 'engineer').projectedCoverage
+    const both = computeBudgets({ ...base, instruments: ['inst-laser', 'inst-neutron'] }, 'engineer').projectedCoverage
+    expect(laser).toBeGreaterThan(0)
+    expect(neutron).toBeGreaterThan(0)
+    expect(both).toBeCloseTo(100 * (1 - (1 - laser / 100) * (1 - neutron / 100)), 0)
   })
 
   it('a laser without precise pointing loses half its quality', () => {
@@ -87,6 +127,20 @@ describe('Go / No-Go', () => {
   it('never makes science red', () => {
     expect(status(iceCubeDesign, 'Science')).toBe('yellow')
   })
+
+  it('names the instruments to fit when none can see into shadow', () => {
+    const b = computeBudgets(iceCubeDesign, 'engineer')
+    const science = goNoGo(iceCubeDesign, b).checks.find((c) => c.resource === 'Science')!
+    expect(science.reason).toContain('laser reflectometer')
+    expect(science.reason).toContain('neutron spectrometer')
+  })
+
+  it('counts the science margin up from the 70% target (more coverage is better)', () => {
+    const b = computeBudgets(flashlightDesign, 'engineer')
+    const science = goNoGo(flashlightDesign, b).checks.find((c) => c.resource === 'Science')!
+    expect(science.margin).toBeCloseTo(b.projectedCoverage - 70)
+    expect(science.margin).toBeGreaterThan(0)
+  })
 })
 
 describe('flight', () => {
@@ -117,10 +171,61 @@ describe('flight', () => {
     }
     const flashlight = rates(flashlightDesign) // logic map: 84 / 13 / 2
     expect(flashlight.full).toBeGreaterThan(0.78)
-    expect(flashlight.fail).toBeLessThan(0.06)
-    const icecube = rates(iceCubeDesign) // logic map: 0 / 84 / 15
+    // Since QC #91 a run that misses the ice coverage is failed, not partial: the logic map's
+    // partials that fell short on ice now count here, so this is full + partial against lost
+    expect(flashlight.fail).toBeLessThan(0.2)
+    expect(flashlight.full + flashlight.partial).toBeGreaterThan(0.8)
+    // Stricter labels (Jakob, QC #91): the IR spectrometer maps no ice, so the starting design always fails
+    const icecube = rates(iceCubeDesign)
     expect(icecube.full).toBe(0)
-    expect(icecube.partial).toBeGreaterThan(0.75)
+    expect(icecube.partial).toBe(0)
+    expect(icecube.fail).toBe(1)
+  }, 20_000) // 3000 simulated missions
+
+  // Jakob, QC #91: success = all five met; partial = ice coverage met but another missed;
+  // failed = ice coverage missed, or the mission ended lost or out of money
+  describe('outcome labels', () => {
+    const outcomeOf = (d: Design, seed: number) => {
+      const s = runSimulation(d, 'engineer', seed)
+      return { s, r: buildReport(s) }
+    }
+    const cov = (r: ReturnType<typeof buildReport>) => r.requirements.find((q) => q.id === 'coverage')!.met
+
+    it('a 0%-ice run full of IR data is failed, not partial', () => {
+      for (let seed = 1; seed <= 20; seed++) {
+        const { r } = outcomeOf(iceCubeDesign, seed)
+        expect(r.coverageAchieved).toBe(0)
+        expect(r.outcome).toBe('failed')
+      }
+    })
+
+    it('follows the rule on every run of the reference designs', () => {
+      for (const d of [flashlightDesign, lunahMapDesign, iceCubeDesign, { ...flashlightDesign, attitude: 'attitude-basic' }]) {
+        for (let seed = 1; seed <= 150; seed++) {
+          const { s, r } = outcomeOf(d, seed)
+          const lostOrBroke = !s.flight.alive
+          const expected = r.requirements.every((q) => q.met)
+            ? 'success'
+            : cov(r) && !lostOrBroke
+              ? 'partial'
+              : 'failed'
+          expect(r.outcome).toBe(expected)
+        }
+      }
+    })
+
+    it('a run that met ice coverage but missed something else is partial', () => {
+      let found = false
+      const designs = [flashlightDesign, lunahMapDesign, { ...flashlightDesign, attitude: 'attitude-basic' }]
+      for (let i = 0; i < 900 && !found; i++) {
+        const { s, r } = outcomeOf(designs[i % 3], Math.floor(i / 3) + 1)
+        if (s.flight.alive && cov(r) && !r.requirements.every((q) => q.met)) {
+          expect(r.outcome).toBe('partial')
+          found = true
+        }
+      }
+      expect(found).toBe(true)
+    })
   })
 
   it('pauses on an event card and replays the turn with the same dice once answered', () => {
@@ -153,8 +258,28 @@ describe('flight', () => {
     expect(buildReport(manual).score.total).toBe(buildReport(auto).score.total)
   })
 
+  it('says so when there is no reserve to pay for a fix, without claiming a failed choice', () => {
+    const noReserve: Design = { ...lunahMapDesign, planning: { ...lunahMapDesign.planning, reservePercent: 0, testTurns: 0 } }
+    for (let seed = 1; seed <= 3000; seed++) {
+      const s = runSimulation(noReserve, 'engineer', seed)
+      const ev = s.allEvents.find((e) => e.eventId === 'thruster')
+      if (!ev || s.flight.reserve >= 1) continue
+      expect(ev.choiceSucceeded).toBeUndefined()
+      const log = s.turnLogs.find((l) => l.turn === ev.turn)!
+      expect(log.notes.join(' ')).toContain('No reserve left to pay for a fix')
+      return
+    }
+    throw new Error('no thruster event without reserve in 3000 flights')
+  })
+
   it('spends money every turn and waits for the next ride when late', () => {
-    const late: Design = { ...flashlightDesign, planning: { ...flashlightDesign.planning, testTurns: 3 } }
+    // Balance redesign: a one-instrument craft now builds in 3 months, so three test months still make the
+    // month-8 ride; a second instrument (4 build months) makes it late
+    const late: Design = {
+      ...flashlightDesign,
+      instruments: ['inst-laser', 'inst-neutron'],
+      planning: { ...flashlightDesign.planning, testTurns: 3 },
+    }
     const s = runSimulation(late, 'engineer', 5)
     const missed = s.turnLogs.find((l) => l.notes.some((n) => n.startsWith('Missed the ride')))
     expect(missed?.turn).toBe(8)
@@ -188,6 +313,22 @@ describe('report explains the misses', () => {
         expect(r.score.total).toBeLessThanOrEqual(1000)
       }
     }
+  })
+
+  it('the "perfect craft" line counts the turns actually flown, so it never contradicts the result', () => {
+    const design = { ...lunahMapDesign, orbit: 'orbit-halo' }
+    for (let seed = 1; seed <= 200; seed++) {
+      const s = runSimulation(design, 'engineer', seed)
+      if (s.flight.scienceTurns <= 12) continue
+      const coverage = buildReport(s).requirements.find((r) => r.id === 'coverage')!
+      const line = coverage.causes.find((c) => c.startsWith('Too few passes'))
+      if (!line) continue
+      expect(line).toContain(`in ${s.flight.scienceTurns} months`)
+      const ideal = Number(line.match(/maps only (\d+)%/)![1])
+      expect(ideal).toBeGreaterThanOrEqual(Math.floor(s.flight.coverage))
+      return
+    }
+    throw new Error('no extended neutron-halo flight in 200 seeds')
   })
 
   it('neutron on the halo loop: too few passes', () => {

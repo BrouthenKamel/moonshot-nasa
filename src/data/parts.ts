@@ -4,7 +4,7 @@ import { z } from 'zod'
  * Spacecraft parts. Numbers follow the Lunar Ice Mapper logic map
  * (prototype/reference/core-loop-logic-map.md on branch python-core-logic):
  * real lunar CubeSats where a source exists, game values otherwise.
- * Units: kg, U, W, $M, MB per turn. `effort` is build work: 10 points take one turn.
+ * Units: kg, U, W, $M, MB per turn. `effort` is build work: modelConstants.effortPerTurn points take one turn.
  */
 
 /** Part categories */
@@ -69,18 +69,19 @@ export type SolarPart = z.infer<typeof SolarPartSchema>
 export const solarPanels: SolarPart[] = [
   {
     id: 'solar-body',
-    name: 'Body-Mounted Panels (20 W)',
+    name: 'Body-Mounted Panels (28 W)',
     category: 'solar',
     mass: 0.4,
     volume: 0,
-    power: 20,
-    powerGeneration: 20,
+    // G: cells on the two large faces of a 6U box, about 0.06 m2 each (20 W before the balance redesign)
+    power: 28,
+    powerGeneration: 28,
     cost: 0.15,
     effort: 1,
     buildMonths: 1,
     reliability: 0.99,
     deployable: false,
-    description: 'Cells on the outside of the box. Nothing to deploy, but barely enough for the computer and radio.',
+    description: 'Cells on the outside of the box. Nothing to deploy and light, but only enough for a low-power instrument such as the neutron spectrometer.',
   },
   {
     id: 'solar-1wing',
@@ -224,8 +225,8 @@ export const radios: RadioPart[] = [
     id: 'radio-xband',
     name: 'Deep-Space Radio, Deployable Dish',
     category: 'radio',
-    mass: 2.1,
-    volume: 2.0,
+    mass: 1.8,
+    volume: 1.2, // G: the Iris box plus the folded dish (2.0 before the balance redesign: it fitted no craft)
     power: -10,
     cost: 2.3,
     effort: 7,
@@ -238,7 +239,7 @@ export const radios: RadioPart[] = [
     needsPrecisePointing: true,
     gainWithoutPrecisePointing: 0.25,
     deployable: true,
-    description: 'Iris with a 0.5 m deployable dish: eight times the data rate, but it takes 1.5 U and must be pointed precisely.',
+    description: 'Iris with a 0.5 m deployable dish: eight times the data rate, but it takes 1.2 U and must be pointed precisely.',
   },
 ]
 
@@ -349,29 +350,29 @@ export type PropulsionPart = z.infer<typeof PropulsionPartSchema>
 export const propulsionSystems: PropulsionPart[] = [
   {
     id: 'prop-coldgas',
-    name: 'Cold Gas Thrusters',
+    name: 'Cold Gas Thrusters (1.2 kg)',
     category: 'propulsion',
-    mass: 0.5,
-    volume: 0.4,
+    mass: 0.6,
+    volume: 0.6,
     power: 0,
-    cost: 0.1,
+    cost: 0.4,
     effort: 2,
     buildMonths: 1,
     reliability: 0.98,
     type: 'cold-gas',
     impulsive: true,
-    isp: 70,
+    isp: 45, // S: MarCO's VACCO cold-gas system (R-236fa) gave a 13.5 kg 6U about 40 m/s
     thrust: 100,
-    propellantMass: 0.3,
+    propellantMass: 1.2,
     thrustPower: 0,
     minThrustPower: 0,
-    description: 'Simple and safe, but only good for pointing: far too little delta-v to stop at the Moon.',
+    description: 'MarCO-class cold gas: simple, cheap, light and small, but only about 50 m/s. Enough to stop at the Moon only when a lander drops you close to it.',
   },
   {
     id: 'prop-chemical',
     name: 'Green Monopropellant (2 kg)',
     category: 'propulsion',
-    mass: 3.6,
+    mass: 2.8, // G (3.6 before the balance redesign: no chemical craft fitted 14 kg with a second part to spare)
     volume: 2.4,
     power: 0,
     cost: 2.5,
@@ -380,18 +381,18 @@ export const propulsionSystems: PropulsionPart[] = [
     reliability: 0.94,
     type: 'chemical',
     impulsive: true,
-    isp: 150, // effective, reproduces Lunar Flashlight's module
+    isp: 190, // S: nominal for the AF-M315E (ASCENT) thrusters Lunar Flashlight flew; 150 before the balance redesign. Their shortfall in flight is the thruster event
     thrust: 1000,
     propellantMass: 2.0,
     thrustPower: 0,
     minThrustPower: 0,
-    description: 'Lunar Flashlight-class module: quick burns, about 230 m/s on a 14 kg craft.',
+    description: 'Lunar Flashlight-class module: quick burns, about 290 m/s on a 14 kg craft. Enough for the halo loop, or for the elliptical orbit when a lander drops you close.',
   },
   {
     id: 'prop-chemical-large',
     name: 'Green Monopropellant (3 kg)',
     category: 'propulsion',
-    mass: 3.6,
+    mass: 2.8, // G (3.6 before the balance redesign: no chemical craft fitted 14 kg with a second part to spare)
     volume: 2.9,
     power: 0,
     cost: 2.5,
@@ -400,12 +401,12 @@ export const propulsionSystems: PropulsionPart[] = [
     reliability: 0.92,
     type: 'chemical',
     impulsive: true,
-    isp: 150,
+    isp: 190,
     thrust: 1000,
     propellantMass: 3.0,
     thrustPower: 0,
     minThrustPower: 0,
-    description: 'The same module with the largest tank. More delta-v, but heavy and bulky.',
+    description: 'The same module with the largest tank: about 450 m/s, enough to brake straight into the elliptical orbit. Heavy and bulky.',
   },
   {
     id: 'prop-ion',
@@ -470,10 +471,10 @@ export const instruments: InstrumentPart[] = [
     id: 'inst-ir-spec',
     name: 'IR Spectrometer (BIRCHES-type)',
     category: 'instrument',
-    mass: 3.2,
+    mass: 2.4, // G (3.2 before the balance redesign: it fitted no craft beside an ice instrument)
     volume: 1.5,
     power: -12,
-    cost: 3.0,
+    cost: 2.2, // G (3.0 before the balance redesign)
     effort: 9,
     buildMonths: 3,
     reliability: 0.92,
@@ -543,7 +544,7 @@ export const instruments: InstrumentPart[] = [
     name: 'Neutron Spectrometer',
     category: 'instrument',
     mass: 2.5,
-    volume: 2.0,
+    volume: 1.8, // G (2.0 before the balance redesign)
     power: -5,
     cost: 2.0,
     effort: 6,
@@ -588,8 +589,4 @@ export const allParts: Part[] = [
 
 export function getPartById(id: string): Part | undefined {
   return allParts.find((p) => p.id === id)
-}
-
-export function getPartsByCategory<T extends Part>(category: PartCategory): T[] {
-  return allParts.filter((p) => p.category === category) as T[]
 }

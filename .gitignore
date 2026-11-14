@@ -28,3 +28,12 @@ dist-ssr
 # Local MCP config (contains API keys)
 .mcp.json
 skills-lock.json
+
+.env
+
+# Large raw asset sources (keep prompts, scripts and small files)
+assets-src/**/*.blend1
+assets-src/raw/
+
+# Raw procedural models: rebuilt from scripts/assets/models/parts by pnpm assets:models
+assets-src/models/parts/

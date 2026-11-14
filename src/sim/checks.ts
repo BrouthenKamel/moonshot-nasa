@@ -1,14 +1,15 @@
 import { getRideById } from '../data/rides'
 import { getTransferById, isTransferCompatible } from '../data/transfers'
-import { getPartById, type PropulsionPart, type RadioPart } from '../data/parts'
+import { getPartById, type InstrumentPart, type PropulsionPart, type RadioPart } from '../data/parts'
 import { lunarIceMapperBrief, modelConstants as C } from '../data/brief'
+import { buildings, instrumentLabLevel, researchLabLevel } from '../data/agency'
 import type { Design, Budgets, CheckResult, GoNoGoResult, BarStatus, DesignStep } from './types'
 
 export type { GoNoGoResult }
 
-/** Green with 15% to spare, yellow when it just fits, red when it does not. */
-function band(spareShare: number): BarStatus {
-  return spareShare >= C.greenMargin ? 'green' : spareShare >= 0 ? 'yellow' : 'red'
+/** Green with 15% to spare (or the given share), yellow when it just fits, red when it does not. */
+function band(spareShare: number, green = C.greenMargin): BarStatus {
+  return spareShare >= green ? 'green' : spareShare >= 0 ? 'yellow' : 'red'
 }
 
 function check(
@@ -27,7 +28,17 @@ function check(
  * Run Go/No-Go checks on a design. Any red bar blocks the launch; every
  * yellow and red bar says why in plain words and names the step that fixes it.
  */
-export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
+/**
+ * labDay: the agency base day, for the Research Lab lock. Left out, nothing is locked
+ * (trial designs, tests, older callers). unlocks: level per instrument; the MVP table is
+ * empty, so nothing is locked until the agency extension fills it.
+ */
+export function goNoGo(
+  design: Design,
+  budgets: Budgets,
+  labDay?: number,
+  unlocks: Record<string, number> = instrumentLabLevel
+): GoNoGoResult {
   const b = budgets
   const spare = Math.round(C.greenMargin * 100)
   const turns = lunarIceMapperBrief.missionDurationTurns
@@ -39,7 +50,8 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
   const checks: CheckResult[] = []
 
   // Mass (the ride's limit when it is lower than the brief's 14 kg)
-  let status = band(b.massMargin / b.massLimit)
+  // Mass warns below 8% spare: at 15% nearly every design was yellow (Jakob, 14 Nov)
+  let status = band(b.massMargin / b.massLimit, C.massGreenMargin)
   checks.push(
     check(
       'Mass',
@@ -50,7 +62,7 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
       status === 'red'
         ? `The fuelled craft weighs ${b.totalMass.toFixed(1)} kg; ${ride && ride.massLimit < lunarIceMapperBrief.constraints.maxMass ? `this ride takes ${ride.massLimit} kg` : `the limit is ${b.massLimit} kg`}. Choose lighter parts or less propellant.`
         : status === 'yellow'
-          ? `Less than ${spare}% mass to spare.`
+          ? `Less than ${Math.round(C.massGreenMargin * 100)}% mass to spare.`
           : `${b.massMargin.toFixed(1)} kg to spare (propellant included).`,
       'spacecraft'
     )
@@ -82,12 +94,12 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
       status,
       b.readyTurn,
       b.rideTurn,
-      'turn',
+      'month',
       status === 'red'
-        ? `Ready on turn ${b.readyTurn} (build effort ${b.buildEffort} points = ${b.buildTurns} turns, plus testing), but the ride leaves on turn ${b.rideTurn}. Test less, choose simpler parts, or take a later ride.`
+        ? `Ready in month ${b.readyTurn} (${b.buildTurns} month${b.buildTurns === 1 ? '' : 's'} of building, plus testing), but the ride leaves in month ${b.rideTurn}. Test less, choose simpler parts, or take a later ride.`
         : status === 'yellow'
-          ? 'Ready exactly on the ride turn. One build delay and you miss the ride.'
-          : `Ready ${b.timeMarginTurns} turn(s) before the ride.`,
+          ? 'Ready exactly on the ride month. One build delay and you miss the ride.'
+          : `Ready ${b.timeMarginTurns} month(s) before the ride.`,
       'planning'
     )
   )
@@ -126,10 +138,10 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
     status = band((b.deltaVAvailable - need) / need)
     reason =
       status === 'red'
-        ? `Enough to capture, but not to hold the orbit for ${turns} turns (${b.upkeepTurns} turns of upkeep on board).`
+        ? `Enough to capture, but not to hold the orbit for ${turns} months (${b.upkeepTurns} months of upkeep on board).`
         : status === 'yellow'
           ? `Less than ${spare}% delta-v to spare. A weak thruster would end the mission.`
-          : `${(b.deltaVAvailable - need).toFixed(0)} m/s to spare after capture and ${turns} turns of upkeep.`
+          : `${(b.deltaVAvailable - need).toFixed(0)} m/s to spare after capture and ${turns} months of upkeep.`
     fix = 'orbit'
   }
   checks.push(check('Delta-v', status, need, b.deltaVAvailable, 'm/s', reason, fix))
@@ -146,7 +158,7 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
     reason = `Power only lets the instruments run ${Math.round(b.scienceDuty * 100)}% of the time they could.`
   } else if (!b.batteryLongOk) {
     status = 'yellow'
-    reason = 'The battery cannot carry the bus through a long eclipse: science stops on those turns.'
+    reason = 'The battery cannot carry the bus through a long eclipse: science stops in those months.'
   } else {
     status = 'green'
     reason = `Instruments can run all the time; the battery covers the eclipses.`
@@ -179,20 +191,24 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
     reason = b.downlinkPerTurn <= 0 ? 'Nothing can be sent home: see Comms.' : 'The instruments make no data: they have no power.'
   } else if (b.downlinkPerTurn >= b.dataPerTurn * (1 + C.greenMargin)) {
     status = 'green'
-    reason = `The link carries ${b.downlinkPerTurn.toFixed(0)} MB a turn; the instruments make ${b.dataPerTurn.toFixed(0)}.`
+    reason = `The link carries ${b.downlinkPerTurn.toFixed(0)} MB a month; the instruments make ${b.dataPerTurn.toFixed(0)}.`
+  } else if (b.downlinkPerTurn < b.dataPerTurn) {
+    status = 'yellow'
+    reason = `The instruments make ${b.dataPerTurn.toFixed(0)} MB a month but the link carries ${b.downlinkPerTurn.toFixed(0)}: ${(b.dataPerTurn - b.downlinkPerTurn).toFixed(0)} MB a month is lost once the ${b.storageCapacity} MB storage is full, and its coverage with it.`
   } else {
     status = 'yellow'
-    reason = `The link has less than ${spare}% to spare. What cannot be sent waits in storage (${b.storageCapacity} MB); overflow is lost, and its coverage with it.`
+    reason = `The link carries ${b.downlinkPerTurn.toFixed(0)} MB a month and the instruments make ${b.dataPerTurn.toFixed(0)}: less than ${spare}% to spare. What cannot be sent waits in storage (${b.storageCapacity} MB); overflow is lost, and its coverage with it.`
   }
-  checks.push(check('Data Link', status, b.dataPerTurn, b.downlinkPerTurn, 'MB/turn', reason, 'comms'))
+  checks.push(check('Data Link', status, b.dataPerTurn, b.downlinkPerTurn, 'MB/month', reason, 'comms'))
 
-  // Budget
+  // Budget: the reserve is locked for fixes in flight, so the plan must fit in what is left.
+  // A bigger reserve means a cheaper craft (Jakob, 14 Nov: the reserve line is a hard limit).
   if (b.totalCost <= b.spendable) {
     status = 'green'
-    reason = `${(b.spendable - b.totalCost).toFixed(1)} M to spare, with ${b.reserveAmount.toFixed(1)} M reserve held back.`
+    reason = `${(b.spendable - b.totalCost).toFixed(1)} M to spare, with ${b.reserveAmount.toFixed(1)} M reserve held back for fixes in flight.`
   } else if (b.totalCost <= b.budgetCap) {
-    status = 'yellow'
-    reason = `The plan costs ${b.totalCost.toFixed(1)} M but only ${b.spendable.toFixed(1)} M is spendable: it eats ${(b.totalCost - b.spendable).toFixed(1)} M of the reserve before anything goes wrong.`
+    status = 'red'
+    reason = `The plan costs ${b.totalCost.toFixed(1)} M but only ${b.spendable.toFixed(1)} M is spendable: the ${b.reserveAmount.toFixed(1)} M reserve is locked for fixes in flight. Lower the reserve at the Comms Center, or choose cheaper parts.`
   } else {
     status = 'red'
     reason = `The plan costs ${b.totalCost.toFixed(1)} M; the budget is ${b.budgetCap} M. Cheaper parts, a shorter transfer or less ground time bring it down.`
@@ -200,31 +216,62 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
   checks.push(check('Budget', status, b.totalCost, b.budgetCap, '$M', reason, 'spacecraft'))
 
   // Science: never red. A design that cannot meet the brief may still fly.
+  // More coverage is better here, so the margin counts up from the target (check() counts down to a limit).
   const coverageTarget = 70
   const enough = b.projectedCoverage >= coverageTarget && b.projectedData >= dataTarget
-  checks.push(
-    check(
+  const science = check(
       'Science',
       enough ? 'green' : 'yellow',
       b.projectedCoverage,
       coverageTarget,
       '% ice',
       enough
-        ? `Projected ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} clean turns.`
-        : `Even with no bad luck this reaches only ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB (needed: ${coverageTarget}% and ${dataTarget} MB). It may fly, but it cannot fully succeed.`,
+        ? `Projected ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} clean months.`
+        : `${
+            design.instruments.some((id) => (getPartById(id) as InstrumentPart | undefined)?.seesShadow)
+              ? ''
+              : 'No instrument on board can see into the shadowed craters: fit the laser reflectometer or the neutron spectrometer at the Research Lab. '
+          }Even with no bad luck this reaches only ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} months (needed: ${coverageTarget}% and ${dataTarget} MB); an extended mission of up to ${turns} more months can add some. It may fly, but it is unlikely to fully succeed.`,
       'instruments'
     )
-  )
+  checks.push({ ...science, margin: b.projectedCoverage - coverageTarget })
+
+  if (labDay !== undefined) checks.push(...researchLabChecks(design, labDay, unlocks))
 
   const blockers = checks.filter((c) => c.status === 'red')
   const warnings = checks.filter((c) => c.status === 'yellow')
   return { canGo: blockers.length === 0, checks, blockers, warnings }
 }
 
+/** The launch is allowed, but the Science check says the craft cannot reach the brief's targets */
+export function cannotMeetBrief(result: GoNoGoResult): boolean {
+  return result.canGo && result.checks.some((c) => c.resource === 'Science' && c.status !== 'green')
+}
+
+/** One red check per instrument aboard that needs a higher Research Lab level than the lab has. */
+function researchLabChecks(design: Design, day: number, unlocks: Record<string, number>): CheckResult[] {
+  const level = researchLabLevel(day)
+  const up = buildings.find((b) => b.id === 'research-lab')?.upgrade
+  return design.instruments.flatMap((id) => {
+    const needed = unlocks[id] ?? 1
+    if (level >= needed) return []
+    const name = (getPartById(id) as InstrumentPart | undefined)?.name ?? id
+    const when =
+      up && up.toLevel >= needed && day < up.endDay
+        ? `upgrade done in ${Math.ceil(up.endDay - day)} days at the base; let time run with ▶`
+        : 'upgrade it at the base'
+    return [check('Research Lab', 'red', level, needed, 'LV', `${name} needs Research Lab level ${needed}; the lab is level ${level} (${when}).`, 'instruments')]
+  })
+}
+
 /**
  * Get a summary of the Go/No-Go decision.
  */
 export function getGoNoGoSummary(result: GoNoGoResult): string {
+  // Science never blocks, but a Go must not read as an endorsement of a doomed craft (Jakob, 14 Nov)
+  if (cannotMeetBrief(result)) {
+    return 'Go, but this craft cannot meet the brief: it may fly, but even with no bad luck it falls short.'
+  }
   if (result.canGo && result.warnings.length === 0) {
     return 'All systems go. Ready for launch.'
   }

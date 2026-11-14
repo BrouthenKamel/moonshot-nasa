@@ -115,7 +115,7 @@ export const lunarIceMapperBrief: MissionBrief = {
       description: 'Operate for 12 months in the science orbit',
       type: 'lifetime',
       target: 12,
-      unit: 'turns',
+      unit: 'months',
     },
     {
       id: 'budget',
@@ -163,11 +163,12 @@ export const programmeHorizonTurns = 45
 export const modelConstants = {
   designTurns: 1, // G
   integrationTurns: 1, // G
-  effortPerTurn: 10, // G
-  teamCostPrelaunch: 0.5, // G, $M per turn
+  effortPerTurn: 13, // G: a one-instrument craft builds in 3 turns, two instruments take 4 (10 before the balance redesign: a second test turn left no slack for any craft)
+  teamCostPrelaunch: 0.45, // G, $M per turn (0.5 before the balance redesign: the budget forced every design to the cheapest parts)
   teamCostFlight: 0.3, // G, $M per turn
+  teamCostCruise: 0.15, // G, $M per turn of transfer: a smaller team flies the cruise (balance redesign, 14 Nov)
   testCost: 0.4, // G, $M per test turn
-  testFactor: [2.0, 1.4, 1.0, 0.7] as const, // G, failure-odds factor by test turns 0..3
+  testFactor: [2.5, 1.5, 1.0, 0.7] as const, // G, failure-odds factor by test turns 0..3 (was 2.0 / 1.4: testing barely mattered)
   usableBatteryShare: 0.8, // G
   thrustPowerShare: 0.75, // G, reproduces Lunar IceCube needing 120 W
   thrustDuty: 0.6, // G, reproduces Lunar IceCube's 9-month plan
@@ -178,7 +179,8 @@ export const modelConstants = {
   courseCorrectionLowEnergy: 50, // G, m/s
   longEclipseHours: 3, // G
   greenMargin: 0.15, // G, CubeSat 101: at least 10% reserve
-  electricNavCost: 0.1, // G, $M per turn of electric transfer
+  massGreenMargin: 0.08, // mass only: at 15% nearly every design warned (playtest, 14 Nov)
+  electricNavCost: 0.05, // G, $M per turn of electric transfer (0.1 before the balance redesign)
   extensionMaxTurns: 12, // G
   progressMinCoverage: 0.5, // percentage points per turn
   progressMinData: 1, // MB per turn

@@ -50,7 +50,7 @@ export const groundStations: GroundStation[] = [
     rateKbps: 128,
     contactHoursPerDay: 1,
     defaultHours: 1,
-    pricePerHour: 0.15,
+    pricePerHour: 0.1, // G (0.15 before the balance redesign: it was never worth its price)
     outageChance: 0.02,
     setupCost: 0,
   },

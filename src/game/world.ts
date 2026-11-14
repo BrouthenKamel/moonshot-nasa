@@ -2,6 +2,10 @@
  * The agency world: one clock (days), one wallet, popularity, an activity
  * feed, research and the real mission's bookkeeping.
  *
+ * Agency extension, not shown in the MVP (docs/DESIGN-DIRECTION.md, 1a): no
+ * screen imports src/game yet. It is the rule set for when the agency layer
+ * is switched on, kept pure and tested so it can be wired in later.
+ *
  * Pure functions only. The mission itself runs in the mission model
  * (src/sim); this file only sees snapshots of it (MissionSnapshot), so the
  * two sides can change independently. src/game/missionLink.ts makes the
@@ -16,13 +20,7 @@ import {
   popularityEffects,
 } from './economy'
 import { emptyResearch, processResearch, receiveData, type ResearchState } from './research'
-import {
-  DEMO_START_DAY,
-  DEMO_START_FUNDS,
-  DEMO_START_POPULARITY,
-  scriptedEvents,
-  seedHistory,
-} from '../data/agency'
+import { DEMO_START_DAY, DEMO_START_FUNDS, DEMO_START_SUPPORT, agencyEvents, seedFundsHistory } from '../data/agency'
 
 /** One mission turn is one month of agency time */
 export const DAYS_PER_TURN = 30
@@ -93,15 +91,20 @@ function addFeed(world: World, item: Omit<FeedItem, 'id'>): World {
   return { ...world, feed: [{ ...item, id }, ...world.feed].slice(0, 200) }
 }
 
+/** Funds history before the demo starts (main's seed); popularity was steady at the start value */
+function seedHistory(): HistoryPoint[] {
+  return seedFundsHistory().map((p) => ({ ...p, popularity: DEMO_START_SUPPORT }))
+}
+
 export function initialWorld(): World {
-  const feed: FeedItem[] = scriptedEvents
+  const feed: FeedItem[] = agencyEvents
     .filter((e) => e.day <= DEMO_START_DAY)
     .sort((a, b) => b.day - a.day)
     .map((e) => ({ id: `s-${e.id}`, day: e.day, title: e.title, detail: e.detail, tone: e.tone }))
   return {
     day: DEMO_START_DAY,
     funds: DEMO_START_FUNDS,
-    popularity: DEMO_START_POPULARITY,
+    popularity: DEMO_START_SUPPORT,
     history: seedHistory(),
     feed,
     mission: null,
@@ -135,9 +138,21 @@ export function advanceDays(world: World, toDay: number): { world: World; notabl
 
     // A new day starts
     const today = nextBoundary
-    for (const e of scriptedEvents) {
+    for (const e of agencyEvents) {
       if (e.day === today) {
-        w = addFeed(w, { day: today, title: e.title, detail: e.detail, tone: e.tone })
+        w = {
+          ...w,
+          funds: w.funds + (e.fundsDelta ?? 0),
+          popularity: clampPopularity(w.popularity + (e.supportDelta ?? 0)),
+        }
+        w = addFeed(w, {
+          day: today,
+          title: e.title,
+          detail: e.detail,
+          tone: e.tone,
+          money: e.fundsDelta,
+          popularity: e.supportDelta,
+        })
         notable = true
       }
     }

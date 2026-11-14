@@ -83,9 +83,9 @@ describe('world clock', () => {
 
   it('writes scripted events to the feed and flags them for skipping', () => {
     const w0 = initialWorld()
-    const { world, notable } = advanceDays(w0, 141)
+    const { world, notable } = advanceDays(w0, 161)
     expect(notable).toBe(true)
-    expect(world.feed[0].title).toContain('Aurora-1 image gallery')
+    expect(world.feed[0].title).toContain('Quarterly budget review')
   })
 })
 

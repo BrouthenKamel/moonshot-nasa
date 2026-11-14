@@ -7,6 +7,7 @@ import { getPartById, type ComputerPart, type PropulsionPart } from '../data/par
 import { getGroundStationById } from '../data/ground'
 import { computeBudgets, newScienceState, scienceTurn, scienceTotals } from './budgets'
 import { SeededRNG } from './rng'
+import { EXTRA_PASS_COST, EXTRA_PASS_LINK } from './ops'
 import type { Budgets, Decision, Design, FlightState, SimState, TurnAction, TurnEvent, TurnLog } from './types'
 
 /**
@@ -210,15 +211,15 @@ function buildTurn(ctx: TurnContext) {
   note(
     ctx,
     after === 'ready'
-      ? `Ready, waiting for the ride on turn ${f.launchTurn}.`
-      : `${stage === 'test' ? 'Testing' : stage === 'integration' ? 'Fitting to the ride' : stage === 'design' ? 'Designing' : 'Building'}: ${buildLeft(f)} turn(s) of work left.`
+      ? `Ready, waiting for the ride in month ${f.launchTurn}.`
+      : `${stage === 'test' ? 'Testing' : stage === 'integration' ? 'Fitting to the ride' : stage === 'design' ? 'Designing' : 'Building'}: ${buildLeft(f)} month(s) of work left.`
   )
   if (ctx.s.currentTurn === f.launchTurn) {
     if (buildLeft(f) <= 0) launch(ctx)
     else {
       f.launchTurn += missedRideWaitTurns
       f.missedRides += 1
-      note(ctx, `Missed the ride: the craft is not ready. Next ride on turn ${f.launchTurn}.`)
+      note(ctx, `Missed the ride: the craft is not ready. Next ride in month ${f.launchTurn}.`)
     }
   }
   if (!paid && f.alive) fail(ctx, 'budget ran out before launch')
@@ -230,7 +231,7 @@ function buildDelay(ctx: TurnContext) {
   if (stage === 'ready') return
   f.stages[stage] += 1
   f.counts['build-delay'] += 1
-  note(ctx, `Build delay during ${stage}: one more turn of work.`)
+  note(ctx, `Build delay during ${stage}: one more month of work.`)
   const ev = recordEvent(ctx, 'build-delay', 'build', { impact: { deltavLost: 0, powerLost: 0, dataLost: 0, turnsLost: 1, reserveSpent: 0 } })
   // Ask only when the delay costs the ride and there is still testing to cut.
   const readyTurn = ctx.s.currentTurn + buildLeft(f) - 1
@@ -240,15 +241,16 @@ function buildDelay(ctx: TurnContext) {
   const choice = decide(
     ctx,
     'build-delay',
-    `A part arrives late or fails inspection. The craft would be ready on turn ${readyTurn}; the ride leaves on turn ${f.launchTurn}.`,
+    `A part arrives late or fails inspection. The craft would be ready in month ${readyTurn}; the ride leaves in month ${f.launchTurn}.`,
     [
       {
         id: 'wait',
-        label: `Accept the delay and miss the ride. The next one leaves on turn ${nextRide}, and the team costs ${C.teamCostPrelaunch} M a turn until then.`,
+        label: `Accept the delay and miss the ride. The next one leaves in month ${nextRide}, and the team costs ${C.teamCostPrelaunch} M a month until then.`,
       },
       {
         id: 'cut-test',
-        label: `Cut one test turn and make the ride. Failure odds in flight go from x${f.testFactor} to x${worse}; ${C.testCost} M comes back.`,
+        // The store adds the chance of full success with each answer (src/sim/odds.ts)
+        label: `Cut one test month and make the ride. Less testing makes failures in flight more likely; ${C.testCost} M comes back.`,
       },
     ]
   )
@@ -260,7 +262,7 @@ function buildDelay(ctx: TurnContext) {
     f.main += C.testCost
     f.counts['tests-cut'] += 1
     ev.choiceSucceeded = true
-    note(ctx, `Cut one test turn to hold the schedule (failure odds now x${worse}).`)
+    note(ctx, `Cut one test month to hold the schedule (failure odds now x${worse}).`)
   }
 }
 
@@ -293,8 +295,10 @@ function launch(ctx: TurnContext) {
         record.impact.reserveSpent = recovery.reserveCost
         note(ctx, `Emergency tracking found the craft (reserve -${recovery.reserveCost} M).`)
       }
+      record.choiceSucceeded = recovered
+    } else {
+      note(ctx, `No reserve left to pay for emergency tracking (${recovery.reserveCost} M needed).`)
     }
-    record.choiceSucceeded = recovered
     if (!recovered) {
       fail(ctx, 'lost contact after deployment')
       return
@@ -330,7 +334,7 @@ function transferTurn(ctx: TurnContext) {
       const choice = decide(ctx, 'thruster', `${ev.description} If nothing is done, ${effect}.`, [
         {
           id: 'fix',
-          label: `Have the team work on a fix: ${Math.round(fix.successChance * 100)}% chance; if it works it costs ${fix.reserveCost} M from the reserve and 1 extra turn.`,
+          label: `Have the team work on a fix: ${Math.round(fix.successChance * 100)}% chance; if it works it costs ${fix.reserveCost} M from the reserve and 1 extra month.`,
         },
         { id: 'accept', label: `Fly on as it is: ${effect}.` },
       ])
@@ -341,10 +345,13 @@ function transferTurn(ctx: TurnContext) {
         fixed = true
         record.impact.reserveSpent = fix.reserveCost
         record.impact.turnsLost = 1
-        note(ctx, `Thruster fixed (reserve -${fix.reserveCost} M, +1 turn).`)
+        note(ctx, `Thruster fixed (reserve -${fix.reserveCost} M, +1 month).`)
       }
+      record.choiceSucceeded = fixed
+    } else {
+      // Nothing to choose: no card, and no choice that "failed"
+      note(ctx, `No reserve left to pay for a fix (${fix.reserveCost} M needed).`)
     }
-    record.choiceSucceeded = fixed
     if (!fixed) {
       f.thrusterOk = false
       if (impulsive) {
@@ -355,12 +362,12 @@ function transferTurn(ctx: TurnContext) {
         const before = f.transferLeft ?? 0
         f.transferLeft = before * 2
         record.impact.turnsLost = before
-        note(ctx, `Thruster stays weak: ${f.transferLeft - 1} more turns to arrival.`)
+        note(ctx, `Thruster stays weak: ${f.transferLeft - 1} more months to arrival.`)
       }
     }
   }
   f.transferLeft = (f.transferLeft ?? 0) - 1
-  note(ctx, f.transferLeft > 0 ? `In transfer: ${f.transferLeft} turn(s) to arrival.` : 'Arriving at the Moon.')
+  note(ctx, f.transferLeft > 0 ? `In transfer: ${f.transferLeft} month(s) to arrival.` : 'Arriving at the Moon.')
   if (f.transferLeft <= 0) capture(ctx, 'after the transfer')
 }
 
@@ -377,8 +384,8 @@ function scienceTurnStep(ctx: TurnContext) {
   let duty = ctx.action.mode === 'safe-mode' ? 0 : ctx.action.mode === 'reduced' ? 0.5 : 1
   let link = 1
   if (ctx.action.buyExtraPass) {
-    link *= 1.5
-    pay(f, 0.1)
+    link *= EXTRA_PASS_LINK
+    pay(f, EXTRA_PASS_COST)
   }
   if (ctx.events) {
     const computer = getPartById(s.design.computer) as ComputerPart | undefined
@@ -387,7 +394,7 @@ function scienceTurnStep(ctx: TurnContext) {
       duty = 0
       f.counts['radiation-reset'] += 1
       recordEvent(ctx, 'radiation-reset', 'orbit')
-      note(ctx, 'Radiation reset: safe mode, no science this turn.')
+      note(ctx, 'Radiation reset: safe mode, no science this month.')
     }
     if (rng.next() < (station?.outageChance ?? 0) * ctx.odds) {
       link *= 0.5
@@ -399,13 +406,13 @@ function scienceTurnStep(ctx: TurnContext) {
       duty = 0
       f.counts['long-eclipse'] += 1
       recordEvent(ctx, 'long-eclipse', 'orbit')
-      note(ctx, 'Long eclipse drained the battery: safe mode, no science this turn.')
+      note(ctx, 'Long eclipse drained the battery: safe mode, no science this month.')
     }
     if (rng.next() < getEventById('instrument-degrades')!.baseOdds * f.testFactor * ctx.odds) {
       f.scienceFactor *= 0.8
       f.counts['instrument-degrades'] += 1
       recordEvent(ctx, 'instrument-degrades', 'orbit')
-      note(ctx, 'Instrument degraded: 20% less science per turn from now on.')
+      note(ctx, 'Instrument degraded: 20% less science per month from now on.')
     }
   }
   const lostBefore = f.science.lost
@@ -421,7 +428,7 @@ function scienceTurnStep(ctx: TurnContext) {
   const beforeCoverage = f.coverage
   const beforeData = f.data
   ;[f.coverage, f.data, f.context, f.outreach] = scienceTotals(s.design, f.science)
-  note(ctx, `Science turn ${f.scienceTurns}: ice mapped ${f.coverage.toFixed(1)}%, ${f.data.toFixed(0)} MB home.`)
+  note(ctx, `Science month ${f.scienceTurns}: ice mapped ${f.coverage.toFixed(1)}%, ${f.data.toFixed(0)} MB home.`)
   if (!f.alive) return
   const turnsNeeded = brief.missionDurationTurns
   const dataTarget = difficultyPresets[s.difficulty]?.dataTarget ?? 300
@@ -449,9 +456,9 @@ function scienceTurnStep(ctx: TurnContext) {
 }
 
 // ---------------------------------------------------------------- turn engine
-function runTurn(s: SimState, action: TurnAction) {
+function runTurn(s: SimState, action: TurnAction, budgets?: Budgets) {
   const f = s.flight
-  const b = computeBudgets(s.design, s.difficulty)
+  const b = budgets ?? computeBudgets(s.design, s.difficulty)
   s.currentTurn += 1
   const log: TurnLog = {
     turn: s.currentTurn,
@@ -541,25 +548,48 @@ export function stepTurn(state: SimState, action: TurnAction): SimState {
 export function flyUntilDecision(state: SimState, action: TurnAction, maxTurns = programmeHorizonTurns): SimState {
   let s = stepTurn(state, action)
   let n = 1
+  // Later turns keep the player's month choice, but not the answer to this turn's card
+  const standing: TurnAction = { ...action, choices: undefined, eventChoice: undefined }
   while (!isSimComplete(s) && !s.pendingDecision && n < maxTurns) {
-    s = stepTurn(s, getDefaultAction())
+    s = stepTurn(s, standing)
     n++
   }
   return s
 }
 
 /**
+ * Whether the turn from `prev` to `next` is worth stopping for when the flight
+ * plays turn by turn: a phase change (build, test, launch, capture, orbit, end),
+ * an event, a waiting decision, or the end of the mission.
+ */
+export function isMilestone(prev: SimState, next: SimState): boolean {
+  const log = next.turnLogs[next.turnLogs.length - 1]
+  return next.phase !== prev.phase || (log?.events.length ?? 0) > 0 || !!next.pendingDecision || isSimComplete(next)
+}
+
+/**
  * Run a complete simulation on standing orders (every event card gets its first option).
  */
 export function runSimulation(design: Design, difficulty: Difficulty, seed: number): SimState {
-  let state = initSim(design, difficulty, seed)
-  const action: TurnAction = { ...getDefaultAction(), autoDecide: true }
+  return runToEnd(initSim(design, difficulty, seed))
+}
+
+/**
+ * Fly a state to its end on standing orders, with `seed` for the dice of the
+ * turns still to come. Gives exactly what stepTurn turn by turn gives, but
+ * works on one private copy and works out the budgets once, so it is fast
+ * enough to run hundreds of times for the odds (src/sim/odds.ts).
+ */
+export function runToEnd(state: SimState, seed = state.seed, action: TurnAction = getDefaultAction()): SimState {
+  const s: SimState = structuredClone({ ...state, seed, pendingDecision: undefined })
+  const standing: TurnAction = { ...action, choices: undefined, eventChoice: undefined, autoDecide: true }
+  const b = computeBudgets(s.design, s.difficulty)
   let turns = 0
-  while (!isSimComplete(state) && turns < programmeHorizonTurns + 5) {
-    state = stepTurn(state, action)
+  while (!isSimComplete(s) && turns < programmeHorizonTurns + 5) {
+    runTurn(s, standing, b)
     turns++
   }
-  return state
+  return s
 }
 
 /**

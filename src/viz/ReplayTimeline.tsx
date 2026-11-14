@@ -20,6 +20,9 @@ const PHASE_COLOURS: Record<TurnLog['phase'], string> = {
   failed: 'bg-red-800',
 }
 
+/** Each turn button's name, for the tooltip and for screen readers (QC #40) */
+const turnTitle = (log: TurnLog) => `Month ${log.turn}: ${log.phase}${log.events.length ? `, ${log.events.length} event(s)` : ''}`
+
 interface Segment {
   phase: TurnLog['phase']
   start: number
@@ -59,11 +62,11 @@ export function ReplayTimeline({ logs, turnIndex, onSelect, playing, onTogglePla
           step={1}
           value={current}
           onChange={(e) => onSelect(Number(e.target.value))}
-          aria-label="Turn"
+          aria-label="Month"
           className="flex-1 accent-blue-500"
         />
         <span className="w-28 text-right text-sm text-slate-400">
-          Turn {logs[current].turn} / {logs[last].turn}
+          Month {logs[current].turn} / {logs[last].turn}
         </span>
       </div>
 
@@ -79,7 +82,9 @@ export function ReplayTimeline({ logs, turnIndex, onSelect, playing, onTogglePla
                   <button
                     key={i}
                     onClick={() => onSelect(i)}
-                    title={`Turn ${log.turn}: ${log.phase}${log.events.length ? `, ${log.events.length} event(s)` : ''}`}
+                    title={turnTitle(log)}
+                    aria-label={turnTitle(log)}
+                    aria-pressed={selected}
                     className={`relative h-6 min-w-3 flex-1 rounded-sm ${PHASE_COLOURS[log.phase]} ${
                       selected ? 'ring-2 ring-white' : i < current ? 'opacity-90' : 'opacity-50'
                     }`}

@@ -14,6 +14,13 @@ export function BriefScreen() {
         <p className="mt-2 text-slate-300">{brief.description}</p>
       </div>
 
+      {/* I5a: the starting IR spectrometer cannot see into the shadowed craters; send new players to the lesson first */}
+      <div className="rounded-lg border border-green-500/40 bg-green-950/40 p-4" data-testid="brief-first-stop">
+        <p className="text-sm text-green-200">
+          <span className="font-semibold">Your first stop: the Research Lab.</span> Check whether your instrument can see into the dark craters.
+        </p>
+      </div>
+
       <div className="rounded-lg bg-slate-900 p-6">
         <h2 className="mb-4 font-semibold text-slate-200">Mission Objective</h2>
         <p className="text-slate-400">{brief.objective}</p>
@@ -63,15 +70,15 @@ export function BriefScreen() {
           <div className="rounded bg-blue-900 px-3 py-1 text-blue-300">Build & Test</div>
           <span className="text-slate-600">→</span>
           <div className="rounded bg-orange-900 px-3 py-1 text-orange-300">
-            Ride (Turn {brief.defaultRideTurn})
+            Ride (Month {brief.defaultRideTurn})
           </div>
           <span className="text-slate-600">→</span>
           <div className="rounded bg-green-900 px-3 py-1 text-green-300">
-            Lunar Ops ({brief.missionDurationTurns} turns)
+            Lunar Ops ({brief.missionDurationTurns} months)
           </div>
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          One turn = one month. Be ready before your ride leaves!
+          The mission clock counts months from month 0, when the mission starts. Be ready before your ride leaves!
         </p>
       </div>
 

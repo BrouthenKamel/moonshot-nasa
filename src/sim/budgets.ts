@@ -117,21 +117,25 @@ export function scienceTurn(
   return { made, sent, lost }
 }
 
-/** [ice coverage %, science data MB, sunlit-ground coverage %, outreach MB] */
+/**
+ * [ice coverage %, science data MB, sunlit-ground coverage %, outreach MB].
+ * Two ice instruments map independent strips, so their coverage combines:
+ * 1 - (1 - a)(1 - b) (balance redesign, 14 Nov; before, only the better one counted).
+ */
 export function scienceTotals(design: Design, st: ScienceState): [number, number, number, number] {
-  let ice = 0
+  let unmapped = 1
   let data = 0
   let context = 0
   let outreach = 0
   for (const id of design.instruments) {
     const inst = getPartById(id) as InstrumentPart | undefined
     if (!inst) continue
-    if (inst.seesShadow) ice = Math.max(ice, st.mapped[id])
+    if (inst.seesShadow) unmapped *= 1 - st.mapped[id] / 100
     if (inst.kind === 'context') context = Math.max(context, st.mapped[id])
     if (inst.kind === 'outreach') outreach += st.returned[id]
     else data += st.returned[id]
   }
-  return [ice, data, context, outreach]
+  return [100 * (1 - unmapped), data, context, outreach]
 }
 
 /**
@@ -248,7 +252,8 @@ export function computeBudgets(design: Design, difficulty: Difficulty): Budgets 
   for (const inst of instruments) {
     const limit = inst.maxAltitudeKm
     const altitude = orbit?.altitude ?? 0
-    let q = limit === null || altitude <= limit ? 1 : (limit / altitude) ** 2
+    // Above its altitude limit an ice instrument maps nothing (its signal is lost)
+    let q = limit === null || altitude <= limit ? 1 : 0
     if (!precise) q *= inst.qualityWithoutPrecisePointing
     quality[inst.id] = q
     coverageRate[inst.id] = 1 - Math.exp(-(orbit?.passesPerTurn ?? 0) * inst.footprint * q * scienceDuty)
@@ -260,7 +265,9 @@ export function computeBudgets(design: Design, difficulty: Difficulty): Budgets 
   const opsCostPerTurn = C.teamCostFlight + groundCostPerTurn
   const rideCost = ride?.cost ?? 0
   const costPrelaunch = partsCost + C.teamCostPrelaunch * rideTurn + C.testCost * testTurns + rideCost
-  const transferCostPerTurn = opsCostPerTurn + (propulsion && !propulsion.impulsive ? C.electricNavCost : 0)
+  // The cruise runs on a smaller team than the science phase (balance redesign, 14 Nov)
+  const transferCostPerTurn =
+    C.teamCostCruise + groundCostPerTurn + (propulsion && !propulsion.impulsive ? C.electricNavCost : 0)
   const operationsCost = transferCostPerTurn * (transferTurns ?? 0) + opsCostPerTurn * turns
   const totalCost = costPrelaunch + operationsCost
 
@@ -352,7 +359,8 @@ export function computeBudgets(design: Design, difficulty: Difficulty): Budgets 
 
   // --- step 7: projection of a clean science phase (no events)
   const science = newScienceState(design.instruments)
-  const cleanTurns = captureDeltaV === null ? 0 : Math.min(turns, upkeepTurns)
+  // No way to the Moon (no capture, or an engine that cannot thrust): no science to project
+  const cleanTurns = transferTurns === null ? 0 : Math.min(turns, upkeepTurns)
   for (let i = 0; i < cleanTurns; i++) scienceTurn(design, budgets, science)
   ;[budgets.projectedCoverage, budgets.projectedData, budgets.projectedContext, budgets.projectedOutreach] =
     scienceTotals(design, science)
@@ -370,7 +378,9 @@ export function createDefaultDesign(): Design {
     planning: {
       buildTurns: 0,
       testTurns: 1,
-      reservePercent: 10,
+      // It starts with no reserve, so the first fix in flight it cannot pay teaches the reserve
+      // (it costs 21.3 M of the 25 M since the balance redesign; 24.9 M before)
+      reservePercent: 0,
     },
     instruments: ['inst-ir-spec'],
     structure: 'bus-6u',

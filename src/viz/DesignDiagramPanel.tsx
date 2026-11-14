@@ -3,7 +3,7 @@ import type { DesignStep } from '../sim/types'
 import { useGameStore } from '../state/gameStore'
 import { CubeSatDiagram, type CraftHighlight } from './CubeSatDiagram'
 import { MissionStrip } from './MissionStrip'
-import { computeDesignDelta, formatDelta } from './designDelta'
+import { DesignDeltaLine } from './DesignDeltaLine'
 
 class DiagramBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -17,8 +17,6 @@ class DiagramBoundary extends Component<{ children: ReactNode }, { failed: boole
 
 function PanelBody({ step }: { step: DesignStep }) {
   const design = useGameStore((s) => s.design)
-  const previousBudgets = useGameStore((s) => s.previousBudgets)
-  const getBudgets = useGameStore((s) => s.getBudgets)
   const getGoNoGo = useGameStore((s) => s.getGoNoGo)
 
   const failingSteps: DesignStep[] =
@@ -31,7 +29,6 @@ function PanelBody({ step }: { step: DesignStep }) {
   const highlight: CraftHighlight =
     step === 'instruments' ? 'instruments' : step === 'spacecraft' ? 'bus' : step === 'go-nogo' ? 'all' : null
   const showCraft = step !== 'brief'
-  const deltas = previousBudgets ? computeDesignDelta(previousBudgets, getBudgets()) : []
 
   return (
     <div className="mb-4 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
@@ -50,19 +47,7 @@ function PanelBody({ step }: { step: DesignStep }) {
           <MissionStrip step={step} design={design} failingSteps={failingSteps} />
         </div>
       </div>
-      {deltas.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-800 pt-2 text-xs">
-          <span className="text-slate-500">What this choice changed:</span>
-          {deltas.map((line) => {
-            const good = line.betterWhenHigher ? line.diff > 0 : line.diff < 0
-            return (
-              <span key={line.key} className={good ? 'text-green-400' : 'text-orange-400'}>
-                {formatDelta(line)}
-              </span>
-            )
-          })}
-        </div>
-      )}
+      <DesignDeltaLine />
     </div>
   )
 }

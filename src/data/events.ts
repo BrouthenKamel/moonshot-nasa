@@ -53,7 +53,7 @@ export const events: MissionEvent[] = [
   {
     id: 'build-delay',
     name: 'Build Delay',
-    description: 'A part arrives late or fails inspection. The build slips by one turn.',
+    description: 'A part arrives late or fails inspection. The build slips by one month.',
     realWorldSource: 'CubeSat 101: most CubeSat schedules slip.',
     severity: 'minor',
     phases: ['build'],
@@ -63,15 +63,15 @@ export const events: MissionEvent[] = [
       {
         id: 'wait',
         name: 'Accept the delay',
-        description: 'Ready one turn later. If that misses the ride, wait for the next one and keep paying the team.',
+        description: 'Ready one month later. If that misses the ride, wait for the next one and keep paying the team.',
         reserveCost: 0,
         successChance: 1,
-        successOutcome: 'The schedule slips by a turn.',
+        successOutcome: 'The schedule slips by a month.',
         failureOutcome: '',
       },
       {
         id: 'cut-test',
-        name: 'Cut a test turn',
+        name: 'Cut a test month',
         description: 'Stay on schedule by testing less. Failure odds in flight go up; the test money comes back.',
         reserveCost: 0,
         successChance: 1,
@@ -87,9 +87,10 @@ export const events: MissionEvent[] = [
     realWorldSource: 'Lunar IceCube was never heard from properly after deployment from Artemis I.',
     severity: 'critical',
     phases: ['launch'],
-    baseOdds: 0.08,
+    // About half the Artemis I CubeSats had serious trouble after deployment; 0.08 before the balance redesign
+    baseOdds: 0.1,
     mitigations: [
-      { condition: 'Testing (2 test turns = x1.0, 0 = x2.0)', oddsMultiplier: 1 },
+      { condition: 'Testing (2 test months = x1.0, 0 = x2.5)', oddsMultiplier: 1 },
       { condition: 'Radiation-hard computer', oddsMultiplier: 0.3 },
     ],
     choices: [
@@ -97,7 +98,7 @@ export const events: MissionEvent[] = [
         id: 'recover',
         name: 'Book emergency tracking',
         description: 'The big dishes search for the craft: 60% chance to find it.',
-        reserveCost: 0.5,
+        reserveCost: 1.0, // G (0.5 before the balance redesign: a reserve above 5% bought nothing)
         successChance: 0.6,
         successOutcome: 'Signal found. The mission goes on.',
         failureOutcome: 'No signal. The mission is lost.',
@@ -121,15 +122,15 @@ export const events: MissionEvent[] = [
     severity: 'critical',
     phases: ['transfer'],
     baseOdds: 0.03,
-    mitigations: [{ condition: 'Testing (2 test turns = x1.0, 0 = x2.0)', oddsMultiplier: 1 }],
+    mitigations: [{ condition: 'Testing (2 test months = x1.0, 0 = x2.5)', oddsMultiplier: 1 }],
     choices: [
       {
         id: 'fix',
         name: 'Work on a fix',
-        description: '50% chance; if it works it costs 1 M from the reserve and one extra turn.',
-        reserveCost: 1.0,
+        description: '50% chance; if it works it costs 1.5 M from the reserve and one extra month.',
+        reserveCost: 1.5, // G (1.0 before the balance redesign)
         successChance: 0.5,
-        successOutcome: 'Thrust restored, one turn late.',
+        successOutcome: 'Thrust restored, one month late.',
         failureOutcome: 'The fix did not work.',
       },
       {
@@ -146,7 +147,7 @@ export const events: MissionEvent[] = [
   {
     id: 'radiation-reset',
     name: 'Radiation Reset',
-    description: 'A particle hit resets the computer. The craft sits in safe mode this turn.',
+    description: 'A particle hit resets the computer. The craft sits in safe mode this month.',
     realWorldSource: 'A common problem for CubeSats without radiation-hard electronics.',
     severity: 'minor',
     phases: ['orbit'],
@@ -179,20 +180,16 @@ export const events: MissionEvent[] = [
   {
     id: 'instrument-degrades',
     name: 'Instrument Degrades',
-    description: 'An instrument loses sensitivity. Every later turn returns 20% less science.',
+    description: 'An instrument loses sensitivity. Every later month returns 20% less science.',
     realWorldSource: 'Detectors age in the radiation of deep space.',
     severity: 'major',
     phases: ['orbit'],
-    baseOdds: 0.03,
-    mitigations: [{ condition: 'Testing (2 test turns = x1.0, 0 = x2.0)', oddsMultiplier: 1 }],
+    baseOdds: 0.04, // 0.03 before the balance redesign: testing barely mattered
+    mitigations: [{ condition: 'Testing (2 test months = x1.0, 0 = x2.5)', oddsMultiplier: 1 }],
     choices: [],
   },
 ]
 
 export function getEventById(id: EventType): MissionEvent | undefined {
   return events.find((e) => e.id === id)
-}
-
-export function getEventsForPhase(phase: MissionPhase): MissionEvent[] {
-  return events.filter((e) => e.phases.includes(phase))
 }

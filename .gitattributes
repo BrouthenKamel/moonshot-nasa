@@ -3,3 +3,12 @@
 *.jpg binary
 *.glb binary
 *.pdf binary
+*.webp binary
+*.mp3 binary
+*.ogg binary
+*.wav binary
+*.hdr binary
+*.exr binary
+*.ktx2 binary
+*.fbx binary
+*.blend binary

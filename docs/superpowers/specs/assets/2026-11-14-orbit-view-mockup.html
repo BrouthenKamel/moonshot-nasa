@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbit view mockup</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #02040a; color: #e2e8f0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  .panel { background: rgba(2, 6, 23, .72); border: 1px solid rgba(148, 163, 184, .22); border-radius: 12px;
+    backdrop-filter: blur(8px); }
+  .top { position: fixed; top: 8px; left: 12px; right: 12px; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; }
+  .chip { padding: 6px 11px; font-size: 12px; color: #94a3b8; line-height: 1.4; }
+  .chip b { color: #e2e8f0; }
+  .demo { pointer-events: auto; }
+  .demo button { font: inherit; font-size: 12px; padding: 2px 9px; border-radius: 7px; cursor: pointer; margin-left: 4px;
+    border: 1px solid rgba(148, 163, 184, .35); background: transparent; color: #cbd5e1; }
+  .demo button.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+
+  .right { position: fixed; top: 56px; right: 12px; width: 290px; padding: 14px; }
+  .verdict { font-size: 13px; font-weight: 700; letter-spacing: .08em; padding: 6px 10px; border-radius: 8px; text-align: center; }
+  .verdict.good { background: rgba(34, 197, 94, .16); color: #4ade80; border: 1px solid rgba(74, 222, 128, .4); }
+  .verdict.warn { background: rgba(245, 158, 11, .16); color: #fbbf24; border: 1px solid rgba(251, 191, 36, .4); }
+  .verdict.bad { background: rgba(239, 68, 68, .16); color: #f87171; border: 1px solid rgba(248, 113, 113, .45); }
+  .big { margin-top: 12px; display: flex; align-items: baseline; justify-content: space-between; }
+  .big .n { font-size: 44px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+  .big .l { font-size: 12px; color: #94a3b8; text-align: right; line-height: 1.35; }
+  .bar { position: relative; height: 10px; border-radius: 5px; background: rgba(148, 163, 184, .18); margin-top: 8px; }
+  .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; display: block; }
+  .bar .tick { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #e2e8f0; }
+  .bar .tl { position: absolute; top: 13px; font-size: 11px; color: #94a3b8; transform: translateX(-50%); white-space: nowrap; }
+  .row { margin-top: 13px; font-size: 12px; }
+  .row .h { display: flex; justify-content: space-between; color: #94a3b8; }
+  .row .h b { color: #e2e8f0; font-variant-numeric: tabular-nums; }
+  .row .s { color: #64748b; margin-top: 3px; line-height: 1.35; }
+  .row .s.bad { color: #f87171; } .row .s.ok { color: #4ade80; }
+
+  .left { position: fixed; left: 12px; bottom: 150px; width: 270px; padding: 12px; }
+  .left h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: .1em; color: #94a3b8; font-weight: 600; }
+  .left p { margin: 6px 0 0; font-size: 12px; line-height: 1.4; }
+
+  .cards { position: fixed; left: 12px; right: 12px; bottom: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .card { text-align: left; font: inherit; color: inherit; cursor: pointer; padding: 11px 13px; transition: border-color .15s, background .15s; }
+  .card:hover { background: rgba(15, 23, 42, .85); }
+  .card .t { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; }
+  .card .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .card .d { font-size: 12px; color: #94a3b8; margin-top: 4px; line-height: 1.35; }
+  .card .k { display: flex; gap: 14px; margin-top: 7px; font-size: 12px; color: #cbd5e1; font-variant-numeric: tabular-nums; }
+  .card .k span b { color: #fff; }
+  .card.on { border-width: 2px; padding: 10px 12px; }
+  .card .no { color: #f87171; font-size: 12px; margin-top: 5px; font-weight: 600; }
+  .month { position: fixed; left: 50%; top: 56px; transform: translateX(-50%); padding: 6px 14px; font-size: 12px; color: #94a3b8; letter-spacing: .08em; white-space: nowrap; }
+  .month b { color: #e2e8f0; font-variant-numeric: tabular-nums; }
+  .err { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 32px; text-align: center; color: #fca5a5; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="top">
+  <div class="panel chip"><b>Orbit view mockup.</b> Click a ring or a card to pick the orbit. Drag to look around, scroll to zoom. Heights are exaggerated.</div>
+  <div class="panel chip demo">Pretend your engine is
+    <button id="e-ion" class="on">Ion engine</button><button id="e-chem">Small chemical</button>
+  </div>
+</div>
+<div class="panel month" id="month"></div>
+
+<div class="panel right">
+  <div class="verdict" id="verdict"></div>
+  <div class="big"><div class="n" id="cov">0%</div><div class="l">of the polar ice mapped<br><span id="covsub"></span></div></div>
+  <div class="bar"><i id="covbar"></i><div class="tick" style="left:70%"></div><div class="tl" style="left:70%">goal 70%</div></div>
+  <div class="row" style="margin-top:30px"><div class="h"><span>Passes over the pole</span><b id="passes"></b></div><div class="s" id="passes-s"></div></div>
+  <div class="row"><div class="h"><span>In sunlight</span><b id="sun"></b></div><div class="bar"><i id="sunbar" style="background:#fbbf24"></i></div><div class="s" id="sun-s"></div></div>
+  <div class="row"><div class="h"><span>Earth in view</span><b id="earth"></b></div><div class="bar"><i id="earthbar" style="background:#60a5fa"></i></div></div>
+  <div class="row"><div class="h"><span>Fuel to get in</span><b id="fuel"></b></div><div class="bar"><i id="fuelbar"></i></div><div class="s" id="fuel-s"></div></div>
+</div>
+
+<div class="panel left">
+  <h3>THE POLE PASS, SEEN FROM THE SIDE</h3>
+  <svg id="side" viewBox="0 0 246 150" width="246" height="150"></svg>
+  <p id="side-p"></p>
+</div>
+
+<div class="cards" id="cards"></div>
+<div class="err" id="err">The 3D mockup could not load (it needs an internet connection for the 3D library).</div>
+
+<script type="module">
+import * as THREE from 'three';
+const $ = (id) => document.getElementById(id);
+
+/* ---------- pretend game numbers (the real ones come from the game's own rules) ---------- */
+const FUEL = { ion: 1800, chem: 520 };
+const ORBITS = [
+  { id: 'halo', name: 'Halo Loop', color: '#a78bfa', desc: 'A week-long loop that dips to 15 km over the pole. Cheap to reach and hold, but few passes.',
+    alt: 15, passes: 4.5, sunlit: 100, shadowH: 0, earth: 95, hold: 1, capture: { ion: 250, chem: 430 }, rate: 0.044,
+    rp: 1.035, ra: 9, period: 15, plane: 0, cam: 8.6 },
+  { id: 'ell', name: 'Elliptical Polar', color: '#a3e635', desc: 'Swoops to 15 km over the pole 141 times a month. Many low passes, costly to reach.',
+    alt: 15, passes: 141, sunlit: 85, shadowH: 0.6, earth: 80, hold: 5, capture: { ion: 1000, chem: null }, rate: 0.75,
+    rp: 1.035, ra: 2.81, period: 9, plane: 65, cam: 6.4 },
+  { id: 'circ', name: 'Low Circular', color: '#38bdf8', desc: 'Passes the pole every two hours at 100 km. Too high for the ice instruments.',
+    alt: 100, passes: 366, sunlit: 60, shadowH: 0.8, earth: 60, hold: 6.25, capture: { ion: 1700, chem: null }, rate: 0,
+    rp: 1.18, ra: 1.18, period: 6, plane: 65, cam: 5.2 },
+];
+const state = { orbit: 'ell', engine: 'ion' };
+const cur = () => ORBITS.find((o) => o.id === state.orbit);
+
+/* ---------- scene ---------- */
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: true }); } catch (e) { $('err').style.display = 'flex'; throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 200);
+const deg = Math.PI / 180;
+const az = (a) => new THREE.Vector3(Math.cos(a * deg), 0, Math.sin(a * deg));
+const Y = new THREE.Vector3(0, 1, 0);
+const EARTH_DIR = az(14).add(new THREE.Vector3(0, 0.42, 0)).normalize();
+const SUN_DIR = az(160).add(new THREE.Vector3(0, 0.05, 0)).normalize();
+
+// stars
+{
+  const n = 2200, p = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const v = new THREE.Vector3().randomDirection().multiplyScalar(90);
+    p.set([v.x, v.y, v.z], i * 3);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcbd5e1, size: 0.22, sizeAttenuation: true, transparent: true, opacity: 0.8 })));
+}
+
+// moon texture
+function rng(seed) { return () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296; }
+function moonTexture() {
+  const c = document.createElement('canvas'); c.width = 2048; c.height = 1024;
+  const x = c.getContext('2d'), r = rng(7);
+  x.fillStyle = '#8b8d92'; x.fillRect(0, 0, c.width, c.height);
+  for (let i = 0; i < 26; i++) { // maria
+    const cx = r() * c.width, cy = (0.2 + r() * 0.5) * c.height, rad = 60 + r() * 170;
+    const g = x.createRadialGradient(cx, cy, 0, cx, cy, rad);
+    g.addColorStop(0, 'rgba(60,62,70,.55)'); g.addColorStop(1, 'rgba(60,62,70,0)');
+    x.fillStyle = g; x.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
+  }
+  for (let i = 0; i < 2600; i++) { // craters
+    const cy = r() * c.height, cx = r() * c.width, rad = (r() ** 3) * 26 + 1.5;
+    const stretch = 1 / Math.max(0.25, Math.sin((cy / c.height) * Math.PI));
+    x.save(); x.translate(cx, cy); x.scale(stretch, 1);
+    x.fillStyle = `rgba(50,52,58,${0.25 + r() * 0.3})`; x.beginPath(); x.arc(0, 0, rad, 0, 7); x.fill();
+    x.strokeStyle = `rgba(215,216,220,${0.25 + r() * 0.3})`; x.lineWidth = Math.max(1, rad * 0.14);
+    x.beginPath(); x.arc(0, 0, rad, 3.6, 6.2); x.stroke();
+    x.restore();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+const moonTex = moonTexture();
+const moon = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64),
+  new THREE.MeshStandardMaterial({ map: moonTex, bumpMap: moonTex, bumpScale: 2.2, roughness: 1, metalness: 0 }));
+scene.add(moon);
+const sun = new THREE.DirectionalLight(0xfff4e0, 3.1); sun.position.copy(SUN_DIR).multiplyScalar(20); scene.add(sun);
+scene.add(new THREE.AmbientLight(0x8fa3c8, 0.16));
+
+// earth
+const earth = new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 24), new THREE.MeshStandardMaterial({ color: 0x3b82f6, emissive: 0x1d4ed8, emissiveIntensity: 0.5, roughness: 0.7 }));
+earth.position.copy(EARTH_DIR).multiplyScalar(15); scene.add(earth);
+const earthGlow = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 24), new THREE.MeshBasicMaterial({ color: 0x60a5fa, transparent: true, opacity: 0.18, side: THREE.BackSide }));
+earth.add(earthGlow);
+
+/* ---------- ice map on the south polar cap ---------- */
+const CAP = 30 * deg, ICE = 512;
+const iceCanvas = document.createElement('canvas'); iceCanvas.width = iceCanvas.height = ICE;
+const ice = iceCanvas.getContext('2d');
+const iceTex = new THREE.CanvasTexture(iceCanvas); iceTex.colorSpace = THREE.SRGBColorSpace;
+{
+  const seg = 72, rings = 24, pos = [], uv = [], idx = [];
+  for (let j = 0; j <= rings; j++) for (let i = 0; i <= seg; i++) {
+    const rho = j / rings, th = (i / seg) * Math.PI * 2, c = rho * CAP, R = 1.004;
+    pos.push(R * Math.sin(c) * Math.cos(th), -R * Math.cos(c), R * Math.sin(c) * Math.sin(th));
+    uv.push(0.5 + 0.5 * rho * Math.cos(th), 0.5 + 0.5 * rho * Math.sin(th));
+  }
+  for (let j = 0; j < rings; j++) for (let i = 0; i < seg; i++) {
+    const a = j * (seg + 1) + i, b = a + seg + 1; idx.push(a, a + 1, b, b, a + 1, b + 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+  scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: iceTex, transparent: true, side: THREE.DoubleSide, depthWrite: false })));
+}
+// permanently shadowed craters: where the ice may be
+const blobs = []; { const r = rng(42);
+  for (let i = 0; i < 26; i++) { const d = Math.sqrt(r()) * 0.86, a = r() * 6.283; blobs.push({ x: 0.5 + 0.5 * d * Math.cos(a), y: 0.5 + 0.5 * d * Math.sin(a), r: 0.018 + r() * 0.05, s: 0.6 + r() * 0.8 }); } }
+function blobPath(b) { ice.beginPath(); ice.ellipse(b.x * ICE, b.y * ICE, b.r * ICE, b.r * ICE * b.s, b.x * 9, 0, 7); }
+function drawIce(o, progress, angle0) {
+  ice.clearRect(0, 0, ICE, ICE);
+  ice.save(); ice.beginPath(); ice.arc(ICE / 2, ICE / 2, ICE / 2 - 2, 0, 7); ice.clip();
+  ice.fillStyle = 'rgba(8,15,35,.5)'; ice.fillRect(0, 0, ICE, ICE);
+  for (const b of blobs) { blobPath(b); ice.fillStyle = 'rgba(3,7,22,.92)'; ice.fill(); ice.strokeStyle = 'rgba(125,211,252,.45)'; ice.lineWidth = 1.5; ice.stroke(); }
+  // one strip per pass, each at a new angle because the Moon turns under the orbit
+  const total = Math.min(900, o.passes * 12), n = Math.floor(total * progress);
+  const reach = o.rate > 0, w = reach ? (o.passes > 50 ? 7 : 9) : 2;
+  const strips = new Path2D();
+  for (let i = 0; i < n; i++) {
+    const a = angle0 + i * 2.39996, cx = Math.cos(a), sy = Math.sin(a), h = ICE * 0.6;
+    const p = new Path2D();
+    p.moveTo(ICE / 2 - cx * h - sy * w / 2, ICE / 2 - sy * h + cx * w / 2); p.lineTo(ICE / 2 + cx * h - sy * w / 2, ICE / 2 + sy * h + cx * w / 2);
+    p.lineTo(ICE / 2 + cx * h + sy * w / 2, ICE / 2 + sy * h - cx * w / 2); p.lineTo(ICE / 2 - cx * h + sy * w / 2, ICE / 2 - sy * h - cx * w / 2); p.closePath();
+    strips.addPath(p);
+  }
+  ice.fillStyle = reach ? 'rgba(103,232,249,.13)' : 'rgba(248,113,113,.16)'; ice.fill(strips, 'nonzero');
+  if (reach) { ice.save(); ice.clip(strips, 'nonzero');
+    for (const b of blobs) { blobPath(b); ice.fillStyle = '#e0fbff'; ice.shadowColor = '#22d3ee'; ice.shadowBlur = 14; ice.fill(); }
+    ice.restore(); }
+  ice.restore();
+  ice.strokeStyle = 'rgba(125,211,252,.7)'; ice.lineWidth = 3; ice.setLineDash([10, 8]); ice.beginPath(); ice.arc(ICE / 2, ICE / 2, ICE / 2 - 3, 0, 7); ice.stroke(); ice.setLineDash([]);
+  iceTex.needsUpdate = true;
+}
+
+/* ---------- orbits ---------- */
+function orbitPoint(o, nu, out = new THREE.Vector3()) {
+  const a = (o.rp + o.ra) / 2, e = (o.ra - o.rp) / (o.ra + o.rp), r = a * (1 - e * e) / (1 + e * Math.cos(nu));
+  const u = az(o.plane + 90);
+  return out.copy(Y).multiplyScalar(-Math.cos(nu) * r).addScaledVector(u, Math.sin(nu) * r);
+}
+function trueAnomaly(o, M) {
+  const e = (o.ra - o.rp) / (o.ra + o.rp); let E = M;
+  for (let i = 0; i < 8; i++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+  return 2 * Math.atan2(Math.sqrt(1 + e) * Math.sin(E / 2), Math.sqrt(1 - e) * Math.cos(E / 2));
+}
+const hiddenBy = (p, dir) => { const d = p.dot(dir); return d < 0 && p.clone().addScaledVector(dir, -d).length() < 1; };
+const pickables = [];
+for (const o of ORBITS) {
+  const pts = []; for (let i = 0; i < 400; i++) pts.push(orbitPoint(o, (i / 400) * Math.PI * 2));
+  const curve = new THREE.CatmullRomCurve3(pts, true);
+  const geo = new THREE.TubeGeometry(curve, 600, 0.011, 8, true);
+  const col = new THREE.Color(o.color), cols = [], P = geo.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i);
+    let f = hiddenBy(v, SUN_DIR) ? 0.3 : 1; f *= THREE.MathUtils.clamp(1 - (v.length() - 4.5) / 4.5, 0.12, 1);
+    cols.push(col.r * f, col.g * f, col.b * f); }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  o.mat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true });
+  o.mesh = new THREE.Mesh(geo, o.mat); scene.add(o.mesh);
+  const pick = new THREE.Mesh(new THREE.TubeGeometry(curve, 200, 0.09, 6, true), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+  pick.userData.id = o.id; scene.add(pick); pickables.push(pick);
+}
+
+// the craft, its trail, the sensor beam and the line home
+const craft = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const halo = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.25 }));
+craft.add(halo); scene.add(craft);
+const TRAIL = 60, trailGeo = new THREE.BufferGeometry(); trailGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(TRAIL * 3), 3));
+const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 })); scene.add(trail);
+const lineOf = (color, opacity) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(6), 3));
+  const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color, transparent: true, opacity })); scene.add(l); return l; };
+const homeLine = lineOf(0x60a5fa, 0.45);
+const beam = new THREE.Mesh(new THREE.ConeGeometry(1, 1, 24, 1, true), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false }));
+scene.add(beam);
+const setLine = (l, a, b) => { l.geometry.attributes.position.array.set([a.x, a.y, a.z, b.x, b.y, b.z]); l.geometry.attributes.position.needsUpdate = true; };
+
+/* ---------- HUD ---------- */
+const reachable = (o) => o.capture[state.engine] !== null && o.capture[state.engine] <= FUEL[state.engine];
+function verdictOf(o) {
+  if (o.capture[state.engine] === null) return ['bad', 'NO WAY IN WITH THIS ENGINE'];
+  if (!reachable(o)) return ['bad', 'NOT ENOUGH FUEL TO GET IN'];
+  if (o.rate === 0) return ['bad', 'TOO HIGH FOR THE ICE INSTRUMENTS'];
+  if (finalCov(o) < 70) return ['warn', 'MAPS TOO SLOWLY'];
+  return ['good', 'GOOD MAPPING ORBIT'];
+}
+const finalCov = (o) => (reachable(o) ? 100 * (1 - (1 - o.rate) ** 12) : 0);
+function renderCards() {
+  $('cards').innerHTML = ORBITS.map((o) => {
+    const on = o.id === state.orbit, v = verdictOf(o);
+    return `<button class="panel card ${on ? 'on' : ''}" data-id="${o.id}" style="${on ? `border-color:${o.color}` : ''}">
+      <div class="t"><span class="dot" style="background:${o.color}"></span>${o.name}</div>
+      <div class="d">${o.desc}</div>
+      <div class="k"><span><b>${o.alt} km</b> over the pole</span><span><b>${o.passes}</b> passes a month</span><span><b>${Math.round(finalCov(o))}%</b> ice in 12 months</span></div>
+      ${v[0] === 'bad' ? `<div class="no">${v[1][0] + v[1].slice(1).toLowerCase()}</div>` : ''}</button>`;
+  }).join('');
+}
+$('cards').addEventListener('click', (e) => { const b = e.target.closest('[data-id]'); if (b) select(b.dataset.id); });
+function renderSide(o) {
+  const yOf = (km) => 128 - km * 1.05, inRange = o.alt <= 20;
+  $('side').innerHTML = `
+    <rect x="0" y="${yOf(25)}" width="246" height="${yOf(0) - yOf(25)}" fill="rgba(34,211,238,.10)"/>
+    <rect x="0" y="${yOf(20)}" width="246" height="${yOf(0) - yOf(20)}" fill="rgba(34,211,238,.13)"/>
+    <line x1="0" x2="246" y1="${yOf(25)}" y2="${yOf(25)}" stroke="#22d3ee" stroke-dasharray="4 4" stroke-width="1"/>
+    <text x="242" y="${yOf(25) - 4}" fill="#67e8f9" font-size="11" text-anchor="end">ice instruments work below 20 to 25 km</text>
+    <path d="M0 128 L60 128 Q78 128 86 140 L128 140 Q136 128 154 128 L246 128 L246 150 L0 150 Z" fill="#6b7280"/>
+    <path d="M86 140 L128 140 L128 150 L86 150 Z" fill="#0b1226"/>
+    <text x="107" y="148" fill="#e0fbff" font-size="10" text-anchor="middle">ice?</text>
+    <line x1="107" x2="107" y1="${yOf(o.alt) + 6}" y2="138" stroke="${inRange ? '#22d3ee' : '#f87171'}" stroke-width="2" stroke-dasharray="${inRange ? '' : '3 4'}"/>
+    <line x1="20" x2="226" y1="${yOf(o.alt)}" y2="${yOf(o.alt)}" stroke="${o.color}" stroke-width="2"/>
+    <rect x="100" y="${yOf(o.alt) - 5}" width="14" height="10" rx="2" fill="#fff"/>
+    <text x="22" y="${yOf(o.alt) - 6}" fill="${o.color}" font-size="12" font-weight="700">${o.alt} km</text>`;
+  $('side-p').innerHTML = inRange
+    ? `<span style="color:#4ade80">Close enough.</span> At ${o.alt} km the ice instruments read the crater floor.`
+    : `<span style="color:#f87171">Too high.</span> At ${o.alt} km the ice signal is lost: this orbit maps no ice.`;
+}
+function renderHud() {
+  const o = cur(), [cls, text] = verdictOf(o), cap = o.capture[state.engine], fuel = FUEL[state.engine];
+  $('verdict').className = 'verdict ' + cls; $('verdict').textContent = text;
+  $('covsub').textContent = `${Math.round(finalCov(o))}% after 12 months`;
+  $('passes').textContent = `${o.passes} a month`;
+  $('passes-s').textContent = o.passes < 10 ? 'About one pass a week.' : o.passes < 200 ? 'About five passes a day.' : 'One pass every two hours.';
+  $('sun').textContent = `${o.sunlit}%`; $('sunbar').style.width = o.sunlit + '%';
+  $('sun-s').textContent = o.shadowH ? `Longest shadow ${o.shadowH} h per orbit: the battery covers it.` : 'Never in the Moon’s shadow.';
+  $('earth').textContent = `${o.earth}%`; $('earthbar').style.width = o.earth + '%';
+  $('fuel').textContent = cap === null ? 'not possible' : `${cap.toLocaleString()} of ${fuel.toLocaleString()} m/s`;
+  $('fuelbar').style.width = cap === null ? '100%' : Math.min(100, (cap / fuel) * 100) + '%';
+  $('fuelbar').style.background = reachable(o) ? '#4ade80' : '#f87171';
+  $('fuel-s').className = 's ' + (reachable(o) ? '' : 'bad');
+  $('fuel-s').textContent = cap === null ? 'This engine cannot brake into this orbit.' : !reachable(o) ? `Short by ${(cap - fuel).toLocaleString()} m/s.` : `Holding the orbit then costs ${o.hold} m/s a month.`;
+  renderSide(o); renderCards();
+  for (const x of ORBITS) { x.mat.opacity = x.id === state.orbit ? 1 : 0.22; x.mesh.scale.setScalar(1); }
+}
+let t0 = performance.now();
+function select(id) { state.orbit = id; t0 = performance.now(); renderHud(); }
+for (const e of ['ion', 'chem']) $('e-' + e).onclick = () => { state.engine = e; $('e-ion').classList.toggle('on', e === 'ion'); $('e-chem').classList.toggle('on', e === 'chem'); t0 = performance.now(); renderHud(); };
+
+/* ---------- camera: drag to look, scroll to zoom ---------- */
+const cam = { yaw: 212 * deg, pitch: -0.42, dist: 6.4, target: 6.4 };
+let drag = null, moved = 0;
+const cv = $('c');
+cv.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY }; moved = 0; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; });
+cv.addEventListener('pointermove', (e) => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; moved += Math.abs(dx) + Math.abs(dy);
+  cam.yaw += dx * 0.006; cam.pitch = THREE.MathUtils.clamp(cam.pitch - dy * 0.005, -1.35, 0.9); drag = { x: e.clientX, y: e.clientY }; });
+cv.addEventListener('pointerup', (e) => { cv.style.cursor = 'grab'; drag = null; if (moved > 6) return;
+  const m = new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1), rc = new THREE.Raycaster(); rc.setFromCamera(m, camera);
+  const hit = rc.intersectObjects([moon, ...pickables])[0]; if (hit && hit.object.userData.id) select(hit.object.userData.id); });
+cv.addEventListener('wheel', (e) => { e.preventDefault(); cam.target = THREE.MathUtils.clamp(cam.target * (1 + e.deltaY * 0.001), 3, 14); }, { passive: false });
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+/* ---------- loop ---------- */
+const LAPSE = 14000, HOLD = 3500, tmp = new THREE.Vector3(), surf = new THREE.Vector3();
+let lastOrbit = null;
+function frame(now) {
+  const o = cur();
+  if (lastOrbit !== o.id) { cam.target = o.cam; lastOrbit = o.id; }
+  cam.dist += (cam.target - cam.dist) * 0.05;
+  if (!drag) cam.yaw += 0.00035;
+  camera.position.set(Math.cos(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.sin(cam.yaw) * Math.cos(cam.pitch)).multiplyScalar(cam.dist);
+  camera.lookAt(0, -0.15, 0);
+
+  // time-lapse of the 12 months
+  const el = (now - t0) % (LAPSE + HOLD), prog = Math.min(1, el / LAPSE), months = prog * 12, ok = reachable(o);
+  const cov = ok ? 100 * (1 - (1 - o.rate) ** months) : 0;
+  $('cov').textContent = Math.round(cov) + '%'; $('cov').style.color = cov >= 70 ? '#4ade80' : ok && o.rate > 0 ? '#e2e8f0' : '#f87171';
+  $('covbar').style.width = cov + '%'; $('covbar').style.background = cov >= 70 ? '#4ade80' : '#22d3ee';
+  $('month').innerHTML = ok ? `TIME-LAPSE · MONTH <b>${Math.min(12, Math.floor(months) + 1)}</b> OF 12` : 'THE CRAFT NEVER ARRIVES IN THIS ORBIT';
+  drawIce(o, ok ? prog : 0, (o.plane + 90) * deg);
+
+  // craft
+  const nu = trueAnomaly(o, ((now / 1000 / o.period) % 1) * Math.PI * 2);
+  orbitPoint(o, nu, craft.position); craft.visible = trail.visible = ok;
+  const inShadow = hiddenBy(craft.position, SUN_DIR);
+  craft.material.color.set(inShadow ? 0x64748b : 0xffffff); halo.material.opacity = inShadow ? 0.08 : 0.28;
+  const tp = trailGeo.attributes.position.array;
+  for (let i = 0; i < TRAIL; i++) { const a = trueAnomaly(o, (((now / 1000 - i * 0.012 * o.period) / o.period) % 1) * Math.PI * 2); orbitPoint(o, a, tmp); tp.set([tmp.x, tmp.y, tmp.z], i * 3); }
+  trailGeo.attributes.position.needsUpdate = true; trail.material.color.set(o.color);
+
+  // sensor beam near the pole
+  const overPole = ok && craft.position.clone().normalize().dot(Y) < -Math.cos(CAP);
+  beam.visible = overPole;
+  if (overPole) { surf.copy(craft.position).normalize(); const h = craft.position.length() - 1, reach = o.rate > 0;
+    beam.position.copy(surf).multiplyScalar(1 + h / 2); beam.scale.set(reach ? 0.05 : 0.02, h, reach ? 0.05 : 0.02);
+    beam.quaternion.setFromUnitVectors(Y, surf); beam.material.color.set(reach ? 0x22d3ee : 0xf87171); beam.material.opacity = reach ? 0.45 : 0.25 + 0.2 * Math.sin(now / 90); }
+  // line home
+  const seesEarth = ok && !hiddenBy(craft.position, EARTH_DIR);
+  homeLine.visible = seesEarth; if (seesEarth) setLine(homeLine, craft.position, earth.position);
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+renderHud(); requestAnimationFrame(frame);
+</script>
+</body>
+</html>
