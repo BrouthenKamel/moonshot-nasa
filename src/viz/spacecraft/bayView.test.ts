@@ -95,6 +95,11 @@ describe('buildBayView', () => {
     expect(v.stack.find((s) => s.category === 'propulsion')!.callout).toBe(false)
   })
 
+  it('lists the chosen parts for the 3D model, skipping unknown ids', () => {
+    const v = view({ ...flashlightDesign, battery: 'nope', radio: 'nope' })
+    expect(v.outside.modelParts).toEqual(['solar-1wing', 'attitude-precision', 'prop-chemical', 'inst-laser'])
+  })
+
   it('all green says it fits', () => {
     const v = view(flashlightDesign)
     if (v.worst === 'green') expect(v.status.lines).toMatch(/FITS/)

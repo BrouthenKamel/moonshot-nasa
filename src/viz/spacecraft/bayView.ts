@@ -60,6 +60,7 @@ export interface BayOutside {
   propellantKg: number
   powerShort: boolean // the array cannot feed the instruments at all
   engineStarved: boolean // an ion engine gets less than it needs to run
+  modelParts: string[] // catalogue ids to show on the 3D model (outside parts and instrument apertures)
 }
 
 export interface BayView {
@@ -189,6 +190,9 @@ function outside(design: Design, b: Budgets): BayOutside {
     propellantKg: okProp ? prop.propellantMass : 0,
     powerShort: fin(b.scienceDuty) <= 0,
     engineStarved: okProp && prop.type === 'electric' && fin(b.thrustLevel) === 0,
+    modelParts: [design.solar, design.radio, design.attitude, design.propulsion, ...design.instruments].filter(
+      (id) => getPartById(id) !== undefined
+    ),
   }
 }
 
