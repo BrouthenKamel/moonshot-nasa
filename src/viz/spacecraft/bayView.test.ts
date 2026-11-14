@@ -26,7 +26,7 @@ describe('buildBayView', () => {
 
   it('default design board', () => {
     const v = view(base)
-    expect(row(v, 'mass').text).toBe('12.8 / 14 kg')
+    expect(row(v, 'mass').text).toBe('12.0 / 14 kg') // 12.8 before the balance redesign (lighter IR spectrometer)
     expect(row(v, 'volume').text).toBe('4.4 / 6 U')
     expect(row(v, 'power').text).toBe('uses 30 of 120 W')
     const b = computeBudgets(base, 'engineer')
@@ -65,7 +65,9 @@ describe('buildBayView', () => {
   })
 
   it('body panels are short of power', () => {
-    const v = view({ ...base, solar: 'solar-body' })
+    // Since the balance redesign the 28 W panels leave a little for the instruments, so the case
+    // where nothing is left is set in the budgets
+    const v = view({ ...base, solar: 'solar-body' }, { scienceDuty: 0 })
     expect(v.outside.powerShort).toBe(true)
     expect(v.outside.solar).toBe('body')
     expect(row(v, 'power').tone).toBe('red')

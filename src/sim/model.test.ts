@@ -6,6 +6,7 @@ import { buildReport } from './evaluate'
 import { flashlightDesign, lunahMapDesign, iceCubeDesign } from './fixtures'
 import { getPartById, type PropulsionPart } from '../data/parts'
 import { getOrbitById } from '../data/orbits'
+import { modelConstants as C } from '../data/brief'
 import type { Design, SimState } from './types'
 
 const status = (d: Design, resource: string) =>
@@ -19,22 +20,36 @@ describe('calculator reproduces the logic map', () => {
     const ion = getPartById('prop-ion') as PropulsionPart
     expect(insertionDeltaV(ion, 'direct', getOrbitById('orbit-halo'))).toBeNull()
 
+    // Balance redesign (14 Nov): the chemical module is 2.8 kg dry (was 3.6) and its Isp the nominal 190 s
+    // (was an effective 150), so the craft is lighter and carries more delta-v; team costs fell (0.45 M a
+    // month before launch, a smaller cruise team), so it costs less. Volume is unchanged.
     const flashlight = computeBudgets(flashlightDesign, 'engineer')
-    expect(flashlight.totalMass).toBeCloseTo(14.0, 1)
+    expect(flashlight.totalMass).toBeCloseTo(13.2, 1) // was 14.0
     expect(flashlight.totalVolume).toBeCloseTo(5.9, 2)
-    expect(flashlight.deltaVAvailable).toBeCloseTo(227, 0)
-    expect(flashlight.totalCost).toBeCloseTo(21.0, 1)
+    expect(flashlight.deltaVAvailable).toBeCloseTo(306, 0) // was 227
+    expect(flashlight.totalCost).toBeCloseTo(20.0, 1) // was 21.0
 
     expect(computeBudgets(lunahMapDesign, 'engineer').transferTurns).toBe(10) // Lunar IceCube plan 9, LunaH-Map 15
     const icecube = computeBudgets(iceCubeDesign, 'engineer')
-    expect(icecube.totalMass).toBeCloseTo(12.8, 1)
-    expect(icecube.totalCost).toBeCloseTo(24.9, 1)
+    // Balance redesign: the IR spectrometer is 2.4 kg and 2.2 M (was 3.2 kg and 3.0 M), so it fits beside an ice instrument
+    expect(icecube.totalMass).toBeCloseTo(12.0, 1) // was 12.8
+    expect(icecube.totalCost).toBeCloseTo(21.3, 1) // was 24.9
   })
 
   it('counts propellant in the mass and the reserve inside the budget', () => {
     const b = computeBudgets(lunahMapDesign, 'engineer')
     expect(b.totalMass - b.dryMass).toBeCloseTo(1.5)
     expect(b.spendable + b.reserveAmount).toBeCloseTo(b.budgetCap)
+  })
+
+  // Balance redesign (14 Nov): the months of cruise run on a smaller team than the science phase,
+  // so a long electric transfer is a real trade, not an automatic loss
+  it('runs the transfer on the cruise team', () => {
+    const b = computeBudgets(lunahMapDesign, 'engineer')
+    expect(b.transferCostPerTurn).toBeCloseTo(C.teamCostCruise + b.groundCostPerTurn + C.electricNavCost)
+    expect(b.transferCostPerTurn).toBeLessThan(b.opsCostPerTurn + C.electricNavCost)
+    const chem = computeBudgets(flashlightDesign, 'engineer')
+    expect(chem.transferCostPerTurn).toBeCloseTo(C.teamCostCruise + chem.groundCostPerTurn)
   })
 
   it('derives build time from the parts', () => {
@@ -68,6 +83,18 @@ describe('instruments and orbits shape the science', () => {
   it('the IR spectrometer has no altitude limit', () => {
     const b = computeBudgets({ ...iceCubeDesign, orbit: 'orbit-100km' }, 'engineer')
     expect(b.quality['inst-ir-spec']).toBe(1)
+  })
+
+  // Balance redesign (14 Nov): a second ice instrument maps strips the first one missed,
+  // so two of them together cover more than either alone (before, only the best one counted)
+  it('two ice instruments together map more than either alone', () => {
+    const base = { ...flashlightDesign, propulsion: 'prop-coldgas', ride: 'ride-commercial' }
+    const laser = computeBudgets({ ...base, instruments: ['inst-laser'] }, 'engineer').projectedCoverage
+    const neutron = computeBudgets({ ...base, instruments: ['inst-neutron'] }, 'engineer').projectedCoverage
+    const both = computeBudgets({ ...base, instruments: ['inst-laser', 'inst-neutron'] }, 'engineer').projectedCoverage
+    expect(laser).toBeGreaterThan(0)
+    expect(neutron).toBeGreaterThan(0)
+    expect(both).toBeCloseTo(100 * (1 - (1 - laser / 100) * (1 - neutron / 100)), 0)
   })
 
   it('a laser without precise pointing loses half its quality', () => {
@@ -246,7 +273,13 @@ describe('flight', () => {
   })
 
   it('spends money every turn and waits for the next ride when late', () => {
-    const late: Design = { ...flashlightDesign, planning: { ...flashlightDesign.planning, testTurns: 3 } }
+    // Balance redesign: a one-instrument craft now builds in 3 months, so three test months still make the
+    // month-8 ride; a second instrument (4 build months) makes it late
+    const late: Design = {
+      ...flashlightDesign,
+      instruments: ['inst-laser', 'inst-neutron'],
+      planning: { ...flashlightDesign.planning, testTurns: 3 },
+    }
     const s = runSimulation(late, 'engineer', 5)
     const missed = s.turnLogs.find((l) => l.notes.some((n) => n.startsWith('Missed the ride')))
     expect(missed?.turn).toBe(8)

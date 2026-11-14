@@ -39,7 +39,7 @@ describe('mission map', () => {
 
   it('labels show core numbers', () => {
     const l = labelsFor()
-    expect(l.factory.status).toContain('14.0 / 14 kg')
+    expect(l.factory.status).toContain('13.2 / 14 kg') // 14.0 before the balance redesign (lighter chemical module)
     expect(l['research-lab'].status).toContain('74%')
     expect(l['launch-site'].status).toContain('month 8')
     // Time is the mission month, never a turn or a calendar day (DESIGN-DIRECTION 1a)

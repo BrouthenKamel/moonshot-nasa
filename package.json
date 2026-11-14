@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "lint": "oxlint",
     "typecheck": "tsc -b",
+    "balance": "tsx tools/balance.ts",
     "assets:models": "tsx scripts/assets/build-models.ts",
     "assets:audio": "tsx scripts/assets/gen-audio.ts",
     "assets:credits": "tsx scripts/assets/credits.ts"

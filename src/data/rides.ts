@@ -27,9 +27,9 @@ export const rides: Ride[] = [
     id: 'ride-gto',
     name: 'GTO Rideshare',
     description:
-      'The lowest fee, but it drops you in geostationary transfer orbit, far from the Moon, and leaves early (month 6). Only an ion engine can climb out, which adds about 1,500 m/s and many months of transfer, and every month costs team and ground time.',
-    departureTurn: 6,
-    cost: 0.8,
+      'The lowest fee, but it drops you in geostationary transfer orbit, far from the Moon, and leaves early (month 7). Only an ion engine can climb out, which adds about 1,500 m/s and many months of transfer, and every month costs team and ground time.',
+    departureTurn: 7, // G (6 before the balance redesign: it left no time to test at all)
+    cost: 0.5, // G (0.8 before the balance redesign)
     massLimit: 16,
     dropOffOrbit: 'gto',
     extraDeltaV: 1500,
@@ -59,14 +59,14 @@ export const rides: Ride[] = [
     id: 'ride-commercial',
     name: 'Commercial Lunar Express',
     description:
-      'A commercial lander that releases you close to the Moon: the capture burn is less than half, but it costs more, leaves later and takes less mass.',
+      'A commercial lander that releases you close to the Moon: the capture burn is half, but it costs more and leaves later.',
     departureTurn: 10,
-    cost: 3.5,
-    massLimit: 12,
+    cost: 4.5, // G (3.5 before the balance redesign: with cold gas and a direct transfer it bought certainty too cheaply)
+    massLimit: 14, // G (12 before the balance redesign: no chemical craft fitted)
     dropOffOrbit: 'lunar-vicinity',
     extraDeltaV: 0,
-    insertionFactor: 0.4,
-    cruiseTurns: 1,
+    insertionFactor: 0.5, // G (0.4 before the balance redesign: the small tank went straight into any orbit)
+    cruiseTurns: 2, // G (1 before the balance redesign); a direct transfer skips it
     requiredDeltaV: 0,
     electricCompatible: true,
     chemicalCompatible: true,

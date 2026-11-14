@@ -54,7 +54,14 @@ describe('buildOrbitView', () => {
   })
 
   it('names the locked reserve apart from going over the cap (the reserve line is a hard limit)', () => {
-    const d = { ...lunahMapDesign, planning: { ...lunahMapDesign.planning, reservePercent: 10 } }
+    // Plans got cheaper in the balance redesign (14 Nov): a pricier craft and a 15% reserve keep the two cases apart
+    const d = {
+      ...lunahMapDesign,
+      planning: { ...lunahMapDesign.planning, reservePercent: 15, testTurns: 2 },
+      computer: 'computer-redundant',
+      radio: 'radio-xband',
+      groundStation: 'ground-dsn',
+    }
     const b = computeBudgets({ ...d, orbit: 'orbit-elliptical' }, 'engineer')
     expect(b.totalCost).toBeGreaterThan(b.spendable)
     expect(b.totalCost).toBeLessThanOrEqual(b.budgetCap)

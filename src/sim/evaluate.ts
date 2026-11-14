@@ -162,10 +162,13 @@ function whyCoverageShort(state: SimState, b: Budgets): string[] {
   const passes = orbit?.passesPerTurn ?? 0
   // Over the turns actually flown (an extended mission flies more than the planned 12)
   const flown = Math.max(turns, f.scienceTurns)
-  const ideal = 100 * (1 - Math.exp(-passes * best.footprint * flown))
-  if (ideal < COVERAGE_TARGET)
+  // Ice instruments in range combine their strips (scienceTotals), so the ideal counts them all
+  const inRange = ice.filter((i) => i.maxAltitudeKm === null || (orbit?.altitude ?? 0) <= i.maxAltitudeKm)
+  const footprint = inRange.reduce((s, i) => s + i.footprint, 0)
+  const ideal = 100 * (1 - Math.exp(-passes * footprint * flown))
+  if (inRange.length && ideal < COVERAGE_TARGET)
     out.push(
-      `Too few passes: this orbit (${orbit?.name}) crosses the pole ${passes} times a month and the ${noun} sees a narrow strip each time. ` +
+      `Too few passes: this orbit (${orbit?.name}) crosses the pole ${passes} times a month and the ${nouns(inRange)} ${inRange.length > 1 ? 'see' : 'sees'} a narrow strip each time. ` +
         `Even a perfect craft maps only ${ideal.toFixed(0)}% in ${flown} months. It takes an orbit with more passes or an instrument with a wider view.`
     )
   if (best.maxAltitudeKm !== null && orbit && orbit.altitude > best.maxAltitudeKm) {
