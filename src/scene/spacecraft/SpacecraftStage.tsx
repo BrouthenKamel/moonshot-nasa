@@ -1,6 +1,6 @@
-import { Suspense, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState, type ComponentRef, type RefObject } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Html, OrbitControls } from '@react-three/drei'
+import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { preloadModel, useModel } from '../../assets/models'
@@ -214,24 +214,60 @@ const TAG_KEYS: Record<string, CraftSlot> = {
   uhf: 'radio',
 }
 
-function Tags({ craft, props }: { craft: CraftInstance[]; props: StageProps }) {
-  const tags = craft.filter((i) => TAG_KEYS[i.key] !== undefined || i.slot === 'instrument')
+function TagProjector({
+  tags,
+  floater,
+  elements,
+}: {
+  tags: CraftInstance[]
+  floater: RefObject<THREE.Group | null>
+  elements: RefObject<(HTMLDivElement | null)[]>
+}) {
+  const v = useMemo(() => new THREE.Vector3(), [])
+  useFrame(({ camera, size }) => {
+    const els = elements.current
+    if (!els) return
+    const floaterY = floater.current?.position.y ?? CRAFT_CENTRE[1]
+    tags.forEach((i, idx) => {
+      const el = els[idx]
+      if (!el) return
+      v.set(i.position[0], floaterY + i.position[1] + 0.045, i.position[2]).project(camera)
+      if (v.z > 1) {
+        el.style.visibility = 'hidden'
+        return
+      }
+      const x = ((v.x + 1) / 2) * size.width
+      const y = ((1 - v.y) / 2) * size.height
+      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`
+      el.style.visibility = 'visible'
+    })
+  })
+  return null
+}
+
+function TagOverlay({ tags, tagEls, props }: { tags: CraftInstance[]; tagEls: RefObject<(HTMLDivElement | null)[]>; props: StageProps }) {
   return (
-    <>
-      {tags.map((i) => {
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {tags.map((i, idx) => {
         const slot = i.slot
         const color = slotColor[slot]
         const active = props.activeSlot === slot
         return (
-          <Html key={`tag:${i.key}`} position={[i.position[0], i.position[1] + 0.045, i.position[2]]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+          <div
+            key={`tag:${i.key}`}
+            ref={(el) => {
+              tagEls.current[idx] = el
+            }}
+            className="invisible absolute left-0 top-0"
+          >
             <button
+              type="button"
               onMouseEnter={() => props.onHover(slot)}
               onMouseLeave={() => props.onHover(null)}
               onClick={() => props.onSelect(slot)}
               aria-label={craftLabel(i.from)}
-              className="flex items-center gap-1.5 whitespace-nowrap rounded-full border text-[10px] font-semibold backdrop-blur-sm transition-all"
+              className="pointer-events-auto flex items-center gap-1.5 whitespace-nowrap rounded-full border text-[10px] font-semibold backdrop-blur-sm transition-all"
               style={{
-                pointerEvents: 'auto',
                 borderColor: active ? color : `${color}aa`,
                 color: '#fff',
                 background: active ? `${color}cc` : 'rgba(2,6,23,0.55)',
@@ -244,10 +280,10 @@ function Tags({ craft, props }: { craft: CraftInstance[]; props: StageProps }) {
               <span className="h-2 w-2 flex-none rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
               {active && craftLabel(i.from).replace(/\s*\(.*\)$/, '')}
             </button>
-          </Html>
+          </div>
         )
       })}
-    </>
+    </div>
   )
 }
 
@@ -359,7 +395,15 @@ function CameraRig({ view }: { view: ViewPreset }) {
 
 /* ---------------- the scene ---------------- */
 
-function Scene(props: StageProps) {
+function Scene({
+  props,
+  tags,
+  tagEls,
+}: {
+  props: StageProps
+  tags: CraftInstance[]
+  tagEls: RefObject<(HTMLDivElement | null)[]>
+}) {
   const reduced = useMemo(() => prefersReducedMotion(), [])
   // The first few seconds are the build-up; after that a swapped part flies in on its own
   const [first, setFirst] = useState(true)
@@ -383,13 +427,16 @@ function Scene(props: StageProps) {
             <CraftPart inst={i} index={n} stagger={first} props={props} reduced={reduced} />
           </Suspense>
         ))}
-        <Tags craft={props.craft} props={props} />
       </group>
+      <TagProjector tags={tags} floater={floater} elements={tagEls} />
     </>
   )
 }
 
 export function SpacecraftStage(props: StageProps) {
+  const tags = useMemo(() => props.craft.filter((i) => TAG_KEYS[i.key] !== undefined || i.slot === 'instrument'), [props.craft])
+  const tagEls = useRef<(HTMLDivElement | null)[]>([])
+
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       <Canvas
@@ -406,8 +453,9 @@ export function SpacecraftStage(props: StageProps) {
           pmrem.dispose()
         }}
       >
-        <Scene {...props} />
+        <Scene props={props} tags={tags} tagEls={tagEls} />
       </Canvas>
+      <TagOverlay tags={tags} tagEls={tagEls} props={props} />
     </div>
   )
 }

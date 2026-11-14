@@ -318,7 +318,7 @@ export function BaseScreen() {
           ) : (
             <BaseMap labels={labels} onBuildingClick={onBuildingClick} />
           )}
-          <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg border border-white/15 bg-[#091224]/75 px-2.5 py-1 font-mono text-[11px] text-white backdrop-blur-xs">
+          <div className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/15 bg-[#091224]/75 px-2.5 py-1 font-mono text-[11px] text-white backdrop-blur-xs">
             {onBuildingClick ? 'Click a building to walk in · drag to move · scroll to zoom' : 'Drag to move · scroll to zoom'}
           </div>
         </div>

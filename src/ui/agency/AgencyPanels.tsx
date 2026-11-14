@@ -347,14 +347,17 @@ function News() {
       {feed.slice(0, 30).map((e, i) => {
         const open = selectedId === e.id
         return (
-          <li key={e.id}>
+          <li
+            key={e.id}
+            className={`rounded-lg transition ${
+              open ? 'bg-orange-100/75 ring-1 ring-orange-200' : i === 0 ? 'bg-orange-50' : ''
+            }`}
+          >
             <button
               type="button"
               onClick={() => setSelectedId(open ? null : e.id)}
               aria-expanded={open}
-              className={`flex w-full cursor-pointer gap-2 rounded-lg p-1.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-400 ${
-                open ? 'bg-orange-100/75 ring-1 ring-orange-200' : i === 0 ? 'bg-orange-50 hover:bg-orange-100/60' : 'hover:bg-slate-200/50'
-              }`}
+              className="flex w-full cursor-pointer gap-2 rounded-lg p-1.5 text-left transition hover:bg-orange-100/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-400"
             >
               <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneDot[e.tone]}`} />
               <div className="min-w-0 flex-1 text-xs">
@@ -368,30 +371,19 @@ function News() {
                     )}
                   </div>
                 )}
-                {open && !simState && (
-                  <div className="mt-1">
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={(ev) => {
-                        ev.stopPropagation()
-                        openBuilding(e.title.includes('Research') ? 'research-lab' : 'comms-center')
-                      }}
-                      onKeyDown={(ev) => {
-                        if (ev.key === 'Enter' || ev.key === ' ') {
-                          ev.preventDefault()
-                          ev.stopPropagation()
-                          openBuilding(e.title.includes('Research') ? 'research-lab' : 'comms-center')
-                        }
-                      }}
-                      className="inline-block rounded bg-orange-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-orange-800 hover:bg-orange-500/25"
-                    >
-                      {e.title.includes('Research') ? 'Visit Research Lab →' : 'Open Comms Center →'}
-                    </span>
-                  </div>
-                )}
               </div>
             </button>
+            {open && !simState && (
+              <div className="px-5 pb-1.5">
+                <button
+                  type="button"
+                  onClick={() => openBuilding(e.title.includes('Research') ? 'research-lab' : 'comms-center')}
+                  className="cursor-pointer rounded bg-orange-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-orange-800 hover:bg-orange-500/25"
+                >
+                  {e.title.includes('Research') ? 'Visit Research Lab →' : 'Open Comms Center →'}
+                </button>
+              </div>
+            )}
           </li>
         )
       })}
