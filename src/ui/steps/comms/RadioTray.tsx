@@ -6,7 +6,7 @@ import { computeBudgets } from '../../../sim/budgets'
 import type { Budgets, Design } from '../../../sim/types'
 import type { Difficulty } from '../../../data/brief'
 import { Inspector, type InspectorNote } from './Inspector'
-import { useCardRadioGroup } from './useCardRadioGroup'
+import { hoverSound, useCardRadioGroup } from './useCardRadioGroup'
 
 const TAG: Record<string, string> = {
   'radio-uhf': 'Low orbit',
@@ -93,7 +93,10 @@ export function RadioTray({
                 selected={selected}
                 look="portrait"
                 size="lg"
-                onHover={() => setInspect(radio.id)}
+                onHover={() => {
+                  hoverSound()
+                  setInspect(radio.id)
+                }}
                 onFocus={() => setInspect(radio.id)}
                 ariaLabel={`${radio.name}. ${stats.map((s) => `${s.label} ${s.value}`).join(', ')}.${worst ? ` ${worst.text}` : ''}`}
                 {...group(i)}

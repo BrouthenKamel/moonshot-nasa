@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { computeBudgets } from '../../sim/budgets'
 import { useGameStore } from '../../state/gameStore'
 import { DesignDiagramPanel } from '../../viz/DesignDiagramPanel'
 import { StageBoundary } from '../../scene/instrumentStage/StageBoundary'
@@ -11,7 +12,9 @@ import { audio } from '../../assets/audio'
 import { assetUrl } from '../../assets/url'
 import { choiceArt } from '../../assets/catalogueArt'
 import {
+  EQUAL_HEIGHT_CARD,
   altitudeText,
+  blockedThud,
   instrumentCardView,
   instrumentColor,
   instrumentShortName,
@@ -98,10 +101,8 @@ function InstrumentHand({
         return (
           <div
             key={inst.id}
-            className="flex h-full flex-col gap-2"
-            onClickCapture={() => {
-              if (view.blocked) audio.play('sfx.fit-error')
-            }}
+            className={`flex h-full w-full max-w-[190px] flex-col gap-2 ${EQUAL_HEIGHT_CARD}`}
+            {...blockedThud(view.blocked)}
           >
             <ChoiceCard
               id={inst.id}
@@ -137,7 +138,7 @@ function InstrumentHand({
             />
             <span
               aria-hidden
-              className="mx-1 mt-auto h-1.5 rounded-full transition-all duration-300"
+              className="mx-1 h-1.5 shrink-0 rounded-full transition-all duration-300"
               style={{ background: on ? color : `${color}33`, boxShadow: on ? `0 0 10px ${color}` : 'none' }}
             />
           </div>
@@ -190,17 +191,14 @@ export function InstrumentsScreen() {
   const picksHere = stageFell || !canUseWebGL()
   const brief = instruments.find((i) => i.id === (inspected ?? design.instruments[design.instruments.length - 1])) ?? instruments[0]
 
+  // Mass is the catalogue's; power and data come from the budgets, as on the dashboard
   const totalMass = instruments
     .filter((i) => design.instruments.includes(i.id))
     .reduce((sum, i) => sum + i.mass, 0)
-
-  const totalPower = instruments
-    .filter((i) => design.instruments.includes(i.id))
-    .reduce((sum, i) => sum + Math.abs(i.power), 0)
-
-  const totalData = instruments
-    .filter((i) => design.instruments.includes(i.id))
-    .reduce((sum, i) => sum + i.dataPerTurn, 0)
+  const difficulty = useGameStore((s) => s.difficulty)
+  const budgets = useMemo(() => computeBudgets(design, difficulty), [design, difficulty])
+  const totalPower = budgets.instrumentPower
+  const totalData = budgets.dataPerTurn
 
   return (
     <>

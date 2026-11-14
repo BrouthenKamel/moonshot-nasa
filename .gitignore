@@ -37,3 +37,5 @@ assets-src/raw/
 
 # Raw procedural models: rebuilt from scripts/assets/models/parts by pnpm assets:models
 assets-src/models/parts/
+
+nasa/
