@@ -21,6 +21,10 @@ import { generateSeed } from '../sim/rng'
 import type { BuildingId } from '../data/agency'
 import { BUILDING_STEPS, suggestedStep } from '../viz/missionMap'
 import { useAgencyStore } from './agencyStore'
+import { sanitizeSavedGame } from './saveGuard'
+
+/** Version of the saved game; every load goes through the save guard (QC #70) */
+export const GAME_SAVE_VERSION = 1
 
 /** Difficulty levels are off for now (Jakob, 14 Nov): the game plays on the Engineer values */
 export const FIXED_DIFFICULTY: Difficulty = 'engineer'
@@ -496,11 +500,18 @@ export const useGameStore = create<GameState>()(
         return rest as never
       },
       storage: skipUnchangedWrites(createJSONStorage(() => createSafeStorage(getBaseStorage()) as StateStorage)!) as never,
+      version: GAME_SAVE_VERSION,
+      // Any older save is checked field by field in merge, so migrate passes it through
+      migrate: (persisted) => persisted as GameState,
+      // Only what the save guard accepts is loaded; a save from an older build that does not
+      // fit falls back to the default design and no flight instead of white-screening (QC #70).
       // Difficulty is not saved: a stored Cadet or Flight Director setting from before is ignored.
-      // A reload never keeps auto-flying: the player presses play again.
+      // A reload never keeps auto-flying, and always lands on the base: the flight plays there,
+      // and a finished mission's report opens from the mission status in the top bar (QC #84).
       merge: (persisted, current) => ({
         ...current,
-        ...(persisted as Partial<GameState>),
+        ...sanitizeSavedGame(persisted),
+        screen: 'base',
         difficulty: FIXED_DIFFICULTY,
         autoFly: false,
       }),
