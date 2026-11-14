@@ -18,11 +18,14 @@ import {
 import { FlightStage } from '../flight/FlightStage'
 import { AudioControls } from '../kit/AudioControls'
 import { useUiStore } from '../../state/uiStore'
+import { AgencyDashboard, AgencyWallet } from '../agency/AgencyPanels'
 
 /*
  * The base screen of the MVP: one mission, the Lunar Ice Mapper (docs/DESIGN-DIRECTION.md, 1a).
  * The map is the menu; the top bar holds the mission month and the mission's status.
- * No agency dashboard, calendar, building levels, build plots or missions list.
+ * The agency layer (money, popularity, mission money, research, news) sits on top of it:
+ * src/ui/agency/AgencyPanels.tsx, fed by src/state/worldStore.ts, which only listens to the mission.
+ * No agency calendar, building levels, build plots or missions list.
  */
 
 /* ------------------------------------------------------------------ */
@@ -198,6 +201,8 @@ function TopBar({ month, status, onOpenStatus }: { month: number; status: Missio
 
       <MissionStatusButton status={status} onOpen={onOpenStatus} />
 
+      <AgencyWallet />
+
       <div className="ml-auto flex items-center gap-2">
         <button
           type="button"
@@ -262,8 +267,9 @@ export function BaseScreen() {
   return (
     <div className="flex min-h-screen flex-col bg-[#14213d] lg:h-screen lg:min-h-0">
       <TopBar month={missionMonth(simState)} status={status} onOpenStatus={onOpenStatus} />
-      <div className="flex flex-1 flex-col gap-3 p-3 lg:min-h-0 lg:flex-row">
-        <div className="relative h-[60vh] min-h-[360px] overflow-hidden lg:flex-1 rounded-2xl shadow-inner lg:h-auto">
+      {/* Wide screens: the map fills the area and both dashboards float over its edges. Phones: stacked. */}
+      <div className="relative flex flex-1 flex-col gap-3 p-3 lg:block lg:min-h-0">
+        <div className="relative h-[60vh] min-h-[360px] overflow-hidden rounded-2xl shadow-inner lg:absolute lg:inset-3 lg:h-auto lg:min-h-0">
           {simState ? (
             <FlightStage
               sim={simState}
@@ -272,13 +278,22 @@ export function BaseScreen() {
           ) : (
             <BaseMap labels={labels} onBuildingClick={onBuildingClick} />
           )}
-          <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-black/30 px-2 py-1 text-[11px] text-white">
+          <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-black/30 px-2 py-1 text-[11px] text-white lg:left-1/2 lg:-translate-x-1/2">
             {simState ? 'Drag to move · scroll to zoom' : 'Click a building to walk in · drag to move · scroll to zoom'}
           </div>
         </div>
+        {/* Left: agency. Ends above the narrator's corner. */}
+        <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-36 lg:left-6 lg:top-6 lg:z-10 lg:w-72">
+          <div className="flex min-h-0 flex-col lg:pointer-events-auto">
+            <AgencyDashboard />
+          </div>
+        </div>
+        {/* Right: the flight's mission log */}
         {simState && (
-          <div className="min-h-0 lg:flex lg:w-72 lg:flex-col">
-            <MissionLog entries={logEntries} />
+          <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:right-6 lg:top-6 lg:z-10 lg:w-72">
+            <div className="flex min-h-0 flex-col lg:pointer-events-auto">
+              <MissionLog entries={logEntries} />
+            </div>
           </div>
         )}
       </div>

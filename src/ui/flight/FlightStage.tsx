@@ -53,7 +53,7 @@ function Hud({ sim }: { sim: SimState }) {
   const f = sim.flight
   const target = difficultyPresets[sim.difficulty]?.dataTarget ?? 300
   return (
-    <div className="pointer-events-none absolute left-3 top-3 w-[min(92%,300px)] rounded-2xl border border-white/10 bg-[#0b1226]/80 p-3 text-white shadow-2xl backdrop-blur-md">
+    <div className="pointer-events-none absolute left-3 top-3 w-[min(92%,300px)] lg:left-[19.5rem] rounded-2xl border border-white/10 bg-[#0b1226]/80 p-3 text-white shadow-2xl backdrop-blur-md">
       <div className="flex items-center justify-between">
         <div className="font-display text-sm font-bold">🛰️ Lunar Ice Mapper</div>
         <div className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold tabular-nums">{missionClockLabel(sim.currentTurn).replace(/^m/, 'M')}</div>
@@ -87,7 +87,7 @@ function ViewToggle() {
   const launching = useUiStore((s) => s.launchAt !== null)
   if (launching) return null
   return (
-    <div className="pointer-events-auto absolute right-3 top-3 flex rounded-full border border-white/15 bg-[#0b1226]/80 p-1 text-xs font-semibold text-white backdrop-blur-md" role="radiogroup" aria-label="View">
+    <div className="pointer-events-auto absolute right-3 top-3 lg:right-[19.5rem] flex rounded-full border border-white/15 bg-[#0b1226]/80 p-1 text-xs font-semibold text-white backdrop-blur-md" role="radiogroup" aria-label="View">
       {(['space', 'island'] as const).map((v) => (
         <button
           key={v}
