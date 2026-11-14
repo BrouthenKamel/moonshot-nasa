@@ -121,6 +121,12 @@ export interface GameState {
   visitedSteps: DesignStep[]
   /** Walk into a building on the map: opens the step it holds that is due next */
   openBuilding: (id: BuildingId) => void
+  /**
+   * The fix-it loop after a report: keep the design, put the finished flight
+   * away (its run is already in the history) and walk into the building that
+   * holds `step`, ready to change it and launch again
+   */
+  reviseAt: (step: DesignStep) => void
   /** "Reset demo": the base back to day 112 and the mission abandoned, in both stores */
   resetDemo: () => void
 }
@@ -226,6 +232,18 @@ export const useGameStore = create<GameState>()(
         const steps = BUILDING_STEPS[id]
         const next = suggestedStep(visitedSteps)
         const step = steps.includes(next) ? next : (steps.find((s) => !visitedSteps.includes(s)) ?? steps[0])
+        get().setDesignStep(step)
+        set({ screen: 'design' })
+      },
+
+      reviseAt: (step) => {
+        set({
+          simState: null,
+          currentReport: null,
+          pendingAction: getDefaultAction(),
+          autoFly: false,
+          replayEntryId: null,
+        })
         get().setDesignStep(step)
         set({ screen: 'design' })
       },

@@ -41,6 +41,18 @@ export function soundsFor(prev: SimState | null, next: SimState | null): GameSou
   return out
 }
 
+/**
+ * Play one cue now, for a moment the store does not mark (the launch
+ * sequence's liftoff). Silent while the cue has no file; never throws.
+ */
+export function playCue(
+  sound: GameSound,
+  { player = audio, files = SOUND_FILES }: { player?: Pick<SoundPlayer, 'play'>; files?: Partial<Record<GameSound, AudioId>> } = {}
+): void {
+  const id = files[sound]
+  if (id) safely(() => player.play(id))
+}
+
 export interface SoundPlayer {
   playMusic: (id: AudioId) => void
   stopMusic: () => void
