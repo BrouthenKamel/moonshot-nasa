@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useGameStore } from '../state/gameStore'
 import type { BarStatus } from '../sim/types'
 
@@ -8,9 +9,19 @@ interface ResourceBarProps {
   unit: string
   status: BarStatus
   showMargin?: boolean
+  previous?: number
 }
 
-function ResourceBar({ label, value, limit, unit, status, showMargin = true }: ResourceBarProps) {
+function ResourceBar({ label, value, limit, unit, status, showMargin = true, previous }: ResourceBarProps) {
+  const [settledValue, setSettledValue] = useState<number | null>(null)
+  const changed = previous !== undefined && Math.abs(value - previous) > 1e-9
+  const flash = changed && settledValue !== value
+  useEffect(() => {
+    if (!flash) return
+    const t = setTimeout(() => setSettledValue(value), 800)
+    return () => clearTimeout(t)
+  }, [flash, value])
+
   const percent = limit > 0 ? Math.min(100, (value / limit) * 100) : 0
   const margin = limit - value
 
@@ -27,7 +38,11 @@ function ResourceBar({ label, value, limit, unit, status, showMargin = true }: R
   }[status]
 
   return (
-    <div className="space-y-1">
+    <div
+      className={`space-y-1 rounded transition-shadow duration-500 ${
+        flash ? 'ring-2 ring-blue-400/70' : 'ring-0 ring-transparent'
+      }`}
+    >
       <div className="flex justify-between text-xs">
         <span className="text-slate-400">{label}</span>
         <span className={textColor}>
@@ -52,6 +67,7 @@ function ResourceBar({ label, value, limit, unit, status, showMargin = true }: R
 export function Dashboard() {
   const getBudgets = useGameStore((s) => s.getBudgets)
   const getGoNoGo = useGameStore((s) => s.getGoNoGo)
+  const previous = useGameStore((s) => s.previousBudgets)
 
   const budgets = getBudgets()
   const goNoGo = getGoNoGo()
@@ -73,6 +89,7 @@ export function Dashboard() {
           limit={budgets.massLimit}
           unit="kg"
           status={getStatus('Mass')}
+          previous={previous?.totalMass}
         />
 
         <ResourceBar
@@ -81,6 +98,7 @@ export function Dashboard() {
           limit={budgets.volumeLimit}
           unit="U"
           status={getStatus('Volume')}
+          previous={previous?.totalVolume}
         />
 
         <ResourceBar
@@ -89,6 +107,7 @@ export function Dashboard() {
           limit={budgets.powerGenerated}
           unit="W"
           status={getStatus('Power')}
+          previous={previous?.powerConsumed}
         />
 
         <ResourceBar
@@ -97,6 +116,7 @@ export function Dashboard() {
           limit={budgets.budgetCap}
           unit="$M"
           status={getStatus('Budget')}
+          previous={previous?.totalCost}
         />
 
         <ResourceBar
@@ -105,6 +125,7 @@ export function Dashboard() {
           limit={budgets.deltaVAvailable}
           unit="m/s"
           status={getStatus('Delta-v')}
+          previous={previous?.deltaVTotal}
         />
 
         <ResourceBar
@@ -113,6 +134,7 @@ export function Dashboard() {
           limit={budgets.downlinkPerTurn}
           unit="GB/turn"
           status={getStatus('Data Link')}
+          previous={previous?.dataPerTurn}
         />
       </div>
 
