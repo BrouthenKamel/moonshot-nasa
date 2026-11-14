@@ -17,12 +17,12 @@ const RED = '#f87171'
 const GREEN = '#4ade80'
 const CHIP = { go: 'bg-green-400', caution: 'bg-amber-300', nogo: 'bg-red-400' }
 
-export function RideOverlay() {
+export function RideOverlay({ maxWidth }: { maxWidth?: number }) {
   const view = useRideView()
   return (
-    <div className="pointer-events-none absolute top-14 left-4 max-w-[38%] select-none">
+    <div className="pointer-events-none absolute top-14 left-4 max-w-[38%] select-none" style={maxWidth ? { maxWidth } : undefined}>
       <div className="text-[13px] font-bold whitespace-nowrap text-slate-200">LAUNCH SITE · LUNAR ICE MAPPER · RIDE &amp; TRANSFER</div>
-      <div className="mt-2 flex items-center gap-1.5 whitespace-nowrap">
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 whitespace-nowrap">
         <span className={`rounded-md px-2 py-0.5 text-xs font-extrabold text-[#03050a] ${CHIP[view.status]}`}>{view.statusLabel}</span>
         {view.bars.map((b) => (
           <span
@@ -36,7 +36,7 @@ export function RideOverlay() {
       </div>
       <div className="mt-2 space-y-1 text-[13px] leading-[17px] font-medium" aria-live="polite">
         {view.reasons.map((r) => (
-          <p key={r.resource} className={`line-clamp-2 ${BAR_TEXT[r.status]}`} title={r.reason}>
+          <p key={r.resource} className={`line-clamp-3 ${BAR_TEXT[r.status]}`} title={r.reason}>
             {r.resource.toUpperCase()}: {r.reason}
           </p>
         ))}

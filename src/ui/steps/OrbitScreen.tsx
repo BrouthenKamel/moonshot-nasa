@@ -1,9 +1,10 @@
 import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useGameStore } from '../../state/gameStore'
-import { lunarOrbits, type LunarOrbit } from '../../data/orbits'
-import { computeBudgets } from '../../sim/budgets'
 import { getPartById, type InstrumentPart } from '../../data/parts'
 import { canUseWebGL } from '../../scene/webgl'
+import { lunarOrbits } from '../../data/orbits'
+import { OrbitCardTray } from './launch/OrbitCards'
+import { playPick } from './launch/radioKeys'
 import type { LapseClock } from '../../scene/OrbitView'
 import {
   buildOrbitView,
@@ -23,6 +24,10 @@ const LAPSE_MS = 14000
 const HOLD_MS = 3500
 const MIN_SCENE_WIDTH = 900
 const MIN_SIDE_WIDTH = 1000
+const READOUT_W = 290
+const CARDS_MAX_W = 600
+/** Below this width the orbit cards are not centred under the Moon, so they can stay wide enough */
+const CARDS_CENTRED_MIN = 1200
 
 const TONE_TEXT: Record<Tone, string> = { good: 'text-green-400', warn: 'text-amber-400', bad: 'text-red-400' }
 const TONE_CHIP: Record<Tone, string> = {
@@ -36,72 +41,6 @@ const PANEL = 'rounded-xl border border-slate-400/20 bg-slate-950/70 backdrop-bl
 /* ------------------------------------------------------------------ */
 /* Plain screen: used without 3D, in tests, and in narrow columns      */
 /* ------------------------------------------------------------------ */
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded bg-slate-900 p-2 text-center">
-      <div className="text-slate-500">{label}</div>
-      <div className="font-bold text-slate-300">{value}</div>
-    </div>
-  )
-}
-
-function OrbitCard({ orbit, selected, onSelect }: { orbit: LunarOrbit; selected: boolean; onSelect: () => void }) {
-  const design = useGameStore((s) => s.design)
-  const difficulty = useGameStore((s) => s.difficulty)
-  // What this orbit would do for the current design
-  const trial = computeBudgets({ ...design, orbit: orbit.id }, difficulty)
-  const iceRates = design.instruments
-    .map((id) => getPartById(id) as InstrumentPart | undefined)
-    .filter((i): i is InstrumentPart => !!i && i.seesShadow)
-    .map((i) => trial.coverageRate[i.id] ?? 0)
-  const bestRate = iceRates.length ? Math.max(...iceRates) : 0
-
-  return (
-    <button
-      onClick={onSelect}
-      aria-pressed={selected}
-      className={`w-full rounded-lg p-4 text-left transition-colors ${
-        selected ? 'bg-orange-900 ring-2 ring-orange-500' : 'bg-slate-800 hover:bg-slate-700'
-      }`}
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="font-semibold text-slate-100">{orbit.name}</div>
-          <div className="mt-1 text-sm text-slate-400">{orbit.description}</div>
-        </div>
-        <div
-          className={`h-5 w-5 shrink-0 rounded-full border-2 ${selected ? 'border-orange-500 bg-orange-500' : 'border-slate-600'}`}
-        />
-      </div>
-
-      <div className="mt-4 grid grid-cols-4 gap-2 text-xs">
-        <Stat label="Over the pole" value={`${orbit.altitude} km`} />
-        <Stat label="Passes a month" value={`${orbit.passesPerTurn}`} />
-        <Stat label="Upkeep" value={`${orbit.stationKeepingDeltaV} m/s/month`} />
-        <Stat label="Earth in view" value={`${Math.round(orbit.earthVisible * 100)}%`} />
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
-        <span>Sunlit {Math.round(orbit.sunlitShare * 100)}%</span>
-        <span>Eclipse {orbit.eclipseHours} h</span>
-        <span>
-          To capture:{' '}
-          <span className={trial.captureDeltaV === null ? 'text-red-400' : 'text-slate-200'}>
-            {trial.captureDeltaV === null ? 'not possible with your engine' : `${trial.captureDeltaV.toFixed(0)} m/s`}
-          </span>
-        </span>
-        <span>
-          Your ice instruments map:{' '}
-          <span className={bestRate > 0.09 ? 'text-green-400' : 'text-orange-400'}>
-            {iceRates.length ? `${(bestRate * 100).toFixed(1)}% of what is left, per month` : 'nothing (none sees into shadow)'}
-          </span>
-        </span>
-      </div>
-      <div className="mt-1 text-xs text-slate-500">Flown by: {orbit.flownBy}</div>
-    </button>
-  )
-}
 
 function CheckRows({ checks }: { checks: OrbitCheck[] }) {
   return (
@@ -232,15 +171,22 @@ function PlainOrbit() {
           <CheckRows checks={view.selected.checks} />
         </div>
 
-        <div className="space-y-4">
-          {lunarOrbits.map((orbit) => (
-            <OrbitCard
-              key={orbit.id}
-              orbit={orbit}
-              selected={design.orbit === orbit.id}
-              onSelect={() => updateDesign({ orbit: orbit.id })}
-            />
-          ))}
+        <div>
+          <OrbitCardTray
+            options={view.options}
+            selectedId={view.selectedId}
+            onPick={(id, fromKeyboard) => {
+              if (fromKeyboard) playPick(id)
+              if (id !== design.orbit) updateDesign({ orbit: id })
+            }}
+            full
+          />
+          <p className="mt-3 text-sm leading-snug text-slate-400">
+            <b className="font-semibold" style={{ color: view.selected.color }}>
+              {view.selected.shortName}.
+            </b>{' '}
+            {view.selected.description}
+          </p>
         </div>
 
         <StepButtons overlay={false} />
@@ -281,7 +227,7 @@ function ReadoutPanel({ o, months }: { o: OrbitOption; months: number }) {
   const cap = o.captureDeltaV
   const fits = cap !== null && o.deltaVAvailable >= cap
   return (
-    <div className={`${PANEL} pointer-events-auto absolute top-16 right-3 bottom-[150px] w-[290px] overflow-y-auto p-3.5`}>
+    <div className={`${PANEL} pointer-events-auto absolute top-16 right-3 bottom-3 w-[290px] overflow-y-auto p-3.5`}>
       {o.verdictCheck && (
         <div aria-hidden="true" className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-400">
           Worst check: {o.verdictCheck}
@@ -313,6 +259,13 @@ function ReadoutPanel({ o, months }: { o: OrbitOption; months: number }) {
       <div className="mt-3 text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
         THIS ORBIT
       </div>
+      <p className="mt-1 text-xs leading-snug text-slate-300">
+        <b className="font-semibold" style={{ color: o.color }}>
+          {o.shortName}.
+        </b>{' '}
+        {o.description}
+      </p>
+      <p className="mt-1 text-[11px] text-slate-500">Flown by: {lunarOrbits.find((x) => x.id === o.id)?.flownBy}</p>
 
       <Row label="Passes over the pole" value={`${o.passesPerTurn} a month`}>
         <p className="mt-0.5 text-slate-500">{o.passesLine}</p>
@@ -361,7 +314,7 @@ function SidePanel({ o }: { o: OrbitOption }) {
   const beam = !ice.length ? '#94a3b8' : inRange ? '#22d3ee' : '#fbbf24'
   const y = yOf(Math.min(o.altitudeKm, 110))
   return (
-    <div className={`${PANEL} pointer-events-auto absolute bottom-[150px] left-3 w-[270px] p-3`}>
+    <div className={`${PANEL} pointer-events-auto absolute top-16 left-3 w-[270px] p-3`}>
       <h3 className="mb-1.5 text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
         THE POLE PASS, SEEN FROM THE SIDE
       </h3>
@@ -397,62 +350,6 @@ function SidePanel({ o }: { o: OrbitOption }) {
           </>
         )}
       </p>
-    </div>
-  )
-}
-
-function OrbitCards({ options, selectedId, onPick }: { options: OrbitOption[]; selectedId: string; onPick: (id: string) => void }) {
-  const refs = useRef<(HTMLButtonElement | null)[]>([])
-  const onKey = (e: React.KeyboardEvent, i: number) => {
-    const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
-    if (!d) return
-    e.preventDefault()
-    const j = (i + d + options.length) % options.length
-    onPick(options[j].id)
-    refs.current[j]?.focus()
-  }
-  return (
-    <div className="pointer-events-auto absolute right-3 bottom-3 left-3 grid grid-cols-3 gap-2.5" role="group" aria-label="Science orbit">
-      {options.map((o, i) => {
-        const on = o.id === selectedId
-        return (
-          <button
-            key={o.id}
-            ref={(el) => {
-              refs.current[i] = el
-            }}
-            aria-pressed={on}
-            onClick={() => onPick(o.id)}
-            onKeyDown={(e) => onKey(e, i)}
-            className={`${PANEL} text-left transition-colors hover:bg-slate-900/85 focus-visible:outline-2 focus-visible:outline-orange-500 ${
-              on ? 'border-2 px-3 py-2.5' : 'px-3.5 py-3'
-            }`}
-            style={on ? { borderColor: o.color } : undefined}
-          >
-            <div className="flex items-center gap-2 text-[15px] font-bold text-slate-100">
-              <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: o.color }} aria-hidden />
-              {o.shortName}
-            </div>
-            <div className="mt-1 line-clamp-2 text-xs leading-snug text-slate-400">{o.description}</div>
-            <div className="mt-1.5 flex flex-wrap gap-x-3.5 text-xs text-slate-300 tabular-nums">
-              <span>
-                <b className="text-white">{o.altitudeKm} km</b> over the pole
-              </span>
-              <span>
-                <b className="text-white">{o.passesPerTurn}</b> passes a month
-              </span>
-              <span>
-                <b className="text-white">{Math.round(coverageAt(o, MISSION_MONTHS))}%</b> ice in 12 months
-              </span>
-            </div>
-            {o.verdict.tone !== 'good' && (
-              <div className={`mt-1 text-xs font-semibold ${TONE_TEXT[o.verdict.tone]}`}>
-                {o.verdict.text.charAt(0) + o.verdict.text.slice(1).toLowerCase()}
-              </div>
-            )}
-          </button>
-        )
-      })}
     </div>
   )
 }
@@ -504,6 +401,32 @@ function useWidth(ref: RefObject<HTMLDivElement | null>): number | null {
   return width
 }
 
+/**
+ * How far to end the 3D scene above the bottom edge so the Moon's south pole stays above the card
+ * row. The camera frames the Moon by height: its bottom edge sits at about POLE_AT of the scene's
+ * height (with the idle sway), so ending the scene earlier lifts and shrinks the Moon.
+ */
+const POLE_AT = 0.72
+const POLE_GAP = 16
+function useSceneLift(box: HTMLElement | null, cards: HTMLElement | null): number {
+  const [lift, setLift] = useState(0)
+  useEffect(() => {
+    if (!box || !cards) return
+    const read = () => {
+      const h = box.clientHeight
+      const free = h - (cards.offsetHeight + 12) - POLE_GAP
+      setLift(Math.max(0, Math.round(h - free / POLE_AT)))
+    }
+    read()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(read)
+    ro.observe(box)
+    ro.observe(cards)
+    return () => ro.disconnect()
+  }, [box, cards])
+  return lift
+}
+
 /** Falls back to the plain screen if the 3D scene throws. */
 class SceneBoundary extends Component<{ children: ReactNode; onError: () => void }, { failed: boolean }> {
   state = { failed: false }
@@ -527,19 +450,40 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
   const view = useMemo(() => buildOrbitView(design, difficulty), [design, difficulty])
   const reduced = useMemo(() => prefersReducedMotion(), [])
   const { clock, shownMonths } = useLapse(`${view.selectedId}|${design.instruments.join(',')}|${design.propulsion}`, reduced)
-  const pick = (id: string) => {
-    if (id !== useGameStore.getState().design.orbit) updateDesign({ orbit: id })
+  // Cards play their own pick sound; arrow keys and clicks in the 3D scene play it here
+  const pick = (id: string, quiet = false) => {
+    if (id === useGameStore.getState().design.orbit) return
+    if (!quiet) playPick(id)
+    updateDesign({ orbit: id })
   }
   const o = view.selected
   const months = Math.min(MISSION_MONTHS, Math.floor(shownMonths) + 1)
+  const side = width === null || width >= MIN_SIDE_WIDTH
+  const [stageEl, setSceneEl] = useState<HTMLDivElement | null>(null)
+  const [cardsEl, setCardsEl] = useState<HTMLDivElement | null>(null)
+  // Wide: centred under the Moon. Narrower: grown to the left (the pole-pass panel sits at the top),
+  // clear of the commander's speech bubble, so the chips keep one line each
+  const cardsLeft = !side ? 12 : width !== null && width < CARDS_CENTRED_MIN ? 190 : READOUT_W + 24
+  const lift = useSceneLift(stageEl?.parentElement ?? null, cardsEl)
 
   return (
     <>
-      <SceneBoundary onError={onSceneError}>
-        <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-500">Pointing the telescope…</div>}>
-          <OrbitScene view={view} lapse={clock} reduced={reduced} onPick={pick} />
-        </Suspense>
-      </SceneBoundary>
+      {/* On short screens the scene ends above part of the card row, so the Moon's south pole (where
+          the ice is) stays clear of the cards; the edge fades into the background. */}
+      <div
+        ref={setSceneEl}
+        className="absolute inset-x-0 top-0"
+        style={{
+          bottom: lift,
+          maskImage: lift > 0 ? 'linear-gradient(to bottom, #000 calc(100% - 48px), transparent)' : undefined,
+        }}
+      >
+        <SceneBoundary onError={onSceneError}>
+          <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-500">Pointing the telescope…</div>}>
+            <OrbitScene view={view} lapse={clock} reduced={reduced} onPick={pick} />
+          </Suspense>
+        </SceneBoundary>
+      </div>
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-3 left-1/2 -translate-x-1/2 text-center">
           <div className="text-xs font-semibold tracking-[0.18em] whitespace-nowrap" style={{ color: ACCENT }}>
@@ -557,8 +501,14 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
           <div className="mt-1 text-[11px] text-slate-500">Drag to look around, scroll to zoom. Heights are exaggerated.</div>
         </div>
         <ReadoutPanel o={o} months={shownMonths} />
-        {(width === null || width >= MIN_SIDE_WIDTH) && <SidePanel o={o} />}
-        <OrbitCards options={view.options} selectedId={view.selectedId} onPick={pick} />
+        {side && <SidePanel o={o} />}
+        <div
+          ref={setCardsEl}
+          className="pointer-events-auto absolute bottom-3"
+          style={{ left: cardsLeft, right: READOUT_W + 24, maxWidth: CARDS_MAX_W, marginInline: 'auto' }}
+        >
+          <OrbitCardTray options={view.options} selectedId={view.selectedId} onPick={(id, fromKeyboard) => pick(id, !fromKeyboard)} />
+        </div>
         <StepButtons overlay />
       </div>
     </>

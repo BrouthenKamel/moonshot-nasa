@@ -19,15 +19,31 @@ import { exportGlb } from './lib/three-node.ts'
 import { ensureDir, kb, outPath, srcPath } from './lib/paths.ts'
 import { buildCubeSat6U } from './models/cubesat-6u.ts'
 
-/** Procedural generators, keyed by the raw file they write */
+/**
+ * Procedural generators, keyed by the raw file they write. Every module in models/parts/
+ * exports `models: Record<catalogue id, () => Object3D>`, written to parts/<id>.glb.
+ */
 const generators: Record<string, () => import('three').Object3D> = {
   'cubesat-6u.glb': buildCubeSat6U,
 }
+const partsDir = new URL('./models/parts/', import.meta.url)
+for (const file of fs.readdirSync(partsDir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))) {
+  try {
+    const mod = (await import(new URL(file, partsDir).href)) as { models?: Record<string, () => import('three').Object3D> }
+    for (const [id, build] of Object.entries(mod.models ?? {})) generators[`parts/${id}.glb`] = build
+  } catch (e) {
+    // One broken generator must not stop the others from building
+    console.warn(`skip models/parts/${file}: ${(e as Error).message}`)
+  }
+}
 
-const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null
+const arg = (name: string) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : null)
+const only = arg('--only')
+/** --group power-avionics: only the models made by scripts/assets/models/parts/power-avionics.ts */
+const group = arg('--group')
 const models = (assets as readonly { kind: string }[]).filter((a): a is ModelAsset => a.kind === 'model')
-const selected = only ? models.filter((m) => m.id === only) : models
-if (only && selected.length === 0) throw new Error(`No model with id ${only}`)
+const selected = models.filter((m) => (!only || m.id === only) && (!group || (m.credit ?? '').includes(`parts/${group}.ts`)))
+if ((only || group) && selected.length === 0) throw new Error(`No model matches ${only ?? group}`)
 
 await MeshoptDecoder.ready
 await MeshoptEncoder.ready
