@@ -114,13 +114,15 @@ export function buildPlanningView(design: Design, budgets: Budgets, checks: Chec
   const riskCaption =
     riskFactor > 1 ? 'failures in flight more likely' : riskFactor < 1 ? 'failures in flight less likely' : 'normal odds of failure in flight'
 
-  // Room status: only this step's checks drive the room
+  // Room status: only this step's checks drive the room. A missed ride is the
+  // alarm (the knob causes it); over budget is a caution here, because the
+  // parts cause it and the Factory (spacecraft step) fixes it.
   const statusOf = (resource: string) => checks.find((c) => c.resource === resource)?.status ?? 'green'
   const time = statusOf('Time')
   const budget = statusOf('Budget')
   let status: PlanningView['status']
   if (time === 'red') status = { level: 'alert', chip: 'RIDE MISSED' }
-  else if (budget === 'red') status = { level: 'alert', chip: 'OVER BUDGET' }
+  else if (budget === 'red') status = { level: 'caution', chip: 'OVER BUDGET' }
   else if (testTurns === 0) status = { level: 'caution', chip: 'CAUTION: UNTESTED' }
   else if (reservePercent === 0) status = { level: 'caution', chip: 'CAUTION: NO RESERVE' }
   else if (time === 'yellow') status = { level: 'caution', chip: 'CAUTION: NO SPARE TIME' }

@@ -77,7 +77,7 @@ describe('buildPlanningView', () => {
       viewFor({ ...d, planning }, {}, checks).view.status
     const ok = [chk('Time', 'green'), chk('Budget', 'green')]
     expect(status([chk('Time', 'red'), chk('Budget', 'red')])).toEqual({ level: 'alert', chip: 'RIDE MISSED' })
-    expect(status([chk('Time', 'green'), chk('Budget', 'red')])).toEqual({ level: 'alert', chip: 'OVER BUDGET' })
+    expect(status([chk('Time', 'green'), chk('Budget', 'red')])).toEqual({ level: 'caution', chip: 'OVER BUDGET' })
     expect(status(ok, { ...d.planning, testTurns: 0 })).toEqual({ level: 'caution', chip: 'CAUTION: UNTESTED' })
     expect(status(ok, { ...d.planning, testTurns: 2, reservePercent: 0 })).toEqual({ level: 'caution', chip: 'CAUTION: NO RESERVE' })
     expect(status([chk('Time', 'yellow'), chk('Budget', 'green')], { ...d.planning, testTurns: 2, reservePercent: 10 }))
