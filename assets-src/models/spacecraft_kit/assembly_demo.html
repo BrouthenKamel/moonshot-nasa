@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lunar Mapper 6U - assembly demo</title>
+<style>
+  :root { --bg:#101216; --panel:#171a20; --line:#2a2f39; --text:#e7e9ee; --muted:#8c93a3; --accent:#e8892f; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font:13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif; }
+  #app { display:flex; height:100%; }
+  #side { width:300px; flex:none; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; }
+  #side header { padding:14px 16px 8px; }
+  h1 { font-size:15px; margin:0 0 2px; }
+  .sub { color:var(--muted); font-size:12px; }
+  nav { display:flex; gap:6px; padding:0 16px 10px; }
+  nav a { flex:1; text-align:center; padding:6px; border:1px solid var(--line); border-radius:6px; color:var(--text); text-decoration:none; }
+  nav a.on { background:var(--accent); color:#1b0f02; border-color:var(--accent); font-weight:600; }
+  .ctl { padding:8px 16px; border-top:1px solid var(--line); }
+  .ctl label { display:flex; justify-content:space-between; color:var(--muted); font-size:12px; margin-bottom:4px; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  .row { display:flex; flex-wrap:wrap; gap:6px; }
+  button { background:#20242c; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 9px; font:inherit; font-size:12px; cursor:pointer; }
+  button.on { border-color:var(--accent); color:var(--accent); }
+  #list { overflow-y:auto; flex:1; padding:6px 8px 12px; border-top:1px solid var(--line); }
+  .grp { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.07em; margin:10px 8px 4px; }
+  .item { padding:5px 8px; border-radius:5px; cursor:pointer; display:flex; justify-content:space-between; gap:8px; }
+  .item:hover { background:#1f232b; }
+  .item.on { background:#2a2219; color:var(--accent); }
+  .item small { color:var(--muted); white-space:nowrap; }
+  #view { flex:1; position:relative; min-width:0; }
+  #info { position:absolute; left:14px; bottom:14px; max-width:520px; background:rgba(20,23,29,.9); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:none; }
+  #info b { font-size:13px; }
+  #info .meta { color:var(--muted); font-size:12px; margin-top:4px; }
+  #status { position:absolute; right:14px; top:12px; color:var(--muted); font-size:12px; }
+  @media (max-width:760px){ #app{flex-direction:column-reverse;} #side{width:100%;height:46%;border-right:0;border-top:1px solid var(--line);} }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="side">
+    <header><h1>Lunar Mapper 6U kit</h1><div class="sub">Clean-room assembly parts, real scale (metres)</div></header>
+    <nav><a href="#assembly" id="navA">Assembly</a><a href="#gallery" id="navG">Parts gallery</a></nav>
+    <div id="asmCtl">
+      <div class="ctl"><label><span>Explode</span><span id="exV">0%</span></label><input id="explode" type="range" min="0" max="1" step="0.01" value="0"></div>
+      <div class="ctl"><label><span>Deploy (wings, UHF)</span><span id="dpV">stowed</span></label><input id="deploy" type="range" min="0" max="1" step="0.01" value="0"></div>
+      <div class="ctl row">
+        <button id="tPanels" class="on">Face panels</button><button id="tWings" class="on">Wings</button>
+        <button id="tEnv">6U envelope</button><button id="tSpin">Spin wheels</button>
+      </div>
+    </div>
+    <div id="list"></div>
+  </div>
+  <div id="view"><div id="status">loading…</div><div id="info"></div></div>
+</div>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const DEFAULT_MODE = 'assembly';
+const BASE = '';   // GLBs and JSON sit next to this page
+
+const view = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+view.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x15181d);
+const pm = new THREE.PMREMGenerator(renderer);
+scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+const key = new THREE.DirectionalLight(0xffffff, 1.4); key.position.set(0.6, 1.2, 0.8); scene.add(key);
+const camera = new THREE.PerspectiveCamera(35, 1, 0.002, 50);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+const grid = new THREE.GridHelper(2, 40, 0x2a2f39, 0x1d2128); grid.position.y = -0.09; scene.add(grid);
+function resize(){ const w=view.clientWidth,h=view.clientHeight; renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+const loader = new GLTFLoader();
+const cache = {};
+const load = f => cache[f] ||= loader.loadAsync(BASE + f).then(g => g.scene);
+const status = document.getElementById('status');
+const info = document.getElementById('info');
+
+const [PARTS, ASM] = await Promise.all([fetch(BASE+'parts.json').then(r=>r.json()), fetch(BASE+'assembly_6u.json').then(r=>r.json())]);
+const partById = Object.fromEntries(PARTS.parts.map(p=>[p.id,p]));
+
+// ---------------- shared animation hooks ----------------
+const spinners = [], glows = [];
+function collectHooks(root){
+  root.traverse(o => {
+    if (o.name && o.name.startsWith('spin_')) spinners.push(o);
+    if (o.isMesh) { const m = o.material; if (['led_glow','ion_glow','laser_emitter'].includes(m.name)) glows.push(m); }
+  });
+}
+
+// ---------------- ASSEMBLY ----------------
+const asmGroup = new THREE.Group(); scene.add(asmGroup);
+const inst = [];
+let deployables = [];
+async function buildAssembly(){
+  status.textContent = 'loading assembly…';
+  for (const it of ASM.instances) {
+    const src = await load(it.file);
+    const o = src.clone(true);
+    o.traverse(n => { if (n.isMesh) { n.material = n.material.clone(); n.castShadow = n.receiveShadow = true; } });
+    o.position.fromArray(it.position);
+    o.rotation.set(...it.rotation_euler_xyz, 'XYZ');
+    const hidden = new Set(it.hidden_nodes || []);
+    o.traverse(n => { if (hidden.has(n.name)) n.visible = false; });
+    const nodeEx = [];
+    for (const [name, [dir, dist]] of Object.entries(it.node_explode || {})) {
+      const n = o.getObjectByName(name); if (n) nodeEx.push({ n, base: n.position.clone(), dir: new THREE.Vector3(...dir), dist });
+    }
+    o.traverse(n => {
+      const st = n.userData && n.userData.stowed;
+      if (st) deployables.push({ n, qd: n.quaternion.clone(), qs: new THREE.Quaternion().setFromEuler(new THREE.Euler(...st, 'XYZ')) });
+    });
+    o.userData.inst = it;
+    asmGroup.add(o);
+    collectHooks(o);
+    inst.push({ it, o, base: o.position.clone(), dir: new THREE.Vector3(...it.explode.direction), dist: it.explode.distance, nodeEx });
+  }
+  // envelope wireframe
+  const [ex,ey,ez] = ASM.envelope_m;
+  env = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(ex,ey,ez)), new THREE.LineBasicMaterial({ color:0xe8892f }));
+  env.visible = false; asmGroup.add(env);
+  applyExplode(); applyDeploy(); status.textContent = '';
+}
+let env;
+const exS = document.getElementById('explode'), dpS = document.getElementById('deploy');
+function applyExplode(){
+  const t = +exS.value; document.getElementById('exV').textContent = Math.round(t*100)+'%';
+  const e = t*t*(3-2*t);
+  for (const i of inst) { i.o.position.copy(i.base).addScaledVector(i.dir, i.dist*e);
+    for (const ne of i.nodeEx) ne.n.position.copy(ne.base).addScaledVector(ne.dir, ne.dist*e); }
+}
+function applyDeploy(){
+  const t = +dpS.value; document.getElementById('dpV').textContent = t<0.01?'stowed':(t>0.99?'deployed':Math.round(t*100)+'%');
+  for (const d of deployables) d.n.quaternion.slerpQuaternions(d.qs, d.qd, t);
+}
+exS.oninput = applyExplode; dpS.oninput = applyDeploy;
+const tog = (id, fn) => { const b = document.getElementById(id); b.onclick = () => { b.classList.toggle('on'); fn(b.classList.contains('on')); }; };
+tog('tPanels', on => inst.filter(i=>['face_panels','radiator_panel'].includes(i.it.part)).forEach(i=>i.o.visible=on));
+tog('tWings', on => inst.filter(i=>i.it.part==='solar_wing').forEach(i=>i.o.visible=on));
+tog('tEnv', on => env.visible = on);
+let spin = false; tog('tSpin', on => spin = on);
+
+// ---------------- GALLERY ----------------
+const galGroup = new THREE.Group(); scene.add(galGroup);
+let current = null;
+async function showPart(id){
+  const p = partById[id];
+  document.querySelectorAll('.item').forEach(e=>e.classList.toggle('on', e.dataset.id===id));
+  status.textContent = 'loading '+id+'…';
+  const src = await load(p.file);
+  galGroup.clear();
+  const o = src.clone(true); galGroup.add(o); collectHooks(o);
+  const box = new THREE.Box3().setFromObject(o), c = box.getCenter(new THREE.Vector3()), r = box.getSize(new THREE.Vector3()).length()/2;
+  controls.target.copy(c); camera.near = r/200; camera.far = r*200; camera.updateProjectionMatrix();
+  camera.position.copy(c).add(new THREE.Vector3(1,0.7,1.3).normalize().multiplyScalar(r/Math.sin(THREE.MathUtils.degToRad(17))));
+  grid.position.y = box.min.y - r*0.02; grid.scale.setScalar(Math.max(r*4, 0.2)/2);
+  current = id; status.textContent = '';
+  const s = p.size_m.map(v=>(v*1000).toFixed(0)).join(' × ');
+  const anim = [...p.animation.spin.map(x=>x.node), ...p.animation.deployables.map(x=>x.node+' (deployable)'), ...p.animation.material_hooks.map(m=>'material '+m)];
+  info.innerHTML = `<b>${p.label}</b><div class="meta">${p.id} · tier ${p.tier} · ${p.subsystem} · ${s} mm · ${p.triangles.toLocaleString()} tris · ${(p.bytes/1024).toFixed(0)} KB</div>
+    <div class="meta">Origin: ${p.origin}</div>` + (p.mounts.length?`<div class="meta">Mounts: ${p.mounts.map(m=>m.node).join(', ')}</div>`:'') +
+    (anim.length?`<div class="meta">Animation hooks: ${anim.join(', ')}</div>`:'');
+  info.style.display = 'block';
+}
+function buildList(mode){
+  const list = document.getElementById('list'); list.innerHTML = '';
+  if (mode === 'assembly') {
+    const h = document.createElement('div'); h.className = 'grp'; h.textContent = 'Instances in the reference build'; list.appendChild(h);
+    for (const it of ASM.instances) {
+      const d = document.createElement('div'); d.className = 'item'; d.dataset.id = it.id;
+      d.innerHTML = `<span>${partById[it.part].label.split(':')[0].split(' (')[0]}</span><small>${it.id}</small>`;
+      d.onclick = () => { const i = inst.find(x=>x.it.id===it.id); flash(i.o); const p = partById[it.part];
+        info.innerHTML = `<b>${p.label}</b><div class="meta">${it.id} · position ${it.position.map(v=>(v*1000).toFixed(1)).join(', ')} mm</div>`; info.style.display='block'; };
+      list.appendChild(d);
+    }
+    return;
+  }
+  const groups = { 1:'Tier 1 · spacecraft', 2:'Tier 2 · launch integration', 3:'Tier 3 · clean room' };
+  for (const t of [1,2,3]) {
+    const h = document.createElement('div'); h.className = 'grp'; h.textContent = groups[t]; list.appendChild(h);
+    for (const p of PARTS.parts.filter(p=>p.tier===t)) {
+      const d = document.createElement('div'); d.className = 'item'; d.dataset.id = p.id;
+      d.innerHTML = `<span>${p.label.split(':')[0].split(' (')[0]}</span><small>${p.size_m.map(v=>Math.round(v*1000)).join('×')}</small>`;
+      d.onclick = () => showPart(p.id); list.appendChild(d);
+    }
+  }
+}
+let flashT = null;
+function flash(o){
+  const mats = []; o.traverse(n=>{ if(n.isMesh) mats.push(n.material); });
+  mats.forEach(m=>{ m.userData.e0 ??= m.emissive.clone(); m.emissive.set(0x5a3008); });
+  clearTimeout(flashT); flashT = setTimeout(()=>mats.forEach(m=>m.emissive.copy(m.userData.e0)), 900);
+}
+
+// ---------------- MODES ----------------
+async function setMode(mode){
+  document.getElementById('navA').classList.toggle('on', mode==='assembly');
+  document.getElementById('navG').classList.toggle('on', mode==='gallery');
+  document.getElementById('asmCtl').style.display = mode==='assembly' ? '' : 'none';
+  asmGroup.visible = mode==='assembly'; galGroup.visible = mode==='gallery'; info.style.display='none';
+  buildList(mode);
+  if (mode==='assembly') {
+    if (!inst.length) await buildAssembly();
+    controls.target.set(0,0,0); camera.near=0.002; camera.far=50; camera.updateProjectionMatrix();
+    camera.position.set(0.55,0.38,0.62); grid.position.y=-0.09; grid.scale.setScalar(1);
+  } else {
+    await showPart(current || PARTS.parts[0].id);
+  }
+}
+const route = () => setMode((location.hash||'#'+DEFAULT_MODE).slice(1)==='gallery' ? 'gallery' : 'assembly');
+addEventListener('hashchange', route);
+route();
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = clock.getDelta(), t = clock.elapsedTime;
+  if (spin || galGroup.visible) for (const s of spinners) if (s.parent) s.rotateY(dt * (galGroup.visible ? 3 : 12));
+  for (const m of glows) m.emissiveIntensity = 0.75 + 0.25*Math.sin(t*3);
+  controls.update(); renderer.render(scene, camera);
+});
+window.__ready = true;
+</script>
+</body>
+</html>

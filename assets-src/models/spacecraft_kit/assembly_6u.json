@@ -1,0 +1,690 @@
+{
+ "name": "Lunar mapper 6U - reference build",
+ "units": "metres",
+ "frame": "Y up, +Z instrument end",
+ "envelope_m": [
+  0.2263,
+  0.1,
+  0.366
+ ],
+ "envelope_min": [
+  -0.11315,
+  -0.05,
+  -0.183
+ ],
+ "envelope_max": [
+  0.11315,
+  0.05,
+  0.183
+ ],
+ "pose_for_checks": "stowed (deployable nodes use extras.stowed)",
+ "notes": "panel_nx is replaced by radiator_panel; explode = position + direction * distance * t",
+ "instances": [
+  {
+   "id": "frame",
+   "part": "frame_6u",
+   "file": "frame_6u.glb",
+   "position": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "distance": 0.0
+   }
+  },
+  {
+   "id": "panels",
+   "part": "face_panels",
+   "file": "face_panels.glb",
+   "position": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "distance": 0.0
+   },
+   "hidden_nodes": [
+    "panel_nx"
+   ],
+   "node_explode": {
+    "panel_py": [
+     [
+      0,
+      1,
+      0
+     ],
+     0.1
+    ],
+    "panel_ny": [
+     [
+      0,
+      -1,
+      0
+     ],
+     0.1
+    ],
+    "panel_px": [
+     [
+      1,
+      0,
+      0
+     ],
+     0.09
+    ],
+    "panel_pz": [
+     [
+      0,
+      0,
+      1
+     ],
+     0.12
+    ],
+    "panel_nz": [
+     [
+      0,
+      0,
+      -1
+     ],
+     0.12
+    ]
+   }
+  },
+  {
+   "id": "radiator",
+   "part": "radiator_panel",
+   "file": "radiator_panel.glb",
+   "position": [
+    -0.10465,
+    0.0,
+    0.0
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    1.570796
+   ],
+   "explode": {
+    "direction": [
+     -1.0,
+     0.0,
+     0.0
+    ],
+    "distance": 0.09
+   }
+  },
+  {
+   "id": "uhf",
+   "part": "uhf_antenna",
+   "file": "uhf_antenna.glb",
+   "position": [
+    -0.1063,
+    0.0,
+    0.124
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    1.570796
+   ],
+   "explode": {
+    "direction": [
+     -1.0,
+     0.0,
+     0.0
+    ],
+    "distance": 0.14
+   }
+  },
+  {
+   "id": "patch",
+   "part": "patch_antenna",
+   "file": "patch_antenna.glb",
+   "position": [
+    0.10615,
+    -0.0,
+    0.105
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    -1.570796
+   ],
+   "explode": {
+    "direction": [
+     1.0,
+     0.0,
+     0.0
+    ],
+    "distance": 0.13
+   }
+  },
+  {
+   "id": "sun_sensor",
+   "part": "sun_sensor",
+   "file": "sun_sensor.glb",
+   "position": [
+    0.10615,
+    0.02,
+    -0.12
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    -1.570796
+   ],
+   "explode": {
+    "direction": [
+     1.0,
+     0.0,
+     0.0
+    ],
+    "distance": 0.13
+   }
+  },
+  {
+   "id": "wing_py",
+   "part": "solar_wing",
+   "file": "solar_wing.glb",
+   "position": [
+    0.096,
+    0.0443,
+    0.0
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "distance": 0.14
+   }
+  },
+  {
+   "id": "wing_ny",
+   "part": "solar_wing_mirror",
+   "file": "solar_wing_mirror.glb",
+   "position": [
+    -0.096,
+    -0.0443,
+    0.0
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    3.141593,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     -1.0,
+     0.0
+    ],
+    "distance": 0.14
+   }
+  },
+  {
+   "id": "backplane",
+   "part": "backplane",
+   "file": "backplane.glb",
+   "position": [
+    -0.0515,
+    -0.037,
+    -0.038
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     -0.2873,
+     -0.9578,
+     0.0
+    ],
+    "distance": 0.07
+   }
+  },
+  {
+   "id": "eps",
+   "part": "eps_board",
+   "file": "eps_board.glb",
+   "position": [
+    -0.0515,
+    -0.02176,
+    0.012
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     -0.9701,
+     0.2425,
+     0.0
+    ],
+    "distance": 0.1
+   }
+  },
+  {
+   "id": "obc",
+   "part": "obc_board",
+   "file": "obc_board.glb",
+   "position": [
+    -0.0515,
+    -0.00652,
+    0.012
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     -0.8575,
+     0.5145,
+     0.0
+    ],
+    "distance": 0.13
+   }
+  },
+  {
+   "id": "transceiver",
+   "part": "transceiver_board",
+   "file": "transceiver_board.glb",
+   "position": [
+    -0.0515,
+    0.00872,
+    0.012
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     -0.6247,
+     0.7809,
+     0.0
+    ],
+    "distance": 0.16
+   }
+  },
+  {
+   "id": "battery",
+   "part": "battery_pack",
+   "file": "battery_pack.glb",
+   "position": [
+    -0.0515,
+    -0.02176,
+    -0.088
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     -0.9407,
+     0.1881,
+     -0.2822
+    ],
+    "distance": 0.11
+   }
+  },
+  {
+   "id": "magnetorquers",
+   "part": "magnetorquer_set",
+   "file": "magnetorquer_set.glb",
+   "position": [
+    -0.0515,
+    0.008,
+    -0.088
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     -0.3651,
+     0.9129,
+     -0.1826
+    ],
+    "distance": 0.15
+   }
+  },
+  {
+   "id": "imu",
+   "part": "imu_box",
+   "file": "imu_box.glb",
+   "position": [
+    -0.035,
+    0.0205,
+    0.012
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     0.9806,
+     0.1961
+    ],
+    "distance": 0.2
+   }
+  },
+  {
+   "id": "camera",
+   "part": "narrow_angle_camera",
+   "file": "narrow_angle_camera.glb",
+   "position": [
+    -0.0515,
+    0.0,
+    0.0655
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     0.1483,
+     0.9889
+    ],
+    "distance": 0.16
+   }
+  },
+  {
+   "id": "ir_spectrometer",
+   "part": "ir_spectrometer",
+   "file": "ir_spectrometer.glb",
+   "position": [
+    0.044,
+    0.0,
+    0.072
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     0.1483,
+     0.9889
+    ],
+    "distance": 0.16
+   }
+  },
+  {
+   "id": "transponder",
+   "part": "transponder",
+   "file": "transponder.glb",
+   "position": [
+    0.052,
+    -0.0404,
+    0.006
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.8452,
+     -0.5071,
+     0.169
+    ],
+    "distance": 0.12
+   }
+  },
+  {
+   "id": "rw_cluster",
+   "part": "rw_cluster",
+   "file": "rw_cluster.glb",
+   "position": [
+    0.055,
+    0.004,
+    0.0335
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.4319,
+     0.8639,
+     0.2592
+    ],
+    "distance": 0.16
+   }
+  },
+  {
+   "id": "star_tracker",
+   "part": "star_tracker",
+   "file": "star_tracker.glb",
+   "position": [
+    0.0387,
+    0.0155,
+    -0.022
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    1.570796,
+    -1.570796
+   ],
+   "explode": {
+    "direction": [
+     0.9578,
+     0.2873,
+     0.0
+    ],
+    "distance": 0.18
+   }
+  },
+  {
+   "id": "ion_engine",
+   "part": "ion_engine",
+   "file": "ion_engine.glb",
+   "position": [
+    0.056,
+    -0.004,
+    -0.1673
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "distance": 0.16
+   }
+  },
+  {
+   "id": "harness",
+   "part": "harness",
+   "file": "harness.glb",
+   "position": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     -1.0,
+     0.0
+    ],
+    "distance": 0.04
+   }
+  },
+  {
+   "id": "access_port",
+   "part": "access_port_rbf",
+   "file": "access_port_rbf.glb",
+   "position": [
+    -0.06,
+    -0.016,
+    -0.1755
+   ],
+   "rotation_euler_xyz": [
+    -1.570796,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "distance": 0.1
+   }
+  },
+  {
+   "id": "switch_a",
+   "part": "deploy_switch",
+   "file": "deploy_switch.glb",
+   "position": [
+    0.1089,
+    0.04575,
+    -0.183
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    3.141593,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "distance": 0.05
+   }
+  },
+  {
+   "id": "switch_b",
+   "part": "deploy_switch",
+   "file": "deploy_switch.glb",
+   "position": [
+    -0.1089,
+    -0.04575,
+    -0.183
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    3.141593,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     0.0,
+     -1.0
+    ],
+    "distance": 0.05
+   }
+  },
+  {
+   "id": "spring_a",
+   "part": "separation_spring",
+   "file": "separation_spring.glb",
+   "position": [
+    -0.1089,
+    0.04575,
+    0.183
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "distance": 0.05
+   }
+  },
+  {
+   "id": "spring_b",
+   "part": "separation_spring",
+   "file": "separation_spring.glb",
+   "position": [
+    0.1089,
+    -0.04575,
+    0.183
+   ],
+   "rotation_euler_xyz": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "explode": {
+    "direction": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "distance": 0.05
+   }
+  }
+ ]
+}

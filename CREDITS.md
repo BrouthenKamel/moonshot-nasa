@@ -2,7 +2,7 @@
 
 Generated from `src/assets/manifest.ts` by `pnpm assets:credits`. Do not edit by hand.
 
-AI-generated assets: 102 of 186.
+AI-generated assets: 153 of 219.
 
 | Asset | Kind | Source | License | AI-generated | Credit |
 |---|---|---|---|---|---|
@@ -174,21 +174,54 @@ AI-generated assets: 102 of 186.
 | `model.rocket-boosters_2` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): 2 Solid Boosters |
 | `model.rocket-boosters_4` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): 4 Small Boosters |
 | `model.rocket-boosters_2_heavy` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): 2 Heavy Boosters |
-| `model.nasa-icecube` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/CubeSat - ICECube/CubeSat - ICECube.glb |
-| `model.env-lro` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Lunar Reconnaissance Orbiter (A)/Lunar Reconnaissance Orbiter (A).glb |
-| `model.env-lunar-crater` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Printing/Moon - Aristarchus Region/Moon - Aristarchus Region.stl |
-| `texture.lunar-crater-closeup` | texture | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/Images and Textures/Moon - Lunar Crater/Moon - Lunar Crater.jpg |
-| `model.env-asteroid-bennu` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/1999 RQ36 asteroid/1999 RQ36 asteroid.glb |
-| `model.env-support-stand` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Flight System Support/Flight System Support.glb |
-| `model.env-cleanroom-oru` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Orbital Replacement Unit/Orbital Replacement Unit.glb |
-| `model.env-astronaut` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Astronaut/Astronaut.glb |
-| `model.env-dsn-34m` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Deep Space Network 34-meter/Deep Space Network 34-meter.glb |
-| `model.env-tall-dish` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Tall Dish/Tall Dish (post + turntable + dish).glb |
-| `model.env-radome` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Radome/Radome.glb |
-| `model.env-jsc-mcc` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/JSC Mission Control Room/JSC Mission Control Room.glb |
-| `model.env-tdrs` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Tracking and Data Relay Satellites (TDRS) (A)/Tracking and Data Relay Satellites (TDRS) (A).glb |
-| `model.env-mobile-launcher` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Mobile Launcher/Mobile Launcher (assembled).glb |
-| `model.env-launch-gantry` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Gantry/Gantry.glb |
-| `model.env-crawler` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Crawler/Crawler.glb |
-| `model.env-vab` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Vehicle Assembly Building (VAB)/Vehicle Assembly Building (VAB).glb |
-| `model.env-lunar-lander` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Apollo Lunar Module/Apollo Lunar Module.glb |
+| `model.sc-frame_6u` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): 6U frame |
+| `model.sc-face_panels` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Removable face panels (+-X, +-Y, +-Z) with apertures and fasteners |
+| `model.sc-deploy_switch` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Rail-end deployment (separation) switch, plunger shown depressed |
+| `model.sc-separation_spring` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Rail-end separation spring plunger |
+| `model.sc-fasteners_kit` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Standoffs and fasteners kit in a sorting tray |
+| `model.sc-obc_board` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): On-board computer (PC/104) |
+| `model.sc-eps_board` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Electrical power system board (PC/104) |
+| `model.sc-battery_pack` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Battery pack |
+| `model.sc-transceiver_board` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): UHF/S-band transceiver board (PC/104) |
+| `model.sc-backplane` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Avionics backplane / motherboard |
+| `model.sc-transponder` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Iris-style deep-space X-band transponder |
+| `model.sc-reaction_wheel` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Single reaction wheel in housing (rotor on spin pivot, removable cover) |
+| `model.sc-rw_cluster` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): 3-axis reaction-wheel cluster on a machined bracket with drive electronics |
+| `model.sc-star_tracker` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Star tracker |
+| `model.sc-sun_sensor` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Fine sun sensor |
+| `model.sc-magnetorquer_set` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Magnetorquer set |
+| `model.sc-imu_box` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Inertial measurement unit |
+| `model.sc-narrow_angle_camera` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Narrow-angle camera |
+| `model.sc-ir_spectrometer` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): IR point spectrometer |
+| `model.sc-laser_reflectometer` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Laser reflectometer |
+| `model.sc-neutron_spectrometer` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Neutron spectrometer |
+| `model.sc-cold_gas_module` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Cold-gas propulsion module |
+| `model.sc-green_monoprop_module` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Green-monopropellant module |
+| `model.sc-ion_engine` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Iodine ion engine module (BIT-3 style) |
+| `model.sc-solar_wing` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Deployable solar wing |
+| `model.sc-solar_wing_mirror` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Deployable solar wing, mirror-stacked variant (stows toward -Y, cells still face +Y deployed) |
+| `model.sc-patch_antenna` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): S-band patch antenna |
+| `model.sc-dish_antenna` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Deployable X-band dish (150 mm) |
+| `model.sc-uhf_antenna` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Deployable UHF dipole |
+| `model.sc-mli_blanket` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): MLI blanket |
+| `model.sc-radiator_panel` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Radiator panel (-X face) |
+| `model.sc-heater_pads` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Kapton film heaters (set of 3) with lead wires and connectors, on a release liner |
+| `model.sc-access_port_rbf` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Access port |
+| `model.sc-deployer_6u_closed` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): 6U CubeSat deployer, door closed, pusher spring compressed |
+| `model.sc-deployer_6u_open` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): 6U CubeSat deployer, door open (deployed pose), pusher plate ejected |
+| `model.sc-separation_ring` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Motorised separation ring (15-inch class) |
+| `model.sc-payload_adapter_plate` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Payload adapter plate |
+| `model.sc-fairing_half` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Payload fairing half (1.2 m class), cutaway |
+| `model.sc-lv_mount_plate` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Launch-vehicle mounting plate |
+| `model.sc-assembly_stand` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Rotation assembly stand |
+| `model.sc-crane_hook` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Overhead crane hook block with swivel hook, safety latch, 4-leg round-sling set and shackles |
+| `model.sc-esd_workbench` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): ESD workbench |
+| `model.sc-torque_wrench` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): 1/4-inch click torque wrench |
+| `model.sc-screwdriver` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Precision ESD hex driver |
+| `model.sc-shipping_container` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Rugged shipping container |
+| `model.sc-flight_covers` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Non-flight protective covers (red) |
+| `model.sc-rbf_tag` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Remove-before-flight streamer (red, no text) with grommet, split ring, lanyard and T-handle pin |
+| `model.sc-laptop_cart` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Test laptop on a two-shelf cart with GSE power supply and cables |
+| `model.sc-witness_plate` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Particle fall-out witness plate |
+| `model.sc-gse_umbilical_cable` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): GSE umbilical test cable |
+| `model.sc-harness` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/spacecraft_kit/build_spacecraft_kit.py): Spacecraft harness |
