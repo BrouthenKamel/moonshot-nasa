@@ -16,7 +16,7 @@ const CATEGORY_COLOR: Record<PartCategory, string> = {
   instrument: '#a855f7',
   battery: '#22c55e',
   radio: '#3b82f6',
-  computer: '#06b6d4',
+  computer: '#f472b6', // pink: cyan is reserved for ice
   attitude: '#eab308',
   propulsion: '#f97316',
   solar: '#38bdf8',
