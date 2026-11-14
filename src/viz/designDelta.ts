@@ -1,7 +1,10 @@
 import type { Budgets } from '../sim/types'
 
+/** Budget fields that are plain numbers */
+export type NumericBudgetKey = { [K in keyof Budgets]: Budgets[K] extends number ? K : never }[keyof Budgets]
+
 export interface DeltaLine {
-  key: keyof Budgets
+  key: NumericBudgetKey
   label: string
   unit: string
   before: number
@@ -10,7 +13,7 @@ export interface DeltaLine {
   betterWhenHigher: boolean
 }
 
-const TRACKED: { key: keyof Budgets; label: string; unit: string; betterWhenHigher: boolean }[] = [
+const TRACKED: { key: NumericBudgetKey; label: string; unit: string; betterWhenHigher: boolean }[] = [
   { key: 'totalMass', label: 'Mass', unit: 'kg', betterWhenHigher: false },
   { key: 'totalVolume', label: 'Volume', unit: 'U', betterWhenHigher: false },
   { key: 'powerMargin', label: 'Power margin', unit: 'W', betterWhenHigher: true },

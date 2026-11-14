@@ -2,19 +2,19 @@ import { describe, it, expect } from 'vitest'
 import { replayPose, type Pose } from './replayPose'
 import { runSimulation } from '../sim/simulate'
 import { createDefaultDesign } from '../sim/budgets'
-import { getTransferById } from '../data/transfers'
 import type { Design } from '../sim/types'
 
 const design = createDefaultDesign()
 const okRun = runSimulation(design, 'engineer', 1)
 const okLogs = okRun.turnLogs
 
-// Chosen failing design: cold gas + direct transfer + GTO ride fails capture for seeds 1-3
+// Failing design: a 2 kg chemical tank (about 230 m/s) cannot capture into the elliptical orbit (386 m/s)
 const failDesign: Design = {
   ...createDefaultDesign(),
-  propulsion: 'prop-coldgas',
-  transfer: 'transfer-direct',
-  ride: 'ride-gto',
+  propulsion: 'prop-chemical',
+  solar: 'solar-1wing',
+  orbit: 'orbit-elliptical',
+  transfer: 'transfer-low-energy',
 }
 const failRun = runSimulation(failDesign, 'engineer', 1)
 const failLogs = failRun.turnLogs
@@ -33,7 +33,9 @@ describe('replayPose', () => {
   })
 
   it('moves along the transfer arc from the first transfer log', () => {
-    const duration = getTransferById(design.transfer)!.durationTurns
+    const launch = okLogs.findIndex((l) => l.notes.some((n) => n.startsWith('Launched')))
+    const capture = okLogs.findIndex((l) => l.notes.some((n) => n.startsWith('Capture burn successful')))
+    const duration = capture - launch
     const first = okLogs.findIndex((l) => l.phase === 'transfer')
     const p = replayPose(design, okLogs, first)
     expect(p.where).toBe('transfer')
