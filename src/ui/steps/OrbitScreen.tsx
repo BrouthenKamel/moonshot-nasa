@@ -284,7 +284,7 @@ function ReadoutPanel({ o, months }: { o: OrbitOption; months: number }) {
       </div>
 
       <div className="mt-3 flex items-baseline justify-between">
-        <div className={`text-[44px] leading-none font-extrabold tabular-nums ${numberColour}`}>{Math.round(now)}%</div>
+        <div className={`text-[38px] leading-none font-extrabold tabular-nums ${numberColour}`}>{Math.round(now)}%</div>
         <div className="text-right text-xs leading-snug text-slate-400">
           of the polar ice mapped
           <br />
@@ -294,20 +294,33 @@ function ReadoutPanel({ o, months }: { o: OrbitOption; months: number }) {
       <Bar pct={now} color={now >= COVERAGE_GOAL ? '#4ade80' : '#22d3ee'} tick={COVERAGE_GOAL} />
       <div className="mt-1 text-right text-[11px] text-slate-500">goal {COVERAGE_GOAL}%</div>
 
+      <div className="mt-1 rounded-lg bg-slate-900/60 p-2.5">
+        <div className="mb-1.5 text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
+          GO / NO-GO
+        </div>
+        <CheckRows checks={o.checks} />
+      </div>
+
+      <div className="mt-3 text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
+        THIS ORBIT
+      </div>
+
       <Row label="Passes over the pole" value={`${o.passesPerTurn} a month`}>
         <p className="mt-0.5 text-slate-500">{o.passesLine}</p>
       </Row>
-      <Row label="In sunlight" value={`${o.sunlitPct}%`}>
-        <Bar pct={o.sunlitPct} color="#fbbf24" />
-        <p className={`mt-1 ${o.batteryOk ? 'text-slate-500' : 'text-red-400'}`}>
-          {o.eclipseHours > 0
-            ? `Longest shadow ${o.eclipseHours} h per orbit: needs ${o.batteryNeedWh.toFixed(0)} Wh, battery gives ${o.batteryUsableWh.toFixed(0)} Wh.`
-            : 'Never in the Moon’s shadow.'}
-        </p>
-      </Row>
-      <Row label="Earth in view" value={`${o.earthPct}%`}>
-        <Bar pct={o.earthPct} color="#60a5fa" />
-      </Row>
+      <div className="grid grid-cols-2 gap-x-3">
+        <Row label="In sunlight" value={`${o.sunlitPct}%`}>
+          <Bar pct={o.sunlitPct} color="#fbbf24" />
+        </Row>
+        <Row label="Earth in view" value={`${o.earthPct}%`}>
+          <Bar pct={o.earthPct} color="#60a5fa" />
+        </Row>
+      </div>
+      <p className={`mt-1 text-xs ${o.batteryOk ? 'text-slate-500' : 'text-red-400'}`}>
+        {o.eclipseHours > 0
+          ? `Longest shadow ${o.eclipseHours} h per orbit: needs ${o.batteryNeedWh.toFixed(0)} Wh, battery gives ${o.batteryUsableWh.toFixed(0)} Wh.`
+          : 'Never in the Moon’s shadow.'}
+      </p>
       <Row label="Fuel to get in" value={cap === null ? 'not possible' : `${Math.round(cap).toLocaleString()} of ${Math.round(o.deltaVAvailable).toLocaleString()} m/s`}>
         <Bar pct={cap === null || o.deltaVAvailable <= 0 ? 100 : (cap / o.deltaVAvailable) * 100} color={fits ? '#4ade80' : '#f87171'} />
         <p className={`mt-1 ${fits ? 'text-slate-500' : 'text-red-400'}`}>
@@ -319,12 +332,6 @@ function ReadoutPanel({ o, months }: { o: OrbitOption; months: number }) {
         </p>
       </Row>
 
-      <div className="mt-4 border-t border-slate-700/70 pt-3">
-        <div className="mb-2 text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
-          GO / NO-GO
-        </div>
-        <CheckRows checks={o.checks} />
-      </div>
     </div>
   )
 }

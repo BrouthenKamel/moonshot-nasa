@@ -33,7 +33,7 @@ function raised(azDeg: number, up: number): Vec3 {
 }
 
 export const SUN_DIR: Vec3 = raised(160, 0.05)
-export const EARTH_DIR: Vec3 = raised(14, 0.42)
+export const EARTH_DIR: Vec3 = raised(40, 0.9)
 
 const SHAPES: Record<string, OrbitShape> = {
   'orbit-halo': { rp: 1.035, ra: 9, planeDeg: 0, period: 15, camDist: 8.6 },

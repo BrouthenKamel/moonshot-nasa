@@ -448,7 +448,7 @@ function Craft({ option, reduced }: { option: OrbitOption; reduced: boolean }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Camera: drag to look around, scroll to zoom, slow drift when idle   */
+/* Camera: drag to look around, scroll to zoom, slow sway when idle    */
 /* ------------------------------------------------------------------ */
 
 function CameraRig({ targetDist, reduced }: { targetDist: number; reduced: boolean }) {
@@ -494,12 +494,13 @@ function CameraRig({ targetDist, reduced }: { targetDist: number; reduced: boole
     }
   }, [gl])
 
-  useFrame(() => {
+  useFrame((state) => {
     const c = cam.current
     c.dist = reduced ? c.target : c.dist + (c.target - c.dist) * 0.05
-    if (!drag.current && !reduced) c.yaw += 0.00035
+    // A gentle sway around where the player left the camera, so the idle view stays on the lit side
+    const yaw = reduced ? c.yaw : c.yaw + 0.25 * Math.sin(state.clock.elapsedTime * 0.07)
     camera.position
-      .set(Math.cos(c.yaw) * Math.cos(c.pitch), Math.sin(c.pitch), Math.sin(c.yaw) * Math.cos(c.pitch))
+      .set(Math.cos(yaw) * Math.cos(c.pitch), Math.sin(c.pitch), Math.sin(yaw) * Math.cos(c.pitch))
       .multiplyScalar(c.dist)
     camera.lookAt(LOOK_AT)
   })

@@ -1,6 +1,6 @@
 # Orbit view for step 4 (Orbit Selection): design
 
-Status: direction approved by Jakob on 2026-11-14 (he chose "A: space view", then said "Yes, write design" after the mockup). Reviewed once by a builder check; aligned with `docs/DESIGN-DIRECTION.md` (PR #10). Not implemented. Branch: `claude/orbit-selection-visual`, cut from `main` at bc9574c.
+Status: direction approved by Jakob on 2026-11-14 (he chose "A: space view", then said "Yes, write design" after the mockup). Reviewed once by a builder check; aligned with `docs/DESIGN-DIRECTION.md`. Implemented on 2026-11-14 (screenshots: `assets/2026-11-14-orbit-view-built.jpg`, `assets/2026-11-14-orbit-view-built-too-high.jpg`). Branch: `claude/orbit-selection-visual`, cut from `main` at bc9574c.
 
 Reference, approved as the direction:
 
@@ -207,3 +207,13 @@ React:
 
 - `pnpm typecheck && pnpm test && pnpm lint && pnpm build`.
 - In the browser at 1280 × 720: pick each orbit by ring and by card and confirm `design.orbit` in the persisted store; confirm the month-12 number equals the Go / No-Go Science value for each orbit; check a design with no ice instrument, one with an engine that cannot capture, and the fallback with WebGL disabled; check reduced motion.
+
+## Calls made while building (2026-11-14)
+
+- The orbit also moves the Budget check (an ion engine's longer transfer), so on the Engineer budget the LunaH-Map-like design reads "EATS INTO THE RESERVE" on the elliptical orbit and "OVER BUDGET WITH THIS ORBIT" on the 100 km orbit. The table order stays as written: a red check always wins.
+- Upkeep is said against the 12-month mission (Integration's playtest finding): "fuel for far beyond the 12-month mission", "fuel for N months, enough for the mission", or "Only N months of fuel to hold the orbit: the mission will end early". Used in the scene and in the fallback.
+- The Go / No-Go rows sit directly under the ice number in the readout panel (they were below the fold at 1280 x 720); sunlight and Earth in view share one row.
+- The idle camera sways ±0.25 rad around where the player left it instead of circling the Moon, because circling reached the night side, where the Moon is black.
+- Earth sits at azimuth 40°, raised 0.9, so it is in open sky above the side-view panel.
+- The fallback adds the title line and a verdict with the check rows above today's cards, because the Dashboard is hidden on this step in the fallback too.
+
