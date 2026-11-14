@@ -1,18 +1,23 @@
 import { z } from 'zod'
 
-/** Rideshare launch opportunities */
+/**
+ * Rideshare launches. The lunar ride is the brief's (turn 8, dropped on a
+ * trans-lunar path, as Artemis I dropped Lunar IceCube and LunaH-Map).
+ * The other two are game values that trade cost against delta-v and time.
+ */
 export const RideSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string(),
   departureTurn: z.number(),
-  cost: z.number(), // $M
+  cost: z.number(), // $M ride fee
   massLimit: z.number(), // kg
   dropOffOrbit: z.enum(['trans-lunar', 'gto', 'lunar-vicinity']),
-  // What the spacecraft needs to do after deployment
-  requiredDeltaV: z.number(), // m/s to reach lunar orbit insertion point
-  electricCompatible: z.boolean(), // can use slow electric propulsion
-  chemicalCompatible: z.boolean(), // can use fast chemical propulsion
+  extraDeltaV: z.number(), // m/s to climb from the drop-off to a trans-lunar path
+  insertionFactor: z.number(), // multiplies the capture delta-v (1 = from a trans-lunar path)
+  requiredDeltaV: z.number(), // shown: extra delta-v before the capture burn
+  electricCompatible: z.boolean(),
+  chemicalCompatible: z.boolean(),
 })
 export type Ride = z.infer<typeof RideSchema>
 
@@ -21,25 +26,29 @@ export const rides: Ride[] = [
     id: 'ride-gto',
     name: 'GTO Rideshare',
     description:
-      'Cheaper rideshare to geostationary transfer orbit. Much farther from the Moon, requires significant delta-v. Electric propulsion only realistically.',
+      'Cheap ride to geostationary transfer orbit, far from the Moon. Only an ion engine can climb out from there, which takes extra months.',
     departureTurn: 6,
-    cost: 1.5,
+    cost: 0.8,
     massLimit: 16,
     dropOffOrbit: 'gto',
-    requiredDeltaV: 2800, // GTO to lunar orbit is ~2800 m/s
+    extraDeltaV: 1500,
+    insertionFactor: 1,
+    requiredDeltaV: 1500,
     electricCompatible: true,
-    chemicalCompatible: false, // would need too much fuel
+    chemicalCompatible: false,
   },
   {
     id: 'ride-lunar',
     name: 'Lunar Rideshare',
     description:
-      'Standard ride on a Moon-bound mission. Dropped on trans-lunar trajectory, need to capture into lunar orbit.',
+      'The brief\'s ride: a Moon launch that drops CubeSats on a trans-lunar path, as Artemis I did. From there your own engine has to capture into orbit.',
     departureTurn: 8,
-    cost: 3.0,
+    cost: 1.5,
     massLimit: 14,
     dropOffOrbit: 'trans-lunar',
-    requiredDeltaV: 900, // Trans-lunar to lunar orbit capture
+    extraDeltaV: 0,
+    insertionFactor: 1,
+    requiredDeltaV: 0,
     electricCompatible: true,
     chemicalCompatible: true,
   },
@@ -47,20 +56,21 @@ export const rides: Ride[] = [
     id: 'ride-commercial',
     name: 'Commercial Lunar Express',
     description:
-      'Premium commercial ride that delivers near the Moon. Minimal capture burn required but more expensive and later departure.',
+      'A commercial lander that releases you close to the Moon: the capture burn is less than half, but it costs more, leaves later and takes less mass.',
     departureTurn: 10,
-    cost: 5.0,
+    cost: 3.5,
     massLimit: 12,
     dropOffOrbit: 'lunar-vicinity',
-    requiredDeltaV: 200, // Already near the Moon, just need final insertion
+    extraDeltaV: 0,
+    insertionFactor: 0.4,
+    requiredDeltaV: 0,
     electricCompatible: true,
     chemicalCompatible: true,
   },
 ]
 
-/** Next ride after missing current one */
+/** Next ride after missing the current one */
 export const missedRideWaitTurns = 6
-export const missedRideTeamCostPerTurn = 0.2 // $M
 
 export function getRideById(id: string): Ride | undefined {
   return rides.find((r) => r.id === id)

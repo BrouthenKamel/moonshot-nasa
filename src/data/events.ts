@@ -1,13 +1,18 @@
 import { z } from 'zod'
 
-/** Mission event types */
+/**
+ * Mission events from the logic map. Chances are game values; each event
+ * says which real mission it comes from where there is one. The flight
+ * simulation (src/sim/simulate.ts) applies the effects.
+ */
 export const EventTypeSchema = z.enum([
-  'thruster-clog',
-  'comm-loss',
+  'build-delay',
+  'no-signal',
+  'thruster',
   'radiation-reset',
-  'budget-cut',
-  'solar-storm',
-  'wheel-fault',
+  'station-outage',
+  'long-eclipse',
+  'instrument-degrades',
 ])
 export type EventType = z.infer<typeof EventTypeSchema>
 
@@ -16,7 +21,7 @@ export const EventSeveritySchema = z.enum(['minor', 'major', 'critical'])
 export type EventSeverity = z.infer<typeof EventSeveritySchema>
 
 /** Mission phase when event can occur */
-export const MissionPhaseSchema = z.enum(['transfer', 'capture', 'orbit'])
+export const MissionPhaseSchema = z.enum(['build', 'launch', 'transfer', 'orbit'])
 export type MissionPhase = z.infer<typeof MissionPhaseSchema>
 
 /** Event definition */
@@ -27,7 +32,7 @@ export const EventSchema = z.object({
   realWorldSource: z.string(),
   severity: EventSeveritySchema,
   phases: z.array(MissionPhaseSchema),
-  baseOdds: z.number(), // per turn probability (0-1)
+  baseOdds: z.number(), // per turn probability (0-1), before mitigations
   mitigations: z.array(z.object({
     condition: z.string(), // human-readable condition
     oddsMultiplier: z.number(),
@@ -36,210 +41,151 @@ export const EventSchema = z.object({
     id: z.string(),
     name: z.string(),
     description: z.string(),
-    reserveCost: z.number(), // $M from reserve
+    reserveCost: z.number(), // $M from reserve, paid only if it works
     successChance: z.number(), // 0-1
     successOutcome: z.string(),
     failureOutcome: z.string(),
-    impactOnMission: z.object({
-      deltavLoss: z.number(), // m/s
-      powerLoss: z.number(), // W
-      dataLoss: z.number(), // GB
-      turnLoss: z.number(), // turns
-    }),
   })),
 })
 export type MissionEvent = z.infer<typeof EventSchema>
 
 export const events: MissionEvent[] = [
   {
-    id: 'thruster-clog',
-    name: 'Thruster Blockage',
-    description:
-      'Propellant feed lines are partially blocked, reducing thrust capability.',
-    realWorldSource: 'Lunar Flashlight experienced thruster clogging that prevented lunar orbit insertion.',
-    severity: 'critical',
-    phases: ['transfer', 'capture'],
-    baseOdds: 0.08,
-    mitigations: [
-      { condition: 'Redundant propulsion system', oddsMultiplier: 0.3 },
-      { condition: 'Extra testing phase', oddsMultiplier: 0.7 },
-    ],
+    id: 'build-delay',
+    name: 'Build Delay',
+    description: 'A part arrives late or fails inspection. The build slips by one turn.',
+    realWorldSource: 'CubeSat 101: most CubeSat schedules slip.',
+    severity: 'minor',
+    phases: ['build'],
+    baseOdds: 0.08, // times build effort / 35
+    mitigations: [{ condition: 'Simpler spacecraft (less build effort)', oddsMultiplier: 1 }],
     choices: [
       {
-        id: 'heat-lines',
-        name: 'Heat propellant lines',
-        description: 'Use heaters to try clearing the blockage. Costs reserve budget.',
-        reserveCost: 0.3,
-        successChance: 0.6,
-        successOutcome: 'Lines cleared, full thrust restored.',
-        failureOutcome: 'Heating ineffective, partial thrust only.',
-        impactOnMission: { deltavLoss: 200, powerLoss: 0, dataLoss: 0, turnLoss: 0 },
+        id: 'wait',
+        name: 'Accept the delay',
+        description: 'Ready one turn later. If that misses the ride, wait for the next one and keep paying the team.',
+        reserveCost: 0,
+        successChance: 1,
+        successOutcome: 'The schedule slips by a turn.',
+        failureOutcome: '',
       },
       {
-        id: 'reduce-thrust',
-        name: 'Operate at reduced thrust',
-        description: 'Accept lower thrust and extend the transfer.',
+        id: 'cut-test',
+        name: 'Cut a test turn',
+        description: 'Stay on schedule by testing less. Failure odds in flight go up; the test money comes back.',
         reserveCost: 0,
-        successChance: 0.9,
-        successOutcome: 'Mission continues with reduced capability.',
-        failureOutcome: 'Insufficient thrust for capture.',
-        impactOnMission: { deltavLoss: 300, powerLoss: 0, dataLoss: 0, turnLoss: 2 },
+        successChance: 1,
+        successOutcome: 'Back on schedule, with less testing behind you.',
+        failureOutcome: '',
       },
     ],
   },
   {
-    id: 'comm-loss',
-    name: 'Communication Loss',
-    description: 'Contact with spacecraft lost. May be temporary or permanent.',
-    realWorldSource:
-      'Lunar IceCube lost communication shortly after deployment from Artemis I.',
+    id: 'no-signal',
+    name: 'No Signal After Deployment',
+    description: 'The ride has let go of the CubeSat, but the ground hears nothing.',
+    realWorldSource: 'Lunar IceCube was never heard from properly after deployment from Artemis I.',
     severity: 'critical',
-    phases: ['transfer', 'orbit'],
-    baseOdds: 0.06,
+    phases: ['launch'],
+    baseOdds: 0.08,
     mitigations: [
-      { condition: 'Redundant flight computer', oddsMultiplier: 0.4 },
-      { condition: 'High-reliability radio', oddsMultiplier: 0.6 },
+      { condition: 'Testing (2 test turns = x1.0, 0 = x2.0)', oddsMultiplier: 1 },
+      { condition: 'Radiation-hard computer', oddsMultiplier: 0.3 },
     ],
     choices: [
       {
-        id: 'dsn-search',
-        name: 'Request DSN search',
-        description: 'Use Deep Space Network to search for the signal. Expensive.',
+        id: 'recover',
+        name: 'Book emergency tracking',
+        description: 'The big dishes search for the craft: 60% chance to find it.',
         reserveCost: 0.5,
-        successChance: 0.7,
-        successOutcome: 'Signal reacquired, mission continues.',
-        failureOutcome: 'No signal found, mission lost.',
-        impactOnMission: { deltavLoss: 0, powerLoss: 0, dataLoss: 0, turnLoss: 1 },
+        successChance: 0.6,
+        successOutcome: 'Signal found. The mission goes on.',
+        failureOutcome: 'No signal. The mission is lost.',
       },
       {
-        id: 'wait-reboot',
-        name: 'Wait for autonomous reboot',
-        description: 'Hope the spacecraft reboots and re-establishes contact.',
+        id: 'give-up',
+        name: 'Give up the search',
+        description: 'Save the reserve. The mission is lost.',
         reserveCost: 0,
-        successChance: 0.4,
-        successOutcome: 'Spacecraft rebooted, contact restored.',
-        failureOutcome: 'No response, mission lost.',
-        impactOnMission: { deltavLoss: 0, powerLoss: 0, dataLoss: 1, turnLoss: 1 },
+        successChance: 0,
+        successOutcome: '',
+        failureOutcome: 'The mission is lost.',
+      },
+    ],
+  },
+  {
+    id: 'thruster',
+    name: 'Thruster Underperforms',
+    description: 'The engine delivers far less thrust than it did on the ground.',
+    realWorldSource: "Lunar Flashlight's thrusters underperformed and it never reached its orbit.",
+    severity: 'critical',
+    phases: ['transfer'],
+    baseOdds: 0.03,
+    mitigations: [{ condition: 'Testing (2 test turns = x1.0, 0 = x2.0)', oddsMultiplier: 1 }],
+    choices: [
+      {
+        id: 'fix',
+        name: 'Work on a fix',
+        description: '50% chance; if it works it costs 1 M from the reserve and one extra turn.',
+        reserveCost: 1.0,
+        successChance: 0.5,
+        successOutcome: 'Thrust restored, one turn late.',
+        failureOutcome: 'The fix did not work.',
+      },
+      {
+        id: 'accept',
+        name: 'Fly on as it is',
+        description: 'A chemical engine loses half its delta-v; an ion engine needs twice as long for the rest of the transfer.',
+        reserveCost: 0,
+        successChance: 0,
+        successOutcome: '',
+        failureOutcome: 'Flying on with a weak engine.',
       },
     ],
   },
   {
     id: 'radiation-reset',
-    name: 'Radiation-Induced Reset',
-    description:
-      'High-energy particle caused flight computer reset. Science data in buffer lost.',
-    realWorldSource: 'Common issue for CubeSats without radiation hardening.',
+    name: 'Radiation Reset',
+    description: 'A particle hit resets the computer. The craft sits in safe mode this turn.',
+    realWorldSource: 'A common problem for CubeSats without radiation-hard electronics.',
     severity: 'minor',
     phases: ['orbit'],
-    baseOdds: 0.12,
-    mitigations: [
-      { condition: 'Redundant flight computer', oddsMultiplier: 0.3 },
-      { condition: 'Large onboard storage', oddsMultiplier: 0.7 },
-    ],
-    choices: [
-      {
-        id: 'resume',
-        name: 'Resume operations',
-        description: 'Accept data loss and continue mission.',
-        reserveCost: 0,
-        successChance: 1.0,
-        successOutcome: 'Operations resumed, some data lost.',
-        failureOutcome: '',
-        impactOnMission: { deltavLoss: 0, powerLoss: 0, dataLoss: 0.5, turnLoss: 0 },
-      },
-    ],
+    baseOdds: 0.06,
+    mitigations: [{ condition: 'Radiation-hard computer', oddsMultiplier: 0.3 }],
+    choices: [],
   },
   {
-    id: 'budget-cut',
-    name: 'Budget Cut',
-    description: 'Agency funding reduced. Must operate with less ground support.',
-    realWorldSource: 'Budget fluctuations are common in space programs.',
+    id: 'station-outage',
+    name: 'Ground Station Outage',
+    description: 'The ground station is down for part of the month. Half the contact time is lost.',
+    realWorldSource: 'Ground stations are shared and break down.',
+    severity: 'minor',
+    phases: ['orbit'],
+    baseOdds: 0.06, // the station's own outage chance
+    mitigations: [{ condition: 'DSN (2%) instead of your own dish (10%)', oddsMultiplier: 1 }],
+    choices: [],
+  },
+  {
+    id: 'long-eclipse',
+    name: 'Long Eclipse',
+    description: "The Moon passes through Earth's shadow for hours. Only a big enough battery keeps the craft working.",
+    realWorldSource: 'LRO has to prepare for lunar eclipses every year.',
     severity: 'major',
     phases: ['orbit'],
     baseOdds: 0.05,
-    mitigations: [],
-    choices: [
-      {
-        id: 'reduce-ops',
-        name: 'Reduce operations tempo',
-        description: 'Less frequent contact, lower data return.',
-        reserveCost: 0,
-        successChance: 1.0,
-        successOutcome: 'Mission continues at reduced pace.',
-        failureOutcome: '',
-        impactOnMission: { deltavLoss: 0, powerLoss: 0, dataLoss: 0.3, turnLoss: 0 },
-      },
-      {
-        id: 'use-reserve',
-        name: 'Use reserve funding',
-        description: 'Tap into reserve to maintain operations.',
-        reserveCost: 0.4,
-        successChance: 1.0,
-        successOutcome: 'Operations maintained at full capacity.',
-        failureOutcome: '',
-        impactOnMission: { deltavLoss: 0, powerLoss: 0, dataLoss: 0, turnLoss: 0 },
-      },
-    ],
+    mitigations: [{ condition: 'Battery that carries the bus for 3 hours', oddsMultiplier: 0 }],
+    choices: [],
   },
   {
-    id: 'solar-storm',
-    name: 'Solar Storm',
-    description:
-      'Coronal mass ejection increases radiation. Safe mode required.',
-    realWorldSource: 'Solar activity affects all spacecraft operations.',
-    severity: 'major',
-    phases: ['transfer', 'orbit'],
-    baseOdds: 0.08,
-    mitigations: [
-      { condition: 'Redundant flight computer', oddsMultiplier: 0.5 },
-    ],
-    choices: [
-      {
-        id: 'safe-mode',
-        name: 'Enter safe mode',
-        description: 'Suspend science operations until storm passes.',
-        reserveCost: 0,
-        successChance: 0.95,
-        successOutcome: 'Storm passed, operations resumed.',
-        failureOutcome: 'Component damage during storm.',
-        impactOnMission: { deltavLoss: 0, powerLoss: 2, dataLoss: 0, turnLoss: 0 },
-      },
-    ],
-  },
-  {
-    id: 'wheel-fault',
-    name: 'Reaction Wheel Fault',
-    description: 'Reaction wheel showing increased friction. May fail completely.',
-    realWorldSource: 'Kepler spacecraft lost reaction wheels affecting pointing.',
+    id: 'instrument-degrades',
+    name: 'Instrument Degrades',
+    description: 'An instrument loses sensitivity. Every later turn returns 20% less science.',
+    realWorldSource: 'Detectors age in the radiation of deep space.',
     severity: 'major',
     phases: ['orbit'],
-    baseOdds: 0.07,
-    mitigations: [
-      { condition: 'Precision ADCS with redundancy', oddsMultiplier: 0.4 },
-      { condition: 'Basic ADCS (magnetorquers)', oddsMultiplier: 0.6 },
-    ],
-    choices: [
-      {
-        id: 'reduce-slew',
-        name: 'Reduce slew rate',
-        description: 'Slower pointing maneuvers to extend wheel life.',
-        reserveCost: 0,
-        successChance: 0.85,
-        successOutcome: 'Wheel stabilized, operations continue.',
-        failureOutcome: 'Wheel failed, reduced pointing capability.',
-        impactOnMission: { deltavLoss: 0, powerLoss: 0, dataLoss: 0.2, turnLoss: 0 },
-      },
-      {
-        id: 'use-thrusters',
-        name: 'Use thrusters for attitude',
-        description: 'Supplement wheel with thruster attitude control.',
-        reserveCost: 0.2,
-        successChance: 0.95,
-        successOutcome: 'Hybrid control working well.',
-        failureOutcome: 'Fuel consumption higher than expected.',
-        impactOnMission: { deltavLoss: 50, powerLoss: 0, dataLoss: 0, turnLoss: 0 },
-      },
-    ],
+    baseOdds: 0.03,
+    mitigations: [{ condition: 'Testing (2 test turns = x1.0, 0 = x2.0)', oddsMultiplier: 1 }],
+    choices: [],
   },
 ]
 
