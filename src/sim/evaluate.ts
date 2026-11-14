@@ -281,6 +281,37 @@ export function buildReport(state: SimState): Report {
     total: Math.round(parts.coverage + parts.data + parts.lifetime + parts.context + parts.money),
   }
 
+  // What cost the missing points: one plain line per score part below its maximum (Jakob, 14 Nov)
+  const scoreNotes: string[] = []
+  if (!f.captured) {
+    scoreNotes.push('Nothing scored: points only count once the craft is in the science orbit.')
+  } else {
+    const instruments = instrumentsOf(state)
+    const iceNote = iceShare < 1 ? ` These points only count for as much ice as was mapped (${f.coverage.toFixed(0)}% of the ${COVERAGE_TARGET}% target).` : ''
+    const coverageReq = requirements.find((r) => r.id === 'coverage')!
+    if (score.coverage < w.coverage)
+      scoreNotes.push(
+        `Ice coverage ${score.coverage}/${w.coverage}: ${f.coverage.toFixed(0)}% of the south pole mapped, ${COVERAGE_TARGET}% earns full points.` +
+          (coverageReq.causes[0] ? ` ${coverageReq.causes[0]}` : '')
+      )
+    if (score.data < w.data)
+      scoreNotes.push(`Science data ${score.data}/${w.data}: ${f.data.toFixed(0)} MB home of the ${dataTarget} MB target.${iceNote}`)
+    if (score.lifetime < w.lifetime)
+      scoreNotes.push(`Turns in orbit ${score.lifetime}/${w.lifetime}: ${f.scienceTurns} of ${turnsNeeded} science turns flown.${iceNote}`)
+    if (score.context < w.context)
+      scoreNotes.push(
+        instruments.some((i) => i.kind === 'context')
+          ? `Sunlit-ground map ${score.context}/${w.context}: the IR spectrometer mapped ${f.context.toFixed(0)}% of the sunlit ground; ${COVERAGE_TARGET}% earns full points.`
+          : `Sunlit-ground map ${score.context}/${w.context}: no IR spectrometer on board, and only it maps the sunlit ground. Fit it at the Research Lab beside an ice instrument.`
+      )
+    if (score.money < w.money)
+      scoreNotes.push(
+        outcome === 'failed'
+          ? `Money left 0/${w.money}: a failed mission uses up its budget.`
+          : `Money left ${score.money}/${w.money}: ${Math.max(0, moneyLeft).toFixed(1)} M of the ${b.budgetCap} M budget was left. A cheaper plan, or fewer fixes paid in flight, keeps more.`
+      )
+  }
+
   // One hint per missed requirement: the first link of its chain
   const hints: ChangeHint[] = requirements
     .filter((r) => !r.met && r.causes.length)
@@ -293,6 +324,7 @@ export function buildReport(state: SimState): Report {
     requirementsMet: requirements.filter((r) => r.met).length,
     requirementsTotal: requirements.length,
     score,
+    scoreNotes,
     totalCost: b.budgetCap - moneyLeft,
     dataReturned: f.data,
     outreachReturned: f.outreach,

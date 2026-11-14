@@ -236,6 +236,16 @@ function ReportPlaceholder() {
           <span>Sunlit-ground map {report.score.context ?? 0} / 100</span>
           <span>Money left {report.score.money ?? 0} / 100</span>
         </div>
+        {(report.scoreNotes ?? []).length > 0 && (
+          <div className="mt-3">
+            <div className="font-medium text-slate-300">What cost you points</div>
+            <ul className="mt-1 list-disc space-y-1 pl-5">
+              {(report.scoreNotes ?? []).map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {report.outreachReturned > 0 && (
           <div className="mt-2">
             {report.outreachReturned.toFixed(0)} MB of camera pictures came home: great for the public, but not science

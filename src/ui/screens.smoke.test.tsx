@@ -111,6 +111,9 @@ describe('screens render', () => {
     const report = renderToString(<App />)
     expect(report).toContain('/ 1000')
     expect(report).not.toContain('NaN')
+    // The score explains itself when points are missing (Jakob, 14 Nov)
+    const r = useGameStore.getState().currentReport!
+    if (r.score.total < 1000) expect(report).toContain('What cost you points')
 
     useGameStore.getState().openReplay()
     expect(renderToString(<App />)).toContain('Mission Replay')
