@@ -5,6 +5,8 @@ import { FRAME_HEIGHT, type BayView, type StackBlock, type RowKey } from '../../
 import { CATEGORY_COLORS } from '../../viz/spacecraft/trayOptions'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { CraftModel } from './CraftModel'
+import { PartSlot, preloadPartModels, type SlotLive } from './PartSlot'
+import { choiceArt } from '../../assets/catalogueArt'
 import {
   paintBoard,
   paintScale,
@@ -31,8 +33,6 @@ const STAND_Y = 1.25 // top of the stand, bottom of the box
 const W = 2 // box width (scene units)
 const D = 1 // box depth
 const PURPLE = '#8b5cf6'
-// Labels sit just in front of the model's front face (antenna patches, wing hinges)
-const LABEL_Z = D / 2 + 0.09
 const TAG_Z = D / 2 + 0.4
 const ease = (dt: number, k: number) => 1 - Math.exp(-dt * k)
 
@@ -114,101 +114,115 @@ function useTagTexture(block: StackBlock) {
 
 /* ---------------- a part inside the box ---------------- */
 
+/** Every name tag sits in one column left of the box, so the hardware inside stays in view. */
+const TAG_H3 = 0.48 // tag height, scene units
+const TAG_W3 = TAG_H3 * (TAG_W / TAG_H)
+const TAG_GAP = 0.52 // centre to centre
+const TAG_X = -W / 2 - 0.42 - TAG_W3 / 2
+const FALL = 0.42 // seconds from the crane to the slot
+const DROP = 2.4 // how high a new part starts above its slot
+
 interface BlockProps {
   block: StackBlock
-  tagY: number // call-out tag height, in box units
+  tagY: number // name tag height, in box units
+  delay: number // seconds before the opening drop (staggered by stack order)
   reduced: boolean
 }
 
-function Block({ block, tagY, reduced }: BlockProps) {
-  const group = useRef<THREE.Group>(null)
-  const body = useRef<THREE.Mesh>(null)
-  const label = useRef<THREE.Mesh>(null)
+function Block({ block, tagY, delay, reduced }: BlockProps) {
+  const slot = useRef<THREE.Group>(null)
   const tag = useRef<THREE.Group>(null)
   const line = useRef<THREE.BufferGeometry>(null)
-  const state = useRef({ base: block.base, height: block.height, drop: 0, tagY, partId: block.partId })
+  const lineMat = useRef<THREE.LineBasicMaterial>(null)
+  const live = useRef<SlotLive>({ height: block.height, flash: 0, squash: 0 })
+  // t: seconds since this part was picked (negative while waiting for its turn)
+  const state = useRef({ base: block.base, tagY, partId: block.partId, t: reduced ? 99 : -delay })
   const texture = useTagTexture(block)
-  const color = block.readOnly ? '#475569' : (CATEGORY_COLORS[block.category] ?? '#64748b')
-  const material = useMemo(
-    () => new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.3, emissive: color, emissiveIntensity: 0.12 }),
-    [color]
-  )
-  useEffect(() => () => material.dispose(), [material])
+  const color = block.readOnly ? '#64748b' : (CATEGORY_COLORS[block.category] ?? '#64748b')
+  const accent = choiceArt(block.partId)?.accent ?? color
 
-  // A newly chosen part is lowered in from the crane
+  // A newly chosen part drops from the crane and snaps into its slot
   useEffect(() => {
     if (state.current.partId === block.partId) return
     state.current.partId = block.partId
-    if (!reduced) state.current.drop = 2.6
+    state.current.t = reduced ? FALL : 0
   }, [block.partId, reduced])
 
-  useFrame((frame, dt) => {
+  useFrame((_, delta) => {
     const s = state.current
+    const l = live.current
+    const dt = Math.min(delta, 0.1)
     const k = reduced ? 1 : ease(dt, 7)
     s.base += (block.base - s.base) * k
-    s.height += (block.height - s.height) * k
+    l.height += (block.height - l.height) * k
     s.tagY += (tagY - s.tagY) * k
-    s.drop += (0 - s.drop) * (reduced ? 1 : ease(dt, 4))
-    const h = Math.max(0.01, s.height - 0.02)
-    if (group.current) group.current.position.y = s.base + s.height / 2 + s.drop
-    if (body.current) body.current.scale.y = h
-    if (label.current) {
-      const lh = Math.min(0.56, h * 0.9)
-      label.current.scale.set(lh * (TAG_W / TAG_H), lh, 1)
+    s.t += dt
+
+    // Falling under gravity, then a damped squash on landing and a flash in the part's colour
+    const p = Math.min(1, Math.max(0, s.t / FALL))
+    const drop = reduced || s.t >= FALL ? 0 : s.t < 0 ? DROP : DROP * (1 - p * p)
+    const since = s.t - FALL
+    l.squash = reduced || since < 0 ? 0 : 0.16 * Math.exp(-since * 11) * Math.cos(since * 34)
+    l.flash = since < 0 ? 0 : Math.exp(-since * 3.2)
+    if (slot.current) {
+      slot.current.position.y = s.base + l.height / 2 + drop
+      slot.current.visible = s.t >= 0
     }
-    if (tag.current) tag.current.position.y = s.tagY - (s.base + s.height / 2)
+    if (tag.current) tag.current.position.y = s.tagY
     if (line.current) {
-      const p = line.current.attributes.position as THREE.BufferAttribute
-      p.setXYZ(0, -W / 2, 0, LABEL_Z)
-      p.setXYZ(1, -W / 2 - 0.34, s.tagY - (s.base + s.height / 2), TAG_Z)
-      p.needsUpdate = true
+      const pos = line.current.attributes.position as THREE.BufferAttribute
+      pos.setXYZ(0, -W / 2 + 0.06, s.base + l.height / 2, D / 2 - 0.02)
+      pos.setXYZ(1, TAG_X + TAG_W3 / 2, s.tagY, TAG_Z)
+      pos.needsUpdate = true
     }
-    const over = block.overLimit
-    material.emissive.set(over ? '#ef4444' : color)
-    material.emissiveIntensity = over ? (reduced ? 0.8 : 0.65 + 0.3 * Math.sin(frame.clock.elapsedTime * 8)) : 0.12
+    if (lineMat.current) lineMat.current.color.set(block.overLimit ? '#ef4444' : color)
   })
 
   const linePoints = useMemo(() => new Float32Array(6), [])
   return (
-    <group ref={group}>
-      <mesh ref={body} material={material}>
-        <boxGeometry args={[W - 0.1, 1, D - 0.1]} />
-      </mesh>
-      {block.callout ? (
-        <>
-          <lineSegments>
-            <bufferGeometry ref={line}>
-              <bufferAttribute attach="attributes-position" args={[linePoints, 3]} />
-            </bufferGeometry>
-            <lineBasicMaterial color={block.overLimit ? '#ef4444' : color} />
-          </lineSegments>
-          <group ref={tag} position={[-W / 2 - 1.4, 0, TAG_Z]}>
-            <mesh>
-              <planeGeometry args={[2.1, 0.66]} />
-              <meshBasicMaterial map={texture} transparent toneMapped={false} />
-            </mesh>
-          </group>
-        </>
-      ) : (
-        <mesh ref={label} position={[0, 0, LABEL_Z]}>
-          <planeGeometry args={[1, 1]} />
+    <group>
+      <group ref={slot}>
+        <PartSlot
+          partId={block.partId}
+          width={W}
+          depth={D}
+          height={block.height}
+          live={live}
+          color={color}
+          accent={accent}
+          over={block.overLimit}
+          reduced={reduced}
+        />
+      </group>
+      <lineSegments>
+        <bufferGeometry ref={line}>
+          <bufferAttribute attach="attributes-position" args={[linePoints, 3]} />
+        </bufferGeometry>
+        <lineBasicMaterial ref={lineMat} color={color} transparent opacity={0.85} />
+      </lineSegments>
+      <group ref={tag} position={[TAG_X, tagY, TAG_Z]}>
+        <mesh>
+          <planeGeometry args={[TAG_W3, TAG_H3]} />
           <meshBasicMaterial map={texture} transparent toneMapped={false} />
         </mesh>
-      )}
+      </group>
     </group>
   )
 }
 
-/** Call-out tags beside the box, spread so they never overlap. */
-function calloutHeights(stack: StackBlock[]): Record<string, number> {
+/** Name tags beside the box, in stack order, spread so they never overlap and centred on the stack. */
+function tagHeights(stack: StackBlock[]): Record<string, number> {
   const out: Record<string, number> = {}
-  let floor = -Infinity
-  for (const b of stack) {
-    if (!b.callout) continue
-    const y = Math.max(b.base + b.height / 2, floor + 0.72)
-    out[b.key] = y
-    floor = y
-  }
+  if (stack.length === 0) return out
+  const ideal = stack.map((b) => b.base + b.height / 2)
+  const ys: number[] = []
+  for (let i = 0; i < ideal.length; i++) ys.push(i === 0 ? ideal[0] : Math.max(ideal[i], ys[i - 1] + TAG_GAP))
+  // Pull the column down if it runs far above the box, but not below the stand
+  const top = Math.max(FRAME_HEIGHT, ...stack.map((b) => b.base + b.height)) + 0.1
+  const shift = Math.min(Math.max(0, ys[ys.length - 1] - top), Math.max(0, ys[0] + 0.95))
+  stack.forEach((b, i) => {
+    out[b.key] = ys[i] - shift
+  })
   return out
 }
 
@@ -387,7 +401,7 @@ function Craft({ view, reduced }: { view: BayView; reduced: boolean }) {
   const volumeRed = view.rows.find((r) => r.key === 'volume')?.tone === 'red'
   const frameEdges = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(W, FRAME_HEIGHT, D)), [])
   useEffect(() => () => frameEdges.dispose(), [frameEdges])
-  const tags = calloutHeights(view.stack)
+  const tags = tagHeights(view.stack)
   const top = view.stack.reduce((m, b) => Math.max(m, b.base + b.height), 0)
   const ghost = useRef<THREE.MeshBasicMaterial>(null)
 
@@ -410,8 +424,8 @@ function Craft({ view, reduced }: { view: BayView; reduced: boolean }) {
           <meshStandardMaterial color="#475569" metalness={0.7} />
         </mesh>
       ))}
-      {view.stack.map((b) => (
-        <Block key={b.key} block={b} tagY={tags[b.key] ?? 0} reduced={reduced} />
+      {view.stack.map((b, i) => (
+        <Block key={b.key} block={b} tagY={tags[b.key] ?? 0} delay={0.35 + i * 0.14} reduced={reduced} />
       ))}
       {top > FRAME_HEIGHT + 1e-6 && (
         <mesh position-y={FRAME_HEIGHT + (top - FRAME_HEIGHT) / 2}>
@@ -526,7 +540,7 @@ function WallBoard({ view, reduced }: { view: BayView; reduced: boolean }) {
   })
   return (
     <group>
-      <group position={[4.0, 3.25, -3.0]} rotation-y={-0.3}>
+      <group position={[3.55, 3.25, -3.0]} rotation-y={-0.3}>
         <mesh position-z={-0.09}>
           <boxGeometry args={[6.3, 4.8, 0.15]} />
           <meshStandardMaterial color="#0f172a" metalness={0.6} />
@@ -548,14 +562,14 @@ function WallBoard({ view, reduced }: { view: BayView; reduced: boolean }) {
 function BayCamera() {
   const { camera, size } = useThree()
   useEffect(() => {
-    // Fit a 15 x 6.6 unit window (wing tip to board edge, floor to antenna) at any pane shape
+    // Fit a 13.4 x 6.7 unit window (wing tip to board edge, floor to antenna) at any pane shape
     const aspect = size.width / Math.max(1, size.height)
     const cam = camera as THREE.PerspectiveCamera
     cam.fov = 40
     const span = 2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))
-    const back = Math.max(6.6 / span, 15 / (span * aspect))
-    cam.position.set(0.5, 3.3, back)
-    cam.lookAt(0.5, 2.45, 0)
+    const back = Math.max(6.7 / span, 13.4 / (span * aspect))
+    cam.position.set(0.2, 3.3, back)
+    cam.lookAt(0.2, 2.35, 0)
     cam.updateProjectionMatrix()
   }, [camera, size])
   return null
@@ -563,6 +577,7 @@ function BayCamera() {
 
 export function AssemblyBay({ view }: { view: BayView }) {
   const reduced = useMemo(() => prefersReducedMotion(), [])
+  useEffect(() => preloadPartModels(), [])
   return (
     <Canvas
       dpr={[1, 2]}
