@@ -284,6 +284,14 @@ export interface Report {
 export interface RunHistoryEntry {
   id: string
   report: Report
+  run?: RunRecord
+}
+
+/** Stored run data so a finished run can be replayed */
+export interface RunRecord {
+  seed: number
+  turnLogs: TurnLog[]
+  allEvents: TurnEvent[]
 }
 
 /** Game mode */
