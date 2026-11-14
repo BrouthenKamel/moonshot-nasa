@@ -92,6 +92,57 @@ export const assets = [
       'Belle Epoque elegance meets cinematic fantasy: painterly, nostalgic, intimate, recorded in a warm concert hall. ' +
       'Ends softly so it can loop.',
   },
+  // Flight cues (ElevenLabs sound effects, generated 14 Nov with Jakob's go)
+  {
+    id: 'sfx.launch',
+    kind: 'sfx',
+    file: 'audio/sfx/launch.mp3',
+    source: 'elevenlabs',
+    license: 'Generated with ElevenLabs Sound Effects (use per ElevenLabs terms for the account plan)',
+    ai: true,
+    durationSec: 4,
+    prompt: 'Rocket launch: deep rumbling ignition building to a roaring liftoff, then fading as it climbs away',
+  },
+  {
+    id: 'sfx.event',
+    kind: 'sfx',
+    file: 'audio/sfx/event.mp3',
+    source: 'elevenlabs',
+    license: 'Generated with ElevenLabs Sound Effects (use per ElevenLabs terms for the account plan)',
+    ai: true,
+    durationSec: 1.2,
+    prompt: 'Mission control alert: two short soft electronic beeps, attention chime for an incoming message, friendly not alarming',
+  },
+  {
+    id: 'sfx.capture',
+    kind: 'sfx',
+    file: 'audio/sfx/capture.mp3',
+    source: 'elevenlabs',
+    license: 'Generated with ElevenLabs Sound Effects (use per ElevenLabs terms for the account plan)',
+    ai: true,
+    durationSec: 2.5,
+    prompt: 'Spacecraft thruster burn: a short controlled hiss and whoosh of a small engine firing in space, ending with a gentle confirmation tone',
+  },
+  {
+    id: 'sfx.success',
+    kind: 'sfx',
+    file: 'audio/sfx/success.mp3',
+    source: 'elevenlabs',
+    license: 'Generated with ElevenLabs Sound Effects (use per ElevenLabs terms for the account plan)',
+    ai: true,
+    durationSec: 3,
+    prompt: 'Mission success: short uplifting triumphant synth fanfare with a bright rising chord, celebratory',
+  },
+  {
+    id: 'sfx.failed',
+    kind: 'sfx',
+    file: 'audio/sfx/failed.mp3',
+    source: 'elevenlabs',
+    license: 'Generated with ElevenLabs Sound Effects (use per ElevenLabs terms for the account plan)',
+    ai: true,
+    durationSec: 3,
+    prompt: 'Mission failed: a short low descending synth tone, radio static fading out, somber but not harsh',
+  },
 ] as const satisfies readonly Asset[]
 
 export type AssetId = (typeof assets)[number]['id']
