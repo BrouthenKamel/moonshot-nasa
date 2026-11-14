@@ -7,8 +7,19 @@ vi.mock('react', async (importOriginal) => {
   const live = <T,>(_subscribe: unknown, getSnapshot: () => T) => getSnapshot()
   return { ...actual, default: { ...actual, useSyncExternalStore: live }, useSyncExternalStore: live }
 })
+// The 3D island needs WebGL; render its labels as text instead
+vi.mock('../scene/BaseMap', () => ({
+  BaseMap: ({ labels }: { labels: Record<string, { status: string }> }) => (
+    <div>
+      {Object.entries(labels).map(([id, l]) => (
+        <span key={id}>{l.status}</span>
+      ))}
+    </div>
+  ),
+}))
 import App from '../App'
 import { useGameStore } from '../state/gameStore'
+import { useAgencyStore } from '../state/agencyStore'
 import { flashlightDesign } from '../sim/fixtures'
 import { initSim, flyUntilDecision, getDefaultAction } from '../sim/simulate'
 import type { DesignStep } from '../sim/types'
@@ -66,5 +77,33 @@ describe('screens render', () => {
 
     useGameStore.getState().openReplay()
     expect(renderToString(<App />)).toContain('Mission Replay')
+  })
+
+  it('base screen shows a waiting event card and keeps it after leaving and coming back', () => {
+    let s = initSim(flashlightDesign, 'engineer', 1)
+    for (let seed = 1; seed <= 300; seed++) {
+      s = flyUntilDecision(initSim(flashlightDesign, 'engineer', seed), getDefaultAction())
+      if (s.pendingDecision) break
+    }
+    useAgencyStore.getState().resetAgency()
+    useAgencyStore.getState().markLunarMissionStarted()
+    useAgencyStore.getState().startMissionClock()
+    useGameStore.setState({ screen: 'base', simState: s, design: flashlightDesign })
+    const html = renderToString(<App />)
+    expect(html).toContain(s.pendingDecision!.title)
+    expect(html).not.toContain('NaN')
+    useGameStore.getState().setScreen('design')
+    useGameStore.getState().setScreen('base')
+    expect(useGameStore.getState().simState!.currentTurn).toBe(s.currentTurn)
+    expect(renderToString(<App />)).toContain(s.pendingDecision!.title)
+  })
+
+  it('base screen labels show core numbers while designing', () => {
+    useAgencyStore.getState().resetAgency()
+    useAgencyStore.getState().markLunarMissionStarted()
+    useGameStore.setState({ screen: 'base', simState: null, design: flashlightDesign })
+    const html = renderToString(<App />)
+    expect(html).toContain('14.0 / 14 kg')
+    expect(html).toContain('Click a building to walk in')
   })
 })

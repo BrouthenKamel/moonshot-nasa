@@ -15,7 +15,13 @@ import {
   type MissionView,
   type Speed,
 } from '../../data/agency'
-import type { DesignStep, SimState } from '../../sim/types'
+import type { SimState } from '../../sim/types'
+import { computeBudgets } from '../../sim/budgets'
+import { goNoGo } from '../../sim/checks'
+import { isSimComplete } from '../../sim/simulate'
+import { buildingForStep, flightFeed, lunarMissionView, missionLabels, suggestedStep } from '../../viz/missionMap'
+import { EventCard } from '../flight/EventCard'
+import { FlightControls } from '../flight/FlightControls'
 
 /* ------------------------------------------------------------------ */
 /* Clock                                                               */
@@ -39,56 +45,49 @@ function useAgencyClock() {
 const money = (m: number) => `$${m.toFixed(1)}M`
 
 /* ------------------------------------------------------------------ */
-/* The real mission, read from the design flow                         */
+/* The flight on the map: status, event card and turn buttons           */
+/* (all numbers from the logic core's flight state)                    */
 /* ------------------------------------------------------------------ */
 
-const designSteps: { id: DesignStep; name: string }[] = [
-  { id: 'brief', name: 'Brief' },
-  { id: 'planning', name: 'Planning' },
-  { id: 'instruments', name: 'Instruments' },
-  { id: 'spacecraft', name: 'Spacecraft' },
-  { id: 'orbit', name: 'Orbit' },
-  { id: 'ride', name: 'Ride & transfer' },
-  { id: 'comms', name: 'Comms' },
-  { id: 'go-nogo', name: 'Go / No-Go' },
-]
+const PHASE_TEXT: Record<SimState['phase'], string> = {
+  build: 'Building in the Factory',
+  test: 'Testing',
+  wait: 'Ready, waiting for the ride',
+  transfer: 'On the way to the Moon',
+  capture: 'Capture burn',
+  orbit: 'Mapping the south pole',
+  complete: 'Mission over',
+  failed: 'Mission lost',
+}
 
-function lunarMissionView(
-  designStep: DesignStep,
-  simState: SimState | null,
-  day: number
-): MissionView {
-  const base = { id: 'lunar-ice-mapper', name: 'Lunar Ice Mapper', kind: 'cubesat' as const, isReal: true }
-
-  if (!simState) {
-    const index = Math.max(0, designSteps.findIndex((s) => s.id === designStep))
-    void day
-    return {
-      ...base,
-      status: 'planning',
-      progress: index / (designSteps.length - 1),
-      detail: `Step: ${designSteps[index].name}`,
-    }
-  }
-
-  switch (simState.phase) {
-    case 'build':
-    case 'test':
-    case 'wait':
-      return { ...base, status: 'building', progress: Math.min(1, simState.currentTurn / 8), detail: `In the factory · ${simState.phase}` }
-    case 'transfer':
-    case 'capture':
-      return { ...base, status: 'transfer', progress: 0.5, detail: `On the way to the Moon · ${simState.phase}` }
-    case 'orbit':
-      return {
-        ...base,
-        status: 'in-orbit',
-        progress: Math.min(1, simState.turnsInOrbit / 12),
-        detail: `Lunar orbit · ${simState.coveragePercent.toFixed(0)}% mapped`,
-      }
-    default:
-      return { ...base, status: 'complete', progress: 1, detail: simState.phase === 'failed' ? 'Mission lost' : 'Mission complete' }
-  }
+function FlightOverlay({ sim }: { sim: SimState }) {
+  const f = sim.flight
+  return (
+    <>
+      <div className="pointer-events-none absolute left-2 top-2 rounded-xl bg-[#14213d]/90 px-3 py-2 text-xs text-white shadow-lg">
+        <div className="font-display text-sm font-bold">
+          🛰️ Lunar Ice Mapper · turn {sim.currentTurn}
+        </div>
+        <div className="text-slate-300">{PHASE_TEXT[sim.phase]}</div>
+        <div className="mt-1 grid grid-cols-2 gap-x-3 tabular-nums text-slate-200">
+          <span>Ice {f.coverage.toFixed(1)}%</span>
+          <span>Data {f.data.toFixed(0)} MB</span>
+          <span>Δv {Math.max(0, f.dvLeft).toFixed(0)} m/s</span>
+          <span>
+            {f.main.toFixed(1)} M + {Math.max(0, f.reserve).toFixed(1)} M
+          </span>
+        </div>
+      </div>
+      {sim.pendingDecision && (
+        <div className="absolute left-1/2 top-1/2 w-[min(92%,520px)] -translate-x-1/2 -translate-y-1/2">
+          <EventCard />
+        </div>
+      )}
+      <div className="absolute bottom-10 left-1/2 w-[min(92%,520px)] -translate-x-1/2">
+        <FlightControls compact />
+      </div>
+    </>
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -214,7 +213,16 @@ function effectText(e: AgencyEvent) {
   return parts.join(' · ')
 }
 
-function Dashboard({ income, spending }: { income: number; spending: number }) {
+function Dashboard({
+  income,
+  spending,
+  missionFeed,
+}: {
+  income: number
+  spending: number
+  /** The Lunar Ice Mapper's flight log on the base calendar */
+  missionFeed: AgencyEvent[]
+}) {
   const day = useAgencyStore((s) => Math.floor(s.day))
   const funds = useAgencyStore((s) => s.funds)
   const support = useAgencyStore((s) => s.support)
@@ -222,7 +230,7 @@ function Dashboard({ income, spending }: { income: number; spending: number }) {
   const resetAgency = useAgencyStore((s) => s.resetAgency)
 
   const feed = useMemo(() => {
-    const items: AgencyEvent[] = agencyEvents.filter((e) => e.day <= day)
+    const items: AgencyEvent[] = [...agencyEvents.filter((e) => e.day <= day), ...missionFeed]
     if (lunarStartedDay !== null && lunarStartedDay <= day) {
       items.push({
         id: 'lim-start',
@@ -233,7 +241,7 @@ function Dashboard({ income, spending }: { income: number; spending: number }) {
       })
     }
     return items.sort((a, b) => b.day - a.day)
-  }, [day, lunarStartedDay])
+  }, [day, lunarStartedDay, missionFeed])
 
   const upcoming = agencyEvents.filter((e) => e.day > day).slice(0, 3)
 
@@ -375,10 +383,14 @@ function Missions({ views }: { views: MissionView[] }) {
   const markStarted = useAgencyStore((s) => s.markLunarMissionStarted)
   const lunarStartedDay = useAgencyStore((s) => s.lunarMissionStartedDay)
 
+  const openBuilding = useGameStore((s) => s.openBuilding)
+  const visitedSteps = useGameStore((s) => s.visitedSteps)
+
+  // The map is the menu: the card opens the report when the flight is over,
+  // or walks into the building whose step is due next while planning
   const openReal = () => {
-    if (currentReport) setScreen('report')
-    else if (simState) setScreen('simulation')
-    else setScreen('design')
+    if (currentReport && simState && isSimComplete(simState)) setScreen('report')
+    else if (!simState) openBuilding(buildingForStep(suggestedStep(visitedSteps)))
   }
 
   const newMission = () => {
@@ -411,7 +423,7 @@ function Missions({ views }: { views: MissionView[] }) {
       >
         + New mission
       </button>
-      <p className="text-center text-[11px] text-slate-500">Opens the Lunar Ice Mapper planning steps</p>
+      <p className="text-center text-[11px] text-slate-500">Plan the Lunar Ice Mapper by walking into the buildings</p>
     </aside>
   )
 }
@@ -427,17 +439,57 @@ export function BaseScreen() {
   const day = useAgencyStore((s) => Math.floor(s.day))
   const support = useAgencyStore((s) => s.support)
   const lunarStartedDay = useAgencyStore((s) => s.lunarMissionStartedDay)
-  const designStep = useGameStore((s) => s.designStep)
+  const missionStartDay = useAgencyStore((s) => s.missionStartDay)
+  const markStarted = useAgencyStore((s) => s.markLunarMissionStarted)
+  const syncToMissionTurn = useAgencyStore((s) => s.syncToMissionTurn)
+  const resetMissionClock = useAgencyStore((s) => s.resetMissionClock)
+  const design = useGameStore((s) => s.design)
+  const difficulty = useGameStore((s) => s.difficulty)
+  const visitedSteps = useGameStore((s) => s.visitedSteps)
   const simState = useGameStore((s) => s.simState)
+  const openBuilding = useGameStore((s) => s.openBuilding)
+  const startNewMission = useGameStore((s) => s.startNewMission)
+
+  // One clock: once the flight runs, the base day follows its turns
+  const turn = simState?.currentTurn
+  useEffect(() => {
+    if (turn !== undefined) syncToMissionTurn(turn)
+  }, [turn, syncToMissionTurn])
+  // A reload loses the flight (it is not saved): fall back to the free-running clock
+  useEffect(() => {
+    if (missionStartDay !== null && !simState) resetMissionClock()
+  }, [missionStartDay, simState, resetMissionClock])
+
+  const budgets = computeBudgets(design, difficulty)
+  const checks = goNoGo(design, budgets)
 
   const mockViews = mockMissionViews(day)
-  const views = lunarStartedDay !== null ? [lunarMissionView(designStep, simState, day), ...mockViews] : mockViews
+  const views =
+    lunarStartedDay !== null
+      ? [lunarMissionView({ design, budgets, visited: visitedSteps, sim: simState }), ...mockViews]
+      : mockViews
+  const missionFeed = useMemo(
+    () => (simState && missionStartDay !== null ? flightFeed(simState.turnLogs, missionStartDay) : []),
+    [simState, missionStartDay]
+  )
 
   const flying = missionsInFlight(mockViews)
   const income = monthlyIncome(support)
   const spending = monthlySpending(flying)
 
-  const labels = (() => {
+  // Walking into a building. Before the mission is started, the first visit starts it.
+  // While the craft flies, the design is fixed and the buildings only show its state.
+  const onBuildingClick = simState
+    ? undefined
+    : (id: BuildingId) => {
+        if (lunarStartedDay === null) {
+          markStarted()
+          startNewMission()
+        }
+        openBuilding(id)
+      }
+
+  const mockLabels = (() => {
     const lab = buildings.find((b) => b.id === 'research-lab')!
     const up = lab.upgrade!
     const upgrading = day < up.endDay
@@ -462,18 +514,23 @@ export function BaseScreen() {
     }
     return out
   })()
+  const labels =
+    lunarStartedDay !== null
+      ? missionLabels({ design, budgets, checks, visited: visitedSteps, sim: simState })
+      : mockLabels
 
   return (
     <div className="flex min-h-screen flex-col bg-[#14213d] lg:h-screen lg:min-h-0">
       <TopBar netPerMonth={income - spending} />
       <div className="flex flex-1 flex-col gap-3 p-3 lg:grid lg:min-h-0 lg:grid-cols-[290px_minmax(0,1fr)_290px]">
         <div className="order-2 min-h-0 lg:order-1 lg:flex lg:flex-col">
-          <Dashboard income={income} spending={spending} />
+          <Dashboard income={income} spending={spending} missionFeed={missionFeed} />
         </div>
         <div className="relative order-1 h-[60vh] min-h-[360px] overflow-hidden rounded-2xl shadow-inner lg:order-2 lg:h-auto">
-          <BaseMap labels={labels} />
+          <BaseMap labels={labels} onBuildingClick={onBuildingClick} />
+          {simState && <FlightOverlay sim={simState} />}
           <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-black/30 px-2 py-1 text-[11px] text-white">
-            Drag to move · scroll to zoom
+            {simState ? 'Drag to move · scroll to zoom' : 'Click a building to walk in · drag to move · scroll to zoom'}
           </div>
         </div>
         <div className="order-3 min-h-0 lg:flex lg:flex-col">

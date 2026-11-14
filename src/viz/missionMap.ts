@@ -1,7 +1,8 @@
-import { buildings, type BuildingId } from '../data/agency'
+import { buildings, type AgencyEvent, type BuildingId, type MissionView } from '../data/agency'
 import { getPartById } from '../data/parts'
 import type { BuildingLabel } from '../scene/BaseMap'
-import type { Budgets, Design, DesignStep, GoNoGoResult, SimState } from '../sim/types'
+import { missionDay } from '../state/agencyStore'
+import type { Budgets, Design, DesignStep, GoNoGoResult, SimState, TurnLog } from '../sim/types'
 
 /**
  * What the agency map shows for the Lunar Ice Mapper: which building holds
@@ -126,4 +127,79 @@ export function missionLabels(input: {
       ...flags('launch-site'),
     },
   }
+}
+
+/** The Lunar Ice Mapper's card in the missions list, from the design steps or the flight */
+export function lunarMissionView(input: {
+  design: Design
+  budgets: Budgets
+  visited: DesignStep[]
+  sim: SimState | null
+}): MissionView {
+  const { budgets: b, visited, sim } = input
+  const base = { id: 'lunar-ice-mapper', name: 'Lunar Ice Mapper', kind: 'cubesat' as const, isReal: true }
+  const clamp = (x: number) => Math.max(0, Math.min(1, x))
+
+  if (!sim) {
+    const next = suggestedStep(visited)
+    const seen = STEP_ORDER.filter((s) => visited.includes(s)).length
+    return {
+      ...base,
+      status: 'planning',
+      progress: clamp(seen / STEP_ORDER.length),
+      detail: `Next: ${STEP_NAMES[next]} at the ${buildingName(buildingForStep(next))}`,
+    }
+  }
+
+  const f = sim.flight
+  if (sim.phase === 'complete' || sim.phase === 'failed') {
+    return { ...base, status: 'complete', progress: 1, detail: sim.phase === 'failed' ? `Mission lost: ${f.end}` : `Mission over: ${f.end}` }
+  }
+  if (f.launchedTurn === null) {
+    return {
+      ...base,
+      status: 'building',
+      progress: clamp(sim.currentTurn / Math.max(1, f.launchTurn)),
+      detail: `In the Factory · ride on turn ${f.launchTurn}`,
+    }
+  }
+  if (!f.captured) {
+    const total = Math.max(1, b.transferTurns ?? 1)
+    return {
+      ...base,
+      status: 'transfer',
+      progress: clamp((sim.currentTurn - f.launchedTurn) / total),
+      detail: `On the way to the Moon · ${Math.max(0, f.transferLeft ?? 0)} turns to capture`,
+    }
+  }
+  return {
+    ...base,
+    status: 'in-orbit',
+    progress: clamp(f.scienceTurns / 12),
+    detail: `Lunar orbit · ice ${f.coverage.toFixed(0)}% mapped · ${f.data.toFixed(0)} MB home`,
+  }
+}
+
+const MILESTONES = /^(Launched|Capture burn successful|All requirements met|Mission over|Missed the ride|Primary mission done)/
+
+/** The flight log as activity-feed entries on the base calendar, newest first */
+export function flightFeed(logs: TurnLog[], startDay: number): AgencyEvent[] {
+  const out: AgencyEvent[] = []
+  for (const log of logs) {
+    const day = missionDay(startDay, log.turn)
+    log.notes.forEach((note, i) => {
+      const isEvent = log.events.length > 0 && !MILESTONES.test(note) && /underperform|delay|No signal|reset|outage|eclipse|degraded|weak/i.test(note)
+      const isMilestone = MILESTONES.test(note)
+      const isEnd = log.phase === 'failed' || /lost|ran out|not enough/i.test(note)
+      if (!isEvent && !isMilestone && !(isEnd && log === logs[logs.length - 1])) return
+      out.push({
+        id: `lim-${log.turn}-${i}`,
+        day,
+        title: note.replace(/\.$/, ''),
+        detail: `Lunar Ice Mapper · turn ${log.turn}`,
+        tone: isEnd && !isMilestone ? 'bad' : isEvent ? 'warning' : /Capture|All requirements/.test(note) ? 'good' : 'info',
+      })
+    })
+  }
+  return out.sort((a, b) => b.day - a.day)
 }
