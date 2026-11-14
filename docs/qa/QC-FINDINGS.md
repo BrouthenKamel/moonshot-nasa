@@ -83,3 +83,7 @@ QC tested group D1 in its own worktree: removing it keeps typecheck, 224/224 tes
 | 51 | Low | The Factory tray colours the flight computer and attitude control cyan, which is reserved for ice (CubeSatDiagram.tsx:19, trayOptions.ts:36) | A | waits-jakob | SpaceCraft Design |
 | 52 | Info | Ride, Comms, Go/No-Go and the Brief have no title line or dark-room treatment yet | — | info (Ride & Transfer in progress) | — |
 | 53 | Low | The sidebar "Roles" legend is still shown (same as D3) | D3 | waits-jakob | Integration |
+| 54 | Choice | Tooltip.tsx + glossary.ts (20 plain-language entries for delta-v, eclipse, Wh, ADCS…) are unused. Either wire the tooltips into the dashboard and step labels, or delete both | E1 | waits-jakob | Integration |
+| 55 | Info | Keep: the Planning room's knob and slider are labelled range inputs, with instant feedback | — | info | — |
+| 56 | Low | The long Go/No-Go advice line is cut off at the right edge of the Planning board (1280 px) | A | waits-jakob | Integration (planning room) |
+| 57 | Low | No "recommended" marker on the reserve slider; mark 10% (CubeSat 101 advice) | A | waits-jakob | Integration (planning room) |
