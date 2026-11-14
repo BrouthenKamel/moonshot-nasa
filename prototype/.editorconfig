@@ -1,0 +1,3 @@
+# Adds to the repository's .editorconfig: Python uses four spaces.
+[*.py]
+indent_size = 4

@@ -1,0 +1,23 @@
+{
+  "id": "lunar_ice_mapper",
+  "name": "Lunar Ice Mapper",
+  "objective": "Map water ice in shadowed craters at the Moon's south pole with a 6U CubeSat.",
+  "ride": "Secondary payload on a Moon launch. Miss it and the next ride comes later.",
+  "ride_turn": 8,
+  "ride_period": 6,
+  "budget": 25.0,
+  "volume_cap": 6.0,
+  "mass_cap": 14.0,
+  "coverage_required": 70.0,
+  "data_required": 300.0,
+  "science_turns_required": 12,
+  "horizon": 45,
+  "partial_share": 0.5,
+  "score_weights": {
+    "coverage": 40,
+    "data": 25,
+    "lifetime": 15,
+    "context": 10,
+    "money": 10
+  }
+}

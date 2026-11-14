@@ -1,0 +1,205 @@
+{
+  "_about": "Every number of the Lunar Ice Mapper model. Units: mass kg, volume U, power W, cost in millions, data MB, delta-v m/s, one turn = one month. Where each value comes from (sourced, derived or game value) is in reference/core-loop-logic-map.md, section 4.",
+
+  "instruments": {
+    "laser": {
+      "label": "Laser reflectometer", "noun": "laser reflectometer", "model": "Lunar Flashlight",
+      "mass": 2.0, "volume": 2.0, "power": 25, "cost": 2.5, "effort": 8, "data_per_turn": 100,
+      "sees_shadow": true, "max_altitude_km": 20, "footprint": 0.025, "kind": "ice",
+      "quality_without_precise_pointing": 0.5
+    },
+    "neutron": {
+      "label": "Neutron spectrometer", "noun": "neutron spectrometer", "model": "LunaH-Map Mini-NS",
+      "mass": 2.5, "volume": 2.0, "power": 5, "cost": 2.0, "effort": 6, "data_per_turn": 30,
+      "sees_shadow": true, "max_altitude_km": 25, "footprint": 0.010, "kind": "ice",
+      "quality_without_precise_pointing": 1.0
+    },
+    "ir": {
+      "label": "IR spectrometer", "noun": "IR spectrometer", "model": "Lunar IceCube BIRCHES",
+      "mass": 3.2, "volume": 1.5, "power": 12, "cost": 3.0, "effort": 9, "data_per_turn": 400,
+      "sees_shadow": false, "max_altitude_km": null, "footprint": 0.020, "kind": "context",
+      "quality_without_precise_pointing": 1.0
+    },
+    "camera": {
+      "label": "Camera", "noun": "camera", "model": "generic CubeSat camera",
+      "mass": 0.5, "volume": 0.3, "power": 3, "cost": 0.2, "effort": 2, "data_per_turn": 1500,
+      "sees_shadow": false, "max_altitude_km": null, "footprint": 0.050, "kind": "outreach",
+      "quality_without_precise_pointing": 1.0
+    }
+  },
+
+  "solar_arrays": {
+    "small":  {"label": "Small",  "mass": 0.8, "volume": 0.0, "power_generated": 40,  "cost": 0.3, "effort": 2},
+    "medium": {"label": "Medium", "mass": 1.3, "volume": 0.0, "power_generated": 84,  "cost": 0.6, "effort": 3},
+    "large":  {"label": "Large",  "mass": 2.0, "volume": 0.0, "power_generated": 120, "cost": 1.0, "effort": 4}
+  },
+
+  "batteries": {
+    "small": {"label": "Small", "mass": 0.3, "volume": 0.15, "capacity_wh": 40, "cost": 0.1, "effort": 1},
+    "large": {"label": "Large", "mass": 0.6, "volume": 0.30, "capacity_wh": 80, "cost": 0.2, "effort": 1}
+  },
+
+  "propulsion": {
+    "none": {
+      "label": "None", "dry_mass": 0.0, "base_volume": 0.0, "volume_per_kg": 0.0, "isp": 0,
+      "cost": 0.0, "effort": 0, "impulsive": false, "max_propellant": 0.0
+    },
+    "chemical": {
+      "label": "Chemical", "dry_mass": 3.6, "base_volume": 1.4, "volume_per_kg": 0.5, "isp": 150,
+      "cost": 2.5, "effort": 9, "impulsive": true, "max_propellant": 3.0
+    },
+    "electric": {
+      "label": "Electric (ion)", "dry_mass": 1.4, "base_volume": 1.3, "volume_per_kg": 0.2, "isp": 2150,
+      "thrust_n": 0.0011, "min_power": 56, "nominal_power": 65,
+      "cost": 3.0, "effort": 10, "impulsive": false, "max_propellant": 1.5
+    }
+  },
+
+  "radios": {
+    "uhf":   {"label": "UHF",               "mass": 0.2, "volume": 0.2, "listen_power": 1,  "transmit_power": 5,  "cost": 0.1, "effort": 1, "reaches_moon": false},
+    "xband": {"label": "Deep-space X-band", "mass": 1.1, "volume": 0.5, "listen_power": 10, "transmit_power": 35, "cost": 1.5, "effort": 4, "reaches_moon": true}
+  },
+
+  "antennas": {
+    "patch": {"label": "Patch",           "mass": 0.1, "volume": 0.0, "gain": 1, "cost": 0.05, "effort": 1, "needs_precise_pointing": false, "gain_factor_without_precise": 1.0},
+    "dish":  {"label": "Deployable dish", "mass": 1.0, "volume": 1.5, "gain": 8, "cost": 0.80, "effort": 3, "needs_precise_pointing": true,  "gain_factor_without_precise": 0.25}
+  },
+
+  "computers": {
+    "basic":   {"label": "Basic",          "mass": 0.2, "volume": 0.2, "power": 3, "cost": 0.3, "effort": 2, "storage_mb": 512,  "reset_factor": 1.0},
+    "radhard": {"label": "Radiation-hard", "mass": 0.4, "volume": 0.3, "power": 5, "cost": 0.9, "effort": 4, "storage_mb": 4096, "reset_factor": 0.3}
+  },
+
+  "pointing": {
+    "basic":   {"label": "Basic",   "mass": 0.5, "volume": 0.3, "power": 2, "cost": 0.3, "effort": 2, "precise": false},
+    "precise": {"label": "Precise", "mass": 0.9, "volume": 0.5, "power": 3, "cost": 0.8, "effort": 4, "precise": true}
+  },
+
+  "orbits": {
+    "halo": {
+      "label": "Halo loop", "model": "Lunar Flashlight's plan",
+      "altitude_km": 15, "far_point_km": null, "passes_per_turn": 4.5, "sunlit_share": 1.00,
+      "eclipse_hours": 0.0, "earth_visible": 0.95, "upkeep_dv": 1.0, "observing_share": 0.01,
+      "insertion_dv": {"chemical_direct": 430, "chemical_low_energy": 60, "electric_low_energy": 250}
+    },
+    "elliptical": {
+      "label": "Elliptical polar, 15 x 3,150 km", "model": "LunaH-Map's plan",
+      "altitude_km": 15, "far_point_km": 3150, "passes_per_turn": 141, "sunlit_share": 0.85,
+      "eclipse_hours": 0.6, "earth_visible": 0.80, "upkeep_dv": 5.0, "observing_share": 0.08,
+      "insertion_dv": {"electric_low_energy": 1000}
+    },
+    "circular": {
+      "label": "Low circular polar, 100 km", "model": "Lunar Prospector, KPLO",
+      "altitude_km": 100, "far_point_km": 100, "passes_per_turn": 366, "sunlit_share": 0.60,
+      "eclipse_hours": 0.8, "earth_visible": 0.60, "upkeep_dv": 6.25, "observing_share": 0.10,
+      "insertion_dv": {"electric_low_energy": 1700}
+    }
+  },
+
+  "transfers": {
+    "direct":     {"label": "Direct, about 5 days"},
+    "low_energy": {"label": "Low-energy, 4 turns or more"}
+  },
+
+  "ground_stations": {
+    "own":       {"label": "Own university dish (about 4 m)", "rate_kbps": 2,   "max_hours": 6, "price": 0.01, "outage_chance": 0.10},
+    "partner21": {"label": "Partner 21 m dish",               "rate_kbps": 64,  "max_hours": 2, "price": 0.03, "outage_chance": 0.06},
+    "dsn34":     {"label": "DSN 34 m dish",                   "rate_kbps": 128, "max_hours": 1, "price": 0.15, "outage_chance": 0.02}
+  },
+
+  "test_factor": {"0": 2.0, "1": 1.4, "2": 1.0, "3": 0.7},
+
+  "constants": {
+    "design_turns": 1,
+    "integration_turns": 1,
+    "effort_per_turn": 10,
+    "team_cost_prelaunch": 0.5,
+    "team_cost_flight": 0.3,
+    "test_cost": 0.4,
+    "ride_fee": 1.5,
+    "structure_mass": 2.2,
+    "structure_cost": 1.0,
+    "structure_effort": 4,
+    "heater_power": 3,
+    "usable_battery_share": 0.8,
+    "thrust_power_share": 0.75,
+    "thrust_duty": 0.6,
+    "cruise_turns": 4,
+    "spiral_free_dv": 100,
+    "arrival_excess_speed_kms": 0.85,
+    "course_correction_direct": 30,
+    "course_correction_low_energy": 50,
+    "long_eclipse_hours": 3.0,
+    "green_margin": 0.15,
+    "electric_nav_cost": 0.1,
+    "extension_max_turns": 12,
+    "progress_min_coverage": 0.5,
+    "progress_min_data": 1,
+    "g0": 9.80665,
+    "turn_seconds": 2592000,
+    "moon_mu_km3_s2": 4902.8,
+    "moon_radius_km": 1737.4
+  },
+
+  "events": {
+    "build_delay": {
+      "title": "Build delay", "real_mission": null,
+      "chance": 0.08, "effort_reference": 35,
+      "text": "A part arrives late or fails inspection. The build slips by one turn."
+    },
+    "no_signal": {
+      "title": "No signal after deployment", "real_mission": "Lunar IceCube",
+      "chance": 0.08, "recovery_cost": 0.5, "recovery_chance": 0.6,
+      "text": "The ride has let go of the CubeSat, but the ground hears nothing."
+    },
+    "thruster": {
+      "title": "Thruster underperforms", "real_mission": "Lunar Flashlight",
+      "chance": 0.03, "fix_cost": 1.0, "fix_chance": 0.5, "fix_delay_turns": 1,
+      "chemical_dv_factor": 0.5, "electric_transfer_factor": 2,
+      "text": "The engine delivers far less thrust than it did on the ground."
+    },
+    "radiation_reset": {
+      "title": "Radiation reset", "real_mission": null,
+      "chance": 0.06,
+      "text": "A particle hit resets the computer. The craft sits in safe mode this turn."
+    },
+    "station_outage": {
+      "title": "Ground station outage", "real_mission": null,
+      "downlink_factor": 0.5,
+      "text": "The ground station is down for part of the month. Half the contact time is lost."
+    },
+    "long_eclipse": {
+      "title": "Long eclipse", "real_mission": null,
+      "chance": 0.05,
+      "text": "The Moon passes through Earth's shadow. Only a big enough battery keeps the craft working."
+    },
+    "instrument_degrades": {
+      "title": "Instrument degrades", "real_mission": null,
+      "chance": 0.03, "science_factor": 0.8,
+      "text": "An instrument loses sensitivity. Every later turn returns 20% less science."
+    }
+  },
+
+  "reference_missions": [
+    {
+      "name": "Lunar Flashlight", "mass": "about 14 kg (6U)", "propulsion": "Chemical",
+      "instrument": "Laser reflectometer", "orbit": "Halo loop (planned)",
+      "outcome": "Thrusters underperformed; it never reached its orbit."
+    },
+    {
+      "name": "Lunar IceCube", "mass": "14 kg (6U)", "propulsion": "Electric (ion)",
+      "instrument": "IR spectrometer", "orbit": "Polar, after a 9-month transfer (planned)",
+      "outcome": "No signal after deployment; contact was never made."
+    },
+    {
+      "name": "LunaH-Map", "mass": "about 14 kg (6U)", "propulsion": "Electric (ion)",
+      "instrument": "Neutron spectrometer", "orbit": "Elliptical polar (planned)",
+      "outcome": "Engine did not fire; it flew past the Moon."
+    },
+    {
+      "name": "LRO", "mass": "about 1,900 kg", "propulsion": "Chemical",
+      "instrument": "Seven instruments", "orbit": "Low polar, about 50 km",
+      "outcome": "Mapping the Moon since 2009; sends about 572 gigabits a day."
+    }
+  ]
+}

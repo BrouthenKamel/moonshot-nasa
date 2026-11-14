@@ -27,6 +27,7 @@ Vite · React · TypeScript · Tailwind CSS · react-three-fiber (Three.js) · Z
 
 ```
 docs/       Challenge brief, resources, design notes
+prototype/  Core game logic as a Python terminal game, the reference for src/sim (see prototype/README.md)
 public/     Static assets served as-is
 src/
   sim/      Simulation and game logic: pure TypeScript, no React, unit-tested
