@@ -7,7 +7,9 @@ import { ForecastPanel, LabDials, ReadOuts, TitleLine } from './Overlays'
 import { InstrumentBar } from './InstrumentBar'
 import { DesignDeltaLine } from '../../viz/DesignDeltaLine'
 import { satHeight, type Pass } from './frame'
-import { stageModel, toggleInstrument, whatIfFromDesign, type WhatIf } from './stageModel'
+import { stageModel, whatIfFromDesign, type WhatIf } from './stageModel'
+import { toggleUnlocked } from './labLocks'
+import { useAgencyStore } from '../../state/agencyStore'
 
 const REDUCE_MOTION = '(prefers-reduced-motion: reduce)'
 const subscribeMotion = (onChange: () => void) => {
@@ -22,6 +24,7 @@ export default function InstrumentStage() {
   const design = useGameStore((s) => s.design)
   const difficulty = useGameStore((s) => s.difficulty)
   const updateDesign = useGameStore((s) => s.updateDesign)
+  const day = useAgencyStore((s) => s.day)
 
   // The dials start from the design each time the player enters the lab.
   const [whatIf, setWhatIf] = useState<WhatIf>(() => whatIfFromDesign(design))
@@ -54,7 +57,8 @@ export default function InstrumentStage() {
       </div>
       <InstrumentBar
         chosen={design.instruments}
-        onToggle={(id) => updateDesign({ instruments: toggleInstrument(design.instruments, id) })}
+        day={day}
+        onToggle={(id) => updateDesign({ instruments: toggleUnlocked(design.instruments, id, day) })}
       />
       <DesignDeltaLine className="mt-2 flex flex-wrap gap-x-4 gap-y-1 rounded-lg bg-slate-900/70 px-3 py-2 text-xs" />
     </div>

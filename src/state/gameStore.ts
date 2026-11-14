@@ -301,7 +301,7 @@ export const useGameStore = create<GameState>()(
       getGoNoGo: () => {
         const { design, difficulty } = get()
         const budgets = computeBudgets(design, difficulty)
-        return goNoGo(design, budgets)
+        return goNoGo(design, budgets, useAgencyStore.getState().day)
       },
 
       // Simulation

@@ -14,6 +14,7 @@ import {
   type MissionStatus,
   type MissionView,
   type Speed,
+  researchLabLevel,
 } from '../../data/agency'
 import type { SimState } from '../../sim/types'
 import { difficultyPresets, type Difficulty } from '../../data/brief'
@@ -491,7 +492,7 @@ export function BaseScreen() {
   }, [missionStartDay, simState, resetMissionClock])
 
   const budgets = computeBudgets(design, difficulty)
-  const checks = goNoGo(design, budgets)
+  const checks = goNoGo(design, budgets, day)
 
   const mockViews = mockMissionViews(day)
   const views =
@@ -522,16 +523,17 @@ export function BaseScreen() {
   const mockLabels = (() => {
     const lab = buildings.find((b) => b.id === 'research-lab')!
     const up = lab.upgrade!
-    const upgrading = day < up.endDay
+    const labLevel = researchLabLevel(day)
+    const upgrading = labLevel < up.toLevel
     const out: Record<BuildingId, BuildingLabel> = {
       'research-lab': upgrading
         ? {
-            level: lab.level,
+            level: labLevel,
             status: `Upgrading to LV ${up.toLevel} · ${Math.ceil(up.endDay - day)} days left`,
             progress: (day - up.startDay) / (up.endDay - up.startDay),
             highlight: true,
           }
-        : { level: up.toLevel, status: 'Neutron spectrometer unlocked' },
+        : { level: labLevel, status: 'Neutron spectrometer unlocked' },
       factory:
         lunarStartedDay !== null && !simState
           ? { level: 1, status: 'Reserved for Lunar Ice Mapper', highlight: true }

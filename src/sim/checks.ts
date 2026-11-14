@@ -2,6 +2,7 @@ import { getRideById } from '../data/rides'
 import { getTransferById, isTransferCompatible } from '../data/transfers'
 import { getPartById, type InstrumentPart, type PropulsionPart, type RadioPart } from '../data/parts'
 import { lunarIceMapperBrief, modelConstants as C } from '../data/brief'
+import { buildings, instrumentLabLevel, researchLabLevel } from '../data/agency'
 import type { Design, Budgets, CheckResult, GoNoGoResult, BarStatus, DesignStep } from './types'
 
 export type { GoNoGoResult }
@@ -27,7 +28,11 @@ function check(
  * Run Go/No-Go checks on a design. Any red bar blocks the launch; every
  * yellow and red bar says why in plain words and names the step that fixes it.
  */
-export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
+/**
+ * labDay: the agency base day, for the Research Lab lock. Left out, nothing is locked
+ * (trial designs, tests, older callers).
+ */
+export function goNoGo(design: Design, budgets: Budgets, labDay?: number): GoNoGoResult {
   const b = budgets
   const spare = Math.round(C.greenMargin * 100)
   const turns = lunarIceMapperBrief.missionDurationTurns
@@ -222,9 +227,27 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
     )
   checks.push({ ...science, margin: b.projectedCoverage - coverageTarget })
 
+  if (labDay !== undefined) checks.push(...researchLabChecks(design, labDay))
+
   const blockers = checks.filter((c) => c.status === 'red')
   const warnings = checks.filter((c) => c.status === 'yellow')
   return { canGo: blockers.length === 0, checks, blockers, warnings }
+}
+
+/** One red check per instrument aboard that needs a higher Research Lab level than the lab has. */
+function researchLabChecks(design: Design, day: number): CheckResult[] {
+  const level = researchLabLevel(day)
+  const up = buildings.find((b) => b.id === 'research-lab')?.upgrade
+  return design.instruments.flatMap((id) => {
+    const needed = instrumentLabLevel[id] ?? 1
+    if (level >= needed) return []
+    const name = (getPartById(id) as InstrumentPart | undefined)?.name ?? id
+    const when =
+      up && up.toLevel >= needed && day < up.endDay
+        ? `upgrade done in ${Math.ceil(up.endDay - day)} days at the base; let time run with ▶`
+        : 'upgrade it at the base'
+    return [check('Research Lab', 'red', level, needed, 'LV', `${name} needs Research Lab level ${needed}; the lab is level ${level} (${when}).`, 'instruments')]
+  })
 }
 
 /**
