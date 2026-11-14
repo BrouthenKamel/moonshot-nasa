@@ -100,6 +100,13 @@ describe('Go / No-Go', () => {
   it('never makes science red', () => {
     expect(status(iceCubeDesign, 'Science')).toBe('yellow')
   })
+
+  it('counts the science margin up from the 70% target (more coverage is better)', () => {
+    const b = computeBudgets(flashlightDesign, 'engineer')
+    const science = goNoGo(flashlightDesign, b).checks.find((c) => c.resource === 'Science')!
+    expect(science.margin).toBeCloseTo(b.projectedCoverage - 70)
+    expect(science.margin).toBeGreaterThan(0)
+  })
 })
 
 describe('flight', () => {
@@ -164,6 +171,20 @@ describe('flight', () => {
     }
     const auto = runSimulation(flashlightDesign, 'engineer', s.seed)
     expect(buildReport(manual).score.total).toBe(buildReport(auto).score.total)
+  })
+
+  it('says so when there is no reserve to pay for a fix, without claiming a failed choice', () => {
+    const noReserve: Design = { ...lunahMapDesign, planning: { ...lunahMapDesign.planning, reservePercent: 0, testTurns: 0 } }
+    for (let seed = 1; seed <= 3000; seed++) {
+      const s = runSimulation(noReserve, 'engineer', seed)
+      const ev = s.allEvents.find((e) => e.eventId === 'thruster')
+      if (!ev || s.flight.reserve >= 1) continue
+      expect(ev.choiceSucceeded).toBeUndefined()
+      const log = s.turnLogs.find((l) => l.turn === ev.turn)!
+      expect(log.notes.join(' ')).toContain('No reserve left to pay for a fix')
+      return
+    }
+    throw new Error('no thruster event without reserve in 3000 flights')
   })
 
   it('spends money every turn and waits for the next ride when late', () => {
