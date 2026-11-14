@@ -505,6 +505,8 @@ export interface BuildingLabel {
   /** Level shown in the badge, may differ from the base data during an upgrade */
   level: number
   highlight?: boolean
+  /** A red Go / No-Go bar is fixed in this building */
+  alert?: boolean
 }
 
 const icons: Record<BuildingId, string> = {
