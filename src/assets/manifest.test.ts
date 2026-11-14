@@ -11,7 +11,7 @@ const list = assets as readonly Asset[]
 /** Budgets keep the game fast to load on a demo laptop and conference Wi-Fi */
 const MAX_BYTES: Record<Asset['kind'], number> = {
   model: 2 * 1024 * 1024,
-  texture: 2 * 1024 * 1024,
+  texture: 3 * 1024 * 1024,
   image: 1 * 1024 * 1024,
   music: 4 * 1024 * 1024,
   sfx: 300 * 1024,

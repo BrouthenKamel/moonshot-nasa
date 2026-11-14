@@ -80,7 +80,7 @@ describe('mute', () => {
   it('the button is labelled for what a click does', async () => {
     vi.stubGlobal('localStorage', memoryStorage())
     const { useAudioSettings } = await freshAudio()
-    const { MuteButton } = await import('../ui/MuteButton')
+    const { AudioControls: MuteButton } = await import('../ui/kit/AudioControls')
     expect(renderToString(<MuteButton />)).toContain('aria-label="Mute sound"')
     useAudioSettings.getState().setMuted(true)
     expect(renderToString(<MuteButton />)).toContain('aria-label="Unmute sound"')

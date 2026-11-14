@@ -14,12 +14,15 @@
     "balance": "tsx tools/balance.ts",
     "assets:models": "tsx scripts/assets/build-models.ts",
     "assets:audio": "tsx scripts/assets/gen-audio.ts",
-    "assets:credits": "tsx scripts/assets/credits.ts"
+    "assets:credits": "tsx scripts/assets/credits.ts",
+    "assets:nasa": "tsx scripts/assets/fetch-nasa.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
+    "@react-three/postprocessing": "^3.2.2",
     "howler": "^2.2.4",
+    "postprocessing": "^6.39.6",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "three": "^0.187.0",

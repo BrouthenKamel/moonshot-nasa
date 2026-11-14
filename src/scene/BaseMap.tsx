@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { Color, DoubleSide, MOUSE, TOUCH, Vector3, type Group, type InstancedMesh, Object3D } from 'three'
@@ -6,6 +6,7 @@ import { MAP_SIZE, buildings, type BuildingId } from '../data/agency'
 import { buildingIcons } from './buildingIcons'
 import { BuildingList, MapBoundary } from './BuildingList'
 import { canUseWebGL } from './webgl'
+import { BaseEffects, ChimneySmoke, Clouds, Truck } from './base/Life'
 
 /* ------------------------------------------------------------------ */
 /* Layout helpers                                                      */
@@ -288,6 +289,7 @@ function Factory() {
         <cylinderGeometry args={[0.15, 0.18, 1.2, 10]} />
         <meshStandardMaterial color="#8d939c" />
       </mesh>
+      <ChimneySmoke position={[1.3, 2.65, -1.2]} />
       {/* Crates waiting outside */}
       {[
         [2.1, 0.35, 1.3],
@@ -303,9 +305,101 @@ function Factory() {
   )
 }
 
-function Rocket() {
+/** The launch playing on the pad: when the countdown started (performance.now()), or the rocket already gone */
+const LaunchContext = createContext<{ launchAt: number | null; gone: boolean }>({ launchAt: null, gone: false })
+
+/** Seconds from the countdown start to ignition; matches LAUNCH.ignitionS in src/state/uiStore.ts */
+const IGNITION_S = 5.2
+const PUFFS = 28
+
+/** Exhaust, flame light and smoke for the launch, driven by the clock */
+function LaunchEffects({ rocket }: { rocket: React.RefObject<Group | null> }) {
+  const { launchAt } = useContext(LaunchContext)
+  const flame = useRef<Group>(null)
+  const light = useRef<import('three').PointLight>(null)
+  useFrame(() => {
+    const r = rocket.current
+    if (!r) return
+    if (launchAt === null) {
+      r.position.set(0, 0, 0)
+      if (flame.current) flame.current.visible = false
+      if (light.current) light.current.intensity = 0
+      return
+    }
+    const t = (performance.now() - launchAt) / 1000
+    const lift = Math.max(0, t - IGNITION_S)
+    // Engines light, the clamps hold for half a second, then the climb speeds up
+    const climb = Math.max(0, lift - 0.5)
+    const shake = t > IGNITION_S - 0.6 && climb < 1.5 ? 0.025 * Math.sin(t * 90) : 0
+    r.position.set(shake, 0.6 * climb * climb, shake * 0.6)
+    const burning = t > IGNITION_S - 0.3
+    if (flame.current) {
+      flame.current.visible = burning
+      const flicker = 0.85 + 0.15 * Math.sin(t * 60)
+      flame.current.scale.set(1, (0.8 + Math.min(1, lift) * 1.4) * flicker, 1)
+    }
+    if (light.current) light.current.intensity = burning ? 6 + 4 * Math.sin(t * 40) : 0
+  })
+  return (
+    <>
+      <group ref={flame} visible={false} position={[0, 0.12, 0]}>
+        <mesh rotation={[Math.PI, 0, 0]} position={[0, -0.35, 0]}>
+          <coneGeometry args={[0.2, 0.9, 14, 1, true]} />
+          <meshBasicMaterial color="#ffb347" transparent opacity={0.9} />
+        </mesh>
+        <mesh rotation={[Math.PI, 0, 0]} position={[0, -0.22, 0]}>
+          <coneGeometry args={[0.11, 0.5, 12, 1, true]} />
+          <meshBasicMaterial color="#fff6d5" />
+        </mesh>
+        <pointLight ref={light} position={[0, -0.3, 0]} color="#ffa040" intensity={0} distance={6} />
+      </group>
+    </>
+  )
+}
+
+/** Smoke rolling out from the pad at ignition, slowly fading */
+function LaunchSmoke() {
+  const { launchAt } = useContext(LaunchContext)
+  const puffs = useRef<(import('three').Mesh | null)[]>([])
+  const seeds = useMemo(() => {
+    const rnd = mulberry32(7)
+    return Array.from({ length: PUFFS }, () => ({ a: rnd() * Math.PI * 2, s: 0.6 + rnd() * 0.8, d: 0.6 + rnd() * 1.6, b: rnd() }))
+  }, [])
+  useFrame(() => {
+    const t = launchAt === null ? -1 : (performance.now() - launchAt) / 1000
+    puffs.current.forEach((p, i) => {
+      if (!p) return
+      const seed = seeds[i]
+      const age = t - (IGNITION_S - 0.4 + seed.b * 2.2)
+      if (launchAt === null || age <= 0 || age > 9) {
+        p.visible = false
+        return
+      }
+      p.visible = true
+      const spread = Math.min(1, age / 2.5)
+      p.position.set(Math.cos(seed.a) * seed.d * spread * 1.6, 0.35 + age * 0.12, Math.sin(seed.a) * seed.d * spread * 1.6)
+      p.scale.setScalar(seed.s * (0.25 + Math.min(1, age / 1.8)) * Math.max(0.01, 1 - age / 9))
+    })
+  })
   return (
     <group>
+      {seeds.map((_, i) => (
+        <mesh key={i} ref={(m) => { puffs.current[i] = m }} visible={false}>
+          <icosahedronGeometry args={[0.5, 1]} />
+          <meshStandardMaterial color="#f3f1ec" roughness={1} flatShading />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function Rocket() {
+  const rocket = useRef<Group>(null)
+  const { gone } = useContext(LaunchContext)
+  if (gone) return null
+  return (
+    <group ref={rocket}>
+      <LaunchEffects rocket={rocket} />
       <mesh position={[0, 1.2, 0]} castShadow>
         <cylinderGeometry args={[0.22, 0.22, 2, 16]} />
         <meshStandardMaterial color="#f7f8fa" />
@@ -349,6 +443,7 @@ function LaunchSite() {
       <group position={[0, 0.1, 0]}>
         <Rocket />
       </group>
+      <LaunchSmoke />
       {/* Service tower */}
       <group position={[-0.75, 0, -0.3]}>
         <mesh position={[0, 1.65, 0]} castShadow>
@@ -594,9 +689,14 @@ export interface BaseMapProps {
   labels: Record<BuildingId, BuildingLabel>
   /** Walking into a building: clicking its model or its label */
   onBuildingClick?: (id: BuildingId) => void
+  /** The launch on the pad: performance.now() when the countdown started */
+  launchAt?: number | null
+  /** The rocket has left (the craft is flying) */
+  rocketGone?: boolean
 }
 
-function IslandMap({ labels, onBuildingClick }: BaseMapProps) {
+function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = false }: BaseMapProps) {
+  const launch = useMemo(() => ({ launchAt, gone: rocketGone }), [launchAt, rocketGone])
   const labelEls = useRef<(HTMLDivElement | null)[]>([])
   // Until the canvas has drawn, show a placeholder instead of a blank green field
   const [ready, setReady] = useState(false)
@@ -636,8 +736,11 @@ function IslandMap({ labels, onBuildingClick }: BaseMapProps) {
           shadow-bias={-0.0005}
         />
 
+        <LaunchContext.Provider value={launch}>
         <Ground />
         <Scenery />
+        <Clouds />
+        <Truck z={7.5 - HALF} from={-7} to={6} />
 
         {buildings.map((b) => {
           const Model = models[b.id]
@@ -662,6 +765,8 @@ function IslandMap({ labels, onBuildingClick }: BaseMapProps) {
           )
         })}
 
+        </LaunchContext.Provider>
+        <BaseEffects />
         <LabelProjector anchors={anchors} elements={labelEls} />
 
         <OrbitControls
