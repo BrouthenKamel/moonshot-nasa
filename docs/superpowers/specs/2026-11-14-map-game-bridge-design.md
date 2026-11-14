@@ -29,6 +29,7 @@ The agency map (Balazs's base screen, PR #4) is the visual direction of the game
 ## Decided by Jakob
 - Approach C. Flight on the base, as shown in the mockup.
 - Logic only from the core; the map drives the decisions.
+- The design of each building's screens belongs to the Interfaces sessions (Interfaces, Instrument Selection). This work only wires the map to the screens and the core; the screens are framed as being inside their building (Comms Center: mission control, planning, comms, Go / No-Go; Research Lab: what the mission can see and measure; Factory: building the CubeSat; Launch Site: orbit, ride, transfer, launch). Both sessions were told on 14 Nov, 17:20.
 
 ## Calls I made (correct if wrong)
 - Before a mission is started the base clock keeps running on its own, as Balazs built it. From launch on, it is driven by the mission turns.
