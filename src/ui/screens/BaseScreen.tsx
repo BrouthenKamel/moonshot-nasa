@@ -18,11 +18,14 @@ import {
 import { FlightStage } from '../flight/FlightStage'
 import { AudioControls } from '../kit/AudioControls'
 import { useUiStore } from '../../state/uiStore'
+import { AgencyDashboard, AgencyWallet } from '../agency/AgencyPanels'
 
 /*
  * The base screen of the MVP: one mission, the Lunar Ice Mapper (docs/DESIGN-DIRECTION.md, 1a).
  * The map is the menu; the top bar holds the mission month and the mission's status.
- * No agency dashboard, calendar, building levels, build plots or missions list.
+ * The agency layer (money, popularity, mission money, research, news) sits on top of it:
+ * src/ui/agency/AgencyPanels.tsx, fed by src/state/worldStore.ts, which only listens to the mission.
+ * No agency calendar, building levels, build plots or missions list.
  */
 
 /* ------------------------------------------------------------------ */
@@ -218,6 +221,8 @@ function TopBar({ month, status, onOpenStatus }: { month: number; status: Missio
 
       <MissionStatusButton status={status} onOpen={onOpenStatus} />
 
+      <AgencyWallet />
+
       <div className="ml-auto flex items-center gap-2">
         <button
           type="button"
@@ -296,9 +301,18 @@ export function BaseScreen() {
             {simState ? 'Drag to move · scroll to zoom' : 'Click a building to walk in · drag to move · scroll to zoom'}
           </div>
         </div>
+        {/* Left: agency. Ends above the narrator's corner. */}
+        <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-36 lg:left-6 lg:top-6 lg:z-10 lg:w-72">
+          <div className="flex min-h-0 flex-col lg:pointer-events-auto">
+            <AgencyDashboard />
+          </div>
+        </div>
+        {/* Right: the flight's mission log */}
         {simState && (
-          <div className="min-h-0 lg:flex lg:w-72 lg:flex-col">
-            <MissionLog entries={logEntries} />
+          <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:right-6 lg:top-6 lg:z-10 lg:w-72">
+            <div className="flex min-h-0 flex-col lg:pointer-events-auto">
+              <MissionLog entries={logEntries} />
+            </div>
           </div>
         )}
       </div>
