@@ -48,7 +48,7 @@ export function ReplayPanel({ design, logs, terminal, compact = false }: ReplayP
   if (logs.length === 0) {
     return (
       <div className="rounded-lg bg-slate-900 p-4 text-sm text-slate-400">
-        No turns yet. Advance a turn to see the mission.
+        No months flown yet. Advance a month to see the mission.
       </div>
     )
   }

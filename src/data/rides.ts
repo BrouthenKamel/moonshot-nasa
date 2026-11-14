@@ -27,7 +27,7 @@ export const rides: Ride[] = [
     id: 'ride-gto',
     name: 'GTO Rideshare',
     description:
-      'The lowest fee, but it drops you in geostationary transfer orbit, far from the Moon, and leaves early (turn 6). Only an ion engine can climb out, which adds about 1,500 m/s and many months of transfer, and every month costs team and ground time.',
+      'The lowest fee, but it drops you in geostationary transfer orbit, far from the Moon, and leaves early (month 6). Only an ion engine can climb out, which adds about 1,500 m/s and many months of transfer, and every month costs team and ground time.',
     departureTurn: 6,
     cost: 0.8,
     massLimit: 16,

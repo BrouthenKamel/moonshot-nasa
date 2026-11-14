@@ -81,7 +81,7 @@ function ThisMonth({ simState, compact }: { simState: SimState; compact: boolean
           </span>
         </span>
       </label>
-      <div className="mt-2 text-xs text-slate-500">Applies from the next turn until you change it.</div>
+      <div className="mt-2 text-xs text-slate-500">Applies from the next month until you change it.</div>
     </div>
   )
 }
@@ -125,7 +125,7 @@ export function FlightControls({ compact = false }: { compact?: boolean }) {
           disabled={autoFly}
           className={`flex-1 rounded-lg bg-slate-700 font-medium text-white hover:bg-slate-600 disabled:opacity-50 ${pad}`}
         >
-          Advance one turn
+          Advance one month
         </button>
         {autoFly ? (
           <button onClick={() => stopAutoFly()} className={`flex-1 rounded-lg bg-amber-600 font-medium text-white hover:bg-amber-500 ${pad}`}>

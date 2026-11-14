@@ -3,10 +3,22 @@
 *Kept by the Integration session (the coordinator). Approved direction from Jakob, 14 Nov 2026. Read this before designing or building any part of the game; message `Integration` before you write code.*
 
 ## 1. The game in one line
-The player runs a small space agency and flies **one mission, the Lunar Ice Mapper**: a 6U CubeSat that maps water ice in the shadowed craters at the Moon's south pole. Every decision has a real consequence computed by the logic core, and the report explains why the mission worked or failed.
+The player designs and flies **one mission, the Lunar Ice Mapper**: a 6U CubeSat that maps water ice in the shadowed craters at the Moon's south pole. Every decision has a real consequence computed by the logic core, and the report explains why the mission worked or failed.
 
-## 2. The whole: the agency map is the menu
-The game lives on the agency base (`BaseScreen`). Every decision is made **inside a building**; the player walks in by clicking it and comes back with "← Agency base".
+## 1a. MVP scope: one mission (Jakob, 14 Nov 18:49)
+The MVP is **only this one mission**. The cross-mission agency game we first sketched (running an agency over years) is a **later extension**, and nothing of it is shown in the MVP:
+- **No agency dashboard:** no funds, income, public support, funding trend, activity feed of agency events, or "upcoming".
+- **No agency calendar:** no "DAY 1265 / Month 43" clock, and no play/pause/fast controls for agency time.
+- **No building levels or upgrades:** no LV badges, no Research Lab upgrade, no instrument unlocks. Every part in the catalogue is available.
+- **No "+ BUILD" plot and no multiple missions:** no missions list and no "+ New mission" panel. The mission's status (stage, next step, progress) sits in the **top bar**, with a "Start over" that asks first.
+- **Money is the mission's own budget:** the 25 M cap and the reserve, set at the Comms Center. Failure simply uses up that budget.
+
+**Time, one unit for the player: the mission month.** One turn = one month. The clock starts at **month 0 when the mission starts** and only moves when the mission does: designing and building, then the flight. Player-facing text says "month" (the ride leaves in month 8, MB per month, "Advance one month"), never "turn" and never calendar days.
+
+Code for the extension may stay in the repo, unused, where removing it would be risky. Don't build on it, and don't show it.
+
+## 2. The whole: the base map is the menu
+The game lives on the base map (`BaseScreen`). Every decision is made **inside a building**; the player walks in by clicking it and comes back with "← Base".
 
 | Building | Role on the board | Steps inside | Owner of the visual |
 |---|---|---|---|
@@ -15,9 +27,9 @@ The game lives on the agency base (`BaseScreen`). Every decision is made **insid
 | Factory | Space | 3 spacecraft | SpaceCraft Design |
 | Launch Site | Launch | 4 orbit, 5 ride and transfer | Trajectory (orbit, the Moon end), Ride & Transfer (ride, the Earth end and the path) |
 
-After Go / No-Go, **"Launch Mission" returns to the base and the flight plays on the map**: event cards over the island, turn buttons, the activity feed. One clock: from launch, one turn = 30 days on the base calendar. The report and replay keep their own screens.
+After Go / No-Go, **"Launch Mission" returns to the base and the flight plays on the map**: event cards over the island, the flight buttons, and a mission log of the flight's own events. The clock is the mission month (see 1a). The report and replay keep their own screens.
 
-Placeholders for later, not to be built now: agency economy, publicity, building levels and unlocks, other missions.
+Extensions for later, not to be built or shown now: the agency economy, publicity, the agency calendar, building levels and unlocks, building plots, other missions.
 
 ## 3. Rules every screen follows
 1. **Numbers only from the logic core.** Read `computeBudgets(design, difficulty)`, `goNoGo(design, budgets)` and the flight state from `useGameStore`; catalogue facts from `src/data/*`. Never re-compute or approximate mission numbers in a screen or a scene. A what-if preview calls `computeBudgets` on a copy of the design.
@@ -32,7 +44,7 @@ Placeholders for later, not to be built now: agency economy, publicity, building
 - **Base map look (outside):** navy `#14213d`, warm panels `#fbf7ef`, orange accents `#f97316`, display font `font-display` (Fredoka). Building labels stay as they are.
 - **Inside a building:** a dark room or scene, like the mission control room (`#03050a` background), with the building's role colour from the board as the accent: Ground / Comms Center blue, Science / Research Lab green, Space / Factory purple, Launch / Launch Site orange.
 - **Title line inside every building**, in the control room's format: `BUILDING · LUNAR ICE MAPPER · STEP`, e.g. `COMMS CENTER · LUNAR ICE MAPPER · MISSION PLANNING`, `RESEARCH LAB · LUNAR ICE MAPPER · INSTRUMENTS`, `FACTORY · LUNAR ICE MAPPER · SPACECRAFT`, `LAUNCH SITE · LUNAR ICE MAPPER · ORBIT` / `· RIDE & TRANSFER`.
-- **Units, written the same everywhere:** kg, U, W, Wh, $M (or "M"), MB and MB/turn, kbps, m/s, km. Time: a turn is one month, so in-scene wording may say months ("2 MONTHS SPARE", "RIDE · END OF MONTH 8", matching the base's "Month" counter); buttons, the dashboard and plain controls say turns. Go / No-Go colours: green, yellow, red.
+- **Units, written the same everywhere:** kg, U, W, Wh, $M (or "M"), MB and MB/month, kbps, m/s, km. Time: always the mission month, counted from month 0 when the mission starts ("2 MONTHS SPARE", "RIDE · MONTH 8", "Advance one month"). Never "turn" or calendar days in player-facing text; code may keep the word turn. Go / No-Go colours: green, yellow, red.
 - **Words:** plain English, short sentences; say what a number means for the mission ("cannot map ice at this height"), not just the number. Name the real mission a choice comes from where there is one (Lunar Flashlight, Lunar IceCube, LunaH-Map, LRO).
 - **Two sessions in one building** (Launch Site) agree one look together and bring it to Jakob as one. Agreed between Ride & Transfer and Trajectory: the ride scene draws the launch and the Earth-Moon path, ending in a capture-burn marker on the Moon; the orbit scene starts with the craft arriving there; neither draws the other's half.
 - **One colour per orbit, everywhere an orbit is drawn:** halo loop violet `#a78bfa`, elliptical polar lime `#a3e635`, low circular polar sky blue `#38bdf8`. **Cyan is reserved for ice** (mapped ice, ice signal); don't use it for anything else.

@@ -21,7 +21,7 @@ export function Header() {
         {screen === 'simulation' && simState && (
           <div className="flex items-center gap-3 text-sm">
             <span className="rounded bg-slate-800 px-2 py-1">
-              Turn {simState.currentTurn}
+              Month {simState.currentTurn}
             </span>
             <span className="text-slate-400">
               Phase: <span className="text-slate-200 capitalize">{simState.phase}</span>

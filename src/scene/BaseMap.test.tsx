@@ -6,10 +6,10 @@ import { BuildingList, MapBoundary } from './BuildingList'
 import type { BuildingId } from '../data/agency'
 
 const labels: Record<BuildingId, BuildingLabel> = {
-  'research-lab': { level: 2, status: 'Lab status' },
-  factory: { level: 1, status: 'Factory status' },
-  'comms-center': { level: 1, status: 'Comms status' },
-  'launch-site': { level: 1, status: 'Launch status' },
+  'research-lab': { status: 'Lab status' },
+  factory: { status: 'Factory status' },
+  'comms-center': { status: 'Comms status' },
+  'launch-site': { status: 'Launch status' },
 }
 
 /** Every <button> element in a rendered tree, calling function components on the way */

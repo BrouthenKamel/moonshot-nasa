@@ -214,7 +214,7 @@ export function buildRideView(design: Design, difficulty: Difficulty, budgets: B
           ? 'needs a chemical engine (Factory)'
           : direct
             ? 'about 5 days · one big braking burn'
-            : 'turns of coasting · small burn',
+            : 'months of coasting · small burn',
         selectable,
         selected: design.transfer === t.id,
       }
@@ -230,7 +230,7 @@ export function buildRideView(design: Design, difficulty: Difficulty, budgets: B
   if (!blocked) {
     if (climb > 0) layers.push({ key: 'climb', label: 'CLIMB OUT', value: climb, colour: LAYER_COLOUR.climb })
     layers.push({ key: 'capture', label: 'CAPTURE', value: capture, colour })
-    layers.push({ key: 'hold', label: `HOLD ORBIT, ${turns} TURNS`, value: hold, colour: LAYER_COLOUR.hold })
+    layers.push({ key: 'hold', label: `HOLD ORBIT, ${turns} MONTHS`, value: hold, colour: LAYER_COLOUR.hold })
     if (margin >= 0) layers.push({ key: 'spare', label: 'SPARE', value: margin, colour: LAYER_COLOUR.spare })
   }
   const available = fin(b.deltaVAvailable)
@@ -332,23 +332,23 @@ export function timelineLayout(t: RideView['timeline']): { blocks: TimelineBlock
   const arrival = t.arrivalTurn
   if (arrival !== null && t.transferTurns !== null && t.transferTurns > 0) {
     const n = t.transferTurns
-    blocks.push({ key: 'transit', label: `${n} TURN${n === 1 ? '' : 'S'} IN TRANSIT`, from: x(t.rideTurn), to: x(arrival) })
+    blocks.push({ key: 'transit', label: `${n} MONTH${n === 1 ? '' : 'S'} IN TRANSIT`, from: x(t.rideTurn), to: x(arrival) })
   }
-  if (t.showMapping && arrival !== null) blocks.push({ key: 'mapping', label: '12 TURNS OF MAPPING', from: x(arrival), to: x(arrival + 12) })
+  if (t.showMapping && arrival !== null) blocks.push({ key: 'mapping', label: '12 MONTHS OF MAPPING', from: x(arrival), to: x(arrival + 12) })
 
   const flags: TimelineFlag[] = [
-    { key: 'ready', label: `READY · TURN ${t.readyTurn}`, at: x(t.readyTurn), tone: t.late ? 'bad' : 'good', side: 'below' },
+    { key: 'ready', label: `READY · MONTH ${t.readyTurn}`, at: x(t.readyTurn), tone: t.late ? 'bad' : 'good', side: 'below' },
   ]
-  let launch = `LAUNCH · TURN ${t.rideTurn}`
+  let launch = `LAUNCH · MONTH ${t.rideTurn}`
   const joined = arrival !== null && !t.direct && arrival - t.rideTurn < JOIN_TURNS
   if (t.direct && t.showMapping) launch += ' · AT THE MOON 5 DAYS LATER'
   else if (t.direct && t.flyPast) launch += ' · FLIES PAST THE MOON 5 DAYS LATER'
-  else if (joined) launch += ` → ${t.flyPast ? 'FLIES PAST' : 'ARRIVE'} · TURN ${arrival}`
+  else if (joined) launch += ` → ${t.flyPast ? 'FLIES PAST' : 'ARRIVE'} · MONTH ${arrival}`
   flags.push({ key: 'launch', label: launch, at: x(t.rideTurn), tone: 'plain', side: 'above' })
   if (arrival !== null && !t.direct)
     flags.push({
       key: 'arrive',
-      label: joined ? '' : t.flyPast ? `FLIES PAST · TURN ${arrival}` : `ARRIVE · TURN ${arrival}`,
+      label: joined ? '' : t.flyPast ? `FLIES PAST · MONTH ${arrival}` : `ARRIVE · MONTH ${arrival}`,
       at: x(arrival),
       tone: t.flyPast ? 'bad' : 'orbit',
       side: 'above',

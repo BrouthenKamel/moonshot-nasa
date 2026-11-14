@@ -18,6 +18,7 @@ vi.mock('../scene/BaseMap', () => ({
   ),
 }))
 import App from '../App'
+import { StartOverDialog } from './screens/BaseScreen'
 import { useGameStore } from '../state/gameStore'
 import { useAgencyStore } from '../state/agencyStore'
 import { flashlightDesign } from '../sim/fixtures'
@@ -29,21 +30,43 @@ import { clearOddsCache, estimateSuccess, planningOdds } from '../sim/odds'
 describe('screens render', () => {
   beforeEach(() => useGameStore.getState().newGame())
 
-  it('the game starts on the agency map', () => {
+  it('the game starts on the base map', () => {
     expect(useGameStore.getState().screen).toBe('base')
     const html = renderToString(<App />)
-    expect(html).toContain('Agency dashboard')
+    expect(html).toContain('Lunar Ice Mapper')
     expect(html).not.toContain('Select Difficulty')
   })
 
-  // Jakob, 14 Nov: one mission only; "+ New mission" walks into the buildings
-  it('lists only the Lunar Ice Mapper, and a new mission stays on the map', () => {
-    const html = renderToString(<App />)
+  // Jakob, 14 Nov 18:49: the MVP is one mission (DESIGN-DIRECTION 1a)
+  it('the base shows one mission, with no agency layer', () => {
+    const html = renderToString(<App />).replace(/<!-- -->/g, '')
+    for (const gone of [
+      'Agency dashboard', 'PUBLIC SUPPORT', 'FUNDS', 'Funding trend', 'Activity', 'Upcoming', 'Reset demo',
+      '+ BUILD', 'coming soon', '+ New mission', '>Missions<', 'DAY ', 'Pause', 'LV ',
+    ]) {
+      expect(html).not.toContain(gone)
+    }
     expect(html).not.toMatch(/Aurora-1|Relay Pathfinder|Solar Scout/)
+    // Before launch: month 0, no mission log
+    expect(html).toContain('Month 0')
+    expect(html).not.toContain('Mission log')
+    // The mission's status sits in the top bar, with a stage, the next step and a progress bar
+    expect(html).toContain('Planning')
+    expect(html).toContain('Next: Brief at the Communications Center')
+    expect(html).toContain('role="progressbar"')
+    expect(html).toContain('Start over')
+    expect(html).toContain('Mute sound')
+  })
+
+  it('start over asks in the game first, then resets the mission on the base', () => {
+    const dialog = renderToString(<StartOverDialog onCancel={() => {}} onConfirm={() => {}} />)
+    expect(dialog).toContain('role="dialog"')
+    expect(dialog).toContain('Start over?')
+    expect(dialog).toContain('Keep going')
+    useGameStore.getState().openBuilding('factory')
     useGameStore.getState().startNewMission()
     expect(useGameStore.getState().screen).toBe('base')
-    const after = renderToString(<App />)
-    expect(after.match(/Lunar Ice Mapper<\/h3>|>Lunar Ice Mapper</g)?.length ?? 0).toBeLessThanOrEqual(1)
+    expect(useGameStore.getState().visitedSteps).toEqual([])
   })
 
   // Jakob, 14 Nov: no difficulty levels for now; one fixed setting (the Engineer values)
@@ -107,7 +130,7 @@ describe('screens render', () => {
     useGameStore.setState({ screen: 'design', designStep: 'ride', design: flashlightDesign })
     expect(renderToString(<App />)).toContain('m/s')
     useGameStore.setState({ designStep: 'comms' })
-    expect(renderToString(<App />)).toContain('MB/turn')
+    expect(renderToString(<App />)).toContain('MB/month')
   })
 
   it('simulation with an event card, then the report', () => {
@@ -153,9 +176,14 @@ describe('screens render', () => {
     useAgencyStore.getState().markLunarMissionStarted()
     useAgencyStore.getState().startMissionClock()
     useGameStore.setState({ screen: 'base', simState: s, design: flashlightDesign })
-    const html = renderToString(<App />)
+    const html = renderToString(<App />).replace(/<!-- -->/g, '')
     expect(html).toContain(s.pendingDecision!.title)
     expect(html).not.toContain('NaN')
+    // The clock is the flight's month, and the mission log shows the flight's own events
+    expect(html).toContain(`Month ${s.currentTurn}`)
+    expect(html).toContain(`Event, month ${s.pendingDecision!.turn}`)
+    expect(html).toContain('Mission log')
+    expect(html).not.toMatch(/\bDAY\b|mission day/i)
     useGameStore.getState().setScreen('design')
     useGameStore.getState().setScreen('base')
     expect(useGameStore.getState().simState!.currentTurn).toBe(s.currentTurn)
@@ -169,6 +197,24 @@ describe('screens render', () => {
     const html = renderToString(<App />)
     expect(html).toContain('14.0 / 14 kg')
     expect(html).toContain('Click a building to walk in')
+    expect(html).toContain('month 8')
+    expect(html).not.toMatch(/\bturns?\b/i)
+  })
+
+  it('a finished mission: the top bar opens the report, and the log shows the end', () => {
+    useGameStore.setState({ screen: 'base', simState: null, design: flashlightDesign, currentReport: null })
+    useGameStore.getState().startSimulation()
+    for (let i = 0; i < 80 && useGameStore.getState().currentReport === null; i++) {
+      const st = useGameStore.getState()
+      if (st.simState?.pendingDecision) st.answerEvent(st.simState.pendingDecision.options[0].id)
+      else st.flyOn()
+    }
+    const sim = useGameStore.getState().simState!
+    const html = renderToString(<App />).replace(/<!-- -->/g, '')
+    expect(html).toContain(`Month ${sim.currentTurn}`)
+    expect(html).toContain('See the report')
+    expect(html).toContain('Mission log')
+    expect(html).toMatch(/Success|Partial success|Failed/)
   })
 
   // F2 (Jakob, 14 Nov): the Go/No-Go review says how likely full success is

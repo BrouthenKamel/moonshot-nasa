@@ -287,7 +287,7 @@ describe('gameStore without team mode', () => {
     const opts = useGameStore.persist.getOptions()
     const saved = opts.partialize!(useGameStore.getState()) as Record<string, unknown>
     for (const key of ['mode', 'players', 'signOffs']) expect(key in saved).toBe(false)
-    expect(opts.version).toBe(1)
+    expect(opts.version).toBe(2)
     const old = { mode: 'team', players: [{ name: 'A', role: 'ground' }], signOffs: [], designStep: 'orbit' }
     const migrated = (await opts.migrate!(old, 0)) as Record<string, unknown>
     expect(migrated).toEqual({ designStep: 'orbit' })

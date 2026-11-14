@@ -110,7 +110,7 @@ function GroundStationCard({
         </div>
         <div className="rounded bg-slate-900 p-2 text-center">
           <div className="text-slate-500">Outage odds</div>
-          <div className="font-bold text-slate-300">{Math.round(station.outageChance * 100)}% a turn</div>
+          <div className="font-bold text-slate-300">{Math.round(station.outageChance * 100)}% a month</div>
         </div>
       </div>
     </button>
@@ -141,11 +141,11 @@ export function CommsScreen() {
         <div className="font-medium text-blue-300">Data Link Budget</div>
         <div className="mt-2 grid grid-cols-2 gap-4 text-blue-200">
           <div>
-            Instruments make: <span className="text-blue-400">{budgets.dataPerTurn.toFixed(0)} MB/turn</span>
+            Instruments make: <span className="text-blue-400">{budgets.dataPerTurn.toFixed(0)} MB/month</span>
           </div>
           <div>
             Link carries: <span className={budgets.dataMarginPerTurn >= 0 ? 'text-green-400' : 'text-red-400'}>
-              {budgets.downlinkPerTurn.toFixed(0)} MB/turn
+              {budgets.downlinkPerTurn.toFixed(0)} MB/month
             </span>{' '}
             <span className="text-blue-200/60">({budgets.linkKbps} kbps)</span>
           </div>
@@ -153,7 +153,7 @@ export function CommsScreen() {
             Storage on board: <span className="text-blue-400">{budgets.storageCapacity} MB</span>
           </div>
           <div>
-            Ground time: <span className="text-blue-400">${budgets.groundCostPerTurn.toFixed(2)}M a turn</span>
+            Ground time: <span className="text-blue-400">${budgets.groundCostPerTurn.toFixed(2)}M a month</span>
           </div>
         </div>
         {budgets.dataMarginPerTurn < 0 && (
@@ -172,7 +172,7 @@ export function CommsScreen() {
       <div className="rounded-lg bg-slate-900 p-6">
         <h2 className="mb-2 font-semibold text-slate-200">Contact time</h2>
         <p className="mb-4 text-sm text-slate-400">
-          Hours a day booked on the ground station. More hours carry more data but cost money every turn.
+          Hours a day booked on the ground station. More hours carry more data but cost money every month.
         </p>
         <div className="flex items-center gap-4">
           <input

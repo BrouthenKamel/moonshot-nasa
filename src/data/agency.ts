@@ -1,13 +1,11 @@
 /**
- * Agency base mockup data: buildings, example missions and the event timeline.
+ * Agency base data: the buildings on the map, plus the agency layer (economy, example
+ * missions, event timeline, building levels) that is a later extension. The MVP is one
+ * mission (docs/DESIGN-DIRECTION.md, section 1a): only the buildings' names, tiles and roles
+ * are shown; the rest stays here unused, and nothing shows it.
  *
- * Time on the base runs in days (continuous), not turns. Day 0 is the day the
- * agency was founded. The demo state opens on day 112 (about month 4). Once the
- * Lunar Ice Mapper flies, the base day follows its turns (one turn = 30 days).
- *
- * Everything here is mock content for the MVP: the only real game link is the
- * Lunar Ice Mapper mission, planned from the buildings and flown on the base
- * with the logic core (src/sim).
+ * Extension notes: agency time runs in days (continuous); the demo state opens on
+ * day 112. The player never sees it: the only clock shown is the mission month.
  */
 
 /** Day the demo state starts on */
@@ -98,7 +96,6 @@ export const buildings: Building[] = [
   },
 ]
 
-/** Empty plot for a future building (not interactive in the MVP) */
 /** The Research Lab's level on a base day: its upgrade counts once it is done. */
 export function researchLabLevel(day: number): number {
   const lab = buildings.find((b) => b.id === 'research-lab')
@@ -117,8 +114,6 @@ export const instrumentLabLevel: Record<string, number> = {}
 export const EXTENSION_INSTRUMENT_LAB_LEVEL: Record<string, number> = {
   'inst-neutron': 3,
 }
-
-export const buildPlot ={ tile: [16, 6] as [number, number], size: [3, 3] as [number, number] }
 
 /** Map size in tiles */
 export const MAP_SIZE = 20

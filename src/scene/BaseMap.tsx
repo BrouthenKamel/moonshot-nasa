@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { Color, DoubleSide, MOUSE, TOUCH, Vector3, type Group, type InstancedMesh, Object3D } from 'three'
-import { MAP_SIZE, buildPlot, buildings, type BuildingId } from '../data/agency'
+import { MAP_SIZE, buildings, type BuildingId } from '../data/agency'
 import { buildingIcons } from './buildingIcons'
 import { BuildingList, MapBoundary } from './BuildingList'
 import { canUseWebGL } from './webgl'
@@ -34,7 +34,6 @@ function roadTiles(): Set<string> {
     [11, 6], // factory
     [6, 11], [6, 12], // comms center
     [8, 11], // launch site
-    [17, 8], [17, 9], // build plot
   ].forEach(([x, z]) => roads.add(key(x, z)))
   return roads
 }
@@ -46,7 +45,6 @@ function occupiedTiles(): Set<string> {
       for (let z = tile[1] - pad; z < tile[1] + size[1] + pad; z++) used.add(key(x, z))
   }
   buildings.forEach((b) => add(b.tile, b.size, 1))
-  add(buildPlot.tile, buildPlot.size, 1)
   return used
 }
 
@@ -455,33 +453,6 @@ function CommsCenter() {
   )
 }
 
-function BuildPlotOutline() {
-  const [w, d] = buildPlot.size
-  const dashes = useMemo(() => {
-    const out: { position: [number, number, number]; size: [number, number, number] }[] = []
-    const step = 0.5
-    for (let t = -w / 2 + 0.15; t < w / 2 - 0.1; t += step) {
-      out.push({ position: [t + 0.12, 0.08, -d / 2 + 0.15], size: [0.25, 0.03, 0.06] })
-      out.push({ position: [t + 0.12, 0.08, d / 2 - 0.15], size: [0.25, 0.03, 0.06] })
-    }
-    for (let t = -d / 2 + 0.15; t < d / 2 - 0.1; t += step) {
-      out.push({ position: [-w / 2 + 0.15, 0.08, t + 0.12], size: [0.06, 0.03, 0.25] })
-      out.push({ position: [w / 2 - 0.15, 0.08, t + 0.12], size: [0.06, 0.03, 0.25] })
-    }
-    return out
-  }, [w, d])
-  return (
-    <group>
-      {dashes.map((dash, i) => (
-        <mesh key={i} position={dash.position}>
-          <boxGeometry args={dash.size} />
-          <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.4} />
-        </mesh>
-      ))}
-    </group>
-  )
-}
-
 const models: Record<BuildingId, () => React.ReactElement> = {
   'research-lab': ResearchLab,
   factory: Factory,
@@ -503,11 +474,11 @@ const labelHeight: Record<BuildingId, number> = {
 
 export interface BuildingLabel {
   status: string
-  /** 0-1 progress bar under the status, e.g. an upgrade */
+  /** 0-1 progress bar under the status */
   progress?: number
-  /** Level shown in the badge, may differ from the base data during an upgrade */
-  level: number
   highlight?: boolean
+  /** A gentle glow that points a new player here (the Research Lab's first lesson) */
+  pulse?: boolean
   /** A red Go / No-Go bar is fixed in this building */
   alert?: boolean
 }
@@ -538,15 +509,18 @@ function Label({
       }`}
     >
       {label.highlight && !label.alert && (
-        <span className="pointer-events-none absolute -inset-1.5 animate-pulse rounded-2xl ring-4 ring-orange-400/60" />
+        <span className="pointer-events-none absolute -inset-1.5 rounded-2xl ring-4 ring-orange-400/60 motion-safe:animate-pulse" />
+      )}
+      {label.pulse && !label.alert && (
+        <span
+          data-testid="label-pulse"
+          className="pointer-events-none absolute -inset-3 rounded-3xl ring-4 ring-emerald-400/70 shadow-[0_0_24px_rgba(52,211,153,0.6)] motion-safe:animate-pulse"
+        />
       )}
       <span className="flex items-center gap-2">
         <span className="text-base leading-none">{buildingIcons[id]}</span>
         <span className="whitespace-nowrap font-display text-sm font-bold uppercase tracking-wide text-slate-800">
           {name}
-        </span>
-        <span className="rounded-md bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
-          LV {label.level}
         </span>
       </span>
       <span className="mt-0.5 block text-[11px] leading-tight text-slate-600">{label.status}</span>
@@ -571,7 +545,8 @@ function FitCamera() {
   const camera = useThree((s) => s.camera)
   const size = useThree((s) => s.size)
   useEffect(() => {
-    const zoom = Math.min(size.width / 22, size.height / 15)
+    // The whole island and the labels above the back buildings fit, also on a wide map
+    const zoom = Math.min(size.width / 22, size.height / 20)
     camera.zoom = Math.max(14, zoom)
     camera.updateProjectionMatrix()
   }, [camera, size.width, size.height])
@@ -622,21 +597,19 @@ export interface BaseMapProps {
 }
 
 function IslandMap({ labels, onBuildingClick }: BaseMapProps) {
-  const plotCenter = footprintCenter(buildPlot.tile, buildPlot.size)
   const labelEls = useRef<(HTMLDivElement | null)[]>([])
   // Until the canvas has drawn, show a placeholder instead of a blank green field
   const [ready, setReady] = useState(false)
 
-  // One anchor per building (above its roof), then one for the build plot
-  const anchors = useMemo(() => {
-    const list = buildings.map((b) => {
-      const [x, , z] = footprintCenter(b.tile, b.size)
-      return new Vector3(x, labelHeight[b.id], z)
-    })
-    const [px, , pz] = footprintCenter(buildPlot.tile, buildPlot.size)
-    list.push(new Vector3(px, 0.9, pz))
-    return list
-  }, [])
+  // One anchor per building, above its roof
+  const anchors = useMemo(
+    () =>
+      buildings.map((b) => {
+        const [x, , z] = footprintCenter(b.tile, b.size)
+        return new Vector3(x, labelHeight[b.id], z)
+      }),
+    []
+  )
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -689,10 +662,6 @@ function IslandMap({ labels, onBuildingClick }: BaseMapProps) {
           )
         })}
 
-        <group position={[plotCenter[0], 0.05, plotCenter[2]]}>
-          <BuildPlotOutline />
-        </group>
-
         <LabelProjector anchors={anchors} elements={labelEls} />
 
         <OrbitControls
@@ -723,20 +692,6 @@ function IslandMap({ labels, onBuildingClick }: BaseMapProps) {
             />
           </div>
         ))}
-        <div
-          ref={(el) => {
-            labelEls.current[buildings.length] = el
-          }}
-          className="invisible absolute left-0 top-0"
-        >
-          <div
-            title="Building new facilities is coming after the MVP"
-            className="pointer-events-auto w-max cursor-not-allowed select-none rounded-lg bg-orange-500/90 px-3 py-1 text-center font-display text-sm font-bold text-white shadow-md"
-          >
-            + BUILD
-            <div className="text-[10px] font-normal opacity-90">coming soon</div>
-          </div>
-        </div>
       </div>
 
       {!ready && (
