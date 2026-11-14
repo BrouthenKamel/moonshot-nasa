@@ -49,7 +49,7 @@ The stage is for players. It should make the central lesson of the mission visib
 - All numbers come from the logic core: the catalogue in `src/data/parts.ts` and `src/data/orbits.ts`, and `computeBudgets()` in `src/sim/budgets.ts`. No second copy of mission maths.
 - The screen reads `design.instruments` and `difficulty` from `useGameStore` and writes only through `updateDesign({ instruments })`, so the map labels and Go / No-Go stay in sync.
 - `src/ui/screens.smoke.test.tsx` renders every design step with `renderToString` in a Node environment. The Instruments step must keep rendering there without throwing.
-- Files other sessions own and this work must not edit: `BaseScreen.tsx`, `BaseMap.tsx`, `gameStore.ts`, `App.tsx`, `agencyStore.ts` (Integration); `Shell.tsx` (Interfaces).
+- Shared files that go through the Integration session first, and that this work does not edit: `src/sim/*`, `src/data/*`, `gameStore.ts`, `agencyStore.ts`, `App.tsx`, `BaseScreen.tsx`, `BaseMap.tsx`, `Shell.tsx`. The one exception, already cleared, is the list entry in `DesignScreen.tsx` below.
 - `src/ui/screens/DesignScreen.tsx` is shared. The Interfaces session is adding a list `STEPS_WITHOUT_DIAGRAM: DesignStep[]` there. Once that is on `main`, this work adds `'instruments'` to the list and makes no other change in that file. On 14 Nov at 17:25 the list was not yet on `main` or any local branch. If that is still so when this work starts, add the same list with `['instruments']` so the two changes merge cleanly.
 - Desktop browsers at laptop width (1440 wide is the reference). The step stays inside the Shell: step rail left, resource dashboard right, about 960 px for the stage.
 
@@ -153,7 +153,7 @@ The footprint on the ground is the catalogue `footprint` times one constant for 
 | Pointing | What-if dial (design value by default) | `attitude.precise`, `qualityWithoutPrecisePointing` | The beam's landing point shakes for an instrument that needs precise pointing | "shaky aim: needs precise pointing" |
 | Power available | Not a dial here; follows the design | `scienceDuty` | Beams switch off for part of the time when below 1 | "power for only 60% of the time" |
 
-**Strength.** Each read-out shows `quality[id]` as "N% strength", and the beam's brightness follows it. The stage has no cut-off of its own: a weak beam fades, it is not declared dead, because the core still counts it. Below 0.2 the read-out says "Very weak at this height" (or "Very weak" when pointing is the cause).
+**Strength.** Each read-out shows `quality[id]` as "N% strength", and the beam's brightness follows it. The stage has no cut-off of its own: a weak beam fades, it is not declared dead, because the core still counts it. Below 0.2 the read-out says "Very weak at this height" (or "Very weak" when pointing is the cause). At exactly 0 the beam is off and the read-out says "Out of range at this height".
 
 ### Overlays on the stage
 
@@ -213,7 +213,7 @@ Unit tests (Vitest, next to the code):
   - Laser on the 15 km elliptical orbit with precise pointing: strength 1, reaches the ground, not shaky.
   - The same with basic pointing: strength 0.5, shaky, problem text names pointing.
   - Laser at 100 km: flagged very weak, strength equals the core's `quality`, problem text names the 20 km limit.
-  - Neutron spectrometer at 100 km: strength (25/100)², problem text names the 25 km limit.
+  - Neutron spectrometer at 100 km: strength equals the core's `quality` (the test must not hard-code the formula, which is about to change), problem text names the 25 km limit.
   - A design with `scienceDuty` below 1: powered share equals it, problem text names power.
   - Dials equal to the design: the stage's forecast equals `computeBudgets(design)`.
   - `flashlightDesign` from `src/sim/fixtures.ts` with the camera added: `projectedLost` is above 0 and the link line appears with that number.
@@ -228,6 +228,8 @@ Browser check at 1440 × 900, reported with what was seen: each instrument alone
 
 At the 100 km orbit the laser has strength 0.02, yet `projectedCoverage` is 89%, because 366 passes a turn outweigh the altitude penalty. The orbit's own text says 100 km is too high for the ice instruments. The Integration session owns the logic core, has confirmed this, and is taking it to Jakob as a model decision. The stage shows what the core returns and does not adjust it: at 100 km it shows a very weak, fading beam, "2% strength", and a green 89% ring. That looks odd because the model is odd there. If the formula changes, the stage follows with no change.
 
+Update, 14 Nov 17:28: the Integration session reports a fix on its own branch, not yet on `main`: an ice instrument above its `maxAltitudeKm` gets quality 0 and maps nothing. The stage then shows the beam off, "Out of range at this height" and a 0% ring at 100 km.
+
 Separately, `src/state/gameStore.test.ts` has one failing test on `main` at `9c6d745` ("stays on simulation after the last turn and stores run data"). It imports only the store and is unrelated to this work; the Integration session owns that file.
 
 ## Delivery
@@ -240,7 +242,7 @@ The pitch is on Sunday 15 Nov at 17:30. The stage should be on `main` before it.
 
 If time runs out, slice 3 is cut first, then the what-if warning and the delta line from slice 2. The reason lines are not cut: without them the stage breaks its own first anti-goal.
 
-The work lands as one pull request into `main` from this branch. Jakob merges it or says who does.
+The work lands as one pull request into `main` from this branch, rebased on the latest `main` first. Before the pull request: `pnpm typecheck && pnpm test && pnpm lint && pnpm build`. This session does not merge it. The Integration session says Jakob has made it the coordinator for all game sessions and that it merges with his go; this session follows that and reports the pull request to it.
 
 ## Claude's calls (Jakob can overrule)
 
