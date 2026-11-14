@@ -73,6 +73,20 @@ describe('mission map', () => {
     expect(planning.detail).toContain('Research Lab')
   })
 
+  it('a lost mission no longer reads as in transfer', () => {
+    const design = { ...flashlightDesign, planning: { ...flashlightDesign.planning, testTurns: 0, reservePercent: 0 } }
+    let lost = null
+    for (let seed = 1; seed <= 2000 && !lost; seed++) {
+      const s = runSimulation(design, 'engineer', seed)
+      if (s.flight.end === 'lost contact after deployment') lost = s
+    }
+    expect(lost).not.toBeNull()
+    const budgets = computeBudgets(design, 'engineer')
+    const l = missionLabels({ design, budgets, checks: goNoGo(design, budgets), visited: [], sim: lost })
+    expect(l['launch-site'].status).not.toContain('turns left')
+    expect(l['launch-site'].status).toContain('lost')
+  })
+
   it('names the building where a step is fixed', () => {
     expect(fixLocation('spacecraft')).toBe('the Factory (Spacecraft)')
     expect(fixLocation('comms')).toBe('the Communications Center (Comms)')
