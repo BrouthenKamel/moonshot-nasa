@@ -4,6 +4,10 @@ import { canUseWebGL } from '../../scene/webgl'
 import { getPartById } from '../../data/parts'
 import { buildBayView, type BayView, type BoardRow, type Tone } from '../../viz/spacecraft/bayView'
 import { buildCraft, type CraftSlot } from '../../viz/spacecraft/craftBuild'
+import { getPartById, type PropulsionPart } from '../../data/parts'
+import { useDesignPreview } from '../useDesignPreview'
+import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
+import { buildBayView, type BayView } from '../../viz/spacecraft/bayView'
 import { trayGroups, type TrayKey } from '../../viz/spacecraft/trayOptions'
 import { TONE_COLORS } from '../../viz/spacecraft/boardPainter'
 import type { ViewPreset } from '../../scene/spacecraft/SpacecraftStage'
@@ -68,6 +72,73 @@ const VIEWS: Array<{ id: ViewPreset; label: string }> = [
   { id: 'propulsion', label: 'Engine' },
   { id: 'payload', label: 'Payload' },
 ]
+
+function PowerBudgetSplitBar() {
+  const design = useGameStore((s) => s.design)
+  const { budgets, previewBudgets, previewPatch } = useDesignPreview()
+  const active = previewBudgets ?? budgets
+  const propId = previewPatch?.propulsion ?? design.propulsion
+  const prop = getPartById(propId) as PropulsionPart | undefined
+  const ionMin = prop && !prop.impulsive ? prop.minThrustPower : 0
+  const bus = active.busPower
+  const inst = active.instrumentPower
+  const tx = active.transmitExtraPower
+  const generated = active.powerGenerated
+  const scale = Math.max(generated, bus + inst + tx + ionMin, 1)
+  const pct = (w: number) => `${Math.min(100, (w / scale) * 100)}%`
+  const deficit = bus + inst > generated
+
+  return (
+    <div className="hud-panel flex flex-wrap items-center gap-3 px-3 py-1.5 font-mono text-[11px] tabular-nums">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-wider text-slate-400">Power Split</span>
+        <span className={deficit ? 'font-semibold text-rose-300' : 'font-semibold text-cyan-300'}>
+          {bus + inst}W load / {generated}W solar
+        </span>
+      </div>
+      <div className="relative h-3 min-w-[160px] flex-1 overflow-hidden rounded border border-slate-700/70 bg-slate-950">
+        <div className="flex h-full">
+          <div style={{ width: pct(bus) }} className="bg-sky-500/85" title={`Bus: ${bus} W`} />
+          <div style={{ width: pct(inst) }} className="bg-emerald-400/85" title={`Instruments: ${inst} W`} />
+          <div style={{ width: pct(tx) }} className="bg-amber-400/85" title={`Radio TX extra: ${tx} W`} />
+          {ionMin > 0 && (
+            <div
+              style={{ width: pct(ionMin) }}
+              className="border-l border-slate-950 bg-purple-400/80"
+              title={`Ion thrust minimum: ${ionMin} W`}
+            />
+          )}
+        </div>
+        <div className="hud-bar-segments pointer-events-none absolute inset-0" />
+        <div
+          className="pointer-events-none absolute inset-y-0 w-0.5 bg-cyan-300 shadow-[0_0_8px_#22d3ee]"
+          style={{ left: pct(generated) }}
+          title={`Solar generated: ${generated} W`}
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-2.5 text-[10px] text-slate-400">
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-xs bg-sky-500" />
+          Bus {bus}W
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-xs bg-emerald-400" />
+          Inst {inst}W
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-xs bg-amber-400" />
+          TX +{tx}W
+        </span>
+        {ionMin > 0 && (
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-xs bg-purple-400" />
+            Ion ≥{ionMin}W
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 /**
  * Step 4 in the Factory: the assembly bay. The 6U craft hovers over a turntable, built from real
@@ -147,9 +218,16 @@ export function SpacecraftScreen() {
         )}
 
         <div className="absolute top-3 left-3 flex flex-col gap-2">
+        <div className="pointer-events-none absolute top-3 left-1/2 hidden -translate-x-1/2 md:block">
+          <div className="hud-panel px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--role-accent)]">
+            FACTORY · LUNAR ICE MAPPER · SPACECRAFT
+          </div>
+        </div>
+        <div className="absolute top-3 left-3">
           <button
+            type="button"
             onClick={() => setDesignStep('rocket')}
-            className="rounded-lg bg-slate-700/90 px-6 py-2 font-medium text-slate-200 backdrop-blur hover:bg-slate-600"
+            className="tactical-btn-back"
           >
             ← Back
           </button>
@@ -178,8 +256,9 @@ export function SpacecraftScreen() {
 
         <div className="absolute top-3 right-3 flex w-64 flex-col items-end gap-3">
           <button
+            type="button"
             onClick={() => setDesignStep('orbit')}
-            className="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white shadow-lg shadow-blue-900/50 hover:bg-blue-500"
+            className="tactical-btn-next"
           >
             Select Orbit →
           </button>
@@ -201,6 +280,10 @@ export function SpacecraftScreen() {
       </div>
 
       <div className="space-y-1.5 border-t border-purple-900/40 bg-[#05070d] px-3 pt-2 pb-3">
+      <div className="space-y-1.5 border-t border-[var(--role-border)] bg-[#05070d] px-3 pt-2 pb-3">
+        <PowerBudgetSplitBar />
+        <SynergyStrip step="spacecraft" compact />
+        <DesignDeltaLine />
         <FactStrip option={activeOption} title={activeGroup?.title} group={activeGroup?.key} expanded={hover !== null} />
         <PartsTray groups={groups} selected={selected} onPick={pick} onActive={setHover} />
       </div>

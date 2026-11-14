@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
+import type { ModelId } from '../../assets/manifest'
+import { useModel } from '../../assets/models'
 import { useRideView, chooseRide, chooseTransfer } from '../../viz/ride/useRideView'
 import type { DropKind, RideView } from '../../viz/ride/rideView'
 import {
@@ -179,6 +181,57 @@ function Cyl({ r, h, y, colour, x = 0, top }: { r: number; h: number; y: number;
   )
 }
 
+class PadModelBoundary extends Component<{ fallback?: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? (this.props.fallback ?? null) : this.props.children
+  }
+}
+
+function LoadedPadModel({
+  id,
+  position,
+  rotation,
+  scale = 1,
+}: {
+  id: ModelId
+  position?: [number, number, number]
+  rotation?: [number, number, number]
+  scale?: number
+}) {
+  const scene = useModel(id)
+  return <primitive object={scene} position={position} rotation={rotation} scale={scale} />
+}
+
+function SafePadModel({
+  id,
+  fallback = null,
+  ...props
+}: {
+  id: ModelId
+  position?: [number, number, number]
+  rotation?: [number, number, number]
+  scale?: number
+  fallback?: ReactNode
+}) {
+  return (
+    <PadModelBoundary fallback={fallback}>
+      <Suspense fallback={fallback}>
+        <LoadedPadModel id={id} {...props} />
+      </Suspense>
+    </PadModelBoundary>
+  )
+}
+
+const RIDE_ROCKET_BY_DROP: Record<DropKind, { id: ModelId; scale: number }> = {
+  'trans-lunar': { id: 'model.ride-lunar', scale: 3.61 },
+  gto: { id: 'model.ride-gto', scale: 4.08 },
+  'lunar-vicinity': { id: 'model.ride-commercial', scale: 72.4 },
+}
+
 /** Three rockets, clearly different in silhouette; sizes in sky units, y up from the pad */
 function Rocket({ drop }: { drop: DropKind }) {
   const payloadY = GROUND_Y - NOSE[drop].y
@@ -220,9 +273,10 @@ function Rocket({ drop }: { drop: DropKind }) {
       </>
     )
   }
+  const rideModel = RIDE_ROCKET_BY_DROP[drop]
   return (
     <group>
-      {parts}
+      <SafePadModel id={rideModel.id} scale={rideModel.scale} fallback={parts} />
       {/* The CubeSat in the nose: where the path starts */}
       <mesh position={[0, payloadY, payloadZ]}>
         <boxGeometry args={[10, 14, 4]} />
@@ -236,7 +290,7 @@ function Rocket({ drop }: { drop: DropKind }) {
   )
 }
 
-function Gantry({ beacon }: { beacon: React.RefObject<THREE.MeshBasicMaterial | null> }) {
+function Gantry() {
   const bars = useMemo(() => {
     const out: { p: [number, number, number]; s: [number, number, number]; r?: number }[] = []
     for (const x of [62, 96]) for (const z of [-17, 17]) out.push({ p: [x, 167, z], s: [3, 335, 3] })
@@ -252,10 +306,6 @@ function Gantry({ beacon }: { beacon: React.RefObject<THREE.MeshBasicMaterial | 
           <meshStandardMaterial color="#475569" roughness={0.6} metalness={0.4} />
         </mesh>
       ))}
-      <mesh position={[79, 342, 0]}>
-        <sphereGeometry args={[6, 16, 12]} />
-        <meshBasicMaterial ref={beacon} color="#7f1d1d" toneMapped={false} />
-      </mesh>
     </group>
   )
 }
@@ -372,9 +422,16 @@ function Pad({ view, reduced }: { view: RideView; reduced: boolean }) {
           <meshStandardMaterial color="#1e293b" roughness={0.9} />
         </mesh>
         <Rocket drop={drop} />
-        <Gantry beacon={beacon} />
+        <SafePadModel id="model.env-mobile-launcher" position={[0, 0, -28]} scale={14.5} />
+        <SafePadModel id="model.env-launch-gantry" position={[82, 0, 0]} scale={18.5} fallback={<Gantry />} />
+        <SafePadModel id="model.env-crawler" position={[-88, 0, 14]} rotation={[0, 0.25, 0]} scale={10.5} />
+        <mesh position={[79, 342, 0]}>
+          <sphereGeometry args={[6, 16, 12]} />
+          <meshBasicMaterial ref={beacon} color="#7f1d1d" toneMapped={false} />
+        </mesh>
         <Vapour reduced={reduced} puff={puff} />
         <Floods colour={flood} />
+        <directionalLight position={[-60, 180, 140]} intensity={1.1} color="#fff7ed" />
         <pointLight ref={alarm} position={[79, 360, 40]} color="#ff3b3b" intensity={0} distance={0} decay={0} />
         <spotLight
           position={[-80, 130, 120]}

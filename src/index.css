@@ -2,6 +2,62 @@
 
 @theme {
   --font-display: "Fredoka", ui-rounded, system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  --bg-void: #03050a;
+  --bg-console: #070c18;
+  --bg-panel: #0a1122;
+  --bg-panel-elevated: #0f1930;
+  --bg-base-navy: #14213d;
+  --bg-base-warm: #fbf7ef;
+
+  /* Default Role (Ground / Comms Center) */
+  --role-accent: #60a5fa;
+  --role-accent-strong: #3b82f6;
+  --role-glow: rgba(96, 165, 250, 0.28);
+  --role-surface: rgba(30, 58, 138, 0.18);
+  --role-border: rgba(96, 165, 250, 0.35);
+
+  /* Reserved Semantic Tokens */
+  --ice-cyan: #22d3ee;
+  --orbit-halo: #a78bfa;
+  --orbit-elliptical: #a3e635;
+  --orbit-low: #38bdf8;
+}
+
+[data-role="ground"] {
+  --role-accent: #60a5fa;
+  --role-accent-strong: #3b82f6;
+  --role-glow: rgba(96, 165, 250, 0.28);
+  --role-surface: rgba(30, 58, 138, 0.18);
+  --role-border: rgba(96, 165, 250, 0.35);
+}
+
+[data-role="science"] {
+  --role-accent: #a3e635;
+  --role-accent-strong: #65a30d;
+  --role-glow: rgba(163, 230, 53, 0.25);
+  --role-surface: rgba(54, 83, 20, 0.22);
+  --role-border: rgba(163, 230, 53, 0.35);
+}
+
+[data-role="space"] {
+  --role-accent: #a78bfa;
+  --role-accent-strong: #7c3aed;
+  --role-glow: rgba(167, 139, 250, 0.28);
+  --role-surface: rgba(88, 28, 135, 0.22);
+  --role-border: rgba(167, 139, 250, 0.35);
+}
+
+[data-role="launch"] {
+  --role-accent: #fb923c;
+  --role-accent-strong: #ea580c;
+  --role-glow: rgba(251, 146, 60, 0.28);
+  --role-surface: rgba(124, 45, 18, 0.22);
+  --role-border: rgba(251, 146, 60, 0.35);
 }
 
 html, body, #root { height: 100%; }
@@ -20,6 +76,130 @@ html, body, #root { height: 100%; }
   }
 }
 body { margin: 0; font-family: Inter, system-ui, sans-serif; }
+
+/* Role-tinted HUD Console Panel */
+.hud-panel {
+  position: relative;
+  background: linear-gradient(180deg, rgba(13, 22, 42, 0.92) 0%, rgba(6, 10, 20, 0.96) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+}
+
+/* Role-accented Header Panel inside Building Steps */
+.hud-step-header {
+  position: relative;
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--role-surface) 0%, transparent 65%),
+    linear-gradient(180deg, #0b1326 0%, #050811 100%);
+  border: 1px solid var(--role-border);
+  border-left: 3px solid var(--role-accent);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Subtle Blueprint / Telemetry Grid Background for non-3D interiors */
+.hud-grid-bg {
+  background-color: #03050a;
+  background-image:
+    radial-gradient(circle at 50% 0%, var(--role-surface), transparent 60%),
+    linear-gradient(rgba(148, 163, 184, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 24px 24px, 24px 24px;
+}
+
+/* Segmented Telemetry Bar Overlay */
+.hud-bar-segments {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 10px,
+    rgba(3, 5, 10, 0.55) 10px,
+    rgba(3, 5, 10, 0.55) 12px
+  );
+}
+
+/* Tactical Hardware Buttons */
+.tactical-btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.92) 0%, rgba(15, 23, 42, 0.96) 100%);
+  padding: 0.5rem 1.125rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #e2e8f0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  transition: all 150ms ease;
+}
+.tactical-btn-back:hover:not(:disabled) {
+  border-color: rgba(203, 213, 225, 0.5);
+  background: linear-gradient(180deg, rgba(51, 65, 85, 0.95) 0%, rgba(30, 41, 59, 0.98) 100%);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.tactical-btn-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.625rem;
+  border: 1px solid var(--role-accent);
+  background: linear-gradient(180deg, var(--role-accent-strong) 0%, rgba(15, 23, 42, 0.92) 160%);
+  padding: 0.5rem 1.25rem;
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  box-shadow: 0 0 20px var(--role-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: all 150ms ease;
+}
+.tactical-btn-next:hover:not(:disabled) {
+  filter: brightness(1.12);
+  box-shadow: 0 0 28px var(--role-glow), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+.tactical-btn-next:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+/* Tactile Console Range Slider */
+.tactical-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+.tactical-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: #f8fafc;
+  border: 2px solid var(--role-accent);
+  box-shadow: 0 0 12px var(--role-glow);
+  cursor: pointer;
+}
+.tactical-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: #f8fafc;
+  border: 2px solid var(--role-accent);
+  box-shadow: 0 0 12px var(--role-glow);
+  cursor: pointer;
+}
 
 /* Opening curtain: words drift up into place */
 @keyframes opening-rise {

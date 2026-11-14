@@ -1,10 +1,12 @@
-import { Suspense, useMemo, useRef } from 'react'
+import { Component, Suspense, useMemo, useRef, type ReactNode } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Line } from '@react-three/drei'
 import * as THREE from 'three'
+import { useModel } from '../../assets/models'
 import { rides } from '../../data/rides'
+import { useGameStore } from '../../state/gameStore'
 import { CAPTURE_GAP, EARTH, EARTH_R, MOON, MOON_R, craftLeg, rideLeg, type P } from '../../viz/ride/ridePaths'
-import { Earth, Effects, Moon, Starfield, Sun, prefersReducedMotion, useGraphics } from '../space'
+import { CubeSat, Earth, Effects, Moon, Starfield, Sun, prefersReducedMotion, useGraphics } from '../space'
 
 /**
  * Launch Site, step 5: from Earth to the capture burn. The chosen ride's leg (orange, the rocket)
@@ -14,20 +16,51 @@ import { Earth, Effects, Moon, Starfield, Sun, prefersReducedMotion, useGraphics
 
 const v3 = (p: P, y = 0) => new THREE.Vector3(p[0], y, p[1])
 
+class RideModelBoundary extends Component<{ fallback?: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? (this.props.fallback ?? null) : this.props.children
+  }
+}
+
+function CommercialLander({ position }: { position: THREE.Vector3 }) {
+  const scene = useModel('model.env-lunar-lander')
+  return <primitive object={scene} position={position} scale={0.075} rotation={[0.15, -0.6, 0]} />
+}
+
 function Traveller({ points, color, period }: { points: THREE.Vector3[]; color: string; period: number }) {
-  const ref = useRef<THREE.Mesh>(null)
+  const design = useGameStore((s) => s.design)
+  const ref = useRef<THREE.Group>(null)
   const curve = useMemo(() => new THREE.CatmullRomCurve3(points), [points])
+  const pos = useMemo(() => new THREE.Vector3(), [])
+  const tangent = useMemo(() => new THREE.Vector3(), [])
+  const next = useMemo(() => new THREE.Vector3(), [])
   const reduced = useMemo(() => prefersReducedMotion(), [])
   useFrame((state) => {
     if (!ref.current) return
     const t = reduced ? 0.6 : (state.clock.elapsedTime / period) % 1
-    curve.getPointAt(t, ref.current.position)
+    curve.getPointAt(t, pos)
+    curve.getTangentAt(t, tangent)
+    ref.current.position.copy(pos)
+    ref.current.lookAt(next.copy(pos).add(tangent))
   })
-  return (
-    <mesh ref={ref}>
+  const fallbackSphere = (
+    <mesh>
       <sphereGeometry args={[0.09, 16, 16]} />
       <meshBasicMaterial color={new THREE.Color(color).multiplyScalar(3)} toneMapped={false} />
     </mesh>
+  )
+  return (
+    <group ref={ref}>
+      <RideModelBoundary fallback={fallbackSphere}>
+        <Suspense fallback={fallbackSphere}>
+          <CubeSat design={design} deploy={1} burn={0.35} scale={0.75} />
+        </Suspense>
+      </RideModelBoundary>
+    </group>
   )
 }
 
@@ -76,6 +109,13 @@ export function RideView({ rideId, transferId }: { rideId: string; transferId: s
         <Line points={ride} color="#fb923c" lineWidth={2.4} />
         <Line points={craft} color="#e2e8f0" lineWidth={2} dashed dashSize={0.3} gapSize={0.14} />
         <Traveller points={craft} color="#ffffff" period={rideId === 'ride-gto' || transferId === 'transfer-low-energy' ? 9 : 5} />
+        {rideId === 'ride-commercial' && ride.length > 0 && (
+          <RideModelBoundary>
+            <Suspense fallback={null}>
+              <CommercialLander position={ride[ride.length - 1]} />
+            </Suspense>
+          </RideModelBoundary>
+        )}
         <CaptureMarker />
         <Effects bloom={0.8} vignette={0.6} />
       </Suspense>
