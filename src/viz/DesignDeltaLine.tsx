@@ -1,5 +1,7 @@
 import { useGameStore } from '../state/gameStore'
 import { computeDesignDelta, formatDelta } from './designDelta'
+import { glossaryKeyForLabel } from '../data/glossary'
+import { Tooltip } from '../ui/Tooltip'
 
 const PANEL_STYLE = 'mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-800 pt-2 text-xs'
 
@@ -16,7 +18,7 @@ export function DesignDeltaLine({ className = PANEL_STYLE }: { className?: strin
         const good = line.betterWhenHigher ? line.diff > 0 : line.diff < 0
         return (
           <span key={line.key} className={good ? 'text-green-400' : 'text-orange-400'}>
-            {formatDelta(line)}
+            <Tooltip term={glossaryKeyForLabel(line.label) ?? ''}>{formatDelta(line)}</Tooltip>
           </span>
         )
       })}

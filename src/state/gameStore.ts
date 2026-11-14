@@ -11,14 +11,12 @@ import type {
   Report,
   RunHistoryEntry,
   RunRecord,
-  GameMode,
-  Player,
-  SignOff,
 } from '../sim/types'
 import { createDefaultDesign, computeBudgets } from '../sim/budgets'
 import { goNoGo, type GoNoGoResult } from '../sim/checks'
 import { initSim, stepTurn, flyUntilDecision, getDefaultAction, isSimComplete, isMilestone } from '../sim/simulate'
 import { buildReport } from '../sim/evaluate'
+import { estimateChoices, percent } from '../sim/odds'
 import { generateSeed } from '../sim/rng'
 import type { BuildingId } from '../data/agency'
 import { BUILDING_STEPS, suggestedStep } from '../viz/missionMap'
@@ -44,8 +42,6 @@ export interface GameState {
   designStep: DesignStep
 
   // Configuration
-  mode: GameMode
-  players: Player[]
   difficulty: Difficulty
 
   // Design
@@ -59,8 +55,6 @@ export interface GameState {
   currentReport: Report | null
   runHistory: RunHistoryEntry[]
 
-  // Team mode
-  signOffs: SignOff[]
 
   // Visualiser
   previousBudgets: Budgets | null
@@ -71,8 +65,6 @@ export interface GameState {
   setScreen: (screen: Screen) => void
   setDesignStep: (step: DesignStep) => void
   setDifficulty: (difficulty: Difficulty) => void
-  setMode: (mode: GameMode) => void
-  setPlayers: (players: Player[]) => void
   updateDesign: (updates: Partial<Design>) => void
   resetDesign: () => void
 
@@ -98,9 +90,6 @@ export interface GameState {
   applyFlight: (newState: SimState) => void // store a new flight state; saves the run when it ends
   setAction: (action: Partial<TurnAction>) => void
 
-  // Team mode actions
-  toggleSignOff: (role: Player['role']) => void
-  resetSignOffs: () => void
 
   // History
   saveToHistory: (report: Report, run?: RunRecord) => void
@@ -121,6 +110,12 @@ export interface GameState {
   visitedSteps: DesignStep[]
   /** Walk into a building on the map: opens the step it holds that is due next */
   openBuilding: (id: BuildingId) => void
+  /**
+   * The fix-it loop after a report: keep the design, put the finished flight
+   * away (its run is already in the history) and walk into the building that
+   * holds `step`, ready to change it and launch again
+   */
+  reviseAt: (step: DesignStep) => void
   /** "Reset demo": the base back to day 112 and the mission abandoned, in both stores */
   resetDemo: () => void
 }
@@ -139,6 +134,22 @@ function getBaseStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
     removeItem: (k) => void mem.delete(k),
   }
 }
+
+/**
+ * A new event card quotes each answer's chance of full success (F2, Jakob 14 Nov),
+ * for the cards where that can be worked out without giving the result away.
+ */
+function withCardOdds(state: SimState, action: TurnAction): SimState {
+  const decision = state.pendingDecision
+  if (!decision || decision.options.some((o) => o.label.includes(ODDS_MARK))) return state
+  const odds = estimateChoices(state, action)
+  if (Object.keys(odds).length === 0) return state
+  const options = decision.options.map((o) =>
+    o.id in odds ? { ...o, label: `${o.label} About ${percent(odds[o.id])} ${ODDS_MARK}.` } : o
+  )
+  return { ...state, pendingDecision: { ...decision, options } }
+}
+const ODDS_MARK = 'chance of full success'
 
 function lastTurnIndex(logs: { length: number } | undefined): number {
   return Math.max(0, (logs?.length ?? 0) - 1)
@@ -196,8 +207,6 @@ export const useGameStore = create<GameState>()(
       // Initial state: the game starts on the agency map
       screen: 'base',
       designStep: 'brief',
-      mode: 'solo',
-      players: [],
       difficulty: FIXED_DIFFICULTY,
       design: createDefaultDesign(),
       simState: null,
@@ -205,7 +214,6 @@ export const useGameStore = create<GameState>()(
       autoFly: false,
       currentReport: null,
       runHistory: [],
-      signOffs: [],
       previousBudgets: null,
       replayTurn: 0,
       replayEntryId: null,
@@ -230,6 +238,18 @@ export const useGameStore = create<GameState>()(
         set({ screen: 'design' })
       },
 
+      reviseAt: (step) => {
+        set({
+          simState: null,
+          currentReport: null,
+          pendingAction: getDefaultAction(),
+          autoFly: false,
+          replayEntryId: null,
+        })
+        get().setDesignStep(step)
+        set({ screen: 'design' })
+      },
+
       resetDemo: () => {
         useAgencyStore.getState().resetAgency()
         set({
@@ -238,7 +258,6 @@ export const useGameStore = create<GameState>()(
           design: createDefaultDesign(),
           simState: null,
           currentReport: null,
-          signOffs: [],
           pendingAction: getDefaultAction(),
           previousBudgets: null,
           replayTurn: 0,
@@ -283,8 +302,6 @@ export const useGameStore = create<GameState>()(
       // Configuration
       // Difficulty levels are off for now: the setting stays on the Engineer values
       setDifficulty: () => set({ difficulty: FIXED_DIFFICULTY }),
-      setMode: (mode) => set({ mode }),
-      setPlayers: (players) => set({ players }),
 
       // Design
       updateDesign: (updates) =>
@@ -366,9 +383,13 @@ export const useGameStore = create<GameState>()(
       },
 
       applyFlight: (newState) => {
+        // The month choice (mode, extra pass) stays until the player changes it;
+        // the answer to an event card counts for its own turn only
+        const { mode, buyExtraPass, useReserve } = get().pendingAction
+        const pendingAction: TurnAction = { ...getDefaultAction(), mode, buyExtraPass, useReserve }
         set({
-          simState: newState,
-          pendingAction: getDefaultAction(),
+          simState: withCardOdds(newState, pendingAction),
+          pendingAction,
           replayTurn: lastTurnIndex(newState.turnLogs),
         })
 
@@ -392,28 +413,6 @@ export const useGameStore = create<GameState>()(
         set((state) => ({
           pendingAction: { ...state.pendingAction, ...action },
         })),
-
-      // Team mode
-      toggleSignOff: (role) =>
-        set((state) => {
-          const existing = state.signOffs.find((s) => s.role === role)
-          if (existing) {
-            return {
-              signOffs: state.signOffs.map((s) =>
-                s.role === role ? { ...s, approved: !s.approved } : s
-              ),
-            }
-          }
-          const player = state.players.find((p) => p.role === role)
-          return {
-            signOffs: [
-              ...state.signOffs,
-              { role, playerName: player?.name ?? role, approved: true },
-            ],
-          }
-        }),
-
-      resetSignOffs: () => set({ signOffs: [] }),
 
       // History
       saveToHistory: (report, run) =>
@@ -466,7 +465,6 @@ export const useGameStore = create<GameState>()(
           design: createDefaultDesign(),
           simState: null,
           currentReport: null,
-          signOffs: [],
           pendingAction: getDefaultAction(),
           previousBudgets: null,
           replayTurn: 0,
@@ -484,7 +482,6 @@ export const useGameStore = create<GameState>()(
           design: createDefaultDesign(),
           simState: null,
           currentReport: null,
-          signOffs: [],
           pendingAction: getDefaultAction(),
           visitedSteps: [],
         })
@@ -492,6 +489,12 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: 'moonshot-game-storage',
+      // Version 1 dropped team mode (QC D3): an older save loses its mode, players and sign-offs
+      version: 1,
+      migrate: (persisted) => {
+        const { mode: _mode, players: _players, signOffs: _signOffs, ...rest } = (persisted ?? {}) as Record<string, unknown>
+        return rest as never
+      },
       storage: skipUnchangedWrites(createJSONStorage(() => createSafeStorage(getBaseStorage()) as StateStorage)!) as never,
       // Difficulty is not saved: a stored Cadet or Flight Director setting from before is ignored.
       // A reload never keeps auto-flying: the player presses play again.
@@ -502,12 +505,10 @@ export const useGameStore = create<GameState>()(
         autoFly: false,
       }),
       partialize: (state) => ({
-        mode: state.mode,
         // Keep the mission being planned, so the base can show and resume it
         design: state.design,
         designStep: state.designStep,
         visitedSteps: state.visitedSteps,
-        players: state.players,
         runHistory: state.runHistory,
         // Keep the flight, so a reload mid-flight comes back where it was (Jakob, 14 Nov)
         simState: state.simState,

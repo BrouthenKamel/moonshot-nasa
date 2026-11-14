@@ -58,8 +58,21 @@ describe('paintScreen', () => {
     const texts = calls.filter((c) => c.name === 'fillText').map((c) => String(c.args[0]).replace(/…$/, ''))
     for (const check of v.checks) {
       expect(check.reason.length).toBeGreaterThan(0)
-      expect(texts.some((t) => t.length > 10 && check.reason.startsWith(t))).toBe(true)
+      expect(texts.some((t) => t.length > 10 && check.reason.includes(t))).toBe(true)
     }
+  })
+
+  it('keeps the advice of a long Go/No-Go line instead of cutting it off at the edge (QC #56)', () => {
+    const { ctx, calls } = fakeContext()
+    const v = cases.missed
+    paintScreen(ctx, v, animFromView(v))
+    const lines = calls.filter((c) => c.name === 'fillText' && (c.args[2] as number) > 700).map((c) => String(c.args[0]))
+    const time = v.checks.find((c) => c.resource === 'Time')!
+    expect(time.reason).toContain('take a later ride')
+    expect(lines.some((t) => t.includes('take a later ride'))).toBe(true)
+    // Nothing on the check lines runs past the right edge (the fake context measures 18 px a character)
+    for (const c of calls.filter((c) => c.name === 'fillText' && (c.args[2] as number) > 700))
+      expect((c.args[1] as number) + String(c.args[0]).length * 18).toBeLessThanOrEqual(2400)
   })
 
   it('keeps the tank inside the screen when costs pass the cap', () => {

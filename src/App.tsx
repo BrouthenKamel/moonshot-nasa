@@ -7,6 +7,8 @@ import { computeBudgets } from './sim/budgets'
 import { difficultyPresets } from './data/brief'
 import { EventCard } from './ui/flight/EventCard'
 import { FlightControls } from './ui/flight/FlightControls'
+import { FixItPanel, RelaunchButton } from './ui/report/FixItPanel'
+import { Narrator } from './ui/narrator/Narrator'
 
 const PHASE_TEXT: Record<string, string> = {
   build: 'Building',
@@ -205,6 +207,8 @@ function ReportPlaceholder() {
         <div className="mt-4 text-4xl font-bold text-white">{report.score.total} / 1000</div>
       </div>
 
+      <FixItPanel report={report} />
+
       <div className="space-y-3">
         {report.requirements.map((req) => (
           <div key={req.id} className={`rounded-lg p-4 ${req.met ? 'bg-green-950' : 'bg-red-950'}`}>
@@ -269,14 +273,7 @@ function ReportPlaceholder() {
             Watch replay
           </button>
         )}
-        {currentReport && (
-          <button
-            onClick={() => loadDesignFromHistory(runHistory[0]?.id ?? '')}
-            className="flex-1 rounded-lg bg-slate-700 py-3 font-medium text-slate-300 hover:bg-slate-600"
-          >
-            Retry with Changes
-          </button>
-        )}
+        {currentReport && <RelaunchButton report={currentReport} />}
       </div>
 
       {runHistory.length > 1 && (
@@ -327,6 +324,7 @@ export default function App() {
     return (
       <main className="h-screen text-slate-100">
         <BaseScreen />
+        <Narrator />
       </main>
     )
   }
@@ -351,5 +349,11 @@ export default function App() {
       content = <div>Unknown screen</div>
   }
 
-  return <Shell>{content}</Shell>
+  return (
+    <>
+      <Shell>{content}</Shell>
+      {/* The mission mentor, over every screen; it never blocks play */}
+      <Narrator />
+    </>
+  )
 }

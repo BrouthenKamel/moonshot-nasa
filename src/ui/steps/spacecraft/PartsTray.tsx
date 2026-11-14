@@ -1,5 +1,7 @@
 import { useRef, type KeyboardEvent } from 'react'
 import type { TrayGroup, TrayKey, TrayOption } from '../../../viz/spacecraft/trayOptions'
+import { glossaryForPart } from '../../../data/glossary'
+import { Tooltip } from '../../Tooltip'
 
 export interface ActiveOption {
   key: TrayKey
@@ -38,7 +40,7 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
           style={{ ['--c' as string]: g.color }}
         >
           <h3 className="mb-1.5 text-[11px] font-semibold tracking-[0.12em] uppercase" style={{ color: g.color }}>
-            {g.title}
+            {g.key === 'attitude' ? <Tooltip term="adcs">{g.title}</Tooltip> : g.title}
           </h3>
           <div className={g.options.length > 3 ? 'grid grid-cols-2 gap-1 xl:grid-cols-3' : 'flex flex-col gap-1'}>
             {g.options.map((o: TrayOption, i) => {
@@ -88,6 +90,12 @@ export function FactStrip({ option, title }: { option: TrayOption | null; title?
           </span>{' '}
           {option.description}
           <span className="block text-slate-500">{option.facts}</span>
+          {/* The jargon in this part, in plain words (QC #54) */}
+          {glossaryForPart(`${title ?? ''} ${option.short} ${option.description}`).map((e) => (
+            <span key={e.term} className="block text-slate-300">
+              <span className="font-semibold">{e.term}:</span> {e.definition}
+            </span>
+          ))}
         </>
       ) : (
         <span>

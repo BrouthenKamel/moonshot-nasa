@@ -19,11 +19,14 @@ export type GameSound = 'launch' | 'event' | 'capture' | 'success' | 'failed'
 
 const BASE_MUSIC: AudioId = 'music.theme'
 
-/**
- * File for each cue. Empty until sound effects are added to the asset manifest
- * (it ships only the theme today); a cue with no file stays silent.
- */
-export const SOUND_FILES: Partial<Record<GameSound, AudioId>> = {}
+/** File for each cue (see the sfx entries in the asset manifest); a cue with no file stays silent. */
+export const SOUND_FILES: Partial<Record<GameSound, AudioId>> = {
+  launch: 'sfx.launch',
+  event: 'sfx.event',
+  capture: 'sfx.capture',
+  success: 'sfx.success',
+  failed: 'sfx.failed',
+}
 
 /** The sounds to play when the flight goes from `prev` to `next`. */
 export function soundsFor(prev: SimState | null, next: SimState | null): GameSound[] {
@@ -39,6 +42,18 @@ export function soundsFor(prev: SimState | null, next: SimState | null): GameSou
   const before = prev.pendingDecision
   if (card && (!before || before.key !== card.key || before.turn !== card.turn)) out.push('event')
   return out
+}
+
+/**
+ * Play one cue now, for a moment the store does not mark (the launch
+ * sequence's liftoff). Silent while the cue has no file; never throws.
+ */
+export function playCue(
+  sound: GameSound,
+  { player = audio, files = SOUND_FILES }: { player?: Pick<SoundPlayer, 'play'>; files?: Partial<Record<GameSound, AudioId>> } = {}
+): void {
+  const id = files[sound]
+  if (id) safely(() => player.play(id))
 }
 
 export interface SoundPlayer {

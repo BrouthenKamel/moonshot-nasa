@@ -1,6 +1,8 @@
 import { Component, lazy, Suspense, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { turnConstants } from '../../data/brief'
+import { percent } from '../../sim/odds'
+import { usePlanningOdds } from '../useOdds'
 import { canUseWebGL } from '../../scene/webgl'
 import type { ControlFocus } from '../../scene/ControlRoom'
 
@@ -21,6 +23,27 @@ class RoomBoundary extends Component<{ children: ReactNode; onError: () => void 
 }
 
 /**
+ * F2 (Jakob, 14 Nov): what a control really does to the chance of full success,
+ * at the current setting and at every other one.
+ */
+function OddsRow({ byValue, current, label }: { byValue?: Record<number, number>; current: number; label: (v: number) => string }) {
+  if (!byValue || byValue[current] === undefined)
+    return <div className="mt-2 text-xs text-slate-500">Working out the chance of full success…</div>
+  const others = Object.keys(byValue)
+    .map(Number)
+    .filter((v) => v !== current)
+    .sort((a, b) => a - b)
+  return (
+    <div className="mt-2 text-sm text-slate-300" aria-live="polite">
+      <div className="font-medium text-slate-100">{`Chance of full success: about ${percent(byValue[current])}`}</div>
+      <div className="text-xs text-slate-400">
+        {others.map((v) => `${label(v)}: about ${percent(byValue[v])}`).join(' · ')}
+      </div>
+    </div>
+  )
+}
+
+/**
  * The plain planning controls. Always rendered: visible when there is no 3D
  * room, and kept for keyboard and screen-reader users (visually hidden) when there is.
  */
@@ -28,7 +51,9 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
   const design = useGameStore((s) => s.design)
   const updateDesign = useGameStore((s) => s.updateDesign)
   const getBudgets = useGameStore((s) => s.getBudgets)
+  const difficulty = useGameStore((s) => s.difficulty)
   const budgets = getBudgets()
+  const odds = usePlanningOdds(design, difficulty)
   const p = design.planning
   const set = (patch: Partial<typeof p>) => updateDesign({ planning: { ...p, ...patch } })
 
@@ -64,10 +89,12 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
           onBlur={() => onFocus(null)}
           className="w-full"
         />
-        <div className="mt-2 flex justify-between text-xs text-slate-500">
-          <span>0.4 M per test turn</span>
-          <span>Failure odds in flight: x{budgets.testFactor}</span>
-        </div>
+        <div className="mt-2 text-xs text-slate-500">0.4 M per test turn</div>
+        <OddsRow
+          byValue={odds?.test}
+          current={p.testTurns}
+          label={(v) => `${v} test month${v === 1 ? '' : 's'}`}
+        />
       </div>
 
       <div className="rounded-lg bg-slate-900 p-6">
@@ -85,12 +112,28 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
           onChange={(e) => set({ reservePercent: Number(e.target.value) })}
           onFocus={() => onFocus('reserve')}
           onBlur={() => onFocus(null)}
+          list="planning-reserve-ticks"
           className="w-full"
         />
+        <datalist id="planning-reserve-ticks">
+          {[0, 5, 10, 15, 20].map((v) => (
+            <option key={v} value={v} />
+          ))}
+        </datalist>
+        {/* The CubeSat 101 advice, marked under its place on the slider (QC #57) */}
+        <div className="relative h-4 text-[11px] font-semibold text-amber-400" aria-hidden="true">
+          <span
+            className="absolute -translate-x-1/2 whitespace-nowrap"
+            style={{ left: `${(turnConstants.recommendedReservePercent / 20) * 100}%` }}
+          >
+            ▲ {turnConstants.recommendedReservePercent}% recommended (CubeSat 101)
+          </span>
+        </div>
         <div className="mt-2 text-xs text-slate-500">
           Recommended: {turnConstants.recommendedReservePercent}%. Reserve ${budgets.reserveAmount.toFixed(1)}M, spendable $
           {budgets.spendable.toFixed(1)}M, plan costs ${budgets.totalCost.toFixed(1)}M of the ${budgets.budgetCap}M cap.
         </div>
+        <OddsRow byValue={odds?.reserve} current={p.reservePercent} label={(v) => `${v}% reserve`} />
       </div>
 
       <div className="rounded-lg bg-yellow-950 p-4 text-sm text-yellow-200" aria-live="polite">

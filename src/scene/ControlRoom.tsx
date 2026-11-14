@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGameStore } from '../state/gameStore'
+import { usePlanningOdds } from '../ui/useOdds'
 import { buildPlanningView, type PlanningView } from '../viz/planning/planningView'
 import { paintScreen, SCREEN_W, SCREEN_H, type ScreenAnim } from '../viz/planning/screenPainter'
 import { paintConsole, CONSOLE, STEP_LAMPS } from '../viz/planning/consolePainter'
@@ -44,10 +45,12 @@ function usePlanningView(): PlanningView {
   const difficulty = useGameStore((s) => s.difficulty)
   const getBudgets = useGameStore((s) => s.getBudgets)
   const getGoNoGo = useGameStore((s) => s.getGoNoGo)
+  // The chance of full success at each setting, shown on the knob and fader readouts once worked out
+  const odds = usePlanningOdds(design, difficulty)
   return useMemo(
-    () => buildPlanningView(design, getBudgets(), getGoNoGo().checks),
+    () => buildPlanningView(design, getBudgets(), getGoNoGo().checks, odds),
     // getBudgets / getGoNoGo read design and difficulty from the store
-    [design, difficulty, getBudgets, getGoNoGo]
+    [design, difficulty, getBudgets, getGoNoGo, odds]
   )
 }
 

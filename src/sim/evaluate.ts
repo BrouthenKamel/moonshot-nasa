@@ -2,13 +2,11 @@ import {
   difficultyPresets,
   lunarIceMapperBrief,
   scoreWeights,
-  partialShare,
   modelConstants as C,
 } from '../data/brief'
 import { getPartById, type InstrumentPart, type PropulsionPart, type AttitudePart } from '../data/parts'
 import { getOrbitById } from '../data/orbits'
 import { missedRideWaitTurns } from '../data/rides'
-import { getEventById } from '../data/events'
 import { computeBudgets } from './budgets'
 import type { Budgets, SimState, Report, RequirementResult, ScoreBreakdown, ChangeHint } from './types'
 
@@ -94,8 +92,15 @@ function whyNoCapture(state: SimState, b: Budgets): string[] {
     out.push('Contact was lost right after deployment, as happened to Lunar IceCube.')
     if (f.testTurns < 2)
       out.push(`Only ${countOf(f.testTurns, 'test turn')} had been flown: that made this x${f.testFactor} as likely. More testing lowers the odds.`)
-    const cost = getEventById('no-signal')!.choices.find((c) => c.id === 'recover')!.reserveCost
-    out.push(b.reserveAmount < cost ? 'There was no reserve to pay for emergency tracking.' : 'Emergency tracking did not find the craft.')
+    // Say what the player actually chose at the card (QC #35)
+    const choice = state.allEvents.find((e) => e.eventId === 'no-signal')?.choiceId
+    out.push(
+      choice === 'give-up'
+        ? 'You chose to stop searching; the craft was lost.'
+        : choice === 'recover'
+          ? 'Emergency tracking did not find the craft.'
+          : 'There was no reserve to pay for emergency tracking.'
+    )
   } else if (f.end === 'not enough delta-v left to capture') {
     out.push(
       `Only ${Math.max(0, f.dvLeft).toFixed(0)} m/s was left at the Moon; capture needed ${(b.captureDeltaV ?? 0).toFixed(0)}. The design carried ${b.deltaVAvailable.toFixed(0)}.`
@@ -243,11 +248,14 @@ export function buildReport(state: SimState): Report {
       () => moneyDrains(state, b)),
   ]
 
-  // Success level
+  // Success level (Jakob, QC #91): success = all five met; partial = the ice coverage
+  // met but another missed; failed = the ice coverage missed, or the mission ended
+  // lost or out of money (every such end stops the craft: flight.alive is false)
   const allMet = requirements.every((r) => r.met)
+  const coverageMet = requirements.find((r) => r.id === 'coverage')!.met
   let outcome: Report['outcome']
   if (allMet) outcome = 'success'
-  else if (f.captured && (f.coverage >= COVERAGE_TARGET * partialShare || f.data >= dataTarget * partialShare)) outcome = 'partial'
+  else if (coverageMet && f.alive) outcome = 'partial'
   else outcome = 'failed'
 
   const missed = requirements.filter((r) => !r.met).map((r) => r.name)
@@ -339,35 +347,4 @@ export function buildReport(state: SimState): Report {
     difficulty: state.difficulty,
     timestamp: Date.now(),
   }
-}
-
-/**
- * Get outcome emoji for display.
- */
-export function getOutcomeEmoji(outcome: 'success' | 'partial' | 'failed'): string {
-  switch (outcome) {
-    case 'success':
-      return '' // No emoji per instructions
-    case 'partial':
-      return ''
-    case 'failed':
-      return ''
-  }
-}
-
-/**
- * Get a letter grade from score.
- */
-export function getGrade(score: number): string {
-  if (score >= 900) return 'A+'
-  if (score >= 850) return 'A'
-  if (score >= 800) return 'A-'
-  if (score >= 750) return 'B+'
-  if (score >= 700) return 'B'
-  if (score >= 650) return 'B-'
-  if (score >= 600) return 'C+'
-  if (score >= 550) return 'C'
-  if (score >= 500) return 'C-'
-  if (score >= 400) return 'D'
-  return 'F'
 }

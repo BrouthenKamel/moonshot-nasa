@@ -4,7 +4,6 @@ import { lunarIceMapperBrief } from '../data/brief'
 export function Header() {
   const screen = useGameStore((s) => s.screen)
   const simState = useGameStore((s) => s.simState)
-  const newGame = useGameStore((s) => s.newGame)
   const setScreen = useGameStore((s) => s.setScreen)
 
   return (
@@ -31,20 +30,12 @@ export function Header() {
         )}
 
         {screen !== 'title' && (
-          <>
-            <button
-              onClick={() => setScreen('base')}
-              className="rounded bg-orange-600 px-3 py-1 text-sm font-medium text-white hover:bg-orange-500"
-            >
-              ← Agency base
-            </button>
-            <button
-              onClick={newGame}
-              className="rounded bg-slate-700 px-3 py-1 text-sm hover:bg-slate-600"
-            >
-              New Game
-            </button>
-          </>
+          <button
+            onClick={() => setScreen('base')}
+            className="rounded bg-orange-600 px-3 py-1 text-sm font-medium text-white hover:bg-orange-500"
+          >
+            ← Agency base
+          </button>
         )}
       </div>
     </header>

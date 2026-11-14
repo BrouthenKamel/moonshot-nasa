@@ -1,4 +1,5 @@
 import { knobAngle, KNOB_VALUES, FADER_VALUES, faderX } from './controlMath'
+import { turnConstants } from '../../data/brief'
 import { METER_MAX, type PlanningView } from './planningView'
 
 /**
@@ -50,15 +51,23 @@ export function paintConsole(ctx: CanvasRenderingContext2D, view: PlanningView):
     ctx.fillStyle = color
     ctx.fillText(text, px(x), pz(-0.27))
   }
-  const readout = (text: string, x: number, color: string) => {
+  // With an odds line (chance of full success now and at the neighbouring settings) the box grows downwards
+  const readout = (text: string, x: number, color: string, odds?: string) => {
+    const top = pz(0.47) - 24
+    const h = odds ? 66 : 48
     ctx.fillStyle = '#020617'
-    ctx.fillRect(px(x) - 225, pz(0.47) - 24, 450, 48)
+    ctx.fillRect(px(x) - 225, top, 450, h)
     ctx.strokeStyle = '#1e293b'
     ctx.lineWidth = 2
-    ctx.strokeRect(px(x) - 225, pz(0.47) - 24, 450, 48)
+    ctx.strokeRect(px(x) - 225, top, 450, h)
     ctx.font = `700 28px ${MONO}`
     ctx.fillStyle = color
-    ctx.fillText(text, px(x), pz(0.472))
+    ctx.fillText(text, px(x), pz(0.472) - (odds ? 4 : 0))
+    if (odds) {
+      ctx.font = `700 21px ${MONO}`
+      ctx.fillStyle = '#e2e8f0'
+      ctx.fillText(odds, px(x), top + h - 15, 440)
+    }
   }
 
   // Test time knob scale
@@ -69,7 +78,7 @@ export function paintConsole(ctx: CanvasRenderingContext2D, view: PlanningView):
     ctx.fillStyle = v === view.testTurns ? '#ede9fe' : '#64748b'
     ctx.fillText(String(v), px(knob.x - Math.sin(a) * 0.42), pz(knob.z - Math.cos(a) * 0.38))
   }
-  readout(view.readouts.test, knob.x, '#c4b5fd')
+  readout(view.readouts.test, knob.x, '#c4b5fd', view.readouts.testOdds)
 
   // Build time meter (read-only)
   title('BUILD TIME', meter.x, '#93c5fd')
@@ -100,12 +109,18 @@ export function paintConsole(ctx: CanvasRenderingContext2D, view: PlanningView):
   title('BUDGET RESERVE', fx, '#fcd34d')
   for (const v of FADER_VALUES) {
     const x = faderX(v, fader.x0, fader.x1)
+    const recommended = v === turnConstants.recommendedReservePercent
     ctx.font = `700 28px ${FONT}`
     ctx.fillStyle = v === view.reservePercent ? '#fef3c7' : '#64748b'
     ctx.fillText(String(v), px(x), pz(fader.z - 0.2))
-    ctx.fillStyle = '#334155'
-    ctx.fillRect(px(x) - 2, pz(fader.z - 0.13), 4, 18)
+    ctx.fillStyle = recommended ? '#fbbf24' : '#334155'
+    ctx.fillRect(px(x) - (recommended ? 4 : 2), pz(fader.z - 0.13), recommended ? 8 : 4, 18)
   }
-  readout(view.readouts.reserve, fx, '#fcd34d')
+  // The recommended reserve, under the fader (CubeSat 101 advice, QC #57)
+  const rx = faderX(turnConstants.recommendedReservePercent, fader.x0, fader.x1)
+  ctx.font = `700 22px ${FONT}`
+  ctx.fillStyle = '#fbbf24'
+  ctx.fillText(`${turnConstants.recommendedReservePercent}% RECOMMENDED (CUBESAT 101)`, px(rx), pz(fader.z + 0.2))
+  readout(view.readouts.reserve, fx, '#fcd34d', view.readouts.reserveOdds)
   ctx.restore()
 }

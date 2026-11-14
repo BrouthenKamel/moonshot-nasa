@@ -1,9 +1,18 @@
+import { useState } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { cannotMeetBrief, getGoNoGoSummary } from '../../sim/checks'
-import type { CheckResult } from '../../sim/types'
+import type { Budgets, CheckResult } from '../../sim/types'
+import { checkFigures } from '../../viz/checkMargin'
+import { glossaryKeyForLabel } from '../../data/glossary'
+import { Tooltip } from '../Tooltip'
 import { fixLocation } from '../../viz/missionMap'
+import { percent } from '../../sim/odds'
+import { useSuccessEstimate } from '../useOdds'
+import { LaunchSequence } from './LaunchSequence'
 
-function CheckRow({ check }: { check: CheckResult }) {
+function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) {
+  const fig = checkFigures(check, budgets)
+  const setDesignStep = useGameStore((s) => s.setDesignStep)
   const statusColors = {
     green: 'bg-green-900 text-green-300 border-green-700',
     yellow: 'bg-yellow-900 text-yellow-300 border-yellow-700',
@@ -20,22 +29,52 @@ function CheckRow({ check }: { check: CheckResult }) {
     <div className={`rounded-lg border p-4 ${statusColors[check.status]}`}>
       <div className="flex items-start justify-between">
         <div>
-          <div className="font-semibold">{check.resource}</div>
-          <div className="mt-1 text-sm opacity-80">
-            {check.value.toFixed(1)} / {check.limit.toFixed(1)} {check.unit}
-            {check.margin >= 0 && ` (+${check.margin.toFixed(1)} margin)`}
-            {check.margin < 0 && ` (${check.margin.toFixed(1)} over limit)`}
+          <div className="font-semibold">
+            <Tooltip term={glossaryKeyForLabel(check.resource) ?? ''}>{check.resource}</Tooltip>
+          </div>
+          <div className="mt-1 text-sm opacity-90">
+            {fig.value.toFixed(1)} / {fig.limit.toFixed(1)} {check.unit}
+            {check.resource === 'Budget' && ' spendable'}
+            {/* A red row with room left on paper: its blocking reason is right below, no "+ margin" */}
+            {!fig.margin.startsWith('Blocked') && ` (${fig.margin})`}
+            {fig.note && ` · ${fig.note}`}
           </div>
         </div>
         <span className="rounded bg-black/20 px-2 py-1 text-xs font-bold">
           {statusLabels[check.status]}
         </span>
       </div>
-      <div className="mt-2 text-sm opacity-70">{check.reason}</div>
+      <div className="mt-2 text-sm">{check.reason}</div>
+      {/* The brightest line of the card: where to fix it, one click away (QC contrast round) */}
       {check.fixStep && (
-        <div className="mt-2 text-xs opacity-60">
+        <button
+          type="button"
+          onClick={() => setDesignStep(check.fixStep!)}
+          className="mt-2 text-sm font-semibold text-white underline decoration-2 underline-offset-2 hover:text-yellow-100"
+        >
           Fix at {fixLocation(check.fixStep)}
-        </div>
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** F2 (Jakob, 14 Nov): the honest chance of full success, from many flights of this design */
+function SuccessOdds() {
+  const design = useGameStore((s) => s.design)
+  const difficulty = useGameStore((s) => s.difficulty)
+  const odds = useSuccessEstimate(design, difficulty)
+  return (
+    <div className="mt-4 text-slate-200" aria-live="polite">
+      {odds ? (
+        <>
+          <div className="text-xl font-semibold">{`Chance of full success: about ${percent(odds.success)}`}</div>
+          <div className="mt-1 text-sm text-slate-400">
+            {`From ${odds.runs} test flights of this design on standing orders: ${percent(odds.partial)} return only part of the science, ${percent(odds.failed)} fail.`}
+          </div>
+        </>
+      ) : (
+        <div className="text-sm text-slate-400">Working out the chance of full success…</div>
       )}
     </div>
   )
@@ -43,8 +82,12 @@ function CheckRow({ check }: { check: CheckResult }) {
 
 export function GoNoGoScreen() {
   const getGoNoGo = useGameStore((s) => s.getGoNoGo)
+  const getBudgets = useGameStore((s) => s.getBudgets)
+  const budgets = getBudgets()
   const setDesignStep = useGameStore((s) => s.setDesignStep)
   const startSimulation = useGameStore((s) => s.startSimulation)
+  // "Launch Mission" plays the launch sequence first; it starts the flight when it ends or is skipped
+  const [launching, setLaunching] = useState(false)
 
   const result = getGoNoGo()
   const summary = getGoNoGoSummary(result)
@@ -98,6 +141,7 @@ export function GoNoGoScreen() {
           {summary}
         </div>
         {doomed && scienceReason && <div className="mt-2 text-sm text-yellow-200/90">{scienceReason}</div>}
+        <SuccessOdds />
       </div>
 
       {criticalChecks.length > 0 && (
@@ -107,7 +151,7 @@ export function GoNoGoScreen() {
           </h2>
           <div className="space-y-3">
             {criticalChecks.map((check, i) => (
-              <CheckRow key={i} check={check} />
+              <CheckRow key={i} check={check} budgets={budgets} />
             ))}
           </div>
         </div>
@@ -120,7 +164,7 @@ export function GoNoGoScreen() {
           </h2>
           <div className="space-y-3">
             {warningChecks.map((check, i) => (
-              <CheckRow key={i} check={check} />
+              <CheckRow key={i} check={check} budgets={budgets} />
             ))}
           </div>
         </div>
@@ -133,7 +177,7 @@ export function GoNoGoScreen() {
           </h2>
           <div className="space-y-3">
             {passedChecks.map((check, i) => (
-              <CheckRow key={i} check={check} />
+              <CheckRow key={i} check={check} budgets={budgets} />
             ))}
           </div>
         </div>
@@ -147,7 +191,7 @@ export function GoNoGoScreen() {
           ← Back to Design
         </button>
         <button
-          onClick={startSimulation}
+          onClick={() => result.canGo && setLaunching(true)}
           disabled={!result.canGo}
           className={`rounded-lg px-6 py-2 font-medium text-white ${
             result.canGo
@@ -158,6 +202,8 @@ export function GoNoGoScreen() {
           {result.canGo ? 'Launch Mission' : 'Fix Issues First'}
         </button>
       </div>
+
+      {launching && <LaunchSequence checks={result.checks} onDone={startSimulation} />}
     </div>
   )
 }
