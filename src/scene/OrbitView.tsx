@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
+import { useModel } from '../assets/models'
+import { useGameStore } from '../state/gameStore'
+import { CubeSat, Earth as SpaceEarth, Moon as SpaceMoon, Starfield } from './space'
 import type { OrbitOption, OrbitView } from '../viz/orbit/orbitView'
 import { stripCount } from '../viz/orbit/orbitView'
 import { paintIce, ICE_SIZE } from '../viz/orbit/icePainter'
@@ -63,11 +66,21 @@ function useLatest<T>(value: T) {
   return ref
 }
 
+class SpaceBoundary extends Component<{ fallback?: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? (this.props.fallback ?? null) : this.props.children
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Sky                                                                  */
 /* ------------------------------------------------------------------ */
 
-function Stars() {
+function StarsFallback() {
   const geometry = useMemo(() => {
     const r = seeded(11)
     const n = 2200
@@ -92,57 +105,32 @@ function Stars() {
   )
 }
 
-function moonTexture() {
-  const c = document.createElement('canvas')
-  c.width = 2048
-  c.height = 1024
-  const x = c.getContext('2d') as CanvasRenderingContext2D
-  const r = seeded(7)
-  x.fillStyle = '#8b8d92'
-  x.fillRect(0, 0, c.width, c.height)
-  for (let i = 0; i < 26; i++) {
-    const cx = r() * c.width
-    const cy = (0.2 + r() * 0.5) * c.height
-    const rad = 60 + r() * 170
-    const g = x.createRadialGradient(cx, cy, 0, cx, cy, rad)
-    g.addColorStop(0, 'rgba(60,62,70,.55)')
-    g.addColorStop(1, 'rgba(60,62,70,0)')
-    x.fillStyle = g
-    x.fillRect(cx - rad, cy - rad, rad * 2, rad * 2)
-  }
-  for (let i = 0; i < 2600; i++) {
-    const cy = r() * c.height
-    const cx = r() * c.width
-    const rad = r() ** 3 * 26 + 1.5
-    const stretch = 1 / Math.max(0.25, Math.sin((cy / c.height) * Math.PI))
-    x.save()
-    x.translate(cx, cy)
-    x.scale(stretch, 1)
-    x.fillStyle = `rgba(50,52,58,${0.25 + r() * 0.3})`
-    x.beginPath()
-    x.arc(0, 0, rad, 0, TAU)
-    x.fill()
-    x.strokeStyle = `rgba(215,216,220,${0.25 + r() * 0.3})`
-    x.lineWidth = Math.max(1, rad * 0.14)
-    x.beginPath()
-    x.arc(0, 0, rad, 3.6, 6.2)
-    x.stroke()
-    x.restore()
-  }
-  const t = new THREE.CanvasTexture(c)
-  t.colorSpace = THREE.SRGBColorSpace
-  t.anisotropy = 8
-  return t
+function Stars() {
+  return (
+    <SpaceBoundary fallback={<StarsFallback />}>
+      <Suspense fallback={<StarsFallback />}>
+        <Starfield brightness={0.95} />
+      </Suspense>
+    </SpaceBoundary>
+  )
+}
+
+function MoonFallback() {
+  return (
+    <mesh>
+      <sphereGeometry args={[1, 64, 48]} />
+      <meshStandardMaterial color="#8b8d92" roughness={1} metalness={0} />
+    </mesh>
+  )
 }
 
 function Moon() {
-  const texture = useMemo(() => moonTexture(), [])
-  useEffect(() => () => texture.dispose(), [texture])
   return (
-    <mesh>
-      <sphereGeometry args={[1, 96, 64]} />
-      <meshStandardMaterial map={texture} bumpMap={texture} bumpScale={2.2} roughness={1} metalness={0} />
-    </mesh>
+    <SpaceBoundary fallback={<MoonFallback />}>
+      <Suspense fallback={<MoonFallback />}>
+        <SpaceMoon radius={1} segments={96} />
+      </Suspense>
+    </SpaceBoundary>
   )
 }
 
@@ -161,11 +149,9 @@ function labelTexture(text: string) {
   return t
 }
 
-function Earth() {
-  const label = useMemo(() => labelTexture('Earth'), [])
-  useEffect(() => () => label.dispose(), [label])
+function EarthFallback() {
   return (
-    <group position={EARTH_POS}>
+    <>
       <mesh>
         <sphereGeometry args={[0.42, 32, 24]} />
         <meshStandardMaterial color={0x3b82f6} emissive={0x1d4ed8} emissiveIntensity={0.5} roughness={0.7} />
@@ -174,6 +160,20 @@ function Earth() {
         <sphereGeometry args={[0.5, 32, 24]} />
         <meshBasicMaterial color={0x60a5fa} transparent opacity={0.18} side={THREE.BackSide} />
       </mesh>
+    </>
+  )
+}
+
+function Earth() {
+  const label = useMemo(() => labelTexture('Earth'), [])
+  useEffect(() => () => label.dispose(), [label])
+  return (
+    <group position={EARTH_POS}>
+      <SpaceBoundary fallback={<EarthFallback />}>
+        <Suspense fallback={<EarthFallback />}>
+          <SpaceEarth radius={0.42} />
+        </Suspense>
+      </SpaceBoundary>
       <sprite position={[0, 0.85, 0]} scale={[1.6, 0.4, 1]}>
         <spriteMaterial map={label} transparent depthWrite={false} />
       </sprite>
@@ -339,7 +339,26 @@ function Ring({
 
 const TRAIL = 60
 
+function LroReferenceMarker({ reduced }: { reduced: boolean }) {
+  const scene = useModel('model.env-lro')
+  const group = useRef<THREE.Group>(null)
+  const polar = useMemo(() => shapeFor('low-polar'), [])
+  useFrame((state) => {
+    if (!group.current) return
+    const meanNow = reduced ? Math.PI : ((state.clock.elapsedTime / polar.period + 0.52) % 1) * TAU
+    const p = orbitPoint(polar, trueAnomaly(polar, meanNow))
+    group.current.position.set(p[0], p[1], p[2])
+    group.current.lookAt(0, 0, 0)
+  })
+  return (
+    <group ref={group} scale={0.03}>
+      <primitive object={scene} />
+    </group>
+  )
+}
+
 function Craft({ option, reduced }: { option: OrbitOption; reduced: boolean }) {
+  const design = useGameStore((s) => s.design)
   const shape = shapeFor(option.id)
   const craft = useRef<THREE.Group>(null)
   const dot = useRef<THREE.MeshBasicMaterial>(null)
@@ -381,7 +400,10 @@ function Craft({ option, reduced }: { option: OrbitOption; reduced: boolean }) {
     const meanNow = reduced ? 0 : ((t / shape.period) % 1) * TAU
     const p = orbitPoint(shape, trueAnomaly(shape, meanNow))
     pos.set(p[0], p[1], p[2])
-    craft.current?.position.copy(pos)
+    if (craft.current) {
+      craft.current.position.copy(pos)
+      craft.current.lookAt(0, 0, 0)
+    }
 
     const dark = inStretch(stretches.sun, meanNow)
     dot.current?.color.set(dark ? 0x64748b : 0xffffff)
@@ -425,16 +447,24 @@ function Craft({ option, reduced }: { option: OrbitOption; reduced: boolean }) {
     }
   })
 
+  const craftDot = (
+    <mesh>
+      <sphereGeometry args={[0.035, 16, 12]} />
+      <meshBasicMaterial ref={dot} color={0xffffff} />
+    </mesh>
+  )
+
   return (
     <group>
       <group ref={craft}>
-        <mesh>
-          <sphereGeometry args={[0.035, 16, 12]} />
-          <meshBasicMaterial ref={dot} color={0xffffff} />
-        </mesh>
+        <SpaceBoundary fallback={craftDot}>
+          <Suspense fallback={craftDot}>
+            <CubeSat design={design} deploy={1} scale={0.22} />
+          </Suspense>
+        </SpaceBoundary>
         <mesh>
           <sphereGeometry args={[0.075, 16, 12]} />
-          <meshBasicMaterial ref={glow} color={0xffffff} transparent opacity={0.28} depthWrite={false} />
+          <meshBasicMaterial ref={glow} color={0xffffff} transparent opacity={0.22} depthWrite={false} />
         </mesh>
       </group>
       <primitive object={lines.trail} />
@@ -515,7 +545,7 @@ export function OrbitScene({ view, lapse, reduced, onPick }: SceneProps) {
     <Canvas
       className="!absolute inset-0"
       dpr={[1, 2]}
-      camera={{ fov: 42, near: 0.05, far: 200, position: [0, -2, 6] }}
+      camera={{ fov: 42, near: 0.05, far: 1000, position: [0, -2, 6] }}
       gl={{ antialias: true }}
       aria-hidden
     >
@@ -527,6 +557,11 @@ export function OrbitScene({ view, lapse, reduced, onPick }: SceneProps) {
       <Moon />
       <Earth />
       <IceCap view={view} lapse={lapse} />
+      <SpaceBoundary>
+        <Suspense fallback={null}>
+          <LroReferenceMarker reduced={reduced} />
+        </Suspense>
+      </SpaceBoundary>
       {view.options.map((o) => (
         <Ring key={o.id} option={o} picked={o.id === selected.id} onPick={onPick} />
       ))}

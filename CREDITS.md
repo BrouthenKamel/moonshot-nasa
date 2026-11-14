@@ -2,7 +2,7 @@
 
 Generated from `src/assets/manifest.ts` by `pnpm assets:credits`. Do not edit by hand.
 
-AI-generated assets: 83 of 149.
+AI-generated assets: 102 of 186.
 
 | Asset | Kind | Source | License | AI-generated | Credit |
 |---|---|---|---|---|---|
@@ -174,3 +174,21 @@ AI-generated assets: 83 of 149.
 | `model.rocket-boosters_2` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): 2 Solid Boosters |
 | `model.rocket-boosters_4` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): 4 Small Boosters |
 | `model.rocket-boosters_2_heavy` | model | procedural | Project original | yes | Generated with Claude (assets-src/models/rocket_parts/build_parts.py): 2 Heavy Boosters |
+| `model.nasa-icecube` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/CubeSat - ICECube/CubeSat - ICECube.glb |
+| `model.env-lro` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Lunar Reconnaissance Orbiter (A)/Lunar Reconnaissance Orbiter (A).glb |
+| `model.env-lunar-crater` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Printing/Moon - Aristarchus Region/Moon - Aristarchus Region.stl |
+| `texture.lunar-crater-closeup` | texture | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/Images and Textures/Moon - Lunar Crater/Moon - Lunar Crater.jpg |
+| `model.env-asteroid-bennu` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/1999 RQ36 asteroid/1999 RQ36 asteroid.glb |
+| `model.env-support-stand` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Flight System Support/Flight System Support.glb |
+| `model.env-cleanroom-oru` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Orbital Replacement Unit/Orbital Replacement Unit.glb |
+| `model.env-astronaut` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Astronaut/Astronaut.glb |
+| `model.env-dsn-34m` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Deep Space Network 34-meter/Deep Space Network 34-meter.glb |
+| `model.env-tall-dish` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Tall Dish/Tall Dish (post + turntable + dish).glb |
+| `model.env-radome` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Radome/Radome.glb |
+| `model.env-jsc-mcc` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/JSC Mission Control Room/JSC Mission Control Room.glb |
+| `model.env-tdrs` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Tracking and Data Relay Satellites (TDRS) (A)/Tracking and Data Relay Satellites (TDRS) (A).glb |
+| `model.env-mobile-launcher` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Mobile Launcher/Mobile Launcher (assembled).glb |
+| `model.env-launch-gantry` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Gantry/Gantry.glb |
+| `model.env-crawler` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Crawler/Crawler.glb |
+| `model.env-vab` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Vehicle Assembly Building (VAB)/Vehicle Assembly Building (VAB).glb |
+| `model.env-lunar-lander` | model | nasa | Public domain (NASA) | no | NASA 3D Resources: nasa/NASA-3D-Resources/3D Models/Apollo Lunar Module/Apollo Lunar Module.glb |

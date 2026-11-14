@@ -107,6 +107,7 @@ export function ChoiceCard({
   return (
     <button
       type="button"
+      data-choice-id={id}
       ref={buttonRef}
       role={radio ? 'radio' : undefined}
       aria-checked={radio ? selected : undefined}
@@ -133,6 +134,7 @@ export function ChoiceCard({
         ['--tw-ring-color' as string]: `${accent}aa`,
       }}
     >
+      {/* Direct children of this frame must stay strictly [art, namePlate] for TrayCard/EQUAL_HEIGHT_CARD selectors */}
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0a0f1e]">
         {/* Art */}
         <div className={`relative ${mode === 'portrait' ? 'aspect-square' : 'aspect-[16/10]'} overflow-hidden`}>
@@ -158,13 +160,21 @@ export function ChoiceCard({
             <div className="absolute inset-0 flex items-center justify-center font-display text-4xl font-bold text-white/20">{title.slice(0, 1)}</div>
           )}
           {mode === 'scene' && <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f1e] via-transparent to-transparent" />}
+          {/* Subtle HUD corner reticle ticks */}
+          <span aria-hidden="true" className="pointer-events-none absolute top-1.5 left-1.5 h-2 w-2 border-t border-l border-white/25" />
+          <span aria-hidden="true" className="pointer-events-none absolute top-1.5 right-1.5 h-2 w-2 border-t border-r border-white/25" />
+          <span aria-hidden="true" className="pointer-events-none absolute bottom-1.5 left-1.5 h-2 w-2 border-b border-l border-white/25" />
+          <span aria-hidden="true" className="pointer-events-none absolute right-1.5 bottom-1.5 h-2 w-2 border-r border-b border-white/25" />
           {tag && (
-            <span className="absolute left-2 top-2 rounded-full border border-white/15 bg-black/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/85 backdrop-blur">
+            <span className="absolute left-2 top-2 rounded-full border border-white/15 bg-black/65 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-white/90 backdrop-blur">
               {tag}
             </span>
           )}
           {selected && (
-            <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: accent }}>
+            <span
+              className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-white/40 text-xs font-bold text-white"
+              style={{ background: accent, boxShadow: `0 0 12px ${accent}` }}
+            >
               ✓
             </span>
           )}
@@ -178,15 +188,15 @@ export function ChoiceCard({
           {stats.length > 0 && (
             <div className="mt-2 grid grid-cols-2 gap-1">
               {stats.map((s) => (
-                <div key={s.label} className="rounded-md bg-white/5 px-1.5 py-1">
-                  <div className="text-[9px] uppercase tracking-wider text-slate-500">{s.label}</div>
-                  <div className={`text-xs font-semibold tabular-nums ${s.tone === 'good' ? 'text-emerald-300' : s.tone === 'bad' ? 'text-rose-300' : 'text-slate-100'}`}>{s.value}</div>
+                <div key={s.label} className="rounded-md border border-white/5 bg-white/[0.04] px-1.5 py-1">
+                  <div className="font-mono text-[9px] uppercase tracking-wider text-slate-400">{s.label}</div>
+                  <div className={`font-mono text-xs font-semibold tabular-nums ${s.tone === 'good' ? 'text-emerald-300' : s.tone === 'bad' ? 'text-rose-300' : 'text-slate-100'}`}>{s.value}</div>
                 </div>
               ))}
             </div>
           )}
           {disabled && reason && (
-            <div id={`${id}-reason`} className="mt-2 rounded-md bg-rose-500/15 px-2 py-1 text-[11px] text-rose-200">
+            <div id={`${id}-reason`} className="mt-2 rounded-md border border-rose-500/30 bg-rose-500/15 px-2 py-1 text-[11px] text-rose-200">
               {reason}
             </div>
           )}

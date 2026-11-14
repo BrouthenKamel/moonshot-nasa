@@ -89,8 +89,8 @@ function Beam({ status, kbps, hours }: { status: BarStatus; kbps: number; hours:
 
 function Chip({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
-    <div className="rounded-lg border border-white/5 bg-white/[0.04] px-2.5 py-1.5">
-      <div className="text-[9px] uppercase tracking-[0.18em] text-slate-500">{label}</div>
+    <div className="rounded-lg border border-white/10 bg-slate-950/65 px-2.5 py-1.5 font-mono">
+      <div className="text-[9px] uppercase tracking-[0.18em] text-slate-400">{label}</div>
       <div className={`text-sm font-semibold tabular-nums ${tone ?? 'text-slate-100'}`}>{value}</div>
     </div>
   )
@@ -104,6 +104,7 @@ interface LinkConsoleProps {
   radioName: string
   stationId: string
   stationName: string
+  dataTarget?: number
 }
 
 /**
@@ -111,7 +112,16 @@ interface LinkConsoleProps {
  * link budget as a gauge (data made each month against data the link can carry home). Every
  * number comes from computeBudgets and the Go / No-Go checks.
  */
-export function LinkConsole({ budgets, comms, data, radioId, radioName, stationId, stationName }: LinkConsoleProps) {
+export function LinkConsole({
+  budgets,
+  comms,
+  data,
+  radioId,
+  radioName,
+  stationId,
+  stationName,
+  dataTarget = 300,
+}: LinkConsoleProps) {
   const commsStatus = comms?.status ?? 'green'
   const dataStatus = data?.status ?? 'green'
   const made = budgets.dataPerTurn
@@ -120,15 +130,20 @@ export function LinkConsole({ budgets, comms, data, radioId, radioName, stationI
   const madePct = (made / scale) * 100
   const carriedPct = (carried / scale) * 100
   const short = budgets.dataMarginPerTurn < 0
+  const observed12 = Math.round(made * 12)
+  const homePct = Math.min(100, (budgets.projectedData / Math.max(dataTarget, 1)) * 100)
 
   return (
-    <section aria-labelledby="link-console-title" className="rounded-2xl border border-blue-500/20 bg-[#050a18]/95 p-4 shadow-[0_0_40px_rgba(59,130,246,0.08)] backdrop-blur">
+    <section
+      aria-labelledby="link-console-title"
+      className="hud-panel border-[var(--role-border)] bg-[#050a18]/95 p-4 shadow-[0_0_40px_rgba(59,130,246,0.1)] backdrop-blur"
+    >
       <style>{`@keyframes comms-flow { to { stroke-dashoffset: -24 } }`}</style>
       <div className="flex items-center justify-between gap-3">
-        <h2 id="link-console-title" className="font-mono text-[11px] uppercase tracking-[0.25em] text-blue-300">
+        <h2 id="link-console-title" className="font-mono text-[11px] uppercase tracking-[0.25em] text-[var(--role-accent)]">
           Data link budget
         </h2>
-        <span className={`flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${TONE[dataStatus].text}`}>
+        <span className={`flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wider ${TONE[dataStatus].text}`}>
           <span className={`h-2 w-2 rounded-full ${TONE[dataStatus].dot}`} />
           {dataStatus === 'green' ? 'All data gets home' : dataStatus === 'yellow' ? 'Tight' : 'No data home'}
         </span>
@@ -142,11 +157,12 @@ export function LinkConsole({ budgets, comms, data, radioId, radioName, stationI
       </div>
 
       {/* Gauge: made vs carried */}
-      <div className="mt-4 space-y-2" role="group" aria-label="Data made against data sent home each month">
+      <div className="mt-4 space-y-2 font-mono" role="group" aria-label="Data made against data sent home each month">
         <div className="grid grid-cols-[7.5rem_1fr_auto] items-center gap-3">
           <span className="text-xs text-slate-400">Instruments make</span>
           <div className="relative h-3 overflow-hidden rounded-full bg-white/5">
             <div className="absolute inset-y-0 left-0 rounded-full bg-amber-300/90 transition-[width] duration-500 motion-reduce:transition-none" style={{ width: `${madePct}%` }} />
+            <div className="hud-bar-segments pointer-events-none absolute inset-0" />
           </div>
           <span className="w-28 text-right text-sm font-semibold tabular-nums text-amber-200">{fmt(made)} MB/month</span>
         </div>
@@ -154,10 +170,55 @@ export function LinkConsole({ budgets, comms, data, radioId, radioName, stationI
           <span className="text-xs text-slate-400">Link carries</span>
           <div className="relative h-3 overflow-hidden rounded-full bg-white/5">
             <div className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 motion-reduce:transition-none ${TONE[dataStatus].bar}`} style={{ width: `${carriedPct}%` }} />
+            <div className="hud-bar-segments pointer-events-none absolute inset-0" />
             {/* Where the instruments' output sits on the link bar */}
             <div className="absolute inset-y-[-2px] w-0.5 bg-amber-200" style={{ left: `${madePct}%` }} aria-hidden="true" />
           </div>
           <span className={`w-28 text-right text-sm font-semibold tabular-nums ${TONE[dataStatus].text}`}>{fmt(carried)} MB/month</span>
+        </div>
+      </div>
+
+      {/* 12-Month Science Data Funnel */}
+      <div className="mt-4 rounded-xl border border-slate-700/60 bg-slate-950/70 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] tabular-nums">
+          <span className="uppercase tracking-[0.18em] text-slate-400">12-Month Science Data Funnel</span>
+          <span className={budgets.projectedData >= dataTarget ? 'font-bold text-cyan-300' : 'font-bold text-amber-300'}>
+            {budgets.projectedData.toFixed(0)} / {dataTarget} MB goal
+          </span>
+        </div>
+        <div className="mt-2 grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-1.5 font-mono text-[11px] tabular-nums">
+          <div className="rounded border border-slate-700/70 bg-slate-900/80 px-2 py-1.5 text-center">
+            <div className="text-[9px] uppercase tracking-wider text-slate-400">Observed</div>
+            <div className="font-bold text-amber-200">{observed12} MB</div>
+          </div>
+          <span aria-hidden="true" className="text-slate-500">→</span>
+          <div className="rounded border border-slate-700/70 bg-slate-900/80 px-2 py-1.5 text-center">
+            <div className="text-[9px] uppercase tracking-wider text-slate-400">Stored</div>
+            <div className="font-bold text-slate-100">{budgets.storageCapacity} MB</div>
+          </div>
+          <span aria-hidden="true" className="text-slate-500">→</span>
+          <div className="rounded border border-sky-400/35 bg-sky-950/40 px-2 py-1.5 text-center">
+            <div className="text-[9px] uppercase tracking-wider text-sky-300">Downlinked Home</div>
+            <div className="font-bold text-cyan-300">{budgets.projectedData.toFixed(0)} / {dataTarget} MB</div>
+          </div>
+          <span aria-hidden="true" className="text-slate-500">→</span>
+          <div
+            className={`rounded border px-2 py-1.5 text-center ${
+              budgets.projectedLost > 0.5
+                ? 'border-rose-400/40 bg-rose-950/45 text-rose-300'
+                : 'border-emerald-400/30 bg-emerald-950/35 text-emerald-300'
+            }`}
+          >
+            <div className="text-[9px] uppercase tracking-wider opacity-80">Overflow Lost</div>
+            <div className="font-bold">{budgets.projectedLost.toFixed(0)} MB</div>
+          </div>
+        </div>
+        <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-slate-900">
+          <div
+            className={`h-full transition-all duration-300 ${budgets.projectedData >= dataTarget ? 'bg-cyan-400' : 'bg-amber-400'}`}
+            style={{ width: `${homePct}%` }}
+          />
+          <div className="hud-bar-segments pointer-events-none absolute inset-0" />
         </div>
       </div>
 
@@ -212,12 +273,12 @@ export function LinkRibbon({ budgets, data, visible }: { budgets: Budgets; data:
     <div className="sticky -top-4 z-30 h-0" aria-hidden={!visible}>
       <div className={`-mx-2 bg-slate-950 px-2 pb-2 pt-4 transition-opacity duration-200 motion-reduce:transition-none ${visible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
       <div
-        className={`flex items-center gap-4 rounded-xl border border-blue-500/25 bg-[#050a18]/95 px-4 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.6)] backdrop-blur transition-[opacity,transform] duration-200 motion-reduce:transition-none ${
+        className={`hud-panel flex items-center gap-4 border-[var(--role-border)] bg-[#050a18]/95 px-4 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.6)] backdrop-blur transition-[opacity,transform] duration-200 motion-reduce:transition-none ${
           visible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
         }`}
       >
         <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${TONE[status].dot}`} />
-        <span className={`w-24 shrink-0 font-display text-lg font-bold tabular-nums ${TONE[status].text}`}>
+        <span className={`w-24 shrink-0 font-mono text-lg font-bold tabular-nums ${TONE[status].text}`}>
           {budgets.linkKbps > 0 ? `${budgets.linkKbps} kbps` : 'No link'}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -228,7 +289,7 @@ export function LinkRibbon({ budgets, data, visible }: { budgets: Budgets; data:
             <div className={`h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none ${TONE[status].bar}`} style={{ width: `${(carried / scale) * 100}%` }} />
           </div>
         </div>
-        <span className="shrink-0 text-xs tabular-nums text-slate-300">
+        <span className="shrink-0 font-mono text-xs tabular-nums text-slate-300">
           <span className="text-amber-200">{fmt(made)}</span> made · <span className={TONE[status].text}>{fmt(carried)}</span> sent MB/month
         </span>
       </div>

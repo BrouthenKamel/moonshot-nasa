@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
+import { useModel } from '../assets/models'
 import { useGameStore } from '../state/gameStore'
 import { usePlanningOdds } from '../ui/useOdds'
 import { buildPlanningView, type PlanningView } from '../viz/planning/planningView'
@@ -145,6 +146,45 @@ function OperatorRows() {
   )
 }
 
+class RoomModelBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? null : this.props.children
+  }
+}
+
+function prepareMccWing(root: THREE.Object3D) {
+  root.traverse((obj) => {
+    if (obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshStandardMaterial) {
+      obj.material.roughness = Math.max(obj.material.roughness, 0.78)
+      obj.material.metalness = Math.min(obj.material.metalness, 0.25)
+    }
+  })
+  return root
+}
+
+function JscMissionControlBackdrop() {
+  const scene = useModel('model.env-jsc-mcc')
+  const wings = useMemo(
+    () => ({
+      left: prepareMccWing(scene.clone(true)),
+      right: prepareMccWing(scene.clone(true)),
+    }),
+    [scene]
+  )
+  return (
+    <group>
+      <primitive object={wings.left} position={[-7.6, 0.35, -3.4]} rotation={[0, Math.PI / 2, 0]} scale={0.55} />
+      <primitive object={wings.right} position={[7.6, 0.35, -3.4]} rotation={[0, -Math.PI / 2, 0]} scale={0.55} />
+      <ambientLight intensity={0.28} color="#93c5fd" />
+      <directionalLight position={[4, 7.5, 5]} intensity={0.45} color="#cbd5e1" />
+    </group>
+  )
+}
+
 function Room() {
   const floor = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x0b1322, roughness: 0.9 }), [])
   const wall = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x0a1120, roughness: 1 }), [])
@@ -165,6 +205,11 @@ function Room() {
       {box([34, 0.3, 22], [0, 11.5, 0], wall, 'ceiling')}
       {box([34, 0.04, 0.05], [0, 0.6, -3.38], strip, 'strip1')}
       {box([34, 0.04, 0.05], [0, 1.2, 0.32], strip, 'strip2')}
+      <RoomModelBoundary>
+        <Suspense fallback={null}>
+          <JscMissionControlBackdrop />
+        </Suspense>
+      </RoomModelBoundary>
     </group>
   )
 }

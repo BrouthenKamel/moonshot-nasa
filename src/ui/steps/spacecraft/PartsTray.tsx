@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import type { TrayGroup, TrayKey, TrayOption } from '../../../viz/spacecraft/trayOptions'
+import { useUiStore } from '../../../state/uiStore'
 import { glossaryForPart } from '../../../data/glossary'
 import { audio } from '../../../assets/audio'
 import { choiceArt } from '../../../assets/catalogueArt'
@@ -32,6 +33,14 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
   const refs = useRef<Record<string, HTMLButtonElement | null>>({})
   const scroller = useRef<HTMLDivElement>(null)
   const edges = useScrollEdges(scroller)
+  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
+
+  useEffect(() => () => setPreviewPatch(null), [setPreviewPatch])
+
+  const clearHover = () => {
+    onActive(null)
+    setPreviewPatch(null)
+  }
 
   /*
    * The cards run with sounds={false} (the game's one rule for pick sounds: the tray plays them),
@@ -50,6 +59,7 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
     const next = group.options[(index + step + n) % n]
     // Moving with the arrows picks too, with the same sound as a click
     pickWithSound(group.key, next.id)
+    setPreviewPatch({ [group.key]: next.id })
     const el = refs.current[`${group.key}:${next.id}`]
     el?.focus()
     el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
@@ -60,7 +70,10 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
       <div
         ref={scroller}
         className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pt-1.5 pb-1 [scrollbar-color:#334155_transparent] [scrollbar-width:thin]"
-        onMouseLeave={() => onActive(null)}
+        onMouseLeave={clearHover}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) clearHover()
+        }}
       >
         <div className="flex w-full gap-2">
           {groups.map((g) => {
@@ -80,7 +93,7 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
                 }}
               >
                 <h3
-                  className="mb-1 flex items-center gap-1.5 truncate text-[10px] font-semibold tracking-[0.1em] uppercase"
+                  className="mb-1 flex items-center gap-1.5 truncate font-mono text-[10px] font-semibold tracking-[0.1em] uppercase"
                   style={{ color: g.color }}
                 >
                   <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: g.color, boxShadow: `0 0 8px ${g.color}` }} aria-hidden />
@@ -100,10 +113,14 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
                           refs.current[`${g.key}:${o.id}`] = el
                         }}
                         onPick={() => pickWithSound(g.key, o.id)}
-                        onActive={() => onActive({ key: g.key, id: o.id })}
+                        onActive={() => {
+                          onActive({ key: g.key, id: o.id })
+                          setPreviewPatch({ [g.key]: o.id })
+                        }}
                         onHover={() => {
                           audio.play('sfx.hover')
                           onActive({ key: g.key, id: o.id })
+                          setPreviewPatch({ [g.key]: o.id })
                         }}
                         onKeyDown={onKey(g, i)}
                       />
@@ -188,7 +205,7 @@ export function FactStrip({
               optionChips(group, option).map((c) => (
                 <span
                   key={c.label}
-                  className="mr-1 inline-flex items-baseline gap-1 rounded-md border bg-white/5 px-1.5 py-px align-baseline"
+                  className="mr-1 inline-flex items-baseline gap-1 rounded-md border bg-white/5 px-1.5 py-px align-baseline font-mono"
                   style={{ borderColor: `${color ?? '#64748b'}55` }}
                 >
                   <span className="text-[9px] tracking-wider text-slate-500 uppercase">{c.label}</span>

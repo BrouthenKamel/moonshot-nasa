@@ -1,7 +1,10 @@
-import { useMemo, useRef, useState } from 'react'
+import { Component, Suspense, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import * as THREE from 'three'
+import { useModel } from '../../assets/models'
+import { useGameStore } from '../../state/gameStore'
+import { CubeSat, useSpaceTexture } from '../space'
 import { TILE_LENGTH, TILE_WIDTH, bakeGround } from './ground'
 import { Beam } from './beams'
 import { InstrumentModel } from './InstrumentModel'
@@ -9,6 +12,60 @@ import { FAR_PLANE_NEAR_EDGE, SAT_SCALE, TILE_COPIES, advancePass, holdOverCrate
 import type { InstrumentView } from './stageModel'
 
 const TAU = Math.PI * 2
+
+class SceneBoundary extends Component<{ fallback?: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? (this.props.fallback ?? null) : this.props.children
+  }
+}
+
+function CraterTileMaterial() {
+  const baseTex = useSpaceTexture('texture.lunar-crater-closeup')
+  const map = useMemo(() => {
+    const t = baseTex.clone()
+    t.wrapS = THREE.RepeatWrapping
+    t.wrapT = THREE.RepeatWrapping
+    t.repeat.set(6, 3)
+    t.needsUpdate = true
+    return t
+  }, [baseTex])
+  return <meshStandardMaterial map={map} vertexColors roughness={0.96} metalness={0} />
+}
+
+function AristarchusFlank({ position, rotationY = 0, scale = 1.6 }: { position: [number, number, number]; rotationY?: number; scale?: number }) {
+  const scene = useModel('model.env-lunar-crater')
+  useLayoutEffect(() => {
+    scene.traverse((obj) => {
+      if (obj instanceof THREE.Mesh && obj.material instanceof THREE.MeshStandardMaterial) {
+        obj.material.color.set('#90939b')
+        obj.material.roughness = 0.96
+      }
+    })
+  }, [scene])
+  return <primitive object={scene} position={position} rotation={[0, rotationY, 0]} scale={scale} />
+}
+
+function OrbitingLro({ h }: { h: number }) {
+  const scene = useModel('model.env-lro')
+  const group = useRef<THREE.Group>(null)
+  useFrame(({ clock }) => {
+    if (!group.current) return
+    const t = clock.elapsedTime * 0.08
+    group.current.position.x = Math.sin(t) * 26 - 10
+    group.current.position.y = h + 11 + Math.cos(t * 1.4) * 1.2
+    group.current.position.z = -58 + Math.cos(t) * 10
+    group.current.rotation.y = Math.PI * 0.4 + t * 0.25
+  })
+  return (
+    <group ref={group} position={[-10, h + 11, -58]} scale={0.75}>
+      <primitive object={scene} />
+    </group>
+  )
+}
 
 function buildTile(): THREE.BufferGeometry {
   const { nx, nu, height, shadow } = bakeGround()
@@ -74,6 +131,7 @@ function Terrain({ pass }: { pass: Pass }) {
   useFrame(() => {
     if (group.current) group.current.position.z = pass.offset
   })
+  const plainMat = <meshStandardMaterial vertexColors roughness={1} metalness={0} />
   return (
     <>
       {[-1, 1].map((side) => (
@@ -88,26 +146,31 @@ function Terrain({ pass }: { pass: Pass }) {
       </mesh>
       <group ref={group}>
         {TILE_COPIES.map((i) => (
-          <mesh key={i} geometry={geo} position={[0, 0, -i * TILE_LENGTH]}>
-            <meshStandardMaterial vertexColors roughness={1} metalness={0} />
-          </mesh>
+          <group key={i} position={[0, 0, -i * TILE_LENGTH]}>
+            <mesh geometry={geo}>
+              <SceneBoundary fallback={plainMat}>
+                <Suspense fallback={plainMat}>
+                  <CraterTileMaterial />
+                </Suspense>
+              </SceneBoundary>
+            </mesh>
+            {/* Flank the crater corridor with NASA Aristarchus relief terrain outside the central scan track */}
+            <SceneBoundary>
+              <Suspense fallback={null}>
+                <AristarchusFlank position={[-38, -0.25, -TILE_LENGTH * 0.45]} rotationY={0.2} scale={1.6} />
+                <AristarchusFlank position={[38, -0.25, -TILE_LENGTH * 0.55]} rotationY={Math.PI - 0.15} scale={1.6} />
+              </Suspense>
+            </SceneBoundary>
+          </group>
         ))}
       </group>
     </>
   )
 }
 
-function Satellite({ h, views }: { h: number; views: InstrumentView[] }) {
-  const group = useRef<THREE.Group>(null)
-  const cur = useRef(h)
-  useFrame(({ clock }) => {
-    if (!group.current) return
-    cur.current += (h - cur.current) * 0.07
-    group.current.position.y = cur.current + Math.sin(clock.elapsedTime * 0.8) * 0.04
-    group.current.rotation.z = Math.sin(clock.elapsedTime * 0.5) * 0.025
-  })
+function PrimitiveSatelliteFallback() {
   return (
-    <group ref={group} position={[0, h, 0]} scale={SAT_SCALE}>
+    <>
       <mesh>
         <boxGeometry args={[0.8, 0.5, 1.4]} />
         <meshStandardMaterial color="#cbd5e1" metalness={0.35} roughness={0.45} emissive="#1e293b" emissiveIntensity={0.5} />
@@ -134,8 +197,31 @@ function Satellite({ h, views }: { h: number; views: InstrumentView[] }) {
         <cylinderGeometry args={[0.1, 0.16, 0.14, 16]} />
         <meshStandardMaterial color="#64748b" />
       </mesh>
+    </>
+  )
+}
+
+function Satellite({ h, views }: { h: number; views: InstrumentView[] }) {
+  const design = useGameStore((s) => s.design)
+  const group = useRef<THREE.Group>(null)
+  const cur = useRef(h)
+  useFrame(({ clock }) => {
+    if (!group.current) return
+    cur.current += (h - cur.current) * 0.07
+    group.current.position.y = cur.current + Math.sin(clock.elapsedTime * 0.8) * 0.04
+    group.current.rotation.z = Math.sin(clock.elapsedTime * 0.5) * 0.025
+  })
+  return (
+    <group ref={group} position={[0, h, 0]} scale={SAT_SCALE}>
+      <SceneBoundary fallback={<PrimitiveSatelliteFallback />}>
+        <Suspense fallback={<PrimitiveSatelliteFallback />}>
+          <group rotation={[0, Math.PI, 0]}>
+            <CubeSat design={design} deploy={1} scale={4.0} />
+          </group>
+        </Suspense>
+      </SceneBoundary>
       {views.map((v, i) => (
-        <group key={v.id} position={[slotX(i, views.length), 0, -0.2]}>
+        <group key={v.id} position={[slotX(i, views.length), -0.05, -0.25]}>
           <InstrumentModel id={v.id} color={v.color} />
         </group>
       ))}
@@ -181,6 +267,11 @@ export function Scene({ pass, h, views, still, onShadow }: SceneProps) {
       <Driver pass={pass} h={h} still={still} onShadow={onShadow} />
       <Rig h={h} />
       <Sky glow={glow} />
+      <SceneBoundary>
+        <Suspense fallback={null}>
+          <OrbitingLro h={h} />
+        </Suspense>
+      </SceneBoundary>
       <Terrain pass={pass} />
       <Satellite h={h} views={views} />
       {views.map((v, i) => (
