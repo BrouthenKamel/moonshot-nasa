@@ -147,6 +147,18 @@ All of these are being built on branch fix/qc-round-3 (round-3 builder), except 
 - Merged: #22, #23, #24, #25 (main 7d2303b).
 - #51 (cyan in the Factory) is handed to SpaceCraft Design under the A list.
 
+## Batch 21: re-test of main 7d2303b
+
+**QC verified these fixed on main:** 2, 3, 5, 6, 10, 24, 31 and 73 (73 via the badge part in #27), plus B5 (difficulty removed).
+
+| # | Sev | Finding | Group | Status | Owner |
+|---|-----|---------|-------|--------|-------|
+| 79 | Med | The default IR design gets "Partial Success 102/1000, missed Ice Coverage", and the base card says COMPLETE in green. Missing the ice should read as failed or "fell short" | J1 | waits-jakob | — |
+| 80 | Low-Med | Three time units on one screen: mission days (card and HUD), turns (card body, buttons), base days (DAY 292). QC suggests turns or months for the player, days only on the base calendar | J2 | waits-jakob | — |
+| 81 | Low | The Science reason still tells the player to fit the neutron spectrometer while it is locked | B1 follow-up | go (part of B1) | Instrument Selection |
+| 82 | — | Still open: 70 (old saves white-screen), 7/27, 21, 53, 75, D4 placeholders | — | 70 waits-jakob; 7, 21, 27, 53 and D4 are on fix/qc-round-3 | — |
+| 83 | Med | Agency funds still rise after a partial or successful run; the mission's 25 M never touches agency funds. Decide what a mission costs the agency | J3 | waits-jakob (note sent toward the balance redesign) | — |
+
 ## Ideas from the "Game improvement brainstorm" session (round 1, waits-jakob)
 
 | # | Idea | Status |
