@@ -1,8 +1,25 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { useAgencyStore, missionDay, migrateAgencyState, type AgencyState } from './agencyStore'
+import { useAgencyStore, missionDay, migrateAgencyState, mergeAgencyState, type AgencyState } from './agencyStore'
 
 describe('agency clock and the mission', () => {
   beforeEach(() => useAgencyStore.getState().resetAgency())
+
+  // Jakob, 14 Nov: the base clock waits until the player acts
+  it('starts paused: the clock does not run until the player presses play', () => {
+    const before = useAgencyStore.getState().day
+    expect(useAgencyStore.getState().speed).toBe('paused')
+    useAgencyStore.getState().tick(10)
+    expect(useAgencyStore.getState().day).toBe(before)
+    useAgencyStore.getState().setSpeed('normal')
+    useAgencyStore.getState().tick(1)
+    expect(useAgencyStore.getState().day).toBeGreaterThan(before)
+  })
+
+  it('comes back paused after a reload, even if it was playing', () => {
+    const merged = mergeAgencyState({ day: 200, speed: 'fast' }, useAgencyStore.getState())
+    expect(merged.day).toBe(200)
+    expect(merged.speed).toBe('paused')
+  })
 
   it('maps turns to days', () => {
     expect(missionDay(112, 0)).toBe(112)
