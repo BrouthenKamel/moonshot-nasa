@@ -1,28 +1,20 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { useAgencyStore } from '../../state/agencyStore'
-import { BaseMap, type BuildingLabel } from '../../scene/BaseMap'
-import {
-  LUNAR_RIDE_DAY,
-  agencyEvents,
-  buildings,
-  missionsInFlight,
-  mockMissionViews,
-  monthlyIncome,
-  monthlySpending,
-  type AgencyEvent,
-  type BuildingId,
-  type MissionStatus,
-  type MissionView,
-  type Speed,
-} from '../../data/agency'
-import type { DesignStep, SimState } from '../../sim/types'
+import { BaseMap, type MapTarget } from '../../scene/BaseMap'
+import { exampleMissions, scriptedEvents, type MissionCardView, type Speed } from '../../data/agency'
+import { fundingPerDay } from '../../game/economy'
+import { missionLaunchDay, type FeedItem } from '../../game/world'
+import { MISSION_NAME, useMissionWatch } from '../../game/missionLink'
+import { BuildingPanel, NewMissionDialog, useNewMissionGate } from '../base/BuildingPanel'
+import { baseView, type Stage } from '../base/view'
+import { Icon } from '../base/icons'
 
 /* ------------------------------------------------------------------ */
 /* Clock                                                               */
 /* ------------------------------------------------------------------ */
 
-/** Runs the day clock while the base screen is open */
+/** Runs the agency clock while the base screen is open (planning screens stop it) */
 function useAgencyClock() {
   const tick = useAgencyStore((s) => s.tick)
   useEffect(() => {
@@ -32,390 +24,390 @@ function useAgencyClock() {
       const seconds = Math.min(1, (now - last) / 1000) // no big jumps after the tab sleeps
       last = now
       tick(seconds)
-    }, 100)
+    }, 200)
     return () => window.clearInterval(id)
   }, [tick])
 }
 
 const money = (m: number) => `$${m.toFixed(1)}M`
 
-/* ------------------------------------------------------------------ */
-/* The real mission, read from the design flow                         */
-/* ------------------------------------------------------------------ */
-
-const designSteps: { id: DesignStep; name: string }[] = [
-  { id: 'brief', name: 'Brief' },
-  { id: 'planning', name: 'Planning' },
-  { id: 'instruments', name: 'Instruments' },
-  { id: 'spacecraft', name: 'Spacecraft' },
-  { id: 'orbit', name: 'Orbit' },
-  { id: 'ride', name: 'Ride & transfer' },
-  { id: 'comms', name: 'Comms' },
-  { id: 'go-nogo', name: 'Go / No-Go' },
-]
-
-function lunarMissionView(
-  designStep: DesignStep,
-  simState: SimState | null,
-  day: number
-): MissionView {
-  const base = { id: 'lunar-ice-mapper', name: 'Lunar Ice Mapper', kind: 'cubesat' as const, isReal: true }
-
-  if (!simState) {
-    const index = Math.max(0, designSteps.findIndex((s) => s.id === designStep))
-    const daysToRide = Math.ceil(LUNAR_RIDE_DAY - day)
-    return {
-      ...base,
-      status: 'planning',
-      progress: index / (designSteps.length - 1),
-      detail: `Step: ${designSteps[index].name} · ride ${
-        daysToRide > 0 ? `in ${daysToRide} days` : 'has left'
-      }`,
-    }
-  }
-
-  switch (simState.phase) {
-    case 'build':
-    case 'test':
-    case 'wait':
-      return { ...base, status: 'building', progress: Math.min(1, simState.currentTurn / 8), detail: `In the factory · ${simState.phase}` }
-    case 'transfer':
-    case 'capture':
-      return { ...base, status: 'transfer', progress: 0.5, detail: `On the way to the Moon · ${simState.phase}` }
-    case 'orbit':
-      return {
-        ...base,
-        status: 'in-orbit',
-        progress: Math.min(1, simState.turnsInOrbit / 12),
-        detail: `Lunar orbit · ${simState.coveragePercent.toFixed(0)}% mapped`,
-      }
-    default:
-      return { ...base, status: 'complete', progress: 1, detail: simState.phase === 'failed' ? 'Mission lost' : 'Mission complete' }
-  }
-}
+const hud = 'rounded-2xl bg-[#14213d]/85 text-white shadow-lg ring-1 ring-white/10 backdrop-blur-md'
 
 /* ------------------------------------------------------------------ */
 /* Top bar                                                             */
 /* ------------------------------------------------------------------ */
 
-function SpeedButton({ speed, current, label, title }: { speed: Speed; current: Speed; label: string; title: string }) {
+function SpeedButton({ speed, icon, title }: { speed: Speed; icon: 'pause' | 'play' | 'fast'; title: string }) {
+  const current = useAgencyStore((s) => s.speed)
   const setSpeed = useAgencyStore((s) => s.setSpeed)
   const active = speed === current
   return (
     <button
       onClick={() => setSpeed(speed)}
       title={title}
+      aria-label={title}
       aria-pressed={active}
-      className={`flex h-8 w-10 items-center justify-center rounded-full text-sm font-bold transition-colors ${
-        active ? 'bg-orange-500 text-white' : 'text-slate-200 hover:bg-white/10'
+      className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
+        active ? 'bg-orange-500 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
       }`}
     >
-      {label}
+      <Icon name={icon} />
     </button>
   )
 }
 
-function TopBar({ netPerMonth }: { netPerMonth: number }) {
-  const day = useAgencyStore((s) => s.day)
-  const speed = useAgencyStore((s) => s.speed)
+function TopBar() {
+  const day = useAgencyStore((s) => Math.floor(s.day))
   const funds = useAgencyStore((s) => s.funds)
-  const support = useAgencyStore((s) => s.support)
+  const popularity = useAgencyStore((s) => s.popularity)
+  const skip = useAgencyStore((s) => s.skipToNextEvent)
   const setScreen = useGameStore((s) => s.setScreen)
 
   return (
-    <header className="flex flex-wrap items-center gap-x-6 gap-y-2 bg-[#14213d] px-4 py-2 text-white shadow-lg">
-      <button onClick={() => setScreen('title')} className="flex items-center gap-2" title="Back to title screen">
-        <span className="text-3xl leading-none">🌙</span>
-        <span className="text-left leading-none">
-          <span className="block font-display text-2xl font-bold tracking-wide">MOONSHOT</span>
-          <span className="block text-[10px] tracking-[0.35em] text-slate-300">SPACE AGENCY</span>
-        </span>
+    <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex flex-wrap items-start justify-between gap-2">
+      <button
+        onClick={() => setScreen('title')}
+        title="Back to the title screen"
+        className={`${hud} pointer-events-auto flex items-center gap-2 px-3 py-2`}
+      >
+        <Icon name="moon" className="h-6 w-6 text-orange-400" />
+        <span className="font-display text-lg font-bold tracking-wide">Moonshot</span>
       </button>
 
-      <div className="hidden h-10 w-px bg-white/20 sm:block" />
-
-      <div className="leading-tight">
-        <div className="font-display text-xl font-bold tabular-nums">DAY {Math.floor(day)}</div>
-        <div className="text-[11px] text-slate-300">Month {Math.floor(day / 30) + 1}</div>
-      </div>
-
-      <div className="flex items-center gap-1 rounded-full border border-white/20 bg-white/5 p-1">
-        <SpeedButton speed="paused" current={speed} label="❚❚" title="Pause" />
-        <SpeedButton speed="normal" current={speed} label="▶" title="Play: 1 day per second" />
-        <SpeedButton speed="fast" current={speed} label="▶▶" title="Fast: 8 days per second" />
-      </div>
-
-      <div className="ml-auto flex flex-wrap gap-3">
-        <div className="rounded-xl border border-white/20 bg-white/5 px-4 py-1.5">
-          <div className="text-[10px] font-semibold tracking-wider text-slate-300">PUBLIC SUPPORT</div>
-          <div className="font-display text-xl font-bold tabular-nums">👥 {support.toFixed(0)}%</div>
-        </div>
-        <div className="rounded-xl border border-white/20 bg-white/5 px-4 py-1.5">
-          <div className="text-[10px] font-semibold tracking-wider text-slate-300">FUNDS</div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-display text-xl font-bold tabular-nums">💰 {money(funds)}</span>
-            <span className={`text-xs ${netPerMonth >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
-              {netPerMonth >= 0 ? '+' : ''}
-              {netPerMonth.toFixed(2)}/mo
-            </span>
+      <div className={`${hud} pointer-events-auto flex items-center gap-2 p-1.5 pl-4`}>
+        <div className="mr-1 leading-tight">
+          <div className="font-display text-lg font-bold tabular-nums">Day {day}</div>
+          <div className="text-[11px] text-white/60">
+            Year {Math.floor(day / 360) + 1}, month {Math.floor((day % 360) / 30) + 1}
           </div>
         </div>
+        <SpeedButton speed="paused" icon="pause" title="Pause" />
+        <SpeedButton speed="normal" icon="play" title="Play (1 day a second)" />
+        <SpeedButton speed="fast" icon="fast" title="Fast (10 days a second)" />
+        <button
+          onClick={skip}
+          title="Jump to the next event"
+          className="flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white"
+        >
+          <Icon name="skip" />
+          Next event
+        </button>
       </div>
-    </header>
-  )
-}
 
-/* ------------------------------------------------------------------ */
-/* Left: agency dashboard                                              */
-/* ------------------------------------------------------------------ */
-
-function FundsTrend() {
-  const history = useAgencyStore((s) => s.fundsHistory)
-  const day = useAgencyStore((s) => s.day)
-  const funds = useAgencyStore((s) => s.funds)
-
-  const { path, area, minF, maxF, firstDay } = useMemo(() => {
-    const pts = [...history.filter((p) => p.day >= day - 120), { day, funds }]
-    const minF = Math.min(...pts.map((p) => p.funds)) - 0.5
-    const maxF = Math.max(...pts.map((p) => p.funds)) + 0.5
-    const firstDay = pts[0].day
-    const spanD = Math.max(1, day - firstDay)
-    const xy = pts.map((p) => [((p.day - firstDay) / spanD) * 200, 60 - ((p.funds - minF) / (maxF - minF)) * 56])
-    const path = xy.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
-    const area = `${path} L200,62 L0,62 Z`
-    return { path, area, minF, maxF, firstDay }
-  }, [history, day, funds])
-
-  return (
-    <div>
-      <svg viewBox="0 0 200 64" className="h-20 w-full" preserveAspectRatio="none" role="img" aria-label="Funds over the last 120 days">
-        <path d={area} fill="#2bb3a3" opacity={0.18} />
-        <path d={path} fill="none" stroke="#1a9e8f" strokeWidth={2} vectorEffect="non-scaling-stroke" />
-      </svg>
-      <div className="flex justify-between text-[10px] text-slate-500">
-        <span>Day {Math.floor(firstDay)}</span>
-        <span>
-          {money(minF + 0.5)} – {money(maxF - 0.5)}
-        </span>
-        <span>Today</span>
+      <div className="pointer-events-auto flex gap-2">
+        <div className={`${hud} flex items-center gap-2 px-3 py-2`} title="Public support: more support, more money">
+          <Icon name="people" className="h-5 w-5 text-violet-300" />
+          <span className="font-display text-lg font-bold tabular-nums">{popularity.toFixed(0)}%</span>
+        </div>
+        <div className={`${hud} flex items-center gap-2 px-3 py-2`} title={`Government funding: +${money(fundingPerDay(popularity) * 30)} a month`}>
+          <Icon name="coins" className="h-5 w-5 text-amber-300" />
+          <span className="font-display text-lg font-bold tabular-nums">{money(funds)}</span>
+        </div>
       </div>
     </div>
   )
 }
 
-const toneStyle: Record<AgencyEvent['tone'], string> = {
-  info: 'bg-sky-500',
-  good: 'bg-emerald-500',
-  warning: 'bg-amber-500',
-  bad: 'bg-red-500',
+/* ------------------------------------------------------------------ */
+/* Bottom: the mission tracker                                         */
+/* ------------------------------------------------------------------ */
+
+const steps: { stage: Stage; label: string }[] = [
+  { stage: 'planning', label: 'Plan' },
+  { stage: 'build', label: 'Build' },
+  { stage: 'test', label: 'Test' },
+  { stage: 'wait', label: 'Launch' },
+  { stage: 'transfer', label: 'Travel' },
+  { stage: 'orbit', label: 'Science' },
+  { stage: 'ended', label: 'Done' },
+]
+
+function MissionTracker({
+  stage,
+  detail,
+  attention,
+  onOpen,
+  onNewMission,
+}: {
+  stage: Stage
+  detail: string
+  attention: boolean
+  onOpen: () => void
+  onNewMission: () => void
+}) {
+  const gate = useNewMissionGate()
+  const cancelPlanning = useAgencyStore((s) => s.cancelPlanning)
+
+  if (stage === 'none') {
+    return (
+      <div className={`${hud} flex items-center gap-4 p-3 pl-5`}>
+        <div className="leading-tight">
+          <div className="font-display text-base font-bold">Ready for the Moon</div>
+          <div className="text-xs text-white/60">
+            {gate.missing > 0 ? `Need ${money(gate.agencyPays)}, ${money(gate.missing)} short` : `Our share: ${money(gate.agencyPays)} of ${money(gate.budget)}`}
+          </div>
+        </div>
+        <button
+          onClick={onNewMission}
+          className="rounded-xl bg-orange-500 px-5 py-2.5 font-display text-base font-bold shadow-[0_3px_0_#b85d0e] transition hover:bg-orange-400 active:translate-y-0.5 active:shadow-none"
+        >
+          New mission
+        </button>
+      </div>
+    )
+  }
+
+  const current = steps.findIndex((s) => s.stage === stage)
+  return (
+    <div className={`${hud} w-[min(620px,calc(100vw-24px))] p-3`}>
+      <div className="flex items-center gap-3 px-1">
+        <div className="min-w-0 flex-1">
+          <div className="font-display text-base font-bold">{MISSION_NAME}</div>
+          <div className="truncate text-xs text-white/65">{detail}</div>
+        </div>
+        {stage === 'planning' && (
+          <button onClick={cancelPlanning} className="rounded-lg px-2 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white">
+            Discard plan
+          </button>
+        )}
+        {stage === 'ended' ? (
+          <button onClick={onNewMission} disabled={gate.busy} className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold hover:bg-orange-400">
+            New mission
+          </button>
+        ) : null}
+        <button
+          onClick={onOpen}
+          className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-bold transition ${
+            attention ? 'animate-pulse bg-red-500 hover:bg-red-400' : 'bg-white/15 hover:bg-white/25'
+          }`}
+        >
+          {attention && <Icon name="alert" />}
+          {attention ? 'Decide' : stage === 'planning' ? 'Continue' : 'Open'}
+        </button>
+      </div>
+      <ol className="mt-3 flex items-center px-1">
+        {steps.map((s, i) => {
+          const done = i < current
+          const now = i === current
+          return (
+            <li key={s.stage} className="flex flex-1 items-center last:flex-none">
+              <div className="flex flex-col items-center gap-1">
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${
+                    now ? 'bg-orange-500 ring-4 ring-orange-500/30' : done ? 'bg-emerald-500' : 'bg-white/15 text-white/50'
+                  }`}
+                >
+                  {done ? <Icon name="check" className="h-3.5 w-3.5" /> : i + 1}
+                </span>
+                <span className={`text-[10px] ${now ? 'font-bold text-white' : 'text-white/55'}`}>{s.label}</span>
+              </div>
+              {i < steps.length - 1 && <span className={`mx-1 mb-4 h-0.5 flex-1 rounded ${done ? 'bg-emerald-500' : 'bg-white/15'}`} />}
+            </li>
+          )
+        })}
+      </ol>
+    </div>
+  )
 }
 
-function effectText(e: AgencyEvent) {
+/* ------------------------------------------------------------------ */
+/* Pop-up notifications                                                */
+/* ------------------------------------------------------------------ */
+
+const toneColor: Record<FeedItem['tone'], string> = {
+  info: 'bg-sky-400',
+  good: 'bg-emerald-400',
+  warning: 'bg-amber-400',
+  bad: 'bg-red-400',
+}
+
+function effectText(e: FeedItem) {
   const parts: string[] = []
-  if (e.fundsDelta) parts.push(`${e.fundsDelta > 0 ? '+' : ''}$${e.fundsDelta}M`)
-  if (e.supportDelta) parts.push(`${e.supportDelta > 0 ? '+' : ''}${e.supportDelta}% support`)
+  if (e.money) parts.push(`${e.money > 0 ? '+' : '−'}${money(Math.abs(e.money))}`)
+  if (e.popularity) parts.push(`${e.popularity > 0 ? '+' : ''}${e.popularity}% support`)
   return parts.join(' · ')
 }
 
-function Dashboard({ income, spending }: { income: number; spending: number }) {
-  const day = useAgencyStore((s) => Math.floor(s.day))
-  const funds = useAgencyStore((s) => s.funds)
-  const support = useAgencyStore((s) => s.support)
-  const lunarStartedDay = useAgencyStore((s) => s.lunarMissionStartedDay)
-  const resetAgency = useAgencyStore((s) => s.resetAgency)
+/** New, important log entries pop up for a few seconds */
+function Toasts() {
+  const feed = useAgencyStore((s) => s.feed)
+  const seen = useRef<string | null>(feed[0]?.id ?? null)
+  const [toasts, setToasts] = useState<FeedItem[]>([])
 
-  const feed = useMemo(() => {
-    const items: AgencyEvent[] = agencyEvents.filter((e) => e.day <= day)
-    if (lunarStartedDay !== null && lunarStartedDay <= day) {
-      items.push({
-        id: 'lim-start',
-        day: lunarStartedDay,
-        title: 'Lunar Ice Mapper planning started',
-        detail: 'Mission brief accepted: 6U CubeSat to the lunar south pole',
-        tone: 'info',
-      })
+  useEffect(() => {
+    const fresh: FeedItem[] = []
+    for (const item of feed) {
+      if (item.id === seen.current) break
+      if (!item.quiet) fresh.push(item)
     }
-    return items.sort((a, b) => b.day - a.day)
-  }, [day, lunarStartedDay])
-
-  const upcoming = agencyEvents.filter((e) => e.day > day).slice(0, 3)
+    seen.current = feed[0]?.id ?? null
+    if (fresh.length === 0) return
+    setToasts((t) => [...fresh.slice(0, 2), ...t].slice(0, 3))
+    const ids = new Set(fresh.map((f) => f.id))
+    const timer = window.setTimeout(() => setToasts((t) => t.filter((x) => !ids.has(x.id))), 5000)
+    return () => window.clearTimeout(timer)
+  }, [feed])
 
   return (
-    <aside className="flex min-h-0 flex-col gap-3 overflow-hidden rounded-2xl bg-[#fbf7ef] p-3 text-slate-800 shadow-xl">
-      <h2 className="font-display text-xl font-bold">Agency dashboard</h2>
-
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-xl bg-white p-2 shadow-sm">
-          <div className="text-[10px] text-slate-500">Funds</div>
-          <div className="font-display text-base font-bold tabular-nums">{money(funds)}</div>
-        </div>
-        <div className="rounded-xl bg-white p-2 shadow-sm" title={`Income ${money(income)}/mo, spending ${money(spending)}/mo`}>
-          <div className="text-[10px] text-slate-500">Income</div>
-          <div className="font-display text-base font-bold tabular-nums text-emerald-700">+{income.toFixed(2)}</div>
-          <div className="text-[10px] text-slate-500">−{spending.toFixed(2)} /mo</div>
-        </div>
-        <div className="rounded-xl bg-white p-2 shadow-sm">
-          <div className="text-[10px] text-slate-500">Support</div>
-          <div className="font-display text-base font-bold tabular-nums">{support.toFixed(0)}%</div>
-        </div>
-      </div>
-
-      <div className="rounded-xl bg-white p-2 shadow-sm">
-        <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Funding trend</div>
-        <FundsTrend />
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col rounded-xl bg-white p-2 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Activity</div>
-          <span className="text-[10px] text-slate-400">{feed.length} events</span>
-        </div>
-        <ul className="mt-1 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
-          {feed.map((e, i) => (
-            <li key={e.id} className={`flex gap-2 rounded-lg p-1.5 ${i === 0 ? 'bg-orange-50' : ''}`}>
-              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneStyle[e.tone]}`} />
-              <div className="min-w-0 text-xs">
-                <div className="font-semibold text-slate-800">
-                  {e.title}
-                  <span className="ml-1 font-normal text-slate-400">· Day {e.day}</span>
-                </div>
-                {e.detail && <div className="text-slate-500">{e.detail}</div>}
-                {effectText(e) && <div className="font-medium text-emerald-700">{effectText(e)}</div>}
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="rounded-xl bg-white p-2 shadow-sm">
-        <div className="text-xs font-bold uppercase tracking-wide text-slate-600">Upcoming</div>
-        <ul className="mt-1 space-y-1 text-xs">
-          {upcoming.length === 0 && <li className="text-slate-400">Nothing scheduled</li>}
-          {upcoming.map((e) => (
-            <li key={e.id} className="flex justify-between gap-2">
-              <span className="truncate">{e.title}</span>
-              <span className="shrink-0 tabular-nums text-slate-500">in {Math.ceil(e.day - day)} d</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <button onClick={resetAgency} className="self-start text-[11px] text-slate-400 underline hover:text-slate-600">
-        Reset demo to day 112
-      </button>
-    </aside>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/* Right: missions                                                     */
-/* ------------------------------------------------------------------ */
-
-const statusStyle: Record<MissionStatus, { label: string; pill: string; bar: string }> = {
-  planning: { label: 'Planning', pill: 'bg-violet-100 text-violet-700', bar: 'bg-violet-500' },
-  building: { label: 'Building', pill: 'bg-teal-100 text-teal-700', bar: 'bg-teal-500' },
-  transfer: { label: 'Transfer', pill: 'bg-orange-100 text-orange-700', bar: 'bg-orange-500' },
-  'in-orbit': { label: 'In orbit', pill: 'bg-sky-100 text-sky-700', bar: 'bg-sky-500' },
-  complete: { label: 'Complete', pill: 'bg-slate-200 text-slate-600', bar: 'bg-slate-400' },
-}
-
-const kindIcon: Record<MissionView['kind'], string> = {
-  cubesat: '🛰️',
-  satellite: '🌍',
-  relay: '📡',
-  probe: '☀️',
-}
-
-function MissionCard({ mission, onOpen }: { mission: MissionView; onOpen?: () => void }) {
-  const style = statusStyle[mission.status]
-  const content = (
-    <>
-      <div className="flex items-start gap-3">
-        <span className="text-2xl leading-none">{kindIcon[mission.kind]}</span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate font-display text-base font-bold">{mission.name}</span>
-            {mission.isReal && <span className="text-slate-400">›</span>}
+    <div className="pointer-events-none absolute right-3 top-20 z-20 flex w-72 flex-col gap-2">
+      {toasts.map((t) => (
+        <div key={t.id} className={`${hud} flex gap-2.5 p-3 animate-[toast-in_0.25s_ease-out]`}>
+          <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${toneColor[t.tone]}`} />
+          <div className="min-w-0 text-sm">
+            <div className="font-semibold">{t.title}</div>
+            {t.detail && <div className="text-xs text-white/65">{t.detail}</div>}
+            {effectText(t) && <div className="text-xs font-semibold text-emerald-300">{effectText(t)}</div>}
           </div>
-          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${style.pill}`}>
-            {style.label}
-          </span>
-          <div className="mt-1 truncate text-[11px] text-slate-500">{mission.detail}</div>
         </div>
-      </div>
-      <div className="mt-2 flex items-center gap-2">
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
-          <div className={`h-full rounded-full ${style.bar}`} style={{ width: `${Math.round(mission.progress * 100)}%` }} />
-        </div>
-        <span className="w-9 text-right text-xs tabular-nums text-slate-600">{Math.round(mission.progress * 100)}%</span>
-      </div>
-    </>
-  )
-
-  if (onOpen) {
-    return (
-      <button
-        onClick={onOpen}
-        className="w-full rounded-xl border-2 border-teal-400 bg-white p-3 text-left shadow-sm transition hover:shadow-md"
-        title="Open this mission's planning"
-      >
-        {content}
-      </button>
-    )
-  }
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm" title="Example mission (not playable in the MVP)">
-      {content}
+      ))}
     </div>
   )
 }
 
-function Missions({ views }: { views: MissionView[] }) {
-  const setScreen = useGameStore((s) => s.setScreen)
-  const startNewMission = useGameStore((s) => s.startNewMission)
-  const simState = useGameStore((s) => s.simState)
-  const currentReport = useGameStore((s) => s.currentReport)
-  const markStarted = useAgencyStore((s) => s.markLunarMissionStarted)
-  const lunarStartedDay = useAgencyStore((s) => s.lunarMissionStartedDay)
+/* ------------------------------------------------------------------ */
+/* Drawers                                                             */
+/* ------------------------------------------------------------------ */
 
-  const openReal = () => {
-    if (currentReport) setScreen('report')
-    else if (simState) setScreen('simulation')
-    else setScreen('design')
-  }
+function Drawer({ side, title, onClose, children }: { side: 'left' | 'right'; title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div
+      className={`absolute bottom-3 top-20 z-30 flex w-[min(340px,calc(100%-24px))] flex-col overflow-hidden rounded-2xl bg-[#fbf8f2] text-slate-800 shadow-2xl ${
+        side === 'left' ? 'left-3' : 'right-3'
+      }`}
+    >
+      <div className="flex items-center justify-between bg-[#14213d] px-4 py-3 text-white">
+        <h2 className="font-display text-lg font-bold">{title}</h2>
+        <button onClick={onClose} aria-label="Close" className="rounded-lg p-1 text-white/70 hover:bg-white/10 hover:text-white">
+          <Icon name="close" />
+        </button>
+      </div>
+      <div className="flex-1 space-y-3 overflow-y-auto p-3">{children}</div>
+    </div>
+  )
+}
 
-  const newMission = () => {
-    if (
-      lunarStartedDay !== null &&
-      !window.confirm('Start a new Lunar Ice Mapper plan? The plan in progress will be replaced.')
-    ) {
-      return
-    }
-    markStarted()
-    startNewMission()
-  }
+function Sparkline({ points, color, label, value }: { points: number[]; color: string; label: string; value: string }) {
+  const path = useMemo(() => {
+    const min = Math.min(...points)
+    const max = Math.max(...points)
+    const span = Math.max(0.5, max - min)
+    return points
+      .map((p, i) => `${i === 0 ? 'M' : 'L'}${((i / Math.max(1, points.length - 1)) * 100).toFixed(1)},${(30 - ((p - min) / span) * 26).toFixed(1)}`)
+      .join(' ')
+  }, [points])
+  return (
+    <div className="rounded-xl bg-white p-2.5 shadow-sm">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[11px] font-semibold text-slate-500">{label}</span>
+        <span className="font-display text-sm font-bold tabular-nums">{value}</span>
+      </div>
+      <svg viewBox="0 0 100 32" className="h-9 w-full" preserveAspectRatio="none" role="img" aria-label={`${label} over the last 180 days`}>
+        <path d={`${path} L100,32 L0,32 Z`} fill={color} opacity={0.12} />
+        <path d={path} fill="none" stroke={color} strokeWidth={2} vectorEffect="non-scaling-stroke" />
+      </svg>
+    </div>
+  )
+}
+
+function LogDrawer({ onClose }: { onClose: () => void }) {
+  const day = useAgencyStore((s) => Math.floor(s.day))
+  const history = useAgencyStore((s) => s.history)
+  const feed = useAgencyStore((s) => s.feed)
+  const mission = useAgencyStore((s) => s.mission)
+  const funds = useAgencyStore((s) => s.funds)
+  const popularity = useAgencyStore((s) => s.popularity)
+  const resetAgency = useAgencyStore((s) => s.resetAgency)
+  const recent = history.filter((h) => h.day >= day - 180)
+
+  const upcoming = useMemo(() => {
+    const items = scriptedEvents.filter((e) => e.day > day).map((e) => ({ title: e.title, day: e.day }))
+    if (mission && !mission.last.ended && !mission.last.launched) items.push({ title: `${MISSION_NAME} ride leaves`, day: missionLaunchDay(mission) })
+    return items.sort((a, b) => a.day - b.day).slice(0, 3)
+  }, [day, mission])
 
   return (
-    <aside className="flex min-h-0 flex-col gap-3 overflow-hidden rounded-2xl bg-[#fbf7ef] p-3 text-slate-800 shadow-xl">
-      <div className="flex items-center gap-2">
-        <h2 className="font-display text-xl font-bold">Missions</h2>
-        <span className="rounded-full bg-orange-500 px-2 text-sm font-bold text-white">{views.length}</span>
+    <Drawer side="left" title="Agency log" onClose={onClose}>
+      <div className="grid grid-cols-2 gap-2">
+        <Sparkline points={recent.map((h) => h.funds)} color="#c27c0e" label="Funds" value={money(funds)} />
+        <Sparkline points={recent.map((h) => h.popularity)} color="#7c5cd6" label="Support" value={`${popularity.toFixed(0)}%`} />
       </div>
-
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-        {views.map((m) => (
-          <MissionCard key={m.id} mission={m} onOpen={m.isReal ? openReal : undefined} />
+      {upcoming.length > 0 && (
+        <div className="rounded-xl bg-white p-3 shadow-sm">
+          <div className="mb-1 text-[11px] font-semibold text-slate-500">Coming up</div>
+          {upcoming.map((e) => (
+            <div key={e.title + e.day} className="flex justify-between gap-2 text-sm">
+              <span className="truncate">{e.title}</span>
+              <span className="shrink-0 tabular-nums text-slate-500">{e.day - day} days</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <ul className="space-y-1">
+        {feed.map((e) => (
+          <li key={e.id} className={`flex gap-2.5 rounded-lg px-2 py-1.5 ${e.quiet ? 'opacity-60' : ''}`}>
+            <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneColor[e.tone]}`} />
+            <div className="min-w-0 flex-1 text-sm">
+              <div className="flex justify-between gap-2">
+                <span className="font-semibold">{e.title}</span>
+                <span className="shrink-0 text-xs tabular-nums text-slate-400">day {e.day}</span>
+              </div>
+              {e.detail && <div className="text-xs text-slate-500">{e.detail}</div>}
+              {effectText(e) && (
+                <div className={`text-xs font-semibold ${(e.money ?? 0) < 0 || (e.popularity ?? 0) < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                  {effectText(e)}
+                </div>
+              )}
+            </div>
+          </li>
         ))}
-      </div>
-
+      </ul>
       <button
-        onClick={newMission}
-        className="rounded-xl bg-orange-500 py-3 font-display text-lg font-bold text-white shadow-md transition hover:bg-orange-400 active:translate-y-px"
+        onClick={() => {
+          if (window.confirm('Reset the agency to the demo start (day 112)? The current mission is dropped.')) resetAgency()
+        }}
+        className="text-xs text-slate-400 underline hover:text-slate-600"
       >
-        + New mission
+        Reset demo
       </button>
-      <p className="text-center text-[11px] text-slate-500">Opens the Lunar Ice Mapper planning steps</p>
-    </aside>
+    </Drawer>
+  )
+}
+
+const statusText: Record<MissionCardView['status'], string> = {
+  planning: 'Planning',
+  building: 'Building',
+  testing: 'Testing',
+  waiting: 'Waiting for ride',
+  transfer: 'Travelling',
+  'in-orbit': 'In orbit',
+  complete: 'Complete',
+  lost: 'Lost',
+}
+
+function MissionsDrawer({ real, onOpenReal, onClose }: { real: MissionCardView | null; onOpenReal: () => void; onClose: () => void }) {
+  const day = useAgencyStore((s) => Math.floor(s.day))
+  const list = [...(real ? [real] : []), ...exampleMissions(day)]
+  return (
+    <Drawer side="right" title="Missions" onClose={onClose}>
+      {list.map((m) => (
+        <button
+          key={m.id}
+          onClick={m.real ? onOpenReal : undefined}
+          disabled={!m.real}
+          className={`w-full rounded-xl bg-white p-3 text-left shadow-sm ${m.real ? 'ring-2 ring-orange-400 hover:shadow-md' : 'cursor-default'}`}
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-display text-base font-bold">{m.name}</span>
+            <span className="text-xs font-semibold text-slate-500">{statusText[m.status]}</span>
+          </div>
+          <div className="mt-0.5 truncate text-xs text-slate-500">{m.detail}</div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+            <div className="h-full rounded-full bg-orange-500" style={{ width: `${Math.round(m.progress * 100)}%` }} />
+          </div>
+          {!m.real && <div className="mt-1 text-[10px] text-slate-400">Example mission</div>}
+        </button>
+      ))}
+    </Drawer>
   )
 }
 
@@ -423,69 +415,78 @@ function Missions({ views }: { views: MissionView[] }) {
 /* Screen                                                              */
 /* ------------------------------------------------------------------ */
 
+type Overlay = { kind: 'building'; target: MapTarget } | { kind: 'log' } | { kind: 'missions' } | null
+
 export function BaseScreen() {
   useAgencyClock()
+  useMissionWatch()
 
-  // Whole days only: the map and mission cards re-render once per game day
-  const day = useAgencyStore((s) => Math.floor(s.day))
-  const support = useAgencyStore((s) => s.support)
-  const lunarStartedDay = useAgencyStore((s) => s.lunarMissionStartedDay)
-  const designStep = useGameStore((s) => s.designStep)
-  const simState = useGameStore((s) => s.simState)
+  const agency = useAgencyStore()
+  const view = baseView(agency)
+  const [overlay, setOverlay] = useState<Overlay>(null)
+  const [newMission, setNewMission] = useState<{ resume: Speed } | null>(null)
 
-  const mockViews = mockMissionViews(day)
-  const views = lunarStartedDay !== null ? [lunarMissionView(designStep, simState, day), ...mockViews] : mockViews
+  const attention = !!agency.mission?.last.decisionTitle && !agency.mission.last.ended
+  const selected = overlay?.kind === 'building' ? overlay.target : null
+  const openBuilding = (target: MapTarget) => setOverlay({ kind: 'building', target })
 
-  const flying = missionsInFlight(mockViews)
-  const income = monthlyIncome(support)
-  const spending = monthlySpending(flying)
-
-  const labels = (() => {
-    const lab = buildings.find((b) => b.id === 'research-lab')!
-    const up = lab.upgrade!
-    const upgrading = day < up.endDay
-    const out: Record<BuildingId, BuildingLabel> = {
-      'research-lab': upgrading
-        ? {
-            level: lab.level,
-            status: `Upgrading to LV ${up.toLevel} · ${Math.ceil(up.endDay - day)} days left`,
-            progress: (day - up.startDay) / (up.endDay - up.startDay),
-            highlight: true,
-          }
-        : { level: up.toLevel, status: 'Neutron spectrometer unlocked' },
-      factory:
-        lunarStartedDay !== null && !simState
-          ? { level: 1, status: 'Reserved for Lunar Ice Mapper', highlight: true }
-          : { level: 1, status: 'Idle · ready to build a 6U' },
-      'launch-site': {
-        level: 1,
-        status:
-          day < LUNAR_RIDE_DAY
-            ? `Next lunar ride: day ${LUNAR_RIDE_DAY} (in ${LUNAR_RIDE_DAY - day} d)`
-            : 'Next lunar ride: day 420',
-      },
-      'comms-center': { level: 1, status: `Tracking ${flying} mission${flying === 1 ? '' : 's'} · 21 m dish` },
-    }
-    return out
-  })()
+  // The clock stops while the new-mission brief is open
+  const openNewMission = () => {
+    setOverlay(null)
+    setNewMission({ resume: agency.speed })
+    agency.setSpeed('paused')
+  }
+  const closeNewMission = (started: boolean) => {
+    if (!started && newMission) agency.setSpeed(newMission.resume)
+    setNewMission(null)
+  }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#14213d] lg:h-screen lg:min-h-0">
-      <TopBar netPerMonth={income - spending} />
-      <div className="flex flex-1 flex-col gap-3 p-3 lg:grid lg:min-h-0 lg:grid-cols-[290px_minmax(0,1fr)_290px]">
-        <div className="order-2 min-h-0 lg:order-1 lg:flex lg:flex-col">
-          <Dashboard income={income} spending={spending} />
+    <div className="relative h-screen overflow-hidden bg-[#4f86c6]">
+      <BaseMap labels={view.labels} selected={selected} onSelect={openBuilding} launched={!!agency.mission?.last.launched && !agency.mission.last.ended} />
+
+      <TopBar />
+      <Toasts />
+
+      {agency.pauseReason && !overlay && (
+        <div className={`${hud} absolute left-1/2 top-20 z-20 flex -translate-x-1/2 items-center gap-3 px-4 py-2 text-sm`}>
+          <Icon name="pause" className="h-4 w-4 text-orange-400" />
+          <span className="font-semibold">{agency.pauseReason}</span>
         </div>
-        <div className="relative order-1 h-[60vh] min-h-[360px] overflow-hidden rounded-2xl shadow-inner lg:order-2 lg:h-auto">
-          <BaseMap labels={labels} />
-          <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-black/30 px-2 py-1 text-[11px] text-white">
-            Drag to move · scroll to zoom
-          </div>
-        </div>
-        <div className="order-3 min-h-0 lg:flex lg:flex-col">
-          <Missions views={views} />
-        </div>
+      )}
+
+      {/* Corner buttons */}
+      <div className="absolute bottom-3 left-3 z-10 flex gap-2">
+        <button onClick={() => setOverlay({ kind: 'log' })} className={`${hud} flex items-center gap-2 px-3 py-2.5 text-sm font-semibold hover:bg-[#14213d]`}>
+          <Icon name="log" /> Log
+        </button>
       </div>
+      <div className="absolute bottom-3 right-3 z-10">
+        <button onClick={() => setOverlay({ kind: 'missions' })} className={`${hud} flex items-center gap-2 px-3 py-2.5 text-sm font-semibold hover:bg-[#14213d]`}>
+          <Icon name="list" /> Missions
+          <span className="rounded-full bg-orange-500 px-1.5 text-xs">{exampleMissions(agency.day).length + (view.card ? 1 : 0)}</span>
+        </button>
+      </div>
+
+      {/* Mission tracker */}
+      <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2">
+        <MissionTracker
+          stage={view.stage}
+          detail={view.card?.detail ?? ''}
+          attention={attention}
+          onOpen={() => openBuilding(view.active)}
+          onNewMission={openNewMission}
+        />
+      </div>
+
+      {overlay?.kind === 'building' && (
+        <BuildingPanel target={overlay.target} view={view} onClose={() => setOverlay(null)} onNewMission={openNewMission} />
+      )}
+      {overlay?.kind === 'log' && <LogDrawer onClose={() => setOverlay(null)} />}
+      {overlay?.kind === 'missions' && (
+        <MissionsDrawer real={view.card} onOpenReal={() => openBuilding(view.active)} onClose={() => setOverlay(null)} />
+      )}
+      {newMission && <NewMissionDialog onClose={closeNewMission} />}
     </div>
   )
 }
