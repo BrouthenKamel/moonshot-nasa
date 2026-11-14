@@ -103,7 +103,7 @@ describe('buildPlanningView', () => {
   it('pins the meter at 6 and stretches the timeline for long plans', () => {
     const { view } = viewFor(flashlightDesign, { buildTurns: 9, readyTurn: 12, rideTurn: 8, timeMarginTurns: -4 })
     expect(view.meterValue).toBe(6)
-    expect(view.readouts.build).toBe('9 MO · SET BY YOUR PARTS')
+    expect(view.readouts.build).toBe('9 MO · SET AT THE FACTORY')
     expect(view.monthCount).toBe(13)
   })
 
@@ -114,6 +114,23 @@ describe('buildPlanningView', () => {
     expect(view.readouts.reserve).toBe(`10% · $${budgets.reserveAmount.toFixed(1)}M LOCKED`)
     const one = viewFor({ ...flashlightDesign, planning: { ...p, testTurns: 1 } }).view
     expect(one.readouts.test).toBe('1 MONTH · $0.4M')
+  })
+
+  it('carries the Time and Budget checks with goNoGo reasons, in that order', () => {
+    const { budgets, view } = viewFor(flashlightDesign)
+    const real = goNoGo(flashlightDesign, budgets).checks
+    expect(view.checks.map((c) => c.resource)).toEqual(['Time', 'Budget'])
+    for (const c of view.checks) {
+      const src = real.find((r) => r.resource === c.resource)!
+      expect(c.status).toBe(src.status)
+      expect(c.reason).toBe(src.reason)
+      expect(c.reason.length).toBeGreaterThan(0)
+    }
+    const missing = viewFor(flashlightDesign, {}, []).view.checks
+    expect(missing).toEqual([
+      { resource: 'Time', status: 'green', reason: '' },
+      { resource: 'Budget', status: 'green', reason: '' },
+    ])
   })
 
   it('stays finite with no flight costs and no way to the Moon', () => {

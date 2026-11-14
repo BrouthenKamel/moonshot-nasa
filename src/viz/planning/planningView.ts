@@ -22,6 +22,13 @@ export interface TimelineBlock {
   length: number // months
 }
 
+/** A Go / No-Go check this step can turn red, with goNoGo's own plain-words reason. */
+export interface StepCheck {
+  resource: 'Time' | 'Budget'
+  status: 'green' | 'yellow' | 'red'
+  reason: string
+}
+
 export interface PlanningView {
   cap: number
   reserve: number
@@ -45,6 +52,7 @@ export interface PlanningView {
   meterValue: number
   reservePercent: number
   status: { level: StatusLevel; chip: string }
+  checks: StepCheck[] // Time, then Budget
   readouts: { test: string; build: string; reserve: string }
 }
 
@@ -129,6 +137,11 @@ export function buildPlanningView(design: Design, budgets: Budgets, checks: Chec
   else if (budget === 'yellow') status = { level: 'caution', chip: 'CAUTION: EATING THE RESERVE' }
   else status = { level: 'nominal', chip: 'ALL NOMINAL' }
 
+  const stepChecks: StepCheck[] = (['Time', 'Budget'] as const).map((resource) => {
+    const c = checks.find((x) => x.resource === resource)
+    return { resource, status: c?.status ?? 'green', reason: c?.reason ?? '' }
+  })
+
   return {
     cap,
     reserve,
@@ -152,9 +165,10 @@ export function buildPlanningView(design: Design, budgets: Budgets, checks: Chec
     meterValue: Math.max(1, Math.min(buildTurns, METER_MAX)),
     reservePercent,
     status,
+    checks: stepChecks,
     readouts: {
       test: `${months(testTurns)} · ${money(testCost)}`,
-      build: `${buildTurns} MO · SET BY YOUR PARTS`,
+      build: `${buildTurns} MO · SET AT THE FACTORY`,
       reserve: `${reservePercent}% · ${money(reserve)} LOCKED`,
     },
   }

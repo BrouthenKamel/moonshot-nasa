@@ -51,6 +51,17 @@ describe('paintScreen', () => {
     })
   }
 
+  it('writes the Time and Budget reasons from goNoGo on the screen', () => {
+    const { ctx, calls } = fakeContext()
+    const v = cases.missed
+    paintScreen(ctx, v, animFromView(v))
+    const texts = calls.filter((c) => c.name === 'fillText').map((c) => String(c.args[0]).replace(/…$/, ''))
+    for (const check of v.checks) {
+      expect(check.reason.length).toBeGreaterThan(0)
+      expect(texts.some((t) => t.length > 10 && check.reason.startsWith(t))).toBe(true)
+    }
+  })
+
   it('keeps the tank inside the screen when costs pass the cap', () => {
     const { ctx, calls } = fakeContext()
     paintScreen(ctx, cases.overCap, animFromView(cases.overCap))

@@ -7,7 +7,7 @@ import type { PlanningView } from './planningView'
  */
 
 export const SCREEN_W = 2400
-export const SCREEN_H = 700
+export const SCREEN_H = 790
 /** Smallest font on the screen, in canvas pixels. About 12 CSS px at 1280 × 720. */
 export const MIN_FONT = 34
 
@@ -329,6 +329,36 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   ctx.fillText('Build: from your parts  ·  Test: your knob', X0, 650)
 }
 
+/* ---------------- Go / No-Go strip ---------------- */
+const CHECK_COLORS = { green: '#22c55e', yellow: '#f59e0b', red: '#ef4444' } as const
+
+/** Shorten text with an ellipsis until it fits the width. */
+function fit(ctx: Ctx, text: string, width: number): string {
+  if (ctx.measureText(text).width <= width) return text
+  let t = text
+  while (t.length > 1 && ctx.measureText(`${t}…`).width > width) t = t.slice(0, -1)
+  return `${t.trimEnd()}…`
+}
+
+function paintChecks(ctx: Ctx, view: PlanningView) {
+  const top = 700
+  ctx.fillStyle = '#071226'
+  ctx.fillRect(0, top, SCREEN_W, SCREEN_H - top)
+  view.checks.forEach((c, i) => {
+    const y = top + 24 + i * 42
+    ctx.fillStyle = CHECK_COLORS[c.status]
+    ctx.beginPath(); ctx.arc(42, y, 11, 0, Math.PI * 2); ctx.fill()
+    ctx.textAlign = 'left'
+    ctx.font = font(800, 34)
+    const label = c.resource === 'Time' ? 'GO / NO-GO · TIME' : 'GO / NO-GO · BUDGET'
+    ctx.fillText(label, 66, y + 1)
+    ctx.font = font(600, 34)
+    ctx.fillStyle = '#cbd5e1'
+    const x = 66 + 430
+    ctx.fillText(fit(ctx, c.reason, SCREEN_W - x - 30), x, y + 1)
+  })
+}
+
 /* ---------------- flight risk ---------------- */
 const RISK_MARKS = [2.0, 1.4, 1.0, 0.7]
 function paintRisk(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
@@ -417,5 +447,6 @@ export function paintScreen(ctx: Ctx, view: PlanningView, anim: ScreenAnim): voi
   paintBudget(ctx, view, anim)
   paintRoad(ctx, view, anim)
   paintRisk(ctx, view, anim)
+  paintChecks(ctx, view)
   ctx.restore()
 }
