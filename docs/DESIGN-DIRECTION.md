@@ -49,3 +49,12 @@ Placeholders for later, not to be built now: agency economy, publicity, building
 3. Branch from the latest `origin/main`; never commit to `main` or merge yourself.
 4. Before a PR: `pnpm typecheck && pnpm test && pnpm lint && pnpm build`.
 5. Send Integration the PR link; Integration merges with Jakob's go and tells you when it is in.
+
+## 7. Art and audio kit (shared, use it instead of building your own)
+*Added by the glow-up session (branch `art/glow-up`). Ask before changing shared kit files.*
+
+- **Space scenes:** `src/scene/space` has `Moon` (NASA LRO colour and LOLA relief; `iceCoverage` 0..1 lights the south-pole ice in cyan), `Earth` (Blue Marble, night lights, atmosphere), `Starfield` (NASA Deep Star Maps), `Sun`, `CubeSat` (the player's parts from `design`, wings and dish fold through `pivot_` nodes) and `Effects` (bloom, vignette, filmic colour; off at the "Fast" graphics setting). The Moon's south pole is -Y; `SUN_DIR` is the light. The Orbit step can drop these straight in.
+- **Assets:** every file is listed in `src/assets/manifest.ts` and loaded by id (`assetUrl`, `useModel`). NASA maps come from `pnpm assets:nasa`, models from `pnpm assets:models`, ElevenLabs audio from `pnpm assets:audio`; `pnpm assets:credits` writes `CREDITS.md`. Dev pages: `/asset-lab.html` (models and sounds), `/flight-lab.html` (the space view in any state).
+- **Sound:** the game's sound is decided in one place, `src/assets/cues.ts` (pure, tested), from store changes; `useAudioDirector` plays it. A scene does not play music itself. For a one-off, call `audio.play('sfx.…')` or `audio.say('voice.…')`; voice lines get the radio filter, the Quindar tone and a caption.
+- **Flight:** the flight plays in the base's centre panel (`src/ui/flight/FlightStage.tsx`): island before launch, the launch on the pad, then the space view (`src/scene/flight/FlightView.tsx`), driven by `flightShot()` from the turn logs. The replay uses the same view.
+- **Orbit colours and cyan for ice** are used as in section 4.
