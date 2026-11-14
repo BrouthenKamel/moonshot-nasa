@@ -1,9 +1,28 @@
 import { Suspense, useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Line } from '@react-three/drei'
-import { useGameStore } from '../state/gameStore'
-import { getOrbitById } from '../data/orbits'
 import * as THREE from 'three'
+import type { Design, TurnLog } from '../sim/types'
+import { replayPose, type Pose } from '../viz/replayPose'
+
+const MOON_X = 3
+const MOON_RADIUS = 0.27
+/** Larger = faster; about 0.6 s to settle */
+const TWEEN_RATE = 6
+
+function orbitRadius(altitudeKm: number): number {
+  return MOON_RADIUS + altitudeKm / 500
+}
+
+/** Ship position for a pose (scene units). Always finite. */
+function poseToPosition(pose: Pose): [number, number, number] {
+  if (pose.where === 'orbit') {
+    const r = orbitRadius(pose.orbitAltitudeKm)
+    return [MOON_X + Math.cos(pose.orbitAngle) * r, Math.sin(pose.orbitAngle) * r, 0]
+  }
+  const t = pose.where === 'transfer' ? pose.transferProgress : 0
+  return [-3 + t * 6, Math.sin(t * Math.PI) * 1.5, 0]
+}
 
 function Earth() {
   return (
@@ -24,8 +43,8 @@ function Moon() {
   })
 
   return (
-    <mesh ref={meshRef} position={[3, 0, 0]}>
-      <sphereGeometry args={[0.27, 32, 32]} />
+    <mesh ref={meshRef} position={[MOON_X, 0, 0]}>
+      <sphereGeometry args={[MOON_RADIUS, 32, 32]} />
       <meshStandardMaterial color="#9ca3af" />
     </mesh>
   )
@@ -36,112 +55,72 @@ function TransferPath() {
     const pts: THREE.Vector3[] = []
     for (let i = 0; i <= 50; i++) {
       const t = i / 50
-      const x = -3 + t * 6
-      const y = Math.sin(t * Math.PI) * 1.5
-      pts.push(new THREE.Vector3(x, y, 0))
+      pts.push(new THREE.Vector3(-3 + t * 6, Math.sin(t * Math.PI) * 1.5, 0))
     }
     return pts
   }, [])
 
-  return (
-    <Line
-      points={points}
-      color="#fbbf24"
-      lineWidth={2}
-      dashed
-      dashSize={0.1}
-      gapSize={0.05}
-    />
-  )
+  return <Line points={points} color="#fbbf24" lineWidth={2} dashed dashSize={0.1} gapSize={0.05} />
 }
 
-function LunarOrbit() {
-  const design = useGameStore((s) => s.design)
-  const orbit = getOrbitById(design.orbit)
-
-  const radius = 0.27 + (orbit?.altitude ?? 100) / 500
-
+function LunarOrbit({ radius }: { radius: number }) {
   const points = useMemo(() => {
     const pts: THREE.Vector3[] = []
     for (let i = 0; i <= 64; i++) {
       const angle = (i / 64) * Math.PI * 2
-      pts.push(
-        new THREE.Vector3(
-          3 + Math.cos(angle) * radius,
-          Math.sin(angle) * radius,
-          0
-        )
-      )
+      pts.push(new THREE.Vector3(MOON_X + Math.cos(angle) * radius, Math.sin(angle) * radius, 0))
     }
     return pts
   }, [radius])
 
-  return (
-    <Line
-      points={points}
-      color="#22c55e"
-      lineWidth={2}
-    />
-  )
+  return <Line points={points} color="#22c55e" lineWidth={2} />
 }
 
-function Spacecraft({ inOrbit }: { inOrbit: boolean }) {
-  const meshRef = useRef<THREE.Mesh>(null)
-  const design = useGameStore((s) => s.design)
-  const orbit = getOrbitById(design.orbit)
-  const radius = 0.27 + (orbit?.altitude ?? 100) / 500
+function Spacecraft({ pose }: { pose: Pose }) {
+  const groupRef = useRef<THREE.Group>(null)
+  const target = poseToPosition(pose)
 
-  useFrame((state) => {
-    if (meshRef.current) {
-      if (inOrbit) {
-        const angle = state.clock.elapsedTime * 0.5
-        meshRef.current.position.x = 3 + Math.cos(angle) * radius
-        meshRef.current.position.y = Math.sin(angle) * radius
-      } else {
-        // Moving along transfer
-        const t = (Math.sin(state.clock.elapsedTime * 0.3) + 1) / 2
-        meshRef.current.position.x = -3 + t * 6
-        meshRef.current.position.y = Math.sin(t * Math.PI) * 1.5
-      }
-    }
+  useFrame((_, delta) => {
+    const g = groupRef.current
+    if (!g) return
+    g.position.x = THREE.MathUtils.damp(g.position.x, target[0], TWEEN_RATE, delta)
+    g.position.y = THREE.MathUtils.damp(g.position.y, target[1], TWEEN_RATE, delta)
   })
 
   return (
-    <mesh ref={meshRef}>
-      <boxGeometry args={[0.05, 0.05, 0.05]} />
-      <meshStandardMaterial color="#60a5fa" />
-    </mesh>
+    <group ref={groupRef} position={target}>
+      <mesh>
+        <boxGeometry args={[0.08, 0.08, 0.08]} />
+        <meshStandardMaterial color="#60a5fa" />
+      </mesh>
+      {pose.terminal === 'failed' && (
+        <mesh position={[0, 0.2, 0]}>
+          <sphereGeometry args={[0.1, 16, 16]} />
+          <meshBasicMaterial color="#ef4444" />
+        </mesh>
+      )}
+    </group>
   )
 }
 
-function SouthPole() {
-  const simState = useGameStore((s) => s.simState)
-  const coverage = simState?.coveragePercent ?? 0
-
-  // Draw coverage arc at south pole
+function SouthPole({ coverage }: { coverage: number }) {
   const arcRadius = 0.1
-  const arcAngle = (coverage / 100) * Math.PI * 2
+  const arcAngle = (Math.min(100, Math.max(0, coverage)) / 100) * Math.PI * 2
 
   const points = useMemo(() => {
     const pts: THREE.Vector3[] = []
     for (let i = 0; i <= 32; i++) {
       const angle = (i / 32) * arcAngle - arcAngle / 2
-      pts.push(
-        new THREE.Vector3(
-          3 + Math.sin(angle) * arcRadius,
-          -0.27,
-          Math.cos(angle) * arcRadius
-        )
-      )
+      pts.push(new THREE.Vector3(MOON_X + Math.sin(angle) * arcRadius, -MOON_RADIUS, Math.cos(angle) * arcRadius))
     }
     return pts
   }, [arcAngle])
 
-  if (coverage <= 0) return null
+  if (!(coverage > 0)) return null
 
   return (
     <>
-      <mesh position={[3, -0.27, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh position={[MOON_X, -MOON_RADIUS, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <circleGeometry args={[arcRadius, 32]} />
         <meshBasicMaterial color="#22c55e" opacity={0.3} transparent />
       </mesh>
@@ -151,25 +130,31 @@ function SouthPole() {
 }
 
 interface MissionViewProps {
-  showTransfer?: boolean
+  design: Design
+  logs: TurnLog[]
+  turnIndex: number
+  terminal?: 'complete' | 'failed'
+  className?: string
 }
 
-export function MissionView({ showTransfer = true }: MissionViewProps) {
-  const simState = useGameStore((s) => s.simState)
-  const inOrbit = simState?.capturedIntoOrbit ?? false
+/** Controlled mission scene: the ship pose comes from the selected turn, with a short tween. */
+export function MissionView({ design, logs, turnIndex, terminal, className = 'h-64' }: MissionViewProps) {
+  const pose = useMemo(() => replayPose(design, logs, turnIndex, terminal), [design, logs, turnIndex, terminal])
 
   return (
-    <div className="h-64 w-full rounded-lg bg-slate-900">
-      <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-500">Loading 3D view...</div>}>
+    <div className={`w-full rounded-lg bg-slate-900 ${className}`}>
+      <Suspense
+        fallback={<div className="flex h-full items-center justify-center text-slate-500">Loading 3D view...</div>}
+      >
         <Canvas camera={{ position: [0, 5, 8], fov: 50 }}>
           <ambientLight intensity={0.3} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
           <Earth />
           <Moon />
-          {showTransfer && <TransferPath />}
-          <LunarOrbit />
-          <Spacecraft inOrbit={inOrbit} />
-          <SouthPole />
+          <TransferPath />
+          <LunarOrbit radius={orbitRadius(pose.orbitAltitudeKm)} />
+          <Spacecraft pose={pose} />
+          <SouthPole coverage={pose.coveragePercent} />
           <OrbitControls enableZoom={true} enablePan={true} />
         </Canvas>
       </Suspense>
