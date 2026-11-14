@@ -261,7 +261,7 @@ export function InstrumentsScreen() {
           ← Back
         </button>
         <button
-          onClick={() => setDesignStep('spacecraft')}
+          onClick={() => setDesignStep('rocket')}
           disabled={design.instruments.length === 0}
           className="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
         >

@@ -5,11 +5,12 @@ const steps: { id: DesignStep; name: string }[] = [
   { id: 'brief', name: 'Brief' },
   { id: 'planning', name: '1. Planning' },
   { id: 'instruments', name: '2. Instruments' },
-  { id: 'spacecraft', name: '3. Spacecraft' },
-  { id: 'orbit', name: '4. Orbit' },
-  { id: 'ride', name: '5. Ride & Transfer' },
-  { id: 'comms', name: '6. Communications' },
-  { id: 'go-nogo', name: '7. Go/No-Go' },
+  { id: 'rocket', name: '3. Rocket' },
+  { id: 'spacecraft', name: '4. Spacecraft' },
+  { id: 'orbit', name: '5. Orbit' },
+  { id: 'ride', name: '6. Ride & Transfer' },
+  { id: 'comms', name: '7. Communications' },
+  { id: 'go-nogo', name: '8. Go/No-Go' },
 ]
 
 export function StepRail() {

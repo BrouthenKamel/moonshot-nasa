@@ -16,6 +16,7 @@ export const BEAT_IDS = [
   'step-brief',
   'step-planning',
   'step-instruments',
+  'step-rocket',
   'step-spacecraft',
   'step-orbit',
   'step-ride',
@@ -86,6 +87,11 @@ function stepBeat(step: DesignStep, i: NarratorInput): Beat {
         shadow
           ? `The ${shadow.name} can see into the dark, like ${shadow.flownOn}.${shadow.maxAltitudeKm !== null ? ` It maps nothing above ${shadow.maxAltitudeKm} km, so the orbit must take it low.` : ''}`
           : 'The IR spectrometer needs sunlight, and the ice hides where the Sun never shines. Lunar Flashlight brought its own lasers; LunaH-Map counted neutrons.'
+      )
+    case 'rocket':
+      return game(
+        'step-rocket',
+        'Every satellite starts on a rocket. Build one: an upper stage is what sends a craft on toward the Moon, and the fairing keeps it safe on the way up.'
       )
     case 'spacecraft':
       return game(

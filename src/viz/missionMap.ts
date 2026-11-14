@@ -15,16 +15,17 @@ export const BUILDING_STEPS: Record<BuildingId, DesignStep[]> = {
   'comms-center': ['brief', 'planning', 'comms', 'go-nogo'],
   'research-lab': ['instruments'],
   factory: ['spacecraft'],
-  'launch-site': ['orbit', 'ride'],
+  'launch-site': ['rocket', 'orbit', 'ride'],
 }
 
 /** The order the steps are suggested in */
-export const STEP_ORDER: DesignStep[] = ['brief', 'planning', 'instruments', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']
+export const STEP_ORDER: DesignStep[] = ['brief', 'planning', 'instruments', 'rocket', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']
 
 export const STEP_NAMES: Record<DesignStep, string> = {
   brief: 'Brief',
   planning: 'Planning',
   instruments: 'Instruments',
+  rocket: 'Rocket',
   spacecraft: 'Spacecraft',
   orbit: 'Orbit',
   ride: 'Ride & transfer',

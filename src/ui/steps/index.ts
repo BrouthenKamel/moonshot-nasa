@@ -1,6 +1,7 @@
 export * from './BriefScreen'
 export * from './PlanningScreen'
 export * from './InstrumentsScreen'
+export * from './RocketScreen'
 export * from './SpacecraftScreen'
 export * from './OrbitScreen'
 export * from './RideScreen'
