@@ -17,11 +17,11 @@ export function TeamSetup({ onComplete }: TeamSetupProps) {
   const setMode = useGameStore((s) => s.setMode)
   const setPlayers = useGameStore((s) => s.setPlayers)
 
-  const [playerNames, setPlayerNames] = useState<Record<Role, string>>({
-    ground: '',
-    science: '',
-    space: '',
-    launch: '',
+  const current = useGameStore((s) => s.players)
+  const [playerNames, setPlayerNames] = useState<Record<Role, string>>(() => {
+    const names: Record<Role, string> = { ground: '', science: '', space: '', launch: '' }
+    for (const p of current) names[p.role] = p.name
+    return names
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -48,10 +48,10 @@ export function TeamSetup({ onComplete }: TeamSetupProps) {
 
   return (
     <div className="mx-auto max-w-md">
-      <h2 className="mb-4 text-xl font-bold text-slate-200">Team Setup (Optional)</h2>
+      <h2 className="mb-2 font-display text-2xl font-bold text-white">Play as a team</h2>
       <p className="mb-6 text-sm text-slate-400">
-        Enter names for each role to play as a team. Leave empty for solo mode.
-        Each role takes turns making decisions in their domain.
+        Up to four players share one screen, one role each. Each role owns its building&apos;s decisions, and every role signs
+        off at the Go / No-Go poll before launch. Leave a role empty and anyone may play it.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">

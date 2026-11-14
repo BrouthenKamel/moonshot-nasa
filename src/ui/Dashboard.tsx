@@ -1,3 +1,4 @@
+import { Tooltip } from './Tooltip'
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../state/gameStore'
 import type { BarStatus } from '../sim/types'
@@ -11,6 +12,14 @@ interface ResourceBarProps {
   status: BarStatus
   showMargin?: boolean
   previous?: number
+}
+
+/** Dashboard labels that have a glossary entry (src/data/glossary.ts) */
+const GLOSSARY_TERM: Record<string, string> = {
+  Volume: '6u',
+  'Delta-v': 'delta-v',
+  'Data Link': 'link-rate',
+  Budget: 'reserve',
 }
 
 function ResourceBar({ label, value, limit, unit, status, showMargin = true, previous }: ResourceBarProps) {
@@ -45,7 +54,7 @@ function ResourceBar({ label, value, limit, unit, status, showMargin = true, pre
       }`}
     >
       <div className="flex justify-between text-xs">
-        <span className="text-slate-400">{label}</span>
+        <span className="text-slate-400">{GLOSSARY_TERM[label] ? <Tooltip term={GLOSSARY_TERM[label]}>{label}</Tooltip> : label}</span>
         <span className={textColor}>
           {value.toFixed(1)} / {limit.toFixed(1)} {unit}
         </span>
@@ -58,7 +67,7 @@ function ResourceBar({ label, value, limit, unit, status, showMargin = true, pre
       </div>
       {showMargin && (
         <div className={`text-xs ${margin >= 0 ? 'text-slate-500' : 'text-red-400'}`}>
-          {margin >= 0 ? `+${margin.toFixed(1)}` : margin.toFixed(1)} {unit} margin
+          {margin >= 0 ? `+${margin.toFixed(1)}` : margin.toFixed(1)} {unit} <Tooltip term="margin">margin</Tooltip>
         </div>
       )}
     </div>

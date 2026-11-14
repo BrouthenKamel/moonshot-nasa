@@ -8,6 +8,7 @@ import { LAUNCH, useUiStore } from '../../state/uiStore'
 import { flightShot } from '../../viz/flight/flightDirector'
 import { EventCard } from './EventCard'
 import { FlightControls } from './FlightControls'
+import { Tooltip } from '../Tooltip'
 
 const FlightView = lazy(() => import('../../scene/flight/FlightView').then((m) => ({ default: m.FlightView })))
 
@@ -32,11 +33,11 @@ const PHASE_TEXT: Record<SimState['phase'], string> = {
   failed: 'Mission lost',
 }
 
-function Gauge({ label, value, sub, fill, color }: { label: string; value: string; sub?: string; fill: number; color: string }) {
+function Gauge({ label, value, sub, fill, color, term }: { label: string; value: string; sub?: string; fill: number; color: string; term?: string }) {
   return (
     <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{term ? <Tooltip term={term}>{label}</Tooltip> : label}</span>
         <span className="font-display text-sm font-bold tabular-nums text-white">{value}</span>
       </div>
       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
@@ -59,10 +60,11 @@ function Hud({ sim }: { sim: SimState }) {
       </div>
       <div className="mb-2.5 text-xs text-slate-300">{PHASE_TEXT[sim.phase]}</div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-        <Gauge label="Ice mapped" value={`${f.coverage.toFixed(1)}%`} sub="needs 70%, data home" fill={f.coverage / 70} color="#22d3ee" />
-        <Gauge label="Science home" value={`${f.data.toFixed(0)} MB`} sub={`needs ${target} MB`} fill={f.data / target} color="#4ade80" />
-        <Gauge label="Delta-v left" value={`${Math.max(0, f.dvLeft).toFixed(0)} m/s`} fill={f.dvLeft / Math.max(1, sim.design ? 2700 : 1)} color="#fb923c" />
+        <Gauge term="coverage" label="Ice mapped" value={`${f.coverage.toFixed(1)}%`} sub="needs 70%, data home" fill={f.coverage / 70} color="#22d3ee" />
+        <Gauge term="downlink" label="Science home" value={`${f.data.toFixed(0)} MB`} sub={`needs ${target} MB`} fill={f.data / target} color="#4ade80" />
+        <Gauge term="delta-v" label="Delta-v left" value={`${Math.max(0, f.dvLeft).toFixed(0)} m/s`} fill={f.dvLeft / Math.max(1, sim.turnLogs[0]?.fuelRemaining ?? f.dvLeft)} color="#fb923c" />
         <Gauge
+          term="reserve"
           label="Money"
           value={`${f.main.toFixed(1)} M`}
           sub={f.reserve < 0 ? `reserve overdrawn ${(-f.reserve).toFixed(1)} M` : `+ ${f.reserve.toFixed(1)} M reserve`}

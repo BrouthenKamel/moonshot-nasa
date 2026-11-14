@@ -23,6 +23,7 @@ import { buildingForStep, flightFeed, lunarMissionView, missionLabels, suggested
 import { FlightStage } from '../flight/FlightStage'
 import { useUiStore } from '../../state/uiStore'
 import { AudioControls } from '../kit/AudioControls'
+import { TeamButton } from '../kit/TeamButton'
 
 /* ------------------------------------------------------------------ */
 /* Clock                                                               */
@@ -145,7 +146,8 @@ function TopBar({ netPerMonth }: { netPerMonth: number }) {
             </span>
           </div>
         </div>
-        <div className="self-center">
+        <div className="flex items-center gap-2 self-center">
+          <TeamButton />
           <AudioControls tone="navy" />
         </div>
       </div>
