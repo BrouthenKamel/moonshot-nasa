@@ -52,10 +52,10 @@ export function paintConsole(ctx: CanvasRenderingContext2D, view: PlanningView):
   }
   const readout = (text: string, x: number, color: string) => {
     ctx.fillStyle = '#020617'
-    ctx.fillRect(px(x) - 200, pz(0.47) - 24, 400, 48)
+    ctx.fillRect(px(x) - 225, pz(0.47) - 24, 450, 48)
     ctx.strokeStyle = '#1e293b'
     ctx.lineWidth = 2
-    ctx.strokeRect(px(x) - 200, pz(0.47) - 24, 400, 48)
+    ctx.strokeRect(px(x) - 225, pz(0.47) - 24, 450, 48)
     ctx.font = `700 28px ${MONO}`
     ctx.fillStyle = color
     ctx.fillText(text, px(x), pz(0.472))

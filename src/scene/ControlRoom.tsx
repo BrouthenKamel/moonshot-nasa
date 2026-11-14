@@ -251,7 +251,8 @@ function BigScreen({ view, reduced }: { view: PlanningView; reduced: boolean }) 
     halo.current?.color.setRGB(0.11 + 0.6 * m.alert, 0.31 * (1 - m.alert), 0.85 * (1 - m.alert))
   })
 
-  const w = 22, h = (22 * SCREEN_H) / SCREEN_W
+  // Narrower than the wall so the taller screen (with its Go / No-Go strip) clears the rows in front
+  const w = 20.5, h = (20.5 * SCREEN_H) / SCREEN_W
   return (
     <group>
       <ambientLight ref={ambient} intensity={0.8} color={0x9fb4e0} />
@@ -259,15 +260,15 @@ function BigScreen({ view, reduced }: { view: PlanningView; reduced: boolean }) 
         <pointLight key={x} ref={(l) => { glows.current[i] = l }} position={[x, 5.5, -5.5]} intensity={90} distance={30} color={0x4f8df7} />
       ))}
       <pointLight ref={alertLight} position={[0, 7.5, -1]} intensity={0} distance={40} color={0xff2a2a} />
-      <mesh position={[0, 5.1, -8.7]}>
+      <mesh position={[0, 5.25, -8.7]}>
         <planeGeometry args={[w, h]} />
         <meshBasicMaterial map={screen.texture} toneMapped={false} fog={false} />
       </mesh>
-      <mesh position={[0, 5.1, -8.82]}>
+      <mesh position={[0, 5.25, -8.82]}>
         <boxGeometry args={[w + 0.5, h + 0.5, 0.1]} />
         <meshStandardMaterial color={0x05080f} />
       </mesh>
-      <mesh position={[0, 5.1, -8.76]}>
+      <mesh position={[0, 5.25, -8.76]}>
         <planeGeometry args={[w + 3, h + 2.4]} />
         <meshBasicMaterial ref={halo} color={0x1d4ed8} transparent opacity={0.1} fog={false} />
       </mesh>
