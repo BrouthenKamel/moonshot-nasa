@@ -5,6 +5,7 @@ import { getOrbitById } from '../../data/orbits'
 import { Scene } from './Scene'
 import { ForecastPanel, LabDials, PassChip, ReadOuts } from './Overlays'
 import { InstrumentBar } from './InstrumentBar'
+import { DesignDeltaLine } from '../../viz/DesignDeltaLine'
 import { satHeight, type Pass } from './frame'
 import { stageModel, toggleInstrument, whatIfFromDesign, type WhatIf } from './stageModel'
 
@@ -46,6 +47,7 @@ export default function InstrumentStage() {
         chosen={design.instruments}
         onToggle={(id) => updateDesign({ instruments: toggleInstrument(design.instruments, id) })}
       />
+      <DesignDeltaLine className="mt-2 flex flex-wrap gap-x-4 gap-y-1 rounded-lg bg-slate-900/70 px-3 py-2 text-xs" />
     </div>
   )
 }

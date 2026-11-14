@@ -4,11 +4,12 @@ import { COVERAGE_TARGET, activityText, type StageForecast, type InstrumentView,
 const panel = 'rounded-lg border border-slate-700/70 bg-slate-950/80 backdrop-blur'
 const TAU = Math.PI * 2
 
-function Ring({ value, ok }: { value: number; ok: boolean }) {
+function Ring({ value, ok, whatIf }: { value: number; ok: boolean; whatIf: boolean }) {
   const r = 30
   const c = TAU * r
   return (
     <svg viewBox="0 0 80 80" className="h-20 w-20 shrink-0" aria-hidden>
+      {whatIf && <circle cx="40" cy="40" r="38" fill="none" stroke="#93c5fd" strokeWidth="1.5" strokeDasharray="4 3" />}
       <circle cx="40" cy="40" r={r} fill="none" stroke="#1e293b" strokeWidth="8" />
       <circle
         cx="40"
@@ -34,7 +35,7 @@ export function ForecastPanel({ forecast }: { forecast: StageForecast }) {
   return (
     <div className={`pointer-events-none absolute left-3 top-3 max-w-md p-2 pr-4 ${panel}`}>
       <div className="flex items-center gap-3">
-        <Ring value={forecast.coverage} ok={forecast.meetsTarget} />
+        <Ring value={forecast.coverage} ok={forecast.meetsTarget} whatIf={forecast.isWhatIf} />
         <div className="text-xs text-slate-400">
           <div className="text-sm font-semibold text-slate-100">Ice coverage forecast</div>
           <div>after 12 clean turns · target {COVERAGE_TARGET}%</div>
@@ -42,8 +43,17 @@ export function ForecastPanel({ forecast }: { forecast: StageForecast }) {
             sunlit ground {forecast.context.toFixed(0)}% · science data {forecast.dataMB.toFixed(0)} MB
           </div>
           <div>{Math.round(forecast.passesPerTurn)} passes over the pole per turn</div>
+          {forecast.outreachMB > 0.5 && <div>pictures {forecast.outreachMB.toFixed(0)} MB</div>}
+          {forecast.isWhatIf && <div className="font-medium text-blue-300">What-if: not your design</div>}
         </div>
       </div>
+      {forecast.reasons.length > 0 && (
+        <ul className="mt-2 space-y-1 border-t border-slate-800 pt-2 text-xs text-amber-300">
+          {forecast.reasons.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
