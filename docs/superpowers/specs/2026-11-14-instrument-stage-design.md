@@ -1,6 +1,6 @@
 # Instrument stage (Research Lab simulator): design
 
-Status: draft for Jakob's approval, after one builder review. Date: 2026-11-14. Branch: `claude/pensive-archimedes-732967`, on `origin/main` at `9c6d745`.
+Status: approved by Jakob on 14 Nov 2026 at 17:28, after one builder review. Date: 2026-11-14. Branch: `claude/pensive-archimedes-732967`, on `origin/main` at `9c6d745`.
 
 ## Intent and why
 
