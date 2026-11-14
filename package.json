@@ -15,7 +15,8 @@
     "assets:models": "tsx scripts/assets/build-models.ts",
     "assets:audio": "tsx scripts/assets/gen-audio.ts",
     "assets:credits": "tsx scripts/assets/credits.ts",
-    "assets:nasa": "tsx scripts/assets/fetch-nasa.ts"
+    "assets:nasa": "tsx scripts/assets/fetch-nasa.ts",
+    "assets:portraits": "tsx scripts/assets/render-portraits.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",

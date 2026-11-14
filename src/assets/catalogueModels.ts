@@ -54,3 +54,19 @@ export const CATALOGUE_MODELS = [
 ] as const
 
 export type CatalogueModelGroup = 'power-avionics' | 'propulsion-comms' | 'instruments-ground-rides'
+
+/** The rendered portrait of each catalogue model (512 px transparent WebP, `pnpm assets:portraits`) */
+export const CATALOGUE_PORTRAITS = CATALOGUE_MODELS.map(
+  (m) =>
+    ({
+      id: `portrait.${m.id.slice('model.'.length) as RestOf<typeof m.id>}`,
+      kind: 'image',
+      file: `img/portraits/${m.id.slice('model.'.length)}.webp`,
+      source: 'procedural',
+      license: 'Project original',
+      ai: false,
+      credit: 'Rendered from the model by scripts/assets/render-portraits.ts',
+    }) as const,
+)
+
+type RestOf<S extends string> = S extends `model.${infer R}` ? R : never
