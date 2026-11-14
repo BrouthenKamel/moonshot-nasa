@@ -3,7 +3,6 @@ import { useGameStore } from '../../state/gameStore'
 import { useAgencyStore } from '../../state/agencyStore'
 import { BaseMap, type BuildingLabel } from '../../scene/BaseMap'
 import {
-  LUNAR_RIDE_DAY,
   agencyEvents,
   buildings,
   missionsInFlight,
@@ -63,14 +62,12 @@ function lunarMissionView(
 
   if (!simState) {
     const index = Math.max(0, designSteps.findIndex((s) => s.id === designStep))
-    const daysToRide = Math.ceil(LUNAR_RIDE_DAY - day)
+    void day
     return {
       ...base,
       status: 'planning',
       progress: index / (designSteps.length - 1),
-      detail: `Step: ${designSteps[index].name} · ride ${
-        daysToRide > 0 ? `in ${daysToRide} days` : 'has left'
-      }`,
+      detail: `Step: ${designSteps[index].name}`,
     }
   }
 
@@ -459,10 +456,7 @@ export function BaseScreen() {
           : { level: 1, status: 'Idle · ready to build a 6U' },
       'launch-site': {
         level: 1,
-        status:
-          day < LUNAR_RIDE_DAY
-            ? `Next lunar ride: day ${LUNAR_RIDE_DAY} (in ${LUNAR_RIDE_DAY - day} d)`
-            : 'Next lunar ride: day 420',
+        status: 'Lunar rideshares: turn 6, 8 or 10 of a mission',
       },
       'comms-center': { level: 1, status: `Tracking ${flying} mission${flying === 1 ? '' : 's'} · 21 m dish` },
     }
