@@ -78,3 +78,31 @@ export function rowFocusKey(key: string, index: number, count: number): number |
 export function playToggle(id: string, aboard: boolean) {
   audio.play(aboard ? 'sfx.card-flip' : (choiceArt(id)?.pick ?? 'sfx.pick-instrument'))
 }
+
+/**
+ * A locked card thuds when it is clicked or pressed (the cards play no sounds of their own).
+ * Enter and Space never become a click on ChoiceCard, so the keyboard is caught here too.
+ */
+export function blockedThud(blocked: boolean) {
+  const thud = () => {
+    if (blocked) audio.play('sfx.fit-error')
+  }
+  return {
+    onClickCapture: thud,
+    onKeyDownCapture: (e: { key: string }) => {
+      if (e.key === 'Enter' || e.key === ' ') thud()
+    },
+  }
+}
+
+/**
+ * On the card's wrapper (a flex column): the card fills its grid cell (never wider, so a narrow
+ * row cannot overlap them) and is as tall as the tallest in the row, with the stat chips lined up
+ * at the bottom, so a two-line name does not leave the row ragged.
+ * Reaches into ChoiceCard's markup (button > frame > art + name plate); if that changes the
+ * cards only lose the equal height.
+ */
+export const EQUAL_HEIGHT_CARD =
+  '[&>button]:w-full [&>button]:flex-1 [&>button>div]:flex [&>button>div]:h-full [&>button>div]:flex-col ' +
+  '[&>button>div>div:last-child]:flex [&>button>div>div:last-child]:flex-1 [&>button>div>div:last-child]:flex-col ' +
+  '[&>button>div>div:last-child>.grid]:mt-auto [&>button>div>div:last-child>.grid]:pt-2'

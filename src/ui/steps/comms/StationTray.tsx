@@ -8,7 +8,7 @@ import { computeBudgets } from '../../../sim/budgets'
 import type { Design } from '../../../sim/types'
 import type { Difficulty } from '../../../data/brief'
 import { Inspector, type InspectorNote } from './Inspector'
-import { useCardRadioGroup } from './useCardRadioGroup'
+import { hoverSound, useCardRadioGroup } from './useCardRadioGroup'
 import { hoursAfterSwitch } from './hours'
 
 const TAG: Record<string, string> = {
@@ -97,7 +97,10 @@ export function StationTray({
                 selected={design.groundStation === station.id}
                 look="scene"
                 size="lg"
-                onHover={() => setInspect(station.id)}
+                onHover={() => {
+                  hoverSound()
+                  setInspect(station.id)
+                }}
                 onFocus={() => setInspect(station.id)}
                 ariaLabel={`${station.name}. ${stats.map((s) => `${s.label} ${s.value}`).join(', ')}.${overBudget ? ` ${overBudget}` : ''}`}
                 {...group(i)}

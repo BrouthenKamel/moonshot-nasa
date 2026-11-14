@@ -48,7 +48,7 @@ export function ForecastPanel({ forecast }: { forecast: StageForecast }) {
         <Ring value={forecast.coverage} ok={forecast.meetsTarget} whatIf={forecast.isWhatIf} />
         <div className="text-xs text-slate-400">
           <div className="text-sm font-semibold text-slate-100">Ice coverage forecast</div>
-          <div>after 12 clean turns · target {COVERAGE_TARGET}%</div>
+          <div>after 12 clean months · target {COVERAGE_TARGET}%</div>
           <div className="mt-1">
             sunlit ground {forecast.context.toFixed(0)}% · science data {forecast.dataMB.toFixed(0)} MB
           </div>
@@ -126,7 +126,7 @@ export function LabDials({ whatIf, onChange }: { whatIf: WhatIf; onChange: (chan
 }
 
 function countsAsText(v: InstrumentView): string {
-  if (v.countsAs === 'ice') return `maps ice: ${(v.iceRatePerTurn * 100).toFixed(1)}% of what is left, per turn`
+  if (v.countsAs === 'ice') return `maps ice: ${(v.iceRatePerTurn * 100).toFixed(1)}% of what is left, per month`
   if (v.countsAs === 'context') return 'maps sunlit ground only: adds no ice coverage'
   return 'pictures only: adds no ice coverage'
 }
