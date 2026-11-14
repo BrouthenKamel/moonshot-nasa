@@ -6,14 +6,11 @@ describe('InstrumentBar', () => {
   const html = (chosen: string[], day: number) =>
     renderToString(<InstrumentBar chosen={chosen} day={day} onToggle={() => {}} />).replace(/<!-- -->/g, '')
 
-  it('shows a locked instrument as locked and not pressable', () => {
+  it('MVP: shows every instrument open and pressable, with no level text', () => {
     const out = html(['inst-laser'], 112)
-    expect(out).toContain('Locked · needs Research Lab LV 3')
-    expect(out).toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*Neutron spectrometer/s)
-  })
-
-  it('keeps a locked instrument that is aboard removable', () => {
-    expect(html(['inst-neutron'], 112)).not.toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*Neutron spectrometer/s)
+    expect(out).not.toContain('Locked')
+    expect(out).not.toMatch(/LV \d/)
+    expect(out).not.toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*Neutron spectrometer/s)
   })
 
   it('shows no lock once the lab is high enough', () => {

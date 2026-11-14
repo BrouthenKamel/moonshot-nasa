@@ -13,8 +13,9 @@ export interface InstrumentLock {
   text: string // why it is locked and where to upgrade; empty when open
 }
 
-export function instrumentLock(id: string, day: number): InstrumentLock {
-  const neededLevel = instrumentLabLevel[id] ?? 1
+/** unlocks: Research Lab level per instrument; the MVP table locks nothing. */
+export function instrumentLock(id: string, day: number, unlocks: Record<string, number> = instrumentLabLevel): InstrumentLock {
+  const neededLevel = unlocks[id] ?? 1
   const labLevel = researchLabLevel(day)
   const locked = labLevel < neededLevel
   if (!locked) return { id, neededLevel, labLevel, locked, text: '' }
@@ -27,12 +28,21 @@ export function instrumentLock(id: string, day: number): InstrumentLock {
 }
 
 /** Locked instruments a design already holds (an imported code, a past run, an earlier save). */
-export function lockedInDesign(instruments: string[], day: number): InstrumentLock[] {
-  return instruments.map((id) => instrumentLock(id, day)).filter((l) => l.locked)
+export function lockedInDesign(
+  instruments: string[],
+  day: number,
+  unlocks: Record<string, number> = instrumentLabLevel
+): InstrumentLock[] {
+  return instruments.map((id) => instrumentLock(id, day, unlocks)).filter((l) => l.locked)
 }
 
 /** Like toggleInstrument, but a locked instrument cannot be added. Removing one is always allowed. */
-export function toggleUnlocked(current: string[], id: string, day: number): string[] {
-  if (!current.includes(id) && instrumentLock(id, day).locked) return current
+export function toggleUnlocked(
+  current: string[],
+  id: string,
+  day: number,
+  unlocks: Record<string, number> = instrumentLabLevel
+): string[] {
+  if (!current.includes(id) && instrumentLock(id, day, unlocks).locked) return current
   return toggleInstrument(current, id)
 }

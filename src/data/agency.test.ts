@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildings, instrumentLabLevel, researchLabLevel } from './agency'
+import { buildings, EXTENSION_INSTRUMENT_LAB_LEVEL, instrumentLabLevel, researchLabLevel } from './agency'
 
 describe('Research Lab level', () => {
   const up = buildings.find((b) => b.id === 'research-lab')!.upgrade!
@@ -11,8 +11,11 @@ describe('Research Lab level', () => {
     expect(researchLabLevel(up.endDay + 100)).toBe(3)
   })
 
-  it('needs level 3 for the neutron spectrometer and nothing extra for the rest', () => {
-    expect(instrumentLabLevel['inst-neutron']).toBe(3)
-    for (const id of ['inst-ir-spec', 'inst-laser', 'inst-camera']) expect(instrumentLabLevel[id] ?? 1).toBe(1)
+  it('locks no instrument in the MVP: every part is available', () => {
+    expect(instrumentLabLevel).toEqual({})
+  })
+
+  it('keeps the agency extension table: level 3 for the neutron spectrometer', () => {
+    expect(EXTENSION_INSTRUMENT_LAB_LEVEL['inst-neutron']).toBe(3)
   })
 })
