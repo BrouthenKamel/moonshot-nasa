@@ -40,7 +40,7 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
           <h3 className="mb-1.5 text-[11px] font-semibold tracking-[0.12em] uppercase" style={{ color: g.color }}>
             {g.title}
           </h3>
-          <div className={g.options.length > 3 ? 'grid grid-cols-2 gap-1.5' : 'flex flex-col gap-1.5'}>
+          <div className={g.options.length > 3 ? 'grid grid-cols-2 gap-1 xl:grid-cols-3' : 'flex flex-col gap-1'}>
             {g.options.map((o: TrayOption, i) => {
               const on = selected[g.key] === o.id
               return (
@@ -52,19 +52,20 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
                   role="radio"
                   aria-checked={on}
                   aria-label={`${o.short}: ${o.stats}`}
+                  title={o.stats}
                   tabIndex={on ? 0 : -1}
                   onClick={() => onPick(g.key, o.id)}
                   onKeyDown={onKey(g, i)}
                   onMouseEnter={() => onActive({ key: g.key, id: o.id })}
                   onFocus={() => onActive({ key: g.key, id: o.id })}
-                  className={`rounded-lg border px-2 py-1 text-left text-xs leading-tight transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
+                  className={`min-w-0 rounded-lg border px-2 py-1 text-left text-xs leading-tight transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
                     on
                       ? 'border-[var(--c)] bg-slate-900 text-white shadow-[inset_0_0_0_1px_var(--c)]'
                       : 'border-slate-700/70 bg-slate-900/70 text-slate-300 hover:bg-slate-800'
                   }`}
                 >
                   {o.short}
-                  <span className="mt-0.5 block text-[10.5px] text-slate-500">{o.stats}</span>
+                  <span className="mt-0.5 block truncate text-[10.5px] text-slate-500">{o.stats}</span>
                 </button>
               )
             })}

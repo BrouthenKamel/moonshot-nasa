@@ -48,7 +48,6 @@ export function SpacecraftScreen() {
   const [room, setRoom] = useState(canUseWebGL)
   const [hover, setHover] = useState<ActiveOption | null>(null)
   const [last, setLast] = useState<ActiveOption | null>(null)
-  const [changed, setChanged] = useState<{ key: TrayKey; n: number } | null>(null)
 
   const selected: Record<TrayKey, string> = {
     solar: design.solar,
@@ -61,7 +60,6 @@ export function SpacecraftScreen() {
     setLast({ key, id })
     if (selected[key] === id) return
     updateDesign({ [key]: id })
-    setChanged((c) => ({ key, n: (c?.n ?? 0) + 1 }))
   }
   const active = hover ?? last
   const activeGroup = active ? groups.find((g) => g.key === active.key) : undefined
@@ -73,7 +71,7 @@ export function SpacecraftScreen() {
         {room ? (
           <BayBoundary onError={() => setRoom(false)}>
             <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-500">Opening the assembly bay…</div>}>
-              <AssemblyBay view={view} changed={changed} />
+              <AssemblyBay view={view} />
             </Suspense>
           </BayBoundary>
         ) : (
