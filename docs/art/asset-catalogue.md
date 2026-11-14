@@ -29,6 +29,19 @@ The wings, dishes and whip antennas fold, so the Factory can unfold them when pi
   part to place in a scene; rotate its `pivot_` nodes between `userData.stowed` and the
   exported pose to fold and unfold it.
 
+## Where the art is now used in the game
+
+| Screen | Cards | Models |
+|---|---|---|
+| Step 2 · Research Lab | `ChoiceCard` portrait, sm – four instrument cards with shadow lesson and chips | Real instrument model under the bus, aperture ring in beam colour (`InstrumentModel.tsx`) |
+| Step 3 · Factory (tray) | `ChoiceCard` portrait, xs – five radio groups, one card per part (`TrayCard.tsx`) | — |
+| Step 3 · Factory (bay) | — | Real part model scaled into its slot with snap-drop animation (`PartSlot.tsx`) |
+| Step 4 · Orbit | `ChoiceCard` scene via `LaunchCard`, xs – three orbit cards over the 3D scene | — |
+| Step 5 · Ride & Transfer | `ChoiceCard` scene via `LaunchCard`, xs – ride cards with vehicle portrait inset, transfer cards | — |
+| Step 6 · Comms | `ChoiceCard` portrait lg – radio cards; `ChoiceCard` scene lg – ground-station cards with dish portrait inset | Portrait in the link console signal path |
+
+Pick sounds are played by each card's own press handler (`sounds={false}` on every card suppresses the duplicate from the cue director).
+
 ## Known limits
 
 - Portraits are framed to fill the card, so true size differences between parts do not show
