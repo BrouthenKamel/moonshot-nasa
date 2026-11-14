@@ -28,8 +28,12 @@ import type { DesignStep } from '../sim/types'
 describe('screens render', () => {
   beforeEach(() => useGameStore.getState().newGame())
 
-  it('title', () => {
-    expect(renderToString(<App />)).toContain('Moonshot')
+  it('the game starts on the agency map, with the difficulty picked there', () => {
+    expect(useGameStore.getState().screen).toBe('base')
+    const html = renderToString(<App />)
+    expect(html).toContain('Agency dashboard')
+    expect(html).toContain('Engineer')
+    expect(html).not.toContain('Select Difficulty')
   })
 
   const steps: DesignStep[] = ['brief', 'planning', 'instruments', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']

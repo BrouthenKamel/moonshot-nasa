@@ -1,6 +1,6 @@
 import { useGameStore } from './state/gameStore'
 import { Shell } from './ui/Shell'
-import { TitleScreen, DesignScreen, BaseScreen } from './ui/screens'
+import { DesignScreen, BaseScreen } from './ui/screens'
 import { ReplayPanel } from './viz/ReplayPanel'
 import { isSimComplete } from './sim/simulate'
 import { computeBudgets } from './sim/budgets'
@@ -312,17 +312,8 @@ function ReportPlaceholder() {
 export default function App() {
   const screen = useGameStore((s) => s.screen)
 
-  // Title screen doesn't use Shell
-  if (screen === 'title') {
-    return (
-      <main className="flex h-screen flex-col bg-slate-950 text-slate-100">
-        <TitleScreen />
-      </main>
-    )
-  }
-
-  // Agency base is a full-screen game view
-  if (screen === 'base') {
+  // The game starts on the agency map, a full-screen game view ('title' is an old name for it)
+  if (screen === 'base' || screen === 'title') {
     return (
       <main className="h-screen text-slate-100">
         <BaseScreen />
