@@ -113,3 +113,15 @@ All of these are being built on branch fix/qc-round-3 (round-3 builder), except 
 | 64 | Med | Only 3 of 8 events offer a choice; the 5 orbit events are notifications only | F3 | waits-jakob | — |
 | 65 | Low | The thruster card doesn't show what "accept" means for the player's own engine | A2 | waits-jakob | — |
 | 66 | Low | The build-delay card's "x1.4 → x2" reads as hand-waving; show the success percentage | F2 | waits-jakob | — |
+
+## Batch 17: text contrast (measured at 1280x800)
+
+| # | Sev | Finding | Group | Status | Owner |
+|---|-----|---------|-------|--------|-------|
+| 67 | Med | 35-45% of text on the plain step screens fails WCAG AA (4.5:1); the grey 12 px captions carrying rules sit at 1.9-3.1:1. Cheapest fix: one shared caption colour (slate-500 → slate-300) | G | waits-jakob | — |
+| 68 | Med | "Fix at the Factory (Spacecraft)" under each red/yellow Go/No-Go row is 12 px at 2.8:1; make it the brightest line, ideally a button to that building | G | waits-jakob | — |
+| 69 | Low | Visited steps in the sidebar are struck through in dim grey (3.25:1) | G | waits-jakob | — |
+
+## Sound (C3)
+
+PR #24 adds music on the base (Kamel's theme.mp3) and a mute button. The five flight cues (launch, event, capture, success, failure) are wired up but silent, because no sound-effect files exist yet.
