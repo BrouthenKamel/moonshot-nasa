@@ -1,6 +1,7 @@
 import { useGameStore } from '../../state/gameStore'
 import { getGoNoGoSummary } from '../../sim/checks'
 import type { CheckResult } from '../../sim/types'
+import { fixLocation } from '../../viz/missionMap'
 
 function CheckRow({ check }: { check: CheckResult }) {
   const statusColors = {
@@ -33,7 +34,7 @@ function CheckRow({ check }: { check: CheckResult }) {
       <div className="mt-2 text-sm opacity-70">{check.reason}</div>
       {check.fixStep && (
         <div className="mt-2 text-xs opacity-60">
-          Fix in step: <span className="capitalize">{check.fixStep}</span>
+          Fix at {fixLocation(check.fixStep)}
         </div>
       )}
     </div>
