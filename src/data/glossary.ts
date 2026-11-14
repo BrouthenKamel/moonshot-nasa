@@ -146,6 +146,97 @@ export const glossary: Record<string, GlossaryEntry> = {
     example: 'Lunar Flashlight used green (AF-M315E) monopropellant.',
     relatedTerms: ['isp', 'propulsion'],
   },
+  // Plain words a 15-year-old can follow (QC #54, Jakob: wire the tooltips)
+  adcs: {
+    term: 'ADCS (attitude control)',
+    definition:
+      'The parts that point the spacecraft the right way: sensors that tell which way it faces, and small wheels that turn it. Instruments, panels and the antenna all need to point somewhere.',
+    relatedTerms: ['star-tracker'],
+  },
+  'star-tracker': {
+    term: 'Star tracker',
+    definition:
+      'A small camera that photographs the stars and works out from them exactly which way the spacecraft points. Much more precise than sun sensors.',
+    relatedTerms: ['adcs'],
+  },
+  uhf: {
+    term: 'UHF radio',
+    definition:
+      'A simple, cheap radio like the ones many CubeSats use near Earth. Its signal is too weak to be heard from the Moon.',
+    relatedTerms: ['s-band', 'x-band'],
+  },
+  's-band': {
+    term: 'S-band',
+    definition:
+      'A radio band used to talk to spacecraft far away. It reaches Earth from the Moon, at a moderate data rate.',
+    relatedTerms: ['x-band', 'link-rate'],
+  },
+  'x-band': {
+    term: 'X-band',
+    definition:
+      'A higher radio band for deep space. With a dish antenna it sends much more data per second than S-band.',
+    relatedTerms: ['s-band', 'link-rate'],
+  },
+  'rad-hard': {
+    term: 'Rad-hard (radiation-hardened)',
+    definition:
+      'Built to survive the radiation in space. Ordinary chips can glitch and restart when hit by a fast particle; rad-hard ones do so far less often, but cost more.',
+  },
+  wh: {
+    term: 'W and Wh',
+    definition:
+      'Watts (W) say how fast power flows right now, like litres per second from a tap. Watt-hours (Wh) say how much energy a battery holds, like litres in a bucket: a 40 Wh battery can give 10 W for 4 hours.',
+    relatedTerms: ['eclipse'],
+  },
+  'eclipse-margin': {
+    term: 'Eclipse margin',
+    definition:
+      'How many minutes longer the battery could keep the spacecraft running than the longest shadow on this orbit lasts. Below zero, the craft runs out of power in the dark.',
+    relatedTerms: ['eclipse', 'wh'],
+  },
+  'data-margin': {
+    term: 'Data margin',
+    definition:
+      'How many more megabytes a turn the radio could send home than the instruments make. Below zero, data piles up in storage and some is lost.',
+    relatedTerms: ['downlink'],
+  },
+}
+
+/** The glossary entry a game label stands for (labels on rows and bars, by their words) */
+const LABEL_TERMS: [RegExp, string][] = [
+  [/eclipse margin/i, 'eclipse-margin'],
+  [/data margin|data link/i, 'data-margin'],
+  [/delta-v/i, 'delta-v'],
+  [/\bW\b|Wh\b|power/i, 'wh'],
+  [/budget|reserve|mission cost/i, 'reserve'],
+  [/comms/i, 'link-rate'],
+  [/volume/i, '6u'],
+  [/science|coverage/i, 'coverage'],
+  [/mass/i, 'margin'],
+]
+
+/** Jargon in a part's name or description, in the order it should be explained */
+const PART_TERMS: [RegExp, string][] = [
+  [/ADCS|attitude/i, 'adcs'],
+  [/star tracker/i, 'star-tracker'],
+  [/UHF/, 'uhf'],
+  [/S-band/i, 's-band'],
+  [/X-band|deployable dish/i, 'x-band'],
+  [/rad-hard|radiation-hard/i, 'rad-hard'],
+  [/\bWh\b/, 'wh'],
+  [/\bion\b|iodine/i, 'electric-propulsion'],
+  [/green mono|monopropellant/i, 'chemical-propulsion'],
+]
+
+/** The glossary key for a row or bar label, if it has one */
+export function glossaryKeyForLabel(label: string): string | undefined {
+  return LABEL_TERMS.find(([re]) => re.test(label))?.[1]
+}
+
+/** Glossary entries for the jargon in a part's text, without repeats */
+export function glossaryForPart(text: string): GlossaryEntry[] {
+  const keys = PART_TERMS.filter(([re]) => re.test(text)).map(([, k]) => k)
+  return [...new Set(keys)].map((k) => glossary[k])
 }
 
 export function getGlossaryEntry(term: string): GlossaryEntry | undefined {

@@ -2,6 +2,8 @@ import { useGameStore } from '../../state/gameStore'
 import { cannotMeetBrief, getGoNoGoSummary } from '../../sim/checks'
 import type { Budgets, CheckResult } from '../../sim/types'
 import { checkFigures } from '../../viz/checkMargin'
+import { glossaryKeyForLabel } from '../../data/glossary'
+import { Tooltip } from '../Tooltip'
 import { fixLocation } from '../../viz/missionMap'
 
 function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) {
@@ -22,7 +24,9 @@ function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) 
     <div className={`rounded-lg border p-4 ${statusColors[check.status]}`}>
       <div className="flex items-start justify-between">
         <div>
-          <div className="font-semibold">{check.resource}</div>
+          <div className="font-semibold">
+            <Tooltip term={glossaryKeyForLabel(check.resource) ?? ''}>{check.resource}</Tooltip>
+          </div>
           <div className="mt-1 text-sm opacity-80">
             {fig.value.toFixed(1)} / {fig.limit.toFixed(1)} {check.unit}
             {check.resource === 'Budget' && ' spendable'}

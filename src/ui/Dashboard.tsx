@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useGameStore } from '../state/gameStore'
 import type { BarStatus } from '../sim/types'
 import { checkFigures, marginLine } from '../viz/checkMargin'
+import { glossaryKeyForLabel } from '../data/glossary'
+import { Tooltip } from './Tooltip'
 import { fixLocation } from '../viz/missionMap'
 
 interface ResourceBarProps {
@@ -51,7 +53,9 @@ function ResourceBar({ label, value, limit, unit, status, showMargin = true, pre
       }`}
     >
       <div className="flex justify-between text-xs">
-        <span className="text-slate-400">{label}</span>
+        <span className="text-slate-400">
+          <Tooltip term={glossaryKeyForLabel(label) ?? ''}>{label}</Tooltip>
+        </span>
         <span className={textColor}>
           {value.toFixed(1)} / {limit.toFixed(1)} {unit}
         </span>
