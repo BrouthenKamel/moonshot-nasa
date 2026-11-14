@@ -33,16 +33,14 @@ export function StepRail() {
               className={`
                 flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm transition-colors
                 ${isCurrent ? 'bg-slate-700 text-white' : ''}
-                ${isPast ? 'text-slate-400 hover:bg-slate-800' : ''}
+                ${isPast ? 'text-slate-200 hover:bg-slate-800' : ''}
                 ${isFuture ? 'text-slate-500 hover:bg-slate-800' : ''}
               `}
             >
               <span
                 className={`h-2 w-2 rounded-full ${isCurrent ? 'bg-blue-400' : isPast ? 'bg-emerald-500' : 'bg-slate-600'}`}
               />
-              <span className={isPast ? 'line-through opacity-60' : ''}>
-                {step.name}
-              </span>
+              <span>{step.name}</span>
             </button>
           )
         })}

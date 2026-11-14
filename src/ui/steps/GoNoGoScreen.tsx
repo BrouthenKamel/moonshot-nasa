@@ -8,6 +8,7 @@ import { fixLocation } from '../../viz/missionMap'
 
 function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) {
   const fig = checkFigures(check, budgets)
+  const setDesignStep = useGameStore((s) => s.setDesignStep)
   const statusColors = {
     green: 'bg-green-900 text-green-300 border-green-700',
     yellow: 'bg-yellow-900 text-yellow-300 border-yellow-700',
@@ -27,7 +28,7 @@ function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) 
           <div className="font-semibold">
             <Tooltip term={glossaryKeyForLabel(check.resource) ?? ''}>{check.resource}</Tooltip>
           </div>
-          <div className="mt-1 text-sm opacity-80">
+          <div className="mt-1 text-sm opacity-90">
             {fig.value.toFixed(1)} / {fig.limit.toFixed(1)} {check.unit}
             {check.resource === 'Budget' && ' spendable'}
             {/* A red row with room left on paper: its blocking reason is right below, no "+ margin" */}
@@ -39,11 +40,16 @@ function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) 
           {statusLabels[check.status]}
         </span>
       </div>
-      <div className="mt-2 text-sm opacity-70">{check.reason}</div>
+      <div className="mt-2 text-sm">{check.reason}</div>
+      {/* The brightest line of the card: where to fix it, one click away (QC contrast round) */}
       {check.fixStep && (
-        <div className="mt-2 text-xs opacity-60">
+        <button
+          type="button"
+          onClick={() => setDesignStep(check.fixStep!)}
+          className="mt-2 text-sm font-semibold text-white underline decoration-2 underline-offset-2 hover:text-yellow-100"
+        >
           Fix at {fixLocation(check.fixStep)}
-        </div>
+        </button>
       )}
     </div>
   )
