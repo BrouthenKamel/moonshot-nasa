@@ -1,3 +1,5 @@
+import { CATALOGUE_MODELS } from './catalogueModels.ts'
+
 /**
  * Asset manifest: the single list of every art and audio file the game ships.
  *
@@ -70,6 +72,7 @@ const FLIGHT = 'onwK4e9ZLuTAKqWW03F9'
 const CONTROLLER = 'EXAVITQu4vr4xnSDxMaL'
 
 export const assets = [
+  ...CATALOGUE_MODELS,
   {
     id: 'model.cubesat-6u',
     kind: 'model',
