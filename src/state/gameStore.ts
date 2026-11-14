@@ -21,6 +21,7 @@ import { generateSeed } from '../sim/rng'
 /** Screen the player is on */
 export type Screen =
   | 'title'
+  | 'base'
   | 'setup'
   | 'design'
   | 'simulation'
@@ -84,6 +85,9 @@ export interface GameState {
 
   // Full reset
   newGame: () => void
+
+  /** Start planning a fresh Lunar Ice Mapper mission from the agency base */
+  startNewMission: () => void
 }
 
 /** Encode design to a short shareable string */
@@ -282,12 +286,26 @@ export const useGameStore = create<GameState>()(
           signOffs: [],
           pendingAction: getDefaultAction(),
         }),
+
+      startNewMission: () =>
+        set({
+          screen: 'design',
+          designStep: 'brief',
+          design: createDefaultDesign(),
+          simState: null,
+          currentReport: null,
+          signOffs: [],
+          pendingAction: getDefaultAction(),
+        }),
     }),
     {
       name: 'moonshot-game-storage',
       partialize: (state) => ({
         difficulty: state.difficulty,
         mode: state.mode,
+        // Keep the mission being planned, so the base can show and resume it
+        design: state.design,
+        designStep: state.designStep,
         players: state.players,
         runHistory: state.runHistory,
       }),
