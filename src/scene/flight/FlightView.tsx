@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Line } from '@react-three/drei'
 import * as THREE from 'three'
@@ -345,6 +345,21 @@ function Director({ design, shot, reduced, camMode, camOffset }: DirectorProps) 
   )
 }
 
+/**
+ * Draws nothing when an optional model fails to load. The NASA models are generated and
+ * gitignored (public/assets/models/nasa), so a fresh checkout may not have them; without this
+ * the whole space view would fail and fall back to the island.
+ */
+class OptionalModel extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? null : this.props.children
+  }
+}
+
 function BennuLandmark({ reduced }: { reduced: boolean }) {
   const model = useModel('model.env-asteroid-bennu')
   const ref = useRef<THREE.Group>(null)
@@ -462,9 +477,11 @@ export function FlightView({ design, shot, className = '' }: FlightViewProps) {
           <group position={EARTH_POS}>
             <Earth radius={3.67} spin={0.006} />
           </group>
-          <Suspense fallback={null}>
-            <BennuLandmark reduced={reduced} />
-          </Suspense>
+          <OptionalModel>
+            <Suspense fallback={null}>
+              <BennuLandmark reduced={reduced} />
+            </Suspense>
+          </OptionalModel>
           {(shot.stage !== 'orbit' || flightCam === 'overview') && (
             <Line points={pathPoints} color="#fbbf24" lineWidth={flightCam === 'overview' ? 1.6 : 1.2} dashed dashSize={flightCam === 'overview' ? 0.6 : 0.25} gapSize={flightCam === 'overview' ? 0.45 : 0.2} transparent opacity={0.5} />
           )}
