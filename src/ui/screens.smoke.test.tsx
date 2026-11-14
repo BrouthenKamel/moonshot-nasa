@@ -37,15 +37,19 @@ describe('screens render', () => {
     expect(html).not.toContain('Select Difficulty')
   })
 
-  // Jakob, 14 Nov 18:49: the MVP is one mission (DESIGN-DIRECTION 1a)
-  it('the base shows one mission, with no agency layer', () => {
+  // Jakob, 14 Nov 18:49: the MVP is one mission (DESIGN-DIRECTION 1a). The agency layer
+  // (funds, popularity, the agency dashboard) sits on top of it; no calendar, levels or missions list.
+  it('the base shows one mission, with the agency layer and no agency calendar', () => {
     const html = renderToString(<App />).replace(/<!-- -->/g, '')
     for (const gone of [
-      'Agency dashboard', 'PUBLIC SUPPORT', 'FUNDS', 'Funding trend', 'Activity', 'Upcoming', 'Reset demo',
+      'PUBLIC SUPPORT', 'Funding trend', 'Activity', 'Upcoming', 'Reset demo',
       '+ BUILD', 'coming soon', '+ New mission', '>Missions<', 'DAY ', 'Pause', 'LV ',
     ]) {
       expect(html).not.toContain(gone)
     }
+    expect(html).toContain('Agency dashboard')
+    expect(html).toContain('FUNDS')
+    expect(html).toContain('POPULARITY')
     expect(html).not.toMatch(/Aurora-1|Relay Pathfinder|Solar Scout/)
     // Before launch: month 0, no mission log
     expect(html).toContain('Month 0')
