@@ -66,8 +66,20 @@ QC tested group D1 in its own worktree: removing it keeps typecheck, 224/224 tes
 
 | # | Group | What | Status | Owner |
 |---|-------|------|--------|-------|
-| 47 | D1 dead code (~720 lines) | src/ui/TeamMode.tsx, src/ui/screens/TitleScreen.tsx, src/scene/SpacecraftView.tsx, src/ui/Tooltip.tsx + src/data/glossary.ts, src/data/reference.ts, and their barrel export lines | waits-jakob | Integration (after design/round-2 merges) |
-| 48 | D2 probably dead | src/data/sources.ts (may be the record of where the numbers come from); unused barrels src/{assets,data,scene,sim,ui,viz}/index.ts; nine helpers with no callers (getEventsForPhase, searchGlossary, getPartsByCategory, generateComparison, getReferenceMissionById, getNextRide, getCompatibleTransfers, getOutcomeEmoji, getGrade) | waits-jakob | Integration |
-| 49 | D3 dead team mode | gameStore mode/players/setMode/setPlayers/sign-offs (persisted); the "Roles" legend in src/ui/StepRail.tsx | waits-jakob | Integration |
-| 50 | D4 visible UI | "+ BUILD coming soon" placeholder on the map; funds and support shown twice; "New Game" next to "Agency base" in the design header; "Reset demo to day 112" once the demo missions go | waits-jakob | Integration |
-| 51 | D5 repo weight | docs/resources (3.9 MB of PDFs), assets-src/concepts (5.6 MB of PNGs), the asset lab dev tool | waits-jakob | Kamel / Jakob |
+| D1 | dead code (~720 lines) | src/ui/TeamMode.tsx, src/ui/screens/TitleScreen.tsx, src/scene/SpacecraftView.tsx, src/ui/Tooltip.tsx + src/data/glossary.ts, src/data/reference.ts, and their barrel export lines | waits-jakob | Integration (after design/round-2 merges) |
+| D2 | probably dead | src/data/sources.ts (may be the record of where the numbers come from); unused barrels src/{assets,data,scene,sim,ui,viz}/index.ts; nine helpers with no callers (getEventsForPhase, searchGlossary, getPartsByCategory, generateComparison, getReferenceMissionById, getNextRide, getCompatibleTransfers, getOutcomeEmoji, getGrade) | waits-jakob | Integration |
+| D3 | dead team mode | gameStore mode/players/setMode/setPlayers/sign-offs (persisted); the "Roles" legend in src/ui/StepRail.tsx | waits-jakob | Integration |
+| D4 | visible UI | "+ BUILD coming soon" placeholder on the map; funds and support shown twice; "New Game" next to "Agency base" in the design header; "Reset demo to day 112" once the demo missions go | waits-jakob | Integration |
+| D5 | repo weight | docs/resources (3.9 MB of PDFs), assets-src/concepts (5.6 MB of PNGs), the asset lab dev tool | waits-jakob | Kamel / Jakob |
+
+## Batch 13 (audit of main bcff375)
+
+| # | Sev | Finding | Group | Status | Owner / PR |
+|---|-----|---------|-------|--------|------------|
+| 47 | Info | Keep: the new Orbit step (3D Moon, three orbits, time-lapse, a verdict per orbit) is the best screen | — | info | — |
+| 48 | Med | The 3D orbit scene only shows when the window is at least about 1050 px wide; otherwise plain cards. Demo machine must run full width | demo note | waits-jakob | Jakob (demo setup) |
+| 49 | Low | The orbit panel's red heading "INTO THE RESERVE WITH THIS ORBIT" reads as a verdict on the ice number | A | waits-jakob | Integration (orbit view, merged) |
+| 50 | Low | The Resource Dashboard on other steps still shows cap-based "+0.9 margin" (same as #1) | A | waits-jakob | Integration |
+| 51 | Low | The Factory tray colours the flight computer and attitude control cyan, which is reserved for ice (CubeSatDiagram.tsx:19, trayOptions.ts:36) | A | waits-jakob | SpaceCraft Design |
+| 52 | Info | Ride, Comms, Go/No-Go and the Brief have no title line or dark-room treatment yet | — | info (Ride & Transfer in progress) | — |
+| 53 | Low | The sidebar "Roles" legend is still shown (same as D3) | D3 | waits-jakob | Integration |
