@@ -59,6 +59,19 @@ describe('gameStore building navigation', () => {
     expect(useAgencyStore.getState().missionStartDay).toBeNull()
   })
 
+  it('resetting the demo abandons the mission in both stores', () => {
+    useGameStore.getState().openBuilding('factory')
+    useGameStore.getState().startSimulation()
+    useGameStore.getState().resetDemo()
+    const g = useGameStore.getState()
+    expect(g.simState).toBeNull()
+    expect(g.currentReport).toBeNull()
+    expect(g.visitedSteps).toEqual([])
+    expect(useAgencyStore.getState().missionStartDay).toBeNull()
+    expect(useAgencyStore.getState().lunarMissionStartedDay).toBeNull()
+    expect(useAgencyStore.getState().day).toBe(112)
+  })
+
   it('launching returns to the base and starts the mission clock', () => {
     useAgencyStore.getState().resetAgency()
     useGameStore.getState().startSimulation()
@@ -86,6 +99,7 @@ describe('gameStore visualiser state', () => {
     runToEnd()
     const st = useGameStore.getState()
     expect(st.screen).toBe('base')
+    expect(useAgencyStore.getState().missionClockRunning).toBe(false)
     expect(st.currentReport).not.toBeNull()
     expect(st.runHistory[0].run?.turnLogs.length).toBe(st.simState!.turnLogs.length)
     expect(st.runHistory[0].run?.seed).toBe(st.simState!.seed)

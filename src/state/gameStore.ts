@@ -113,6 +113,8 @@ export interface GameState {
   visitedSteps: DesignStep[]
   /** Walk into a building on the map: opens the step it holds that is due next */
   openBuilding: (id: BuildingId) => void
+  /** "Reset demo": the base back to day 112 and the mission abandoned, in both stores */
+  resetDemo: () => void
 }
 
 /** localStorage if present (browser), otherwise an in-memory fallback (Node/tests) */
@@ -219,6 +221,23 @@ export const useGameStore = create<GameState>()(
         set({ screen: 'design' })
       },
 
+      resetDemo: () => {
+        useAgencyStore.getState().resetAgency()
+        set({
+          screen: 'base',
+          designStep: 'brief',
+          design: createDefaultDesign(),
+          simState: null,
+          currentReport: null,
+          signOffs: [],
+          pendingAction: getDefaultAction(),
+          previousBudgets: null,
+          replayTurn: 0,
+          replayEntryId: null,
+          visitedSteps: [],
+        })
+      },
+
       // Visualiser
       setReplayTurn: (n) =>
         set((state) => {
@@ -323,8 +342,12 @@ export const useGameStore = create<GameState>()(
           replayTurn: lastTurnIndex(newState.turnLogs),
         })
 
-        // Run ended: save it, but stay on the simulation screen so the player sees the last turn
+        // Run ended: save it, but stay on screen so the player sees the last turn.
+        // The base clock catches up to the last turn and then runs by itself again.
         if (isSimComplete(newState)) {
+          const agency = useAgencyStore.getState()
+          agency.syncToMissionTurn(newState.currentTurn)
+          agency.endMissionClock()
           const report = buildReport(newState)
           get().saveToHistory(report, {
             seed: newState.seed,

@@ -31,6 +31,18 @@ describe('agency clock and the mission', () => {
     expect(useAgencyStore.getState().day).toBeGreaterThan(before)
   })
 
+  it('runs freely again once the flight is over, keeping the start day for the feed', () => {
+    const a = useAgencyStore.getState()
+    a.setSpeed('normal')
+    a.startMissionClock()
+    a.syncToMissionTurn(20)
+    a.endMissionClock()
+    const ended = useAgencyStore.getState().day
+    a.tick(1)
+    expect(useAgencyStore.getState().day).toBeGreaterThan(ended)
+    expect(useAgencyStore.getState().missionStartDay).toBe(112)
+  })
+
   it('loads state saved by version 1', () => {
     const migrated: AgencyState = migrateAgencyState({ day: 130, funds: 18, support: 70 }, 1)
     expect(migrated.missionStartDay).toBeNull()

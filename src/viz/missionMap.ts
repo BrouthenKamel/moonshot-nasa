@@ -67,11 +67,14 @@ function flightLabels(budgets: Budgets, sim: SimState): Record<BuildingId, Build
   const factory = !launched
     ? `${sim.phase === 'test' ? 'Testing' : sim.phase === 'wait' ? 'Ready, waiting for the ride' : 'Building'} · ride on turn ${f.launchTurn}`
     : 'Craft delivered to the ride'
-  const launch = !launched
-    ? `Ride leaves on turn ${f.launchTurn}`
-    : f.captured
-      ? `Launched turn ${f.launchedTurn} · in lunar orbit`
-      : `Launched turn ${f.launchedTurn} · transfer, ${Math.max(0, f.transferLeft ?? 0)} turns left`
+  const over = sim.phase === 'complete' || sim.phase === 'failed'
+  const launch = over
+    ? `${sim.phase === 'failed' ? 'Mission lost' : 'Mission over'}: ${f.end}`
+    : !launched
+      ? `Ride leaves on turn ${f.launchTurn}`
+      : f.captured
+        ? `Launched turn ${f.launchedTurn} · in lunar orbit`
+        : `Launched turn ${f.launchedTurn} · transfer, ${Math.max(0, f.transferLeft ?? 0)} turns left`
   return {
     'comms-center': { level: levelOf('comms-center'), status: `${f.data.toFixed(0)} MB home · ${budgets.linkKbps} kbps` },
     'research-lab': { level: levelOf('research-lab'), status: `Ice ${f.coverage.toFixed(0)}% mapped` },

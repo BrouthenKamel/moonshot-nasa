@@ -227,7 +227,7 @@ function Dashboard({
   const funds = useAgencyStore((s) => s.funds)
   const support = useAgencyStore((s) => s.support)
   const lunarStartedDay = useAgencyStore((s) => s.lunarMissionStartedDay)
-  const resetAgency = useAgencyStore((s) => s.resetAgency)
+  const resetDemo = useGameStore((s) => s.resetDemo)
 
   const feed = useMemo(() => {
     const items: AgencyEvent[] = [...agencyEvents.filter((e) => e.day <= day), ...missionFeed]
@@ -305,7 +305,7 @@ function Dashboard({
         </ul>
       </div>
 
-      <button onClick={resetAgency} className="self-start text-[11px] text-slate-400 underline hover:text-slate-600">
+      <button onClick={resetDemo} className="self-start text-[11px] text-slate-400 underline hover:text-slate-600">
         Reset demo to day 112
       </button>
     </aside>
