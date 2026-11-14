@@ -23,6 +23,7 @@ import { isSimComplete } from '../../sim/simulate'
 import { buildingForStep, flightFeed, lunarMissionView, missionClockLabel, missionLabels, suggestedStep } from '../../viz/missionMap'
 import { EventCard } from '../flight/EventCard'
 import { FlightControls } from '../flight/FlightControls'
+import { MuteButton } from '../MuteButton'
 
 /* ------------------------------------------------------------------ */
 /* Clock                                                               */
@@ -170,6 +171,8 @@ function TopBar({ netPerMonth }: { netPerMonth: number }) {
         <SpeedButton speed="normal" current={speed} label="▶" title="Play: 1 day per second" />
         <SpeedButton speed="fast" current={speed} label="▶▶" title="Fast: 8 days per second" />
       </div>
+
+      <MuteButton />
 
       <div className="ml-auto flex flex-wrap gap-3">
         <div className="rounded-xl border border-white/20 bg-white/5 px-4 py-1.5">
