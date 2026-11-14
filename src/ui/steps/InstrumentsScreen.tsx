@@ -119,7 +119,8 @@ export function InstrumentsScreen() {
         <div className="font-medium text-green-300">Selected Instruments</div>
         <div className="mt-2 grid grid-cols-3 gap-4 text-green-200">
           <div>
-            <span className="text-green-400">{design.instruments.length}</span> instruments
+            <span className="text-green-400">{design.instruments.length}</span>{' '}
+            {design.instruments.length === 1 ? 'instrument' : 'instruments'}
           </div>
           <div>
             <span className="text-green-400">{totalMass.toFixed(1)}</span> kg
