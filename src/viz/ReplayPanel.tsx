@@ -1,5 +1,4 @@
 import { Component, lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { MissionView } from '../scene/MissionView'
 import { canUseWebGL } from '../scene/webgl'
 import { flightShot } from './flight/flightDirector'
 import { useGameStore } from '../state/gameStore'
@@ -17,6 +16,11 @@ class ViewBoundary extends Component<{ children: ReactNode; fallback: ReactNode 
   render() {
     return this.state.failed ? this.props.fallback : this.props.children
   }
+}
+
+/** Where the craft is, in words, where the 3D view cannot be drawn */
+function PlainPose({ label }: { label: string }) {
+  return <div className="rounded-xl border border-white/10 bg-slate-900 p-4 text-sm text-slate-200">{label}</div>
 }
 
 interface ReplayPanelProps {
@@ -57,6 +61,10 @@ export function ReplayPanel({ design, logs, terminal, compact = false }: ReplayP
   const cinematic = useMemo(() => canUseWebGL(), [])
   const shot = useMemo(() => flightShot(design, logs, turnIndex, { terminal }), [design, logs, turnIndex, terminal])
 
+  const poseLabel = `Month ${shot.turn} · ${
+    shot.stage === 'ground' ? 'on the ground' : shot.stage === 'transfer' ? `on the way to the Moon (${Math.round(shot.transferT * 100)}%)` : `in lunar orbit · ice ${(shot.coverage * 100).toFixed(1)}%`
+  }`
+
   const select = (i: number) => {
     setPlaying(false)
     setReplayTurn(i)
@@ -74,23 +82,15 @@ export function ReplayPanel({ design, logs, terminal, compact = false }: ReplayP
     <div className="space-y-3">
       {cinematic ? (
         <div className={`relative w-full overflow-hidden rounded-xl bg-black ${compact ? 'h-64' : 'h-[30rem]'}`}>
-          <ViewBoundary fallback={<MissionView design={design} logs={logs} turnIndex={turnIndex} terminal={terminal} className="h-full" />}>
+          <ViewBoundary fallback={<PlainPose label={poseLabel} />}>
             <Suspense fallback={null}>
               <FlightView design={design} shot={shot} />
             </Suspense>
           </ViewBoundary>
-          <div className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs text-slate-200">
-            Month {shot.turn} · {shot.stage === 'ground' ? 'on the ground' : shot.stage === 'transfer' ? 'on the way to the Moon' : `in lunar orbit · ice ${(shot.coverage * 100).toFixed(1)}%`}
-          </div>
+          <div className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs text-slate-200">{poseLabel}</div>
         </div>
       ) : (
-        <MissionView
-          design={design}
-          logs={logs}
-          turnIndex={turnIndex}
-          terminal={terminal}
-          className={compact ? 'h-64' : 'h-[28rem]'}
-        />
+        <PlainPose label={poseLabel} />
       )}
       <ReplayTimeline
         logs={logs}

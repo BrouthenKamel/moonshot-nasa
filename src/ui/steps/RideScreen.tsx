@@ -1,4 +1,20 @@
+import { Component, lazy, Suspense, useMemo, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
+import { canUseWebGL } from '../../scene/webgl'
+import { getRideById } from '../../data/rides'
+import { getTransferById } from '../../data/transfers'
+
+const RideView = lazy(() => import('../../scene/ride/RideView').then((m) => ({ default: m.RideView })))
+
+class ViewBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? null : this.props.children
+  }
+}
 import { rides, type Ride } from '../../data/rides'
 import { transfers, type Transfer, isTransferCompatible } from '../../data/transfers'
 import { getPartById, type PropulsionPart } from '../../data/parts'
@@ -142,8 +158,39 @@ export function RideScreen() {
   const propulsion = getPartById(design.propulsion) as PropulsionPart | undefined
   const propType = propulsion?.type ?? 'chemical'
 
+  const webgl = useMemo(() => canUseWebGL(), [])
+  const ride = getRideById(design.ride)
+  const transfer = getTransferById(design.transfer)
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      {webgl && (
+        <div className="relative -mx-4 h-[46vh] min-h-[340px] overflow-hidden rounded-2xl border border-white/10 bg-black sm:mx-0">
+          <ViewBoundary>
+            <Suspense fallback={null}>
+              <RideView rideId={design.ride} transferId={design.transfer} />
+            </Suspense>
+          </ViewBoundary>
+          <div className="pointer-events-none absolute left-4 top-3 font-mono text-[11px] tracking-[0.2em] text-orange-400">
+            LAUNCH SITE · LUNAR ICE MAPPER · RIDE &amp; TRANSFER
+          </div>
+          <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full bg-black/70 px-3 py-1 text-orange-200">
+              <span className="mr-1.5 inline-block h-0.5 w-4 bg-orange-400 align-middle" />
+              {ride?.name ?? 'Ride'} · leaves turn {budgets.rideTurn}
+            </span>
+            <span className="rounded-full bg-black/70 px-3 py-1 text-slate-200">
+              <span className="mr-1.5 inline-block h-0.5 w-4 border-t-2 border-dashed border-slate-200 align-middle" />
+              {transfer?.name ?? 'Transfer'}
+              {budgets.transferTurns !== null ? ` · ${budgets.transferTurns} turn${budgets.transferTurns === 1 ? '' : 's'}` : ''}
+              {budgets.deltaVTransfer > 0 ? ` · climb ${budgets.deltaVTransfer.toFixed(0)} m/s` : ''}
+            </span>
+            <span className={`rounded-full bg-black/70 px-3 py-1 ${budgets.captureDeltaV !== null && budgets.deltaVMargin >= 0 ? 'text-amber-200' : 'text-rose-300'}`}>
+              ◎ Capture burn {budgets.captureDeltaV === null ? 'not possible with this engine' : `${budgets.captureDeltaV.toFixed(0)} m/s · carrying ${budgets.deltaVAvailable.toFixed(0)} m/s`}
+            </span>
+          </div>
+        </div>
+      )}
       <div className="rounded-lg bg-slate-900 p-6">
         <h1 className="text-xl font-bold text-orange-400">5. Ride & Transfer</h1>
         <p className="mt-2 text-slate-400">

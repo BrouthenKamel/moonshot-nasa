@@ -1,8 +1,10 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { Component, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { canUseWebGL } from './webgl'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { Color, DoubleSide, MOUSE, TOUCH, Vector3, type Group, type InstancedMesh, Object3D } from 'three'
 import { MAP_SIZE, buildPlot, buildings, type BuildingId } from '../data/agency'
+import { BaseEffects, ChimneySmoke, Clouds, Truck } from './base/Life'
 
 /* ------------------------------------------------------------------ */
 /* Layout helpers                                                      */
@@ -287,6 +289,7 @@ function Factory() {
         <cylinderGeometry args={[0.15, 0.18, 1.2, 10]} />
         <meshStandardMaterial color="#8d939c" />
       </mesh>
+      <ChimneySmoke position={[1.3, 2.65, -1.2]} />
       {/* Crates waiting outside */}
       {[
         [2.1, 0.35, 1.3],
@@ -718,7 +721,45 @@ export interface BaseMapProps {
   rocketGone?: boolean
 }
 
-export function BaseMap({ labels, onBuildingClick, launchAt = null, rocketGone = false }: BaseMapProps) {
+/**
+ * The agency island, or, where WebGL is not available, the same buildings as a plain grid of
+ * labels (same statuses, same clicks).
+ */
+export function BaseMap(props: BaseMapProps) {
+  const [webgl] = useState(canUseWebGL)
+  if (!webgl) return <PlainBase {...props} />
+  return (
+    <MapBoundary fallback={<PlainBase {...props} />}>
+      <IslandMap {...props} />
+    </MapBoundary>
+  )
+}
+
+class MapBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children
+  }
+}
+
+function PlainBase({ labels, onBuildingClick }: BaseMapProps) {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-[#6fa83f] p-6">
+      <div className="grid w-full max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
+        {buildings.map((b) => (
+          <div key={b.id} className="flex justify-center">
+            <Label id={b.id} name={b.name} label={labels[b.id]} onClick={onBuildingClick ? () => onBuildingClick(b.id) : undefined} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = false }: BaseMapProps) {
   const launch = useMemo(() => ({ launchAt, gone: rocketGone }), [launchAt, rocketGone])
   const plotCenter = footprintCenter(buildPlot.tile, buildPlot.size)
   const labelEls = useRef<(HTMLDivElement | null)[]>([])
@@ -755,6 +796,8 @@ export function BaseMap({ labels, onBuildingClick, launchAt = null, rocketGone =
         <LaunchContext.Provider value={launch}>
         <Ground />
         <Scenery />
+        <Clouds />
+        <Truck z={7.5 - HALF} from={-7} to={6} />
 
         {buildings.map((b) => {
           const Model = models[b.id]
@@ -784,6 +827,7 @@ export function BaseMap({ labels, onBuildingClick, launchAt = null, rocketGone =
         </group>
 
         </LaunchContext.Provider>
+        <BaseEffects />
         <LabelProjector anchors={anchors} elements={labelEls} />
 
         <OrbitControls
