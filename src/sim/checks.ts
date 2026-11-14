@@ -227,10 +227,19 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
   return { canGo: blockers.length === 0, checks, blockers, warnings }
 }
 
+/** The launch is allowed, but the Science check says the craft cannot reach the brief's targets */
+export function cannotMeetBrief(result: GoNoGoResult): boolean {
+  return result.canGo && result.checks.some((c) => c.resource === 'Science' && c.status !== 'green')
+}
+
 /**
  * Get a summary of the Go/No-Go decision.
  */
 export function getGoNoGoSummary(result: GoNoGoResult): string {
+  // Science never blocks, but a Go must not read as an endorsement of a doomed craft (Jakob, 14 Nov)
+  if (cannotMeetBrief(result)) {
+    return 'Go, but this craft cannot meet the brief: it may fly, but even with no bad luck it falls short.'
+  }
   if (result.canGo && result.warnings.length === 0) {
     return 'All systems go. Ready for launch.'
   }

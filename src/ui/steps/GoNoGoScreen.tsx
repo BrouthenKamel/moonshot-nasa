@@ -1,5 +1,5 @@
 import { useGameStore } from '../../state/gameStore'
-import { getGoNoGoSummary } from '../../sim/checks'
+import { cannotMeetBrief, getGoNoGoSummary } from '../../sim/checks'
 import type { CheckResult } from '../../sim/types'
 import { fixLocation } from '../../viz/missionMap'
 
@@ -48,6 +48,9 @@ export function GoNoGoScreen() {
 
   const result = getGoNoGo()
   const summary = getGoNoGoSummary(result)
+  // The launch is allowed, but the craft cannot meet the brief: say so, with the reason
+  const doomed = cannotMeetBrief(result)
+  const scienceReason = result.checks.find((c) => c.resource === 'Science')?.reason
 
   // Group checks
   const criticalChecks = result.checks.filter((c) => c.status === 'red')
@@ -81,7 +84,7 @@ export function GoNoGoScreen() {
               : 'text-red-400'
           }`}
         >
-          {result.canGo ? 'GO' : 'NO-GO'}
+          {result.canGo ? (doomed ? 'GO, BUT IT CANNOT MEET THE BRIEF' : 'GO') : 'NO-GO'}
         </div>
         <div
           className={`mt-2 text-lg ${
@@ -94,6 +97,7 @@ export function GoNoGoScreen() {
         >
           {summary}
         </div>
+        {doomed && scienceReason && <div className="mt-2 text-sm text-yellow-200/90">{scienceReason}</div>}
       </div>
 
       {criticalChecks.length > 0 && (
