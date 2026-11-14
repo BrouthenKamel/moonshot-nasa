@@ -1,0 +1,1 @@
+Currently, our game feels more like a simulation tool than a game. We want some gamification mechanics, things that are catchy and enjoybale, regarding how to control, how to view, and how to get a feel of all steps within the mission planning. Also, an intuitive 
