@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { sanitizeSavedGame } from './saveGuard'
 import { useGameStore, GAME_SAVE_VERSION } from './gameStore'
 import { createDefaultDesign } from '../sim/budgets'
-import { initSim } from '../sim/simulate'
+import { initSim, stepTurn, flyUntilDecision, getDefaultAction } from '../sim/simulate'
 import { buildReport } from '../sim/evaluate'
 import { FIXED_DIFFICULTY } from './gameStore'
 
@@ -56,6 +56,17 @@ describe('old saved games load safely (QC #70)', () => {
     })
     expect(out.currentReport).toBeNull()
     expect(out.runHistory?.map((e) => e.id)).toEqual(['a'])
+  })
+
+  it('a finished flight saved without its report gets the report back, so the top bar can open it', () => {
+    let sim = initSim(createDefaultDesign(), FIXED_DIFFICULTY, 1)
+    for (let i = 0; i < 80 && sim.phase !== 'complete' && sim.phase !== 'failed'; i++) {
+      sim = sim.pendingDecision
+        ? stepTurn(sim, { ...getDefaultAction(), choices: { [sim.pendingDecision.key]: sim.pendingDecision.options[0].id } })
+        : flyUntilDecision(sim, getDefaultAction())
+    }
+    const out = sanitizeSavedGame({ simState: sim, currentReport: { broken: true } })
+    expect(out.currentReport?.outcome).toBe(buildReport(sim).outcome)
   })
 
   it('unknown steps are dropped from the visited list', () => {

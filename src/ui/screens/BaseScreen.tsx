@@ -298,7 +298,7 @@ export function BaseScreen() {
     <div className="flex min-h-screen flex-col bg-[#14213d] lg:h-screen lg:min-h-0">
       <TopBar month={missionMonth(simState)} status={status} onOpenStatus={onOpenStatus} />
       <div className="flex flex-1 flex-col gap-3 p-3 lg:min-h-0 lg:flex-row">
-        <div className="relative h-[60vh] min-h-[360px] flex-1 overflow-hidden rounded-2xl shadow-inner lg:h-auto">
+        <div className="relative h-[60vh] min-h-[360px] overflow-hidden lg:flex-1 rounded-2xl shadow-inner lg:h-auto">
           <BaseMap labels={labels} onBuildingClick={onBuildingClick} />
           {simState && <FlightOverlay sim={simState} />}
           <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-black/30 px-2 py-1 text-[11px] text-white">

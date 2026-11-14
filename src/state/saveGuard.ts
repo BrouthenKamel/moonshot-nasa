@@ -6,6 +6,7 @@ import { getTransferById } from '../data/transfers'
 import { getGroundStationById } from '../data/ground'
 import { computeBudgets, createDefaultDesign } from '../sim/budgets'
 import { goNoGo } from '../sim/checks'
+import { buildReport } from '../sim/evaluate'
 import type { Design, DesignStep, Report, RunHistoryEntry, SimState, TurnAction } from '../sim/types'
 
 /**
@@ -135,6 +136,14 @@ export interface SavedGame {
   currentReport: Report | null
 }
 
+function rebuildReport(sim: SimState): Report | null {
+  try {
+    return buildReport(sim)
+  } catch {
+    return null
+  }
+}
+
 /** Turn whatever was in storage into a save the game can load */
 export function sanitizeSavedGame(raw: unknown): SavedGame {
   const s = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>
@@ -155,8 +164,8 @@ export function sanitizeSavedGame(raw: unknown): SavedGame {
     runHistory,
     simState,
     replayTurn: simState && typeof s.replayTurn === 'number' && Number.isFinite(s.replayTurn) ? s.replayTurn : 0,
-    // A report belongs to the finished flight it came from
-    currentReport: simState && complete ? validReport(s.currentReport) : null,
+    // A report belongs to the finished flight it came from; if it is missing or broken, rebuild it
+    currentReport: simState && complete ? (validReport(s.currentReport) ?? rebuildReport(simState)) : null,
   }
   if (simState && ActionSchema.safeParse(s.pendingAction).success) out.pendingAction = s.pendingAction as TurnAction
   return out

@@ -545,7 +545,8 @@ function FitCamera() {
   const camera = useThree((s) => s.camera)
   const size = useThree((s) => s.size)
   useEffect(() => {
-    const zoom = Math.min(size.width / 22, size.height / 15)
+    // The whole island and the labels above the back buildings fit, also on a wide map
+    const zoom = Math.min(size.width / 22, size.height / 20)
     camera.zoom = Math.max(14, zoom)
     camera.updateProjectionMatrix()
   }, [camera, size.width, size.height])
