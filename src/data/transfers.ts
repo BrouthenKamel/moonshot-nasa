@@ -1,15 +1,17 @@
 import { z } from 'zod'
 
-/** Transfer trajectory options */
+/**
+ * Transfer from the ride's drop-off into the science orbit.
+ * How long it takes and how much delta-v it needs is worked out by the
+ * calculator from the engine, the orbit and the ride.
+ */
 export const TransferSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string(),
-  type: z.enum(['direct', 'low-energy', 'hybrid']),
-  durationTurns: z.number(),
-  deltaVMultiplier: z.number(), // multiplier on ride's requiredDeltaV
+  type: z.enum(['direct', 'low_energy']),
+  durationTurns: z.number(), // nominal for an impulsive engine; electric spirals take longer
   propulsionType: z.enum(['chemical', 'electric', 'any']),
-  riskFactor: z.number(), // 1.0 = normal, higher = riskier
 })
 export type Transfer = z.infer<typeof TransferSchema>
 
@@ -18,34 +20,19 @@ export const transfers: Transfer[] = [
     id: 'transfer-direct',
     name: 'Direct Transfer',
     description:
-      'Fast chemical burn trajectory. Arrives in about 1 turn but uses more fuel.',
+      'Straight to the Moon in about five days, then one big braking burn. Needs a strong chemical engine and a lot of propellant.',
     type: 'direct',
-    durationTurns: 1,
-    deltaVMultiplier: 1.0,
+    durationTurns: 0,
     propulsionType: 'chemical',
-    riskFactor: 1.0,
   },
   {
     id: 'transfer-low-energy',
     name: 'Low-Energy Transfer',
     description:
-      'Weak stability boundary trajectory like Lunar IceCube. Takes 3-4 turns but uses much less fuel.',
-    type: 'low-energy',
+      'A long loop out past the Moon that lets the Sun do most of the braking (CAPSTONE took 4 months). Saves propellant, costs months of running the team. The only way for an ion engine.',
+    type: 'low_energy',
     durationTurns: 4,
-    deltaVMultiplier: 0.4, // WSB transfers need much less delta-v
-    propulsionType: 'electric',
-    riskFactor: 1.2, // slightly riskier due to long duration
-  },
-  {
-    id: 'transfer-hybrid',
-    name: 'Hybrid Spiral',
-    description:
-      'Electric spiral with chemical capture. Moderate duration, efficient fuel use.',
-    type: 'hybrid',
-    durationTurns: 2,
-    deltaVMultiplier: 0.7,
     propulsionType: 'any',
-    riskFactor: 1.1,
   },
 ]
 
@@ -54,10 +41,9 @@ export function isTransferCompatible(
   transfer: Transfer,
   propulsionType: 'electric' | 'chemical' | 'cold-gas'
 ): boolean {
-  if (transfer.propulsionType === 'any') return propulsionType !== 'cold-gas'
-  if (transfer.propulsionType === 'chemical') return propulsionType === 'chemical'
-  if (transfer.propulsionType === 'electric') return propulsionType === 'electric'
-  return false
+  if (transfer.propulsionType === 'any') return true
+  if (transfer.propulsionType === 'chemical') return propulsionType !== 'electric'
+  return propulsionType === transfer.propulsionType
 }
 
 export function getTransferById(id: string): Transfer | undefined {

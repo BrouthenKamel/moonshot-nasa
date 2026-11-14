@@ -1,267 +1,224 @@
 import { getRideById } from '../data/rides'
 import { getTransferById, isTransferCompatible } from '../data/transfers'
-import { getPartById, type PropulsionPart } from '../data/parts'
-import type { Design, Budgets, CheckResult, GoNoGoResult, BarStatus } from './types'
+import { getPartById, type PropulsionPart, type RadioPart } from '../data/parts'
+import { lunarIceMapperBrief, modelConstants as C } from '../data/brief'
+import type { Design, Budgets, CheckResult, GoNoGoResult, BarStatus, DesignStep } from './types'
 
 export type { GoNoGoResult }
 
-/**
- * Determine bar status from margin
- */
-function getStatus(margin: number, greenThreshold: number, yellowThreshold: number): BarStatus {
-  if (margin >= greenThreshold) return 'green'
-  if (margin >= yellowThreshold) return 'yellow'
-  return 'red'
+/** Green with 15% to spare, yellow when it just fits, red when it does not. */
+function band(spareShare: number): BarStatus {
+  return spareShare >= C.greenMargin ? 'green' : spareShare >= 0 ? 'yellow' : 'red'
+}
+
+function check(
+  resource: string,
+  status: BarStatus,
+  value: number,
+  limit: number,
+  unit: string,
+  reason: string,
+  fixStep?: DesignStep
+): CheckResult {
+  return { resource, status, value, limit, margin: limit - value, unit, reason, fixStep: status === 'green' ? undefined : fixStep }
 }
 
 /**
- * Run Go/No-Go checks on a design.
+ * Run Go/No-Go checks on a design. Any red bar blocks the launch; every
+ * yellow and red bar says why in plain words and names the step that fixes it.
  */
 export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
-  const checks: CheckResult[] = []
-
-  // === MASS CHECK ===
-  const massStatus = getStatus(budgets.massMargin, 1.0, 0)
-  checks.push({
-    resource: 'Mass',
-    status: massStatus,
-    value: budgets.totalMass,
-    limit: budgets.massLimit,
-    margin: budgets.massMargin,
-    unit: 'kg',
-    reason:
-      massStatus === 'red'
-        ? `Over mass limit by ${(-budgets.massMargin).toFixed(1)} kg. Remove parts or choose lighter options.`
-        : massStatus === 'yellow'
-          ? 'At mass limit. No margin for growth.'
-          : `${budgets.massMargin.toFixed(1)} kg margin.`,
-    fixStep: massStatus === 'red' ? 'spacecraft' : undefined,
-  })
-
-  // === VOLUME CHECK ===
-  const volumeStatus = getStatus(budgets.volumeMargin, 0.5, 0)
-  checks.push({
-    resource: 'Volume',
-    status: volumeStatus,
-    value: budgets.totalVolume,
-    limit: budgets.volumeLimit,
-    margin: budgets.volumeMargin,
-    unit: 'U',
-    reason:
-      volumeStatus === 'red'
-        ? `Over volume limit by ${(-budgets.volumeMargin).toFixed(1)} U. The spacecraft won't fit in the 6U box.`
-        : volumeStatus === 'yellow'
-          ? 'At volume limit. Tight fit.'
-          : `${budgets.volumeMargin.toFixed(1)} U margin.`,
-    fixStep: volumeStatus === 'red' ? 'spacecraft' : undefined,
-  })
-
-  // === POWER CHECK ===
-  const powerStatus = getStatus(budgets.powerMargin, 5, 0)
-  checks.push({
-    resource: 'Power',
-    status: powerStatus,
-    value: budgets.powerConsumed,
-    limit: budgets.powerGenerated,
-    margin: budgets.powerMargin,
-    unit: 'W',
-    reason:
-      powerStatus === 'red'
-        ? `Power deficit of ${(-budgets.powerMargin).toFixed(0)} W. Add solar panels or reduce instruments.`
-        : powerStatus === 'yellow'
-          ? 'Tight power margin. May struggle in non-optimal sun angles.'
-          : `${budgets.powerMargin.toFixed(0)} W margin.`,
-    fixStep: powerStatus === 'red' ? 'spacecraft' : undefined,
-  })
-
-  // === BUDGET CHECK ===
-  const budgetStatus = getStatus(budgets.budgetMargin, 1.0, 0)
-  checks.push({
-    resource: 'Budget',
-    status: budgetStatus,
-    value: budgets.totalCost,
-    limit: budgets.budgetCap,
-    margin: budgets.budgetMargin,
-    unit: '$M',
-    reason:
-      budgetStatus === 'red'
-        ? `Over budget by $${(-budgets.budgetMargin).toFixed(1)}M. Choose cheaper options or reduce scope.`
-        : budgetStatus === 'yellow'
-          ? 'At budget limit. No reserve for problems.'
-          : `$${budgets.budgetMargin.toFixed(1)}M margin.`,
-    fixStep: budgetStatus === 'red' ? 'planning' : undefined,
-  })
-
-  // === TIME CHECK ===
-  const timeStatus = getStatus(budgets.timeMarginTurns, 1, 0)
-  checks.push({
-    resource: 'Time',
-    status: timeStatus,
-    value: budgets.readyTurn,
-    limit: budgets.rideTurn,
-    margin: budgets.timeMarginTurns,
-    unit: 'turns',
-    reason:
-      timeStatus === 'red'
-        ? `Won't be ready until turn ${budgets.readyTurn}, but ride leaves turn ${budgets.rideTurn}. Reduce build/test time or pick a later ride.`
-        : timeStatus === 'yellow'
-          ? 'Cutting it close. Any delay means missing the ride.'
-          : `Ready ${budgets.timeMarginTurns} turn(s) before ride.`,
-    fixStep: timeStatus === 'red' ? 'planning' : undefined,
-  })
-
-  // === DELTA-V CHECK ===
-  const deltaVStatus = getStatus(budgets.deltaVMargin, 100, 0)
-  checks.push({
-    resource: 'Delta-v',
-    status: deltaVStatus,
-    value: budgets.deltaVTotal,
-    limit: budgets.deltaVAvailable,
-    margin: budgets.deltaVMargin,
-    unit: 'm/s',
-    reason:
-      deltaVStatus === 'red'
-        ? `Need ${budgets.deltaVTotal.toFixed(0)} m/s but only have ${budgets.deltaVAvailable.toFixed(0)} m/s. Choose different propulsion, transfer, or orbit.`
-        : deltaVStatus === 'yellow'
-          ? 'Tight fuel margin. Little room for course corrections.'
-          : `${budgets.deltaVMargin.toFixed(0)} m/s margin.`,
-    fixStep: deltaVStatus === 'red' ? 'ride' : undefined,
-  })
-
-  // === DATA/COMMS CHECK ===
-  const dataStatus = getStatus(budgets.dataMarginPerTurn, 0.5, 0)
-  checks.push({
-    resource: 'Data Link',
-    status: dataStatus,
-    value: budgets.dataPerTurn,
-    limit: budgets.downlinkPerTurn,
-    margin: budgets.dataMarginPerTurn,
-    unit: 'GB/turn',
-    reason:
-      dataStatus === 'red'
-        ? `Generate ${budgets.dataPerTurn.toFixed(1)} GB/turn but can only downlink ${budgets.downlinkPerTurn.toFixed(1)} GB/turn. Data will overflow and be lost.`
-        : dataStatus === 'yellow'
-          ? 'Downlink barely keeps up. Any contact issues will cause data loss.'
-          : `Can downlink ${budgets.dataMarginPerTurn.toFixed(1)} GB/turn more than generated.`,
-    fixStep: dataStatus === 'red' ? 'comms' : undefined,
-  })
-
-  // === COMPATIBILITY CHECKS ===
-
-  // Ride + propulsion compatibility
+  const b = budgets
+  const spare = Math.round(C.greenMargin * 100)
+  const turns = lunarIceMapperBrief.missionDurationTurns
   const ride = getRideById(design.ride)
   const transfer = getTransferById(design.transfer)
   const propulsion = getPartById(design.propulsion) as PropulsionPart | undefined
+  const radio = getPartById(design.radio) as RadioPart | undefined
+  const dataTarget = lunarIceMapperBrief.requirements.find((r) => r.id === 'data')?.target ?? 300
+  const checks: CheckResult[] = []
 
-  if (ride && transfer && propulsion) {
-    const isCompatible = isTransferCompatible(transfer, propulsion.type)
-    if (!isCompatible) {
-      checks.push({
-        resource: 'Propulsion Match',
-        status: 'red',
-        value: 0,
-        limit: 1,
-        margin: -1,
-        unit: '',
-        reason: `${transfer.name} requires ${transfer.propulsionType} propulsion, but you have ${propulsion.type}. Choose a compatible transfer or propulsion.`,
-        fixStep: 'ride',
-      })
-    }
+  // Mass (the ride's limit when it is lower than the brief's 14 kg)
+  let status = band(b.massMargin / b.massLimit)
+  checks.push(
+    check(
+      'Mass',
+      status,
+      b.totalMass,
+      b.massLimit,
+      'kg',
+      status === 'red'
+        ? `The fuelled craft weighs ${b.totalMass.toFixed(1)} kg; ${ride && ride.massLimit < lunarIceMapperBrief.constraints.maxMass ? `this ride takes ${ride.massLimit} kg` : `the limit is ${b.massLimit} kg`}. Choose lighter parts or less propellant.`
+        : status === 'yellow'
+          ? `Less than ${spare}% mass to spare.`
+          : `${b.massMargin.toFixed(1)} kg to spare (propellant included).`,
+      'spacecraft'
+    )
+  )
 
-    // Check ride propulsion compatibility
-    if (propulsion.type === 'electric' && !ride.electricCompatible) {
-      checks.push({
-        resource: 'Ride Compatibility',
-        status: 'red',
-        value: 0,
-        limit: 1,
-        margin: -1,
-        unit: '',
-        reason: `${ride.name} doesn't support electric propulsion. Choose a different ride or propulsion.`,
-        fixStep: 'ride',
-      })
-    }
-    if (propulsion.type === 'chemical' && !ride.chemicalCompatible) {
-      checks.push({
-        resource: 'Ride Compatibility',
-        status: 'red',
-        value: 0,
-        limit: 1,
-        margin: -1,
-        unit: '',
-        reason: `${ride.name} doesn't support chemical propulsion for this trajectory. Choose a different ride or propulsion.`,
-        fixStep: 'ride',
-      })
-    }
+  // Volume
+  status = band(b.volumeMargin / b.volumeLimit)
+  checks.push(
+    check(
+      'Volume',
+      status,
+      b.totalVolume,
+      b.volumeLimit,
+      'U',
+      status === 'red'
+        ? `The parts need ${b.totalVolume.toFixed(2)} U but the box holds ${b.volumeLimit} U. Drop an instrument or the dish, or take a smaller tank.`
+        : status === 'yellow'
+          ? `Less than ${spare}% of the box is spare.`
+          : `${b.volumeMargin.toFixed(1)} U to spare.`,
+      'spacecraft'
+    )
+  )
 
-    // Check mass vs ride limit
-    if (budgets.totalMass > ride.massLimit) {
-      checks.push({
-        resource: 'Ride Mass Limit',
-        status: 'red',
-        value: budgets.totalMass,
-        limit: ride.massLimit,
-        margin: ride.massLimit - budgets.totalMass,
-        unit: 'kg',
-        reason: `Spacecraft (${budgets.totalMass.toFixed(1)} kg) exceeds ride mass limit (${ride.massLimit} kg). Reduce mass or choose a different ride.`,
-        fixStep: 'spacecraft',
-      })
-    }
+  // Time
+  status = b.timeMarginTurns < 0 ? 'red' : b.timeMarginTurns === 0 ? 'yellow' : 'green'
+  checks.push(
+    check(
+      'Time',
+      status,
+      b.readyTurn,
+      b.rideTurn,
+      'turn',
+      status === 'red'
+        ? `Ready on turn ${b.readyTurn} (build effort ${b.buildEffort} points = ${b.buildTurns} turns, plus testing), but the ride leaves on turn ${b.rideTurn}. Test less, choose simpler parts, or take a later ride.`
+        : status === 'yellow'
+          ? 'Ready exactly on the ride turn. One build delay and you miss the ride.'
+          : `Ready ${b.timeMarginTurns} turn(s) before the ride.`,
+      'planning'
+    )
+  )
+
+  // Propulsion, ride and transfer: can the craft get into the science orbit at all?
+  const need = (b.captureDeltaV ?? 0) + b.deltaVStationKeeping * turns
+  let reason = ''
+  let fix: DesignStep = 'spacecraft'
+  if (!propulsion || propulsion.propellantMass <= 0) {
+    status = 'red'
+    reason = 'Without propulsion the craft cannot brake into lunar orbit; it flies past the Moon.'
+  } else if (ride && propulsion.type === 'electric' && !ride.electricCompatible) {
+    status = 'red'
+    reason = `${ride.name} does not suit an ion engine.`
+    fix = 'ride'
+  } else if (ride && propulsion.type !== 'electric' && !ride.chemicalCompatible) {
+    status = 'red'
+    reason = `From ${ride.name} only an ion engine can climb out to the Moon: a chemical tank would need far more than ${ride.extraDeltaV} m/s.`
+    fix = 'ride'
+  } else if (transfer && !isTransferCompatible(transfer, propulsion.type)) {
+    status = 'red'
+    reason = 'An ion engine is too weak to brake on a fast fly-by. Choose the low-energy transfer.'
+    fix = 'ride'
+  } else if (b.captureDeltaV === null) {
+    status = 'red'
+    reason = 'This engine cannot get into the chosen orbit. Choose another orbit or transfer.'
+    fix = 'orbit'
+  } else if (b.thrustLevel === 0) {
+    status = 'red'
+    reason = `The ion engine needs ${propulsion.minThrustPower} W. While thrusting, the array leaves it only ${b.thrustPower.toFixed(0)} W after the bus. Fit the large solar array.`
+  } else if (b.deltaVAvailable < b.captureDeltaV) {
+    status = 'red'
+    reason = `The tank gives ${b.deltaVAvailable.toFixed(0)} m/s; capturing into this orbit needs ${b.captureDeltaV.toFixed(0)}. Carry more propellant, save mass, or change the orbit or transfer.`
+    fix = 'orbit'
+  } else {
+    status = band((b.deltaVAvailable - need) / need)
+    reason =
+      status === 'red'
+        ? `Enough to capture, but not to hold the orbit for ${turns} turns (${b.upkeepTurns} turns of upkeep on board).`
+        : status === 'yellow'
+          ? `Less than ${spare}% delta-v to spare. A weak thruster would end the mission.`
+          : `${(b.deltaVAvailable - need).toFixed(0)} m/s to spare after capture and ${turns} turns of upkeep.`
+    fix = 'orbit'
   }
+  checks.push(check('Delta-v', status, need, b.deltaVAvailable, 'm/s', reason, fix))
 
-  // Check eclipse survival
-  if (budgets.batteryMarginMinutes < 0) {
-    checks.push({
-      resource: 'Eclipse Survival',
-      status: 'red',
-      value: budgets.eclipseDurationMinutes,
-      limit: budgets.batteryCapacity / budgets.eclipsePowerConsumed * 60,
-      margin: budgets.batteryMarginMinutes,
-      unit: 'min',
-      reason: `Battery can't last through ${budgets.eclipseDurationMinutes.toFixed(0)} minute eclipse. Add battery capacity or reduce power draw.`,
-      fixStep: 'spacecraft',
-    })
-  } else if (budgets.batteryMarginMinutes < 10) {
-    checks.push({
-      resource: 'Eclipse Survival',
-      status: 'yellow',
-      value: budgets.eclipseDurationMinutes,
-      limit: budgets.batteryCapacity / budgets.eclipsePowerConsumed * 60,
-      margin: budgets.batteryMarginMinutes,
-      unit: 'min',
-      reason: `Only ${budgets.batteryMarginMinutes.toFixed(0)} minute margin for eclipse. Battery degradation could be problematic.`,
-      fixStep: 'spacecraft',
-    })
+  // Power
+  if (b.scienceDuty <= 0) {
+    status = 'red'
+    reason = `The array makes ${b.powerGenerated} W and the bus alone takes ${b.busPower} W: nothing is left for the instruments. Fit a larger solar array.`
+  } else if (!b.batteryOk) {
+    status = 'red'
+    reason = `Each orbit has an eclipse that needs ${b.batteryNeedWh.toFixed(0)} Wh; the battery gives ${b.batteryUsableWh.toFixed(0)} Wh. Fit a larger battery or choose an orbit with less shadow.`
+  } else if (b.scienceDuty < 1) {
+    status = 'yellow'
+    reason = `Power only lets the instruments run ${Math.round(b.scienceDuty * 100)}% of the time they could.`
+  } else if (!b.batteryLongOk) {
+    status = 'yellow'
+    reason = 'The battery cannot carry the bus through a long eclipse: science stops on those turns.'
+  } else {
+    status = 'green'
+    reason = `Instruments can run all the time; the battery covers the eclipses.`
   }
+  checks.push(check('Power', status, b.powerConsumed, b.powerGenerated, 'W', reason, 'spacecraft'))
 
-  // Check thruster power during electric propulsion
-  if (propulsion?.type === 'electric') {
-    const powerDuringThrust = budgets.powerGenerated - budgets.thrustingPowerConsumed
-    if (powerDuringThrust < budgets.powerConsumed) {
-      checks.push({
-        resource: 'Thrust Power',
-        status: 'yellow',
-        value: budgets.thrustingPowerConsumed + budgets.powerConsumed,
-        limit: budgets.powerGenerated,
-        margin: powerDuringThrust - budgets.powerConsumed,
-        unit: 'W',
-        reason: `During thrusting, power draw (${(budgets.thrustingPowerConsumed + budgets.powerConsumed).toFixed(0)} W) exceeds generation (${budgets.powerGenerated.toFixed(0)} W). Will need to pause instruments while thrusting.`,
-        fixStep: 'spacecraft',
-      })
+  // Comms
+  fix = 'comms'
+  if (b.downlinkPerTurn <= 0) {
+    status = 'red'
+    if (radio && !radio.reachesMoon) reason = 'The UHF radio works in low Earth orbit; it does not reach Earth from the Moon. Choose a deep-space radio.'
+    else if (b.contactHours <= 0) reason = 'No contact time is booked with the ground station.'
+    else {
+      reason = 'No power is left to transmit. Fit a larger solar array.'
+      fix = 'spacecraft'
     }
+  } else if (b.transmitShare < 1) {
+    status = 'yellow'
+    reason = `Power only lets the radio transmit ${Math.round(b.transmitShare * 100)}% of the contact time.`
+    fix = 'spacecraft'
+  } else {
+    status = 'green'
+    reason = `${b.linkKbps} kbps for ${b.contactHours} h a day.`
   }
+  checks.push(check('Comms', status, b.linkKbps, b.linkKbps, 'kbps', reason, fix))
 
-  // Gather blockers and warnings
+  // Data
+  if (b.downlinkPerTurn <= 0 || b.dataPerTurn <= 0) {
+    status = 'red'
+    reason = b.downlinkPerTurn <= 0 ? 'Nothing can be sent home: see Comms.' : 'The instruments make no data: they have no power.'
+  } else if (b.downlinkPerTurn >= b.dataPerTurn * (1 + C.greenMargin)) {
+    status = 'green'
+    reason = `The link carries ${b.downlinkPerTurn.toFixed(0)} MB a turn; the instruments make ${b.dataPerTurn.toFixed(0)}.`
+  } else {
+    status = 'yellow'
+    reason = `The link has less than ${spare}% to spare. What cannot be sent waits in storage (${b.storageCapacity} MB); overflow is lost, and its coverage with it.`
+  }
+  checks.push(check('Data Link', status, b.dataPerTurn, b.downlinkPerTurn, 'MB/turn', reason, 'comms'))
+
+  // Budget
+  if (b.totalCost <= b.spendable) {
+    status = 'green'
+    reason = `${(b.spendable - b.totalCost).toFixed(1)} M to spare, with ${b.reserveAmount.toFixed(1)} M reserve held back.`
+  } else if (b.totalCost <= b.budgetCap) {
+    status = 'yellow'
+    reason = `The plan costs ${b.totalCost.toFixed(1)} M but only ${b.spendable.toFixed(1)} M is spendable: it eats ${(b.totalCost - b.spendable).toFixed(1)} M of the reserve before anything goes wrong.`
+  } else {
+    status = 'red'
+    reason = `The plan costs ${b.totalCost.toFixed(1)} M; the budget is ${b.budgetCap} M. Cheaper parts, a shorter transfer or less ground time bring it down.`
+  }
+  checks.push(check('Budget', status, b.totalCost, b.budgetCap, '$M', reason, 'spacecraft'))
+
+  // Science: never red. A design that cannot meet the brief may still fly.
+  const coverageTarget = 70
+  const enough = b.projectedCoverage >= coverageTarget && b.projectedData >= dataTarget
+  checks.push(
+    check(
+      'Science',
+      enough ? 'green' : 'yellow',
+      b.projectedCoverage,
+      coverageTarget,
+      '% ice',
+      enough
+        ? `Projected ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} clean turns.`
+        : `Even with no bad luck this reaches only ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB (needed: ${coverageTarget}% and ${dataTarget} MB). It may fly, but it cannot fully succeed.`,
+      'instruments'
+    )
+  )
+
   const blockers = checks.filter((c) => c.status === 'red')
   const warnings = checks.filter((c) => c.status === 'yellow')
-  const canGo = blockers.length === 0
-
-  return {
-    canGo,
-    checks,
-    blockers,
-    warnings,
-  }
+  return { canGo: blockers.length === 0, checks, blockers, warnings }
 }
 
 /**

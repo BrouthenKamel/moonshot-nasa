@@ -1,82 +1,60 @@
 import { z } from 'zod'
 
-/** Ground station options */
+/**
+ * Ground stations. Rates are with the patch antenna from lunar distance
+ * (Lunar IceCube: 64 kbps with Morehead's 21 m dish, 128 kbps with a DSN 34 m dish).
+ */
 export const GroundStationSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string(),
+  rateKbps: z.number(), // with a patch antenna at lunar distance
+  contactHoursPerDay: z.number(), // most hours a day you can book
+  defaultHours: z.number(), // hours booked in a new design
+  pricePerHour: z.number(), // $M per turn for each booked hour a day
+  outageChance: z.number(), // chance per turn of losing half the contact time
   setupCost: z.number(), // $M one-time
-  costPerTurn: z.number(), // $M recurring
-  contactHoursPerDay: z.number(),
-  dataRateMultiplier: z.number(), // multiplier on spacecraft radio data rate
-  reliability: z.number(), // 0-1, chance of successful contact each pass
 })
 export type GroundStation = z.infer<typeof GroundStationSchema>
 
 export const groundStations: GroundStation[] = [
   {
     id: 'ground-small',
-    name: 'University Partner Dish',
+    name: "Team's Own Dish (about 4 m)",
     description:
-      'Partnership with university ground station. Low cost but limited contact time and lower data rates.',
-    setupCost: 0.1,
-    costPerTurn: 0.05,
-    contactHoursPerDay: 2,
-    dataRateMultiplier: 0.5,
-    reliability: 0.90,
+      'A small university dish. Cheap and yours all day, but at lunar distance it hears only 2 kbps.',
+    rateKbps: 2,
+    contactHoursPerDay: 6,
+    defaultHours: 6,
+    pricePerHour: 0.01,
+    outageChance: 0.1,
+    setupCost: 0,
   },
   {
     id: 'ground-medium',
-    name: 'Commercial Ground Network',
+    name: 'Partner 21 m Dish',
     description:
-      'Commercial ground station network. Good coverage and data rates at moderate cost.',
-    setupCost: 0.3,
-    costPerTurn: 0.15,
-    contactHoursPerDay: 6,
-    dataRateMultiplier: 1.0,
-    reliability: 0.95,
+      "A partner's large dish, like Morehead State's 21 m antenna that tracked Lunar IceCube. 64 kbps, up to 2 hours a day.",
+    rateKbps: 64,
+    contactHoursPerDay: 2,
+    defaultHours: 1,
+    pricePerHour: 0.03,
+    outageChance: 0.06,
+    setupCost: 0,
   },
   {
     id: 'ground-dsn',
-    name: 'Deep Space Network Time',
+    name: 'Deep Space Network, 34 m',
     description:
-      'Rented time on NASA\'s Deep Space Network. Excellent performance but expensive and limited availability.',
-    setupCost: 0.5,
-    costPerTurn: 0.4,
-    contactHoursPerDay: 4,
-    dataRateMultiplier: 2.0,
-    reliability: 0.99,
+      "NASA's Deep Space Network: 128 kbps and very reliable, but expensive and oversubscribed, so an hour a day at most.",
+    rateKbps: 128,
+    contactHoursPerDay: 1,
+    defaultHours: 1,
+    pricePerHour: 0.15,
+    outageChance: 0.02,
+    setupCost: 0,
   },
 ]
-
-/**
- * Calculate data downlinked per turn
- * @param radioDataRate - kbps from spacecraft radio
- * @param groundStation - selected ground station
- * @param orbitContactMinutes - contact window per orbit from orbit selection
- * @param orbitsPerDay - roughly 12 for a 2-hour lunar orbit
- * @returns GB per turn (30 days)
- */
-export function calculateDownlinkPerTurn(
-  radioDataRate: number,
-  groundStation: GroundStation,
-  orbitContactMinutes: number
-): number {
-  // Assume ~12 orbits per day where Earth is visible, but ground station only available for contactHoursPerDay
-  const effectiveContactHours = Math.min(
-    groundStation.contactHoursPerDay,
-    (orbitContactMinutes / 60) * 12 // max possible based on orbit
-  )
-
-  // Effective data rate
-  const effectiveRateKbps = radioDataRate * groundStation.dataRateMultiplier
-
-  // Data per day in GB
-  const dataPerDayGB = (effectiveRateKbps * effectiveContactHours * 3600) / (8 * 1024 * 1024)
-
-  // Data per turn (30 days), accounting for reliability
-  return dataPerDayGB * 30 * groundStation.reliability
-}
 
 export function getGroundStationById(id: string): GroundStation | undefined {
   return groundStations.find((g) => g.id === id)

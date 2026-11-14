@@ -9,12 +9,6 @@ export function PlanningScreen() {
 
   const budgets = getBudgets()
 
-  const handleBuildTurnsChange = (value: number) => {
-    updateDesign({
-      planning: { ...design.planning, buildTurns: value },
-    })
-  }
-
   const handleTestTurnsChange = (value: number) => {
     updateDesign({
       planning: { ...design.planning, testTurns: value },
@@ -39,36 +33,26 @@ export function PlanningScreen() {
       <div className="rounded-lg bg-slate-900 p-6">
         <h2 className="mb-4 font-semibold text-slate-200">Build Time</h2>
         <p className="mb-4 text-sm text-slate-400">
-          How many turns to spend building the spacecraft. More time allows for complex parts but delays launch.
+          Set by what you build: every part takes build effort, and the team handles 10 points a turn. Simpler parts
+          build faster.
         </p>
-        <div className="flex items-center gap-4">
-          <input
-            type="range"
-            min={turnConstants.minBuildTurns}
-            max={6}
-            value={design.planning.buildTurns}
-            onChange={(e) => handleBuildTurnsChange(Number(e.target.value))}
-            className="flex-1"
-          />
-          <span className="w-24 text-right text-lg font-bold text-blue-400">
-            {design.planning.buildTurns} turns
-          </span>
-        </div>
-        <div className="mt-2 text-xs text-slate-500">
-          Minimum: {turnConstants.minBuildTurns} turns
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-slate-400">Build effort of your design: {budgets.buildEffort} points</span>
+          <span className="w-24 text-right text-lg font-bold text-blue-400">{budgets.buildTurns} turns</span>
         </div>
       </div>
 
       <div className="rounded-lg bg-slate-900 p-6">
         <h2 className="mb-4 font-semibold text-slate-200">Test Time</h2>
         <p className="mb-4 text-sm text-slate-400">
-          How many turns to spend testing before launch. More testing reduces failure odds during the mission.
+          Turns of testing before launch. Testing costs time and money, but everything that can go wrong in flight
+          becomes less likely.
         </p>
         <div className="flex items-center gap-4">
           <input
             type="range"
             min={turnConstants.minTestTurns}
-            max={3}
+            max={turnConstants.maxTestTurns}
             value={design.planning.testTurns}
             onChange={(e) => handleTestTurnsChange(Number(e.target.value))}
             className="flex-1"
@@ -78,21 +62,22 @@ export function PlanningScreen() {
           </span>
         </div>
         <div className="mt-2 flex justify-between text-xs text-slate-500">
-          <span>Minimum: {turnConstants.minTestTurns} turn</span>
-          <span>Reliability bonus: +{Math.min(design.planning.testTurns * 2, 5)}%</span>
+          <span>0.4 M per test turn</span>
+          <span>Failure odds in flight: x{budgets.testFactor}</span>
         </div>
       </div>
 
       <div className="rounded-lg bg-slate-900 p-6">
         <h2 className="mb-4 font-semibold text-slate-200">Budget Reserve</h2>
         <p className="mb-4 text-sm text-slate-400">
-          Percentage of budget held back for contingencies. Without reserve, problems during the mission can't be addressed.
+          Share of the budget held back for surprises. It pays for fixes in flight, and covers running costs once the
+          main budget is spent. Overdraw it and the mission fails the budget requirement.
         </p>
         <div className="flex items-center gap-4">
           <input
             type="range"
             min={0}
-            max={25}
+            max={20}
             step={5}
             value={design.planning.reservePercent}
             onChange={(e) => handleReserveChange(Number(e.target.value))}
@@ -111,8 +96,8 @@ export function PlanningScreen() {
       <div className="rounded-lg bg-yellow-950 p-4 text-sm">
         <div className="font-medium text-yellow-300">Timeline Summary</div>
         <div className="mt-2 text-yellow-200">
-          Ready on turn {budgets.readyTurn} (build {design.planning.buildTurns} + test {design.planning.testTurns}).
-          Ride leaves turn {budgets.rideTurn}.
+          Ready on turn {budgets.readyTurn} (design 1 + build {budgets.buildTurns} + test {design.planning.testTurns} +
+          fitting 1). Ride leaves turn {budgets.rideTurn}.
           {budgets.timeMarginTurns >= 0 ? (
             <span className="text-green-400"> {budgets.timeMarginTurns} turn(s) margin.</span>
           ) : (

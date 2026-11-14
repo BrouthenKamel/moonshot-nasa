@@ -1,4 +1,5 @@
 import { useGameStore } from '../../state/gameStore'
+import { DesignDiagramPanel } from '../../viz/DesignDiagramPanel'
 import {
   BriefScreen,
   PlanningScreen,
@@ -10,9 +11,7 @@ import {
   GoNoGoScreen,
 } from '../steps'
 
-export function DesignScreen() {
-  const designStep = useGameStore((s) => s.designStep)
-
+function StepScreen({ designStep }: { designStep: string }) {
   switch (designStep) {
     case 'brief':
       return <BriefScreen />
@@ -33,4 +32,15 @@ export function DesignScreen() {
     default:
       return <BriefScreen />
   }
+}
+
+export function DesignScreen() {
+  const designStep = useGameStore((s) => s.designStep)
+
+  return (
+    <>
+      <DesignDiagramPanel step={designStep} />
+      <StepScreen designStep={designStep} />
+    </>
+  )
 }

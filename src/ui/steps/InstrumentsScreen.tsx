@@ -42,7 +42,7 @@ function InstrumentCard({
         </div>
         <div className="rounded bg-slate-900 p-2 text-center">
           <div className="text-slate-500">Data</div>
-          <div className="font-bold text-slate-300">{instrument.dataPerTurn} GB/turn</div>
+          <div className="font-bold text-slate-300">{instrument.dataPerTurn} MB/turn</div>
         </div>
         <div className="rounded bg-slate-900 p-2 text-center">
           <div className="text-slate-500">Cost</div>
@@ -50,10 +50,15 @@ function InstrumentCard({
         </div>
       </div>
 
-      <div className="mt-2 flex items-center gap-4 text-xs text-slate-500">
-        <span>Science value: {instrument.scienceValue}/10</span>
-        <span>Pointing: {instrument.requiredPointingAccuracy}deg</span>
-        {instrument.eclipseSafe && <span className="text-green-500">Eclipse safe</span>}
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+        {instrument.seesShadow ? (
+          <span className="font-medium text-green-400">Sees into shadowed craters</span>
+        ) : (
+          <span className="font-medium text-orange-400">Needs sunlight: cannot map the ice in shadow</span>
+        )}
+        <span>Works {instrument.maxAltitudeKm === null ? 'at any altitude' : `below ${instrument.maxAltitudeKm} km`}</span>
+        <span>{instrument.volume} U</span>
+        <span>Like {instrument.flownOn}</span>
       </div>
     </button>
   )
@@ -69,7 +74,8 @@ export function InstrumentsScreen() {
     if (current.includes(id)) {
       updateDesign({ instruments: current.filter((i) => i !== id) })
     } else {
-      updateDesign({ instruments: [...current, id] })
+      // At most two instruments fit next to the bus: the oldest choice makes room
+      updateDesign({ instruments: [...current, id].slice(-2) })
     }
   }
 
@@ -90,7 +96,8 @@ export function InstrumentsScreen() {
       <div className="rounded-lg bg-slate-900 p-6">
         <h1 className="text-xl font-bold text-green-400">2. Instrument Selection</h1>
         <p className="mt-2 text-slate-400">
-          Choose your science instruments. More instruments mean more science but also more mass, power, and data to downlink.
+          The science question decides the instrument: the ice sits in craters that never see the Sun. Pick one or two.
+          Each one costs mass, volume, power and money, and makes data that has to get home.
         </p>
       </div>
 
@@ -105,7 +112,7 @@ export function InstrumentsScreen() {
           </div>
           <div>
             <span className="text-green-400">{totalPower}</span> W |{' '}
-            <span className="text-green-400">{totalData.toFixed(1)}</span> GB/turn
+            <span className="text-green-400">{totalData.toFixed(0)}</span> MB/turn
           </div>
         </div>
       </div>

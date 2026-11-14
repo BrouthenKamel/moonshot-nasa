@@ -24,29 +24,40 @@ pnpm dev        # http://localhost:5173
 ### The Mission
 You are designing the **Lunar Ice Mapper** - a 6U CubeSat mission to detect and map water ice in permanently shadowed craters at the Moon's south pole.
 
+### The Diagram and Replay
+Each design step shows a live CubeSat cutaway that updates as you choose, a mission strip tracking where the choice sits in the mission, and a "what this choice changed" line summarising its effect on your resources. After a run, the turn replay gives you a scrubber over every turn with the events and numbers for each one, and you can reopen replays of past runs from Run History.
+
 ### The Challenge
 Balance six interconnected resources (mass, power, budget, delta-v, data, time) to:
-- Capture into lunar polar orbit
-- Cover 70%+ of the south polar region
-- Return 10+ GB of science data
+- Capture into lunar polar orbit with your own propulsion
+- Map 70%+ of the south polar region with an instrument that sees into shadow (coverage counts once its data is home)
+- Return 300 MB of science data
 - Operate for 12 months
-- Stay within budget
+- Never overdraw your reserve
+
+The game starts from a Lunar IceCube-like design. It can fly, but its IR spectrometer cannot see into the shadowed craters: finding out why, and fixing it, is the first lesson.
 
 ### The Process
-1. **Planning** - Set your build/test timeline and budget reserve
-2. **Instruments** - Choose science instruments (IR spectrometer, laser reflectometer, camera, neutron detector)
-3. **Spacecraft** - Configure solar panels, battery, computer, attitude control, propulsion
-4. **Orbit** - Select lunar orbit altitude (trade resolution vs fuel cost)
-5. **Ride & Transfer** - Pick rideshare launch and transfer trajectory
-6. **Communications** - Set up radio and ground station for data downlink
-7. **Go/No-Go** - Review all systems before launch
+1. **Planning** - Testing and budget reserve; build time follows from the parts you choose
+2. **Instruments** - One or two of: IR spectrometer, laser reflectometer, camera, neutron spectrometer
+3. **Spacecraft** - Solar array, battery, computer, attitude control, propulsion
+4. **Orbit** - Halo loop, elliptical polar or low circular polar orbit
+5. **Ride & Transfer** - Rideshare launch and transfer trajectory
+6. **Communications** - Radio, ground station and contact hours
+7. **Go/No-Go** - Nine bars; every red one says why and which step fixes it
+8. **Flight** - The mission flies itself and stops on event cards that need a decision (lost signal, weak thruster, build delay)
+9. **Report** - Each requirement met or missed, with the chain of decisions and events behind every miss
 
 Every choice affects other systems - more instruments need more power, which needs bigger solar panels, which adds mass, which needs more fuel!
 
+### The Model
+All numbers and formulas follow the Lunar Ice Mapper logic map (`prototype/reference/core-loop-logic-map.md` on branch `python-core-logic`), where each value is tagged as sourced from a real mission or NASA document, derived, or a game value. The catalogue is in `src/data`, the maths in `src/sim` (`budgets.ts` is the one calculator behind every meter, check and flight turn). `src/sim/model.test.ts` checks the real-mission anchors, for example 858 m/s to enter a 100 km orbit directly (LRO: 854) and an 84% full-success rate for a Lunar Flashlight-like design.
+
 ### Difficulty Levels
-- **Cadet**: $20M budget, 8 GB target, fewer events, full explanations
-- **Engineer**: $16M budget, 10 GB target, normal events
-- **Flight Director**: $13M budget, 12 GB target, frequent events
+- **Cadet**: $28M budget, half the bad luck, full explanations
+- **Engineer**: $25M budget (about what Lunar IceCube cost), normal events
+- **Flight Director**: $22M budget, 1.5x the bad luck
+All three require 300 MB of science data.
 
 ### Team Mode (Optional)
 Up to 4 players take roles (Ground, Science, Space, Launch). Each step shows whose turn it is, and Go/No-Go requires sign-off from all roles.

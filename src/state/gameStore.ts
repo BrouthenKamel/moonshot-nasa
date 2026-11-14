@@ -1,6 +1,8 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
+import { createSafeStorage, skipUnchangedWrites } from './safeStorage'
 import type { Difficulty } from '../data/brief'
+import type { Budgets } from '../sim/types'
 import type {
   Design,
   DesignStep,
@@ -8,13 +10,14 @@ import type {
   TurnAction,
   Report,
   RunHistoryEntry,
+  RunRecord,
   GameMode,
   Player,
   SignOff,
 } from '../sim/types'
 import { createDefaultDesign, computeBudgets } from '../sim/budgets'
 import { goNoGo, type GoNoGoResult } from '../sim/checks'
-import { initSim, stepTurn, getDefaultAction, isSimComplete } from '../sim/simulate'
+import { initSim, stepTurn, flyUntilDecision, getDefaultAction, isSimComplete } from '../sim/simulate'
 import { buildReport } from '../sim/evaluate'
 import { generateSeed } from '../sim/rng'
 
@@ -26,6 +29,7 @@ export type Screen =
   | 'design'
   | 'simulation'
   | 'report'
+  | 'replay'
 
 /** Game state */
 export interface GameState {
@@ -52,6 +56,11 @@ export interface GameState {
   // Team mode
   signOffs: SignOff[]
 
+  // Visualiser
+  previousBudgets: Budgets | null
+  replayTurn: number
+  replayEntryId: string | null
+
   // Actions
   setScreen: (screen: Screen) => void
   setDesignStep: (step: DesignStep) => void
@@ -61,6 +70,11 @@ export interface GameState {
   updateDesign: (updates: Partial<Design>) => void
   resetDesign: () => void
 
+  // Visualiser actions
+  setReplayTurn: (n: number) => void
+  openReplay: (entryId?: string) => void
+  showReport: () => void
+
   // Computed
   getBudgets: () => ReturnType<typeof computeBudgets>
   getGoNoGo: () => GoNoGoResult
@@ -68,6 +82,9 @@ export interface GameState {
   // Simulation actions
   startSimulation: () => void
   advanceTurn: (action?: TurnAction) => void
+  flyOn: () => void // fly until the mission ends or an event card needs the player
+  answerEvent: (choiceId: string) => void // answer the waiting event card and finish that turn
+  applyFlight: (newState: SimState) => void // store a new flight state; saves the run when it ends
   setAction: (action: Partial<TurnAction>) => void
 
   // Team mode actions
@@ -75,7 +92,7 @@ export interface GameState {
   resetSignOffs: () => void
 
   // History
-  saveToHistory: (report: Report) => void
+  saveToHistory: (report: Report, run?: RunRecord) => void
   clearHistory: () => void
   loadDesignFromHistory: (id: string) => void
 
@@ -88,6 +105,25 @@ export interface GameState {
 
   /** Start planning a fresh Lunar Ice Mapper mission from the agency base */
   startNewMission: () => void
+}
+
+/** localStorage if present (browser), otherwise an in-memory fallback (Node/tests) */
+function getBaseStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
+  try {
+    if (typeof localStorage !== 'undefined') return localStorage
+  } catch {
+    // access can throw when site data is blocked
+  }
+  const mem = new Map<string, string>()
+  return {
+    getItem: (k) => mem.get(k) ?? null,
+    setItem: (k, v) => void mem.set(k, v),
+    removeItem: (k) => void mem.delete(k),
+  }
+}
+
+function lastTurnIndex(logs: { length: number } | undefined): number {
+  return Math.max(0, (logs?.length ?? 0) - 1)
 }
 
 /** Encode design to a short shareable string */
@@ -106,6 +142,7 @@ function encodeDesign(design: Design): string {
     ri: design.ride,
     t: design.transfer,
     g: design.groundStation,
+    h: design.contactHours,
   }
   return btoa(JSON.stringify(data))
 }
@@ -128,6 +165,7 @@ function decodeDesign(code: string): Design | null {
       ride: data.ri,
       transfer: data.t,
       groundStation: data.g,
+      contactHours: data.h,
     }
   } catch {
     return null
@@ -149,10 +187,47 @@ export const useGameStore = create<GameState>()(
       currentReport: null,
       runHistory: [],
       signOffs: [],
+      previousBudgets: null,
+      replayTurn: 0,
+      replayEntryId: null,
 
       // Navigation
       setScreen: (screen) => set({ screen }),
-      setDesignStep: (designStep) => set({ designStep }),
+      setDesignStep: (designStep) =>
+        set({ designStep, previousBudgets: null, replayTurn: 0 }),
+
+      // Visualiser
+      setReplayTurn: (n) =>
+        set((state) => {
+          const logs = state.replayEntryId
+            ? state.runHistory.find((r) => r.id === state.replayEntryId)?.run?.turnLogs
+            : state.simState?.turnLogs
+          const max = lastTurnIndex(logs)
+          const clamped = Number.isFinite(n) ? Math.min(max, Math.max(0, Math.round(n))) : 0
+          return { replayTurn: clamped }
+        }),
+
+      openReplay: (entryId) => {
+        const { runHistory, simState } = get()
+        if (entryId) {
+          const run = runHistory.find((r) => r.id === entryId)?.run
+          if (!run) return
+          set({
+            replayEntryId: entryId,
+            replayTurn: lastTurnIndex(run.turnLogs),
+            screen: 'replay',
+          })
+          return
+        }
+        if (!simState) return
+        set({
+          replayEntryId: null,
+          replayTurn: lastTurnIndex(simState.turnLogs),
+          screen: 'replay',
+        })
+      },
+
+      showReport: () => set({ screen: 'report' }),
 
       // Configuration
       setDifficulty: (difficulty) => set({ difficulty }),
@@ -162,10 +237,12 @@ export const useGameStore = create<GameState>()(
       // Design
       updateDesign: (updates) =>
         set((state) => ({
+          previousBudgets: computeBudgets(state.design, state.difficulty),
           design: { ...state.design, ...updates },
         })),
 
-      resetDesign: () => set({ design: createDefaultDesign() }),
+      resetDesign: () =>
+        set({ design: createDefaultDesign(), previousBudgets: null, replayTurn: 0 }),
 
       // Computed values
       getBudgets: () => {
@@ -186,6 +263,8 @@ export const useGameStore = create<GameState>()(
         const simState = initSim(design, difficulty, seed)
         set({
           simState,
+          replayEntryId: null,
+          replayTurn: 0,
           screen: 'simulation',
           pendingAction: getDefaultAction(),
         })
@@ -194,18 +273,39 @@ export const useGameStore = create<GameState>()(
       advanceTurn: (action) => {
         const { simState, pendingAction } = get()
         if (!simState || isSimComplete(simState)) return
+        get().applyFlight(stepTurn(simState, action ?? pendingAction))
+      },
 
-        const newState = stepTurn(simState, action ?? pendingAction)
+      flyOn: () => {
+        const { simState, pendingAction } = get()
+        if (!simState || isSimComplete(simState) || simState.pendingDecision) return
+        get().applyFlight(flyUntilDecision(simState, pendingAction))
+      },
+
+      answerEvent: (choiceId) => {
+        const { simState, pendingAction } = get()
+        const decision = simState?.pendingDecision
+        if (!simState || !decision) return
+        const action = { ...pendingAction, choices: { ...pendingAction.choices, [decision.key]: choiceId } }
+        get().applyFlight(stepTurn(simState, action))
+      },
+
+      applyFlight: (newState) => {
         set({
           simState: newState,
           pendingAction: getDefaultAction(),
+          replayTurn: lastTurnIndex(newState.turnLogs),
         })
 
-        // Check if simulation complete
+        // Run ended: save it, but stay on the simulation screen so the player sees the last turn
         if (isSimComplete(newState)) {
           const report = buildReport(newState)
-          set({ currentReport: report, screen: 'report' })
-          get().saveToHistory(report)
+          get().saveToHistory(report, {
+            seed: newState.seed,
+            turnLogs: newState.turnLogs,
+            allEvents: newState.allEvents,
+          })
+          set({ currentReport: report })
         }
       },
 
@@ -237,10 +337,10 @@ export const useGameStore = create<GameState>()(
       resetSignOffs: () => set({ signOffs: [] }),
 
       // History
-      saveToHistory: (report) =>
+      saveToHistory: (report, run) =>
         set((state) => ({
           runHistory: [
-            { id: crypto.randomUUID(), report },
+            { id: crypto.randomUUID(), report, ...(run ? { run } : {}) },
             ...state.runHistory.slice(0, 19), // Keep last 20
           ],
         })),
@@ -256,6 +356,8 @@ export const useGameStore = create<GameState>()(
             difficulty: entry.report.difficulty,
             screen: 'design',
             designStep: 'brief',
+            previousBudgets: null,
+            replayTurn: 0,
           })
         }
       },
@@ -269,7 +371,7 @@ export const useGameStore = create<GameState>()(
       importDesignCode: (code) => {
         const design = decodeDesign(code)
         if (design) {
-          set({ design })
+          set({ design, previousBudgets: null, replayTurn: 0 })
           return true
         }
         return false
@@ -285,6 +387,9 @@ export const useGameStore = create<GameState>()(
           currentReport: null,
           signOffs: [],
           pendingAction: getDefaultAction(),
+          previousBudgets: null,
+          replayTurn: 0,
+          replayEntryId: null,
         }),
 
       startNewMission: () =>
@@ -300,6 +405,7 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: 'moonshot-game-storage',
+      storage: skipUnchangedWrites(createJSONStorage(() => createSafeStorage(getBaseStorage()) as StateStorage)!) as never,
       partialize: (state) => ({
         difficulty: state.difficulty,
         mode: state.mode,

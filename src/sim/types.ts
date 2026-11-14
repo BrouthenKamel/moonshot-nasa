@@ -23,9 +23,9 @@ export type DesignStep =
 
 /** Planning choices from step 1 */
 export interface PlanningChoices {
-  buildTurns: number // turns for build phase
-  testTurns: number // turns for testing
-  reservePercent: number // % budget held in reserve
+  buildTurns: number // kept for saved designs; build time now follows from the parts (Budgets.buildTurns)
+  testTurns: number // turns for testing (0 to 3)
+  reservePercent: number // % of the budget held back for surprises
 }
 
 /** Complete spacecraft design (steps 1-6) */
@@ -54,6 +54,7 @@ export interface Design {
 
   // Step 6: Communications
   groundStation: string
+  contactHours?: number // hours a day booked on the ground station; the station's default if missing
 }
 
 /** Computed resource budgets from design */
@@ -108,14 +109,49 @@ export interface Budgets {
   deltaVMargin: number // m/s remaining
 
   // Data
-  dataPerTurn: number // GB generated per turn by instruments
-  downlinkPerTurn: number // GB that can be sent home per turn
-  storageCapacity: number // GB onboard storage
-  dataMarginPerTurn: number // GB/turn surplus (downlink - generated)
+  dataPerTurn: number // MB made per turn by the instruments at the power available
+  downlinkPerTurn: number // MB that can be sent home per turn
+  storageCapacity: number // MB onboard storage
+  dataMarginPerTurn: number // MB/turn surplus (downlink - generated)
 
-  // Reliability
+  // Reliability (shown only)
   overallReliability: number // combined reliability 0-1
   testingBonus: number // reliability improvement from testing
+
+  // Lunar Ice Mapper model (see src/sim/budgets.ts)
+  dryMass: number // kg without propellant
+  propellantMass: number // kg
+  buildEffort: number // points; 10 a turn
+  testFactor: number // multiplies the odds of things going wrong in flight
+  spendable: number // $M: budget minus reserve
+  busPower: number // W: computer, pointing, radio listening, heater
+  instrumentPower: number // W with every instrument on
+  transmitExtraPower: number // W the radio adds while transmitting
+  scienceDuty: number // 0-1 share of the time the instruments can run
+  transmitShare: number // 0-1 share of the contact time the radio can transmit
+  batteryUsableWh: number
+  batteryNeedWh: number // Wh to get through one eclipse
+  batteryOk: boolean
+  batteryLongOk: boolean // survives a 3-hour long eclipse on the bus alone
+  captureDeltaV: number | null // m/s from the drop-off into orbit (ride extra included); null = impossible
+  thrustPower: number // W left for an electric engine while thrusting
+  thrustLevel: number // 0-1 share of nominal thrust
+  transferTurns: number | null // turns from launch to capture; null = cannot get there
+  arrivalTurn: number | null
+  deltaVAfterCapture: number
+  upkeepTurns: number // turns of holding the orbit the propellant allows after capture
+  linkKbps: number
+  contactHours: number
+  opsCostPerTurn: number // $M per turn in orbit
+  transferCostPerTurn: number // $M per turn of transfer
+  costPrelaunch: number // $M
+  quality: Record<string, number> // per instrument, 0-1
+  coverageRate: Record<string, number> // per instrument: share of the unmapped region observed per turn
+  projectedCoverage: number // % ice coverage after 12 clean turns
+  projectedData: number // MB science data after 12 clean turns
+  projectedContext: number
+  projectedOutreach: number
+  projectedLost: number
 }
 
 /** Resource bar status */
@@ -150,13 +186,25 @@ export interface TurnAction {
   buyExtraPass: boolean // spend money for extra DSN pass
   eventChoice?: string // ID of chosen response to event
   useReserve: boolean // spend reserve on event fix
+  choices?: Partial<Record<EventType, string>> // answers to event cards, by event
+  autoDecide?: boolean // answer every event card with its first option (standing orders)
+}
+
+/** An event card that waits for the player */
+export interface Decision {
+  key: EventType
+  title: string
+  text: string
+  options: { id: string; label: string }[]
+  realMission?: string
+  turn: number
 }
 
 /** Event that occurred during a turn */
 export interface TurnEvent {
   eventId: EventType
   turn: number
-  phase: 'transfer' | 'capture' | 'orbit'
+  phase: 'build' | 'launch' | 'transfer' | 'capture' | 'orbit'
   choiceId?: string
   choiceSucceeded?: boolean
   impact: {
@@ -215,6 +263,59 @@ export interface SimState {
   // History
   turnLogs: TurnLog[]
   allEvents: TurnEvent[]
+
+  // Event card waiting for the player; the turn is replayed with the same dice once answered
+  pendingDecision?: Decision
+
+  // Internal flight state of the Lunar Ice Mapper model
+  flight: FlightState
+}
+
+/** Science bookkeeping per instrument */
+export interface ScienceState {
+  observed: Record<string, number> // % of the region observed
+  waiting: Record<string, number> // % observed but still on board
+  mapped: Record<string, number> // % whose data is home
+  storedBy: Record<string, number> // MB on board per instrument
+  returned: Record<string, number> // MB home per instrument
+  stored: number
+  lost: number
+}
+
+export type FlightCounter =
+  | 'build-delay'
+  | 'radiation-reset'
+  | 'station-outage'
+  | 'long-eclipse'
+  | 'instrument-degrades'
+  | 'thruster'
+  | 'tests-cut'
+
+export interface FlightState {
+  main: number // $M main budget left
+  reserve: number // $M reserve left; below 0 = overdrawn
+  dvLeft: number
+  transferLeft: number | null
+  launchTurn: number
+  stages: { design: number; build: number; test: number; integration: number }
+  testTurns: number
+  testFactor: number
+  missedRides: number
+  scienceTurns: number
+  scienceFactor: number
+  thrusterOk: boolean
+  launchedTurn: number | null
+  captureTurn: number | null
+  captured: boolean
+  alive: boolean
+  done: boolean
+  end: string
+  counts: Record<FlightCounter, number>
+  science: ScienceState
+  coverage: number // % ice coverage mapped (data home)
+  data: number // MB science data home
+  context: number
+  outreach: number
 }
 
 /** Requirement check in final report */
@@ -227,15 +328,17 @@ export interface RequirementResult {
   unit: string
   reason: string
   traceToDecision?: string // which design choice caused this
+  causes: string[] // for a miss: the chain walked back to the decisions and events behind it
 }
 
-/** Score breakdown */
+/** Score breakdown (out of 1000) */
 export interface ScoreBreakdown {
-  requirements: number // out of 600
-  science: number // out of 200
-  efficiency: number // out of 100
-  riskHandling: number // out of 100
-  total: number // out of 1000
+  coverage: number // out of 400
+  data: number // out of 250
+  lifetime: number // out of 150
+  context: number // out of 100: sunlit-ground mapping by the IR spectrometer
+  money: number // out of 100: money left
+  total: number
 }
 
 /** What to change hints */
@@ -262,6 +365,7 @@ export interface Report {
   // Stats
   totalCost: number
   dataReturned: number
+  outreachReturned: number // MB of camera pictures home (not science)
   coverageAchieved: number
   turnsInOrbit: number
   eventsEncountered: number
@@ -284,6 +388,14 @@ export interface Report {
 export interface RunHistoryEntry {
   id: string
   report: Report
+  run?: RunRecord
+}
+
+/** Stored run data so a finished run can be replayed */
+export interface RunRecord {
+  seed: number
+  turnLogs: TurnLog[]
+  allEvents: TurnEvent[]
 }
 
 /** Game mode */
