@@ -8,6 +8,7 @@ import { difficultyPresets } from './data/brief'
 import { EventCard } from './ui/flight/EventCard'
 import { FlightControls } from './ui/flight/FlightControls'
 import { FixItPanel, RelaunchButton } from './ui/report/FixItPanel'
+import { Narrator } from './ui/narrator/Narrator'
 
 const PHASE_TEXT: Record<string, string> = {
   build: 'Building',
@@ -323,6 +324,7 @@ export default function App() {
     return (
       <main className="h-screen text-slate-100">
         <BaseScreen />
+        <Narrator />
       </main>
     )
   }
@@ -347,5 +349,11 @@ export default function App() {
       content = <div>Unknown screen</div>
   }
 
-  return <Shell>{content}</Shell>
+  return (
+    <>
+      <Shell>{content}</Shell>
+      {/* The mission mentor, over every screen; it never blocks play */}
+      <Narrator />
+    </>
+  )
 }

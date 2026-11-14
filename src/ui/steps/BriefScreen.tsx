@@ -14,6 +14,13 @@ export function BriefScreen() {
         <p className="mt-2 text-slate-300">{brief.description}</p>
       </div>
 
+      {/* I5a: the starting IR spectrometer cannot see into the shadowed craters; send new players to the lesson first */}
+      <div className="rounded-lg border border-green-500/40 bg-green-950/40 p-4" data-testid="brief-first-stop">
+        <p className="text-sm text-green-200">
+          <span className="font-semibold">Your first stop: the Research Lab.</span> Check whether your instrument can see into the dark craters.
+        </p>
+      </div>
+
       <div className="rounded-lg bg-slate-900 p-6">
         <h2 className="mb-4 font-semibold text-slate-200">Mission Objective</h2>
         <p className="text-slate-400">{brief.objective}</p>
