@@ -258,12 +258,15 @@ export function buildReport(state: SimState): Report {
       : `${ending.charAt(0).toUpperCase() + ending.slice(1)}. Missed: ${missed.join(', ')}.`
 
   // Score (out of 1000)
+  // Data and lifetime only count for as much ice as they mapped: a craft that finds
+  // no ice earns little for them (Jakob, 14 Nov)
   const w = scoreWeights
+  const iceShare = Math.min(1, f.coverage / COVERAGE_TARGET)
   const parts = f.captured
     ? {
-        coverage: w.coverage * Math.min(1, f.coverage / COVERAGE_TARGET),
-        data: w.data * Math.min(1, f.data / dataTarget),
-        lifetime: w.lifetime * Math.min(1, f.scienceTurns / turnsNeeded),
+        coverage: w.coverage * iceShare,
+        data: w.data * Math.min(1, f.data / dataTarget) * iceShare,
+        lifetime: w.lifetime * Math.min(1, f.scienceTurns / turnsNeeded) * iceShare,
         context: w.context * Math.min(1, f.context / COVERAGE_TARGET),
         money: (w.money * Math.max(0, moneyLeft)) / b.budgetCap,
       }

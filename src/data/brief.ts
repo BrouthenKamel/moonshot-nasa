@@ -178,6 +178,7 @@ export const modelConstants = {
   courseCorrectionLowEnergy: 50, // G, m/s
   longEclipseHours: 3, // G
   greenMargin: 0.15, // G, CubeSat 101: at least 10% reserve
+  massGreenMargin: 0.08, // mass only: at 15% nearly every design warned (playtest, 14 Nov)
   electricNavCost: 0.1, // G, $M per turn of electric transfer
   extensionMaxTurns: 12, // G
   progressMinCoverage: 0.5, // percentage points per turn

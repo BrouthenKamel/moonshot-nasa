@@ -1,4 +1,5 @@
 import { useGameStore } from '../../state/gameStore'
+import { missionClockLabel } from '../../viz/missionMap'
 
 /** The event card that waits for the player's decision during the flight */
 export function EventCard() {
@@ -8,7 +9,7 @@ export function EventCard() {
   if (!decision || !flight) return null
   return (
     <div className="rounded-lg border-2 border-yellow-500 bg-yellow-950/90 p-5 shadow-2xl">
-      <div className="text-xs font-semibold uppercase tracking-wide text-yellow-400">Event, turn {decision.turn}</div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-yellow-400">Event, {missionClockLabel(decision.turn)}</div>
       <div className="mt-1 text-lg font-bold text-yellow-200">{decision.title}</div>
       <div className="mt-2 text-sm text-slate-200">{decision.text}</div>
       {decision.realMission && <div className="mt-1 text-xs text-slate-400">Real mission: {decision.realMission}</div>}

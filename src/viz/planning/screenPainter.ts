@@ -195,8 +195,9 @@ function paintBudget(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
     ctx.fillStyle = '#4ade80'
     ctx.fillText(`${money(view.budgetGap)} free`, LX, stateY)
   } else if (view.budgetState === 'eating') {
-    ctx.fillStyle = '#fbbf24'
-    ctx.fillText(`eats ${money(view.budgetGap)}`, LX, stateY)
+    // The reserve is locked: reaching into it blocks the launch
+    ctx.fillStyle = '#f87171'
+    ctx.fillText(`${money(view.budgetGap)} into reserve`, LX, stateY)
   } else {
     ctx.fillStyle = '#f87171'
     ctx.fillText(`${money(view.budgetGap)} OVER`, LX, stateY)

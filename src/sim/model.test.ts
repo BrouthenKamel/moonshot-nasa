@@ -147,8 +147,9 @@ describe('flight', () => {
     expect(flashlight.fail).toBeLessThan(0.06)
     const icecube = rates(iceCubeDesign) // logic map: 0 / 84 / 15
     expect(icecube.full).toBe(0)
-    expect(icecube.partial).toBeGreaterThan(0.75)
-  })
+    // Starts with no reserve since the reserve line became a hard limit (14 Nov), so unpaid fixes lose a few more
+    expect(icecube.partial).toBeGreaterThan(0.7)
+  }, 20_000) // 3000 simulated missions
 
   it('pauses on an event card and replays the turn with the same dice once answered', () => {
     let found: SimState | null = null

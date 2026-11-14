@@ -6,9 +6,9 @@ import type { Design, Budgets, CheckResult, GoNoGoResult, BarStatus, DesignStep 
 
 export type { GoNoGoResult }
 
-/** Green with 15% to spare, yellow when it just fits, red when it does not. */
-function band(spareShare: number): BarStatus {
-  return spareShare >= C.greenMargin ? 'green' : spareShare >= 0 ? 'yellow' : 'red'
+/** Green with 15% to spare (or the given share), yellow when it just fits, red when it does not. */
+function band(spareShare: number, green = C.greenMargin): BarStatus {
+  return spareShare >= green ? 'green' : spareShare >= 0 ? 'yellow' : 'red'
 }
 
 function check(
@@ -39,7 +39,8 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
   const checks: CheckResult[] = []
 
   // Mass (the ride's limit when it is lower than the brief's 14 kg)
-  let status = band(b.massMargin / b.massLimit)
+  // Mass warns below 8% spare: at 15% nearly every design was yellow (Jakob, 14 Nov)
+  let status = band(b.massMargin / b.massLimit, C.massGreenMargin)
   checks.push(
     check(
       'Mass',
@@ -50,7 +51,7 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
       status === 'red'
         ? `The fuelled craft weighs ${b.totalMass.toFixed(1)} kg; ${ride && ride.massLimit < lunarIceMapperBrief.constraints.maxMass ? `this ride takes ${ride.massLimit} kg` : `the limit is ${b.massLimit} kg`}. Choose lighter parts or less propellant.`
         : status === 'yellow'
-          ? `Less than ${spare}% mass to spare.`
+          ? `Less than ${Math.round(C.massGreenMargin * 100)}% mass to spare.`
           : `${b.massMargin.toFixed(1)} kg to spare (propellant included).`,
       'spacecraft'
     )
@@ -186,13 +187,14 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
   }
   checks.push(check('Data Link', status, b.dataPerTurn, b.downlinkPerTurn, 'MB/turn', reason, 'comms'))
 
-  // Budget
+  // Budget: the reserve is locked for fixes in flight, so the plan must fit in what is left.
+  // A bigger reserve means a cheaper craft (Jakob, 14 Nov: the reserve line is a hard limit).
   if (b.totalCost <= b.spendable) {
     status = 'green'
-    reason = `${(b.spendable - b.totalCost).toFixed(1)} M to spare, with ${b.reserveAmount.toFixed(1)} M reserve held back.`
+    reason = `${(b.spendable - b.totalCost).toFixed(1)} M to spare, with ${b.reserveAmount.toFixed(1)} M reserve held back for fixes in flight.`
   } else if (b.totalCost <= b.budgetCap) {
-    status = 'yellow'
-    reason = `The plan costs ${b.totalCost.toFixed(1)} M but only ${b.spendable.toFixed(1)} M is spendable: it eats ${(b.totalCost - b.spendable).toFixed(1)} M of the reserve before anything goes wrong.`
+    status = 'red'
+    reason = `The plan costs ${b.totalCost.toFixed(1)} M but only ${b.spendable.toFixed(1)} M is spendable: the ${b.reserveAmount.toFixed(1)} M reserve is locked for fixes in flight. Lower the reserve at the Comms Center, or choose cheaper parts.`
   } else {
     status = 'red'
     reason = `The plan costs ${b.totalCost.toFixed(1)} M; the budget is ${b.budgetCap} M. Cheaper parts, a shorter transfer or less ground time bring it down.`

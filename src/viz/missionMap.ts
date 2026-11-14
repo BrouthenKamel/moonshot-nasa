@@ -1,7 +1,7 @@
 import { buildings, type AgencyEvent, type BuildingId, type MissionView } from '../data/agency'
 import { getPartById } from '../data/parts'
 import type { BuildingLabel } from '../scene/BaseMap'
-import { missionDay } from '../state/agencyStore'
+import { DAYS_PER_TURN, missionDay } from '../state/agencyStore'
 import type { Budgets, Design, DesignStep, GoNoGoResult, SimState, TurnLog } from '../sim/types'
 
 /**
@@ -185,6 +185,11 @@ export function lunarMissionView(input: {
 
 const MILESTONES = /^(Launched|Capture burn successful|All requirements met|Mission over|Missed the ride|Primary mission done)/
 
+/** The flight clock in one unit, days since the mission started (a turn is 30 days) */
+export function missionClockLabel(turn: number): string {
+  return `mission day ${turn * DAYS_PER_TURN}`
+}
+
 /** The flight log as activity-feed entries on the base calendar, newest first */
 export function flightFeed(logs: TurnLog[], startDay: number): AgencyEvent[] {
   const out: AgencyEvent[] = []
@@ -199,7 +204,7 @@ export function flightFeed(logs: TurnLog[], startDay: number): AgencyEvent[] {
         id: `lim-${log.turn}-${i}`,
         day,
         title: note.replace(/\.$/, ''),
-        detail: `Lunar Ice Mapper · turn ${log.turn}`,
+        detail: `Lunar Ice Mapper · ${missionClockLabel(log.turn)}`,
         tone: isEnd && !isMilestone ? 'bad' : isEvent ? 'warning' : /Capture|All requirements/.test(note) ? 'good' : 'info',
       })
     })

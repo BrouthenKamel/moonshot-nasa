@@ -17,7 +17,7 @@ import type {
 } from '../sim/types'
 import { createDefaultDesign, computeBudgets } from '../sim/budgets'
 import { goNoGo, type GoNoGoResult } from '../sim/checks'
-import { initSim, stepTurn, flyUntilDecision, getDefaultAction, isSimComplete } from '../sim/simulate'
+import { initSim, stepTurn, flyUntilDecision, getDefaultAction, isSimComplete, isMilestone } from '../sim/simulate'
 import { buildReport } from '../sim/evaluate'
 import { generateSeed } from '../sim/rng'
 import type { BuildingId } from '../data/agency'
@@ -86,6 +86,11 @@ export interface GameState {
   startSimulation: () => void
   advanceTurn: (action?: TurnAction) => void
   flyOn: () => void // fly until the mission ends or an event card needs the player
+  /** Turn-by-turn flight: while on, each tick flies one turn and it switches off at a milestone */
+  autoFly: boolean
+  startAutoFly: () => void
+  stopAutoFly: () => void
+  autoFlyTick: () => void
   answerEvent: (choiceId: string) => void // answer the waiting event card and finish that turn
   applyFlight: (newState: SimState) => void // store a new flight state; saves the run when it ends
   setAction: (action: Partial<TurnAction>) => void
@@ -194,6 +199,7 @@ export const useGameStore = create<GameState>()(
       design: createDefaultDesign(),
       simState: null,
       pendingAction: getDefaultAction(),
+      autoFly: false,
       currentReport: null,
       runHistory: [],
       signOffs: [],
@@ -312,6 +318,7 @@ export const useGameStore = create<GameState>()(
           replayTurn: 0,
           screen: 'base',
           pendingAction: getDefaultAction(),
+          autoFly: false,
         })
       },
 
@@ -325,6 +332,25 @@ export const useGameStore = create<GameState>()(
         const { simState, pendingAction } = get()
         if (!simState || isSimComplete(simState) || simState.pendingDecision) return
         get().applyFlight(flyUntilDecision(simState, pendingAction))
+      },
+
+      startAutoFly: () => {
+        const { simState } = get()
+        if (!simState || isSimComplete(simState) || simState.pendingDecision) return
+        set({ autoFly: true })
+      },
+
+      stopAutoFly: () => set({ autoFly: false }),
+
+      autoFlyTick: () => {
+        const { simState, pendingAction, autoFly } = get()
+        if (!autoFly || !simState || isSimComplete(simState) || simState.pendingDecision) {
+          if (autoFly) set({ autoFly: false })
+          return
+        }
+        const next = stepTurn(simState, pendingAction)
+        get().applyFlight(next)
+        if (isMilestone(simState, next)) set({ autoFly: false })
       },
 
       answerEvent: (choiceId) => {

@@ -11,6 +11,7 @@ import {
   fixLocation,
   flightFeed,
   lunarMissionView,
+  missionClockLabel,
   missionLabels,
   suggestedStep,
 } from './missionMap'
@@ -59,6 +60,13 @@ describe('mission map', () => {
     const launch = feed.find((e) => e.title.startsWith('Launched'))!
     expect(launch.day).toBe(112 + sim.flight.launchedTurn! * 30)
     expect(feed.every((e) => Number.isFinite(e.day))).toBe(true)
+    // One unit on the flight clock: days, never turns (Jakob, 14 Nov)
+    expect(feed.every((e) => !/turn/i.test(e.detail ?? ''))).toBe(true)
+  })
+
+  it('the flight clock counts mission days, 30 to a turn', () => {
+    expect(missionClockLabel(0)).toBe('mission day 0')
+    expect(missionClockLabel(8)).toBe('mission day 240')
   })
 
   it('mission card progress comes from the flight', () => {
