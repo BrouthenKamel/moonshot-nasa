@@ -35,6 +35,16 @@ describe('screens render', () => {
     expect(html).not.toContain('Select Difficulty')
   })
 
+  // Jakob, 14 Nov: one mission only; "+ New mission" walks into the buildings
+  it('lists only the Lunar Ice Mapper, and a new mission stays on the map', () => {
+    const html = renderToString(<App />)
+    expect(html).not.toMatch(/Aurora-1|Relay Pathfinder|Solar Scout/)
+    useGameStore.getState().startNewMission()
+    expect(useGameStore.getState().screen).toBe('base')
+    const after = renderToString(<App />)
+    expect(after.match(/Lunar Ice Mapper<\/h3>|>Lunar Ice Mapper</g)?.length ?? 0).toBeLessThanOrEqual(1)
+  })
+
   // Jakob, 14 Nov: no difficulty levels for now; one fixed setting (the Engineer values)
   it('shows no difficulty anywhere and plays on the fixed Engineer values', () => {
     useGameStore.setState({ difficulty: 'cadet' })

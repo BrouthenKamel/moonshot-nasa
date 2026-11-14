@@ -127,56 +127,11 @@ interface MockMission {
   view: (day: number) => Omit<MissionView, 'id' | 'name' | 'kind'>
 }
 
-const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
-
-/** Made-up missions that show what a running agency looks like */
-export const mockMissions: MockMission[] = [
-  {
-    id: 'aurora-1',
-    name: 'Aurora-1',
-    kind: 'satellite',
-    // 3U Earth-observation CubeSat, in low Earth orbit since day 41, one-year mission
-    view: (day) => {
-      const daysInOrbit = Math.max(0, day - 41)
-      const dataMb = Math.round(daysInOrbit * 4.2)
-      return {
-        status: day >= 41 + 365 ? 'complete' : 'in-orbit',
-        progress: clamp01(daysInOrbit / 365),
-        detail: `Low Earth orbit · ${dataMb.toLocaleString()} MB home`,
-      }
-    },
-  },
-  {
-    id: 'relay-pathfinder',
-    name: 'Relay Pathfinder',
-    kind: 'relay',
-    // Lunar comms relay test on a 4-month low-energy transfer (like CAPSTONE), day 70 to 190
-    view: (day) => {
-      if (day < 190) {
-        return {
-          status: 'transfer',
-          progress: clamp01((day - 70) / 120),
-          detail: `Low-energy transfer · capture in ${Math.ceil(190 - day)} days`,
-        }
-      }
-      return {
-        status: 'in-orbit',
-        progress: 1,
-        detail: 'Halo orbit · relaying for lunar missions',
-      }
-    },
-  },
-  {
-    id: 'solar-scout',
-    name: 'Solar Scout',
-    kind: 'probe',
-    view: () => ({
-      status: 'planning',
-      progress: 0,
-      detail: 'Waiting on research: deep-space radio',
-    }),
-  },
-]
+/**
+ * Made-up missions beside the Lunar Ice Mapper. None for now (Jakob, 14 Nov):
+ * the game is about one mission, and unrelated demo missions only distracted.
+ */
+export const mockMissions: MockMission[] = []
 
 export function mockMissionViews(day: number): MissionView[] {
   return mockMissions.map((m) => ({ id: m.id, name: m.name, kind: m.kind, ...m.view(day) }))
@@ -214,28 +169,6 @@ export const agencyEvents: AgencyEvent[] = [
     tone: 'info',
   },
   {
-    id: 'aurora-launch',
-    day: 34,
-    title: 'Aurora-1 launched',
-    detail: 'Rideshare to low Earth orbit',
-    tone: 'info',
-  },
-  {
-    id: 'aurora-contact',
-    day: 41,
-    title: 'Aurora-1 first contact',
-    detail: 'Signal received on the first pass',
-    tone: 'good',
-    supportDelta: 4,
-  },
-  {
-    id: 'relay-deploy',
-    day: 70,
-    title: 'Relay Pathfinder deployed',
-    detail: 'Starting a 4-month low-energy transfer to the Moon',
-    tone: 'info',
-  },
-  {
     id: 'grant',
     day: 98,
     title: 'NASA small-sat grant',
@@ -251,21 +184,6 @@ export const agencyEvents: AgencyEvent[] = [
     tone: 'info',
   },
   {
-    id: 'aurora-reset',
-    day: 109,
-    title: 'Aurora-1 radiation reset',
-    detail: 'Computer rebooted; one day of data lost',
-    tone: 'warning',
-  },
-  {
-    id: 'aurora-images',
-    day: 117,
-    title: 'Aurora-1 image release',
-    detail: 'Public support up',
-    tone: 'good',
-    supportDelta: 2,
-  },
-  {
     id: 'lab-upgrade-done',
     day: 122,
     title: 'Research Lab reaches level 3',
@@ -273,26 +191,11 @@ export const agencyEvents: AgencyEvent[] = [
     tone: 'good',
   },
   {
-    id: 'relay-thruster',
-    day: 146,
-    title: 'Relay Pathfinder thruster check',
-    detail: 'One thruster underperforming; margin still OK',
-    tone: 'warning',
-  },
-  {
     id: 'budget-review',
     day: 160,
     title: 'Quarterly budget review',
     detail: 'Funding follows public support',
     tone: 'info',
-  },
-  {
-    id: 'relay-capture',
-    day: 190,
-    title: 'Relay Pathfinder lunar capture',
-    detail: 'The riskiest burn of the mission',
-    tone: 'good',
-    supportDelta: 5,
   },
 ]
 // The Lunar Ice Mapper's own milestones (build, ride, capture) come from the logic core's
@@ -302,12 +205,11 @@ export const agencyEvents: AgencyEvent[] = [
 export function seedFundsHistory(): { day: number; funds: number }[] {
   const points: { day: number; funds: number }[] = []
   for (let day = 0; day <= DEMO_START_DAY; day += 7) {
-    // Gentle climb from $12M with a dip around the Aurora-1 launch and a step at the grant
+    // Gentle climb from $12M with a step at the grant
     const base = 12 + (day / DEMO_START_DAY) * 4.2
-    const launchDip = day >= 34 && day < 60 ? -0.8 : 0
     const grant = day >= 98 ? 2 : 0
     const wobble = Math.sin(day / 9) * 0.25
-    points.push({ day, funds: Math.round((base + launchDip + grant + wobble) * 100) / 100 })
+    points.push({ day, funds: Math.round((base + grant + wobble) * 100) / 100 })
   }
   points.push({ day: DEMO_START_DAY, funds: DEMO_START_FUNDS })
   return points

@@ -476,8 +476,10 @@ export const useGameStore = create<GameState>()(
 
       startNewMission: () => {
         useAgencyStore.getState().resetMissionClock()
+        // The map is the menu (DESIGN-DIRECTION section 2): a new mission stays on the base,
+        // where the Comms Center is highlighted as the first building to walk into
         set({
-          screen: 'design',
+          screen: 'base',
           designStep: 'brief',
           design: createDefaultDesign(),
           simState: null,
