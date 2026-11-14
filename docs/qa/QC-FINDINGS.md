@@ -14,7 +14,7 @@ Kept by the Integration session, so nothing the "Game quality control" session f
 | # | Sev | Finding | Group | Status | Owner / PR |
 |---|-----|---------|-------|--------|------------|
 | 1 | High | The Go/No-Go margin counts against the cap ("+0.1 margin"), while the text counts against what is spendable | A | Partly fixed: #21 makes the Budget bar red past the reserve. The margin number still counts against the cap: waits-jakob | Integration |
-| 2 | Info | The default craft says "Go" although it cannot see shadowed ice (deliberate: Science is never red). Make the headline say it cannot succeed? | C5 | waits-jakob | Integration |
+| 2 | Info | The default craft says "Go" although it cannot see shadowed ice (deliberate: Science is never red). Make the headline say it cannot succeed? | C5 | go: yes (18:35) | round-2 builder |
 | 3 | High | Research Lab levels are not enforced (the neutron spectrometer can be picked at LV2) | B1 | go: enforce | Instrument Selection |
 | 4 | Med | Agency funds and mission money never meet | B2 | go: failure just uses up the budget | round-2 builder (design/round-2) |
 | 5 | Med | The base clock runs in real time while the player reads (it loses about a day a second on first load) | B3 | go: paused until the player acts | design/round-2 |
@@ -32,18 +32,18 @@ Kept by the Integration session, so nothing the "Game quality control" session f
 | 17 | Low | Data Link caution says "less than 15% to spare" when the instruments make twice what the link carries | A | waits-jakob | Integration |
 | 18 | Info | Orbit, ride and comms steps were plain cards | — | Orbit room merged (#18); ride room in progress (Ride & Transfer); comms open | Ride & Transfer |
 | 19 | Low | "Retry with Changes" lands mid-page on the Brief; "Reset demo to day 112" label is stale | A | waits-jakob | Integration |
-| 20 | High | At 375x812 the design screens are unusable | C2 | waits-jakob: do phones matter? | — |
+| 20 | High | At 375x812 the design screens are unusable | C2 | no: laptop only (18:35) | — |
 | 21 | Med | Keyboard and screen readers: the base buildings are not focusable; the canvas has no name; play/pause buttons have no labels | A | waits-jakob | Integration |
 | 22 | Low | Difficulty is invisible; "+ New mission" uses a native confirm() | B5/B4 | Difficulty moot (removed); confirm() goes with B4 | design/round-2 |
 | 23 | Info | Console is clean (only three.js deprecation warnings) | — | info | — |
-| 24 | High | Reloading mid-flight silently destroys the flight (the flight state is not saved) | C1 | waits-jakob | Integration |
-| 25 | Med | No routing: the browser Back button leaves the game; nothing can be deep-linked | C4 | waits-jakob | — |
+| 24 | High | Reloading mid-flight silently destroys the flight (the flight state is not saved) | C1 | go: keep the flight across a reload (18:35) | round-2 builder |
+| 25 | Med | No routing: the browser Back button leaves the game; nothing can be deep-linked | C4 | go (read as yes to the question; 18:35), after round 2 | Integration |
 | 26 | Low | A planning mission's card shows a 100% bar; the bar means different things in different states | A | waits-jakob | Integration |
 | 27 | Low | Base map is blank for a moment on load with no loader (1-2 s on a production build, see #34) | A | waits-jakob | Integration |
 | 28 | Low | Copy numbers: "508 turns of upkeep" for a 12-turn mission; the ride capture burn is written three ways | A | waits-jakob | Integration (orbit) / Ride & Transfer (ride) |
-| 29 | Low | Ride/comms key numbers are text lists; a made-vs-carried bar would teach the data-loss lesson | C6 | waits-jakob | — |
+| 29 | Low | Ride/comms key numbers are text lists; a made-vs-carried bar would teach the data-loss lesson | C6 | go (read as yes to the question; 18:35), after round 2 | Integration |
 | 30 | Info | Keep: "What this choice changed" strip, per-orbit ice line, real-mission references | — | info | — |
-| 31 | High-ish | The game is silent: Kamel's audio pipeline exists but nothing uses it | C3 | waits-jakob | — |
+| 31 | High-ish | The game is silent: Kamel's audio pipeline exists but nothing uses it | C3 | go: sound + mute (18:35) | sound builder (feat/game-sound) |
 | 32 | High | The base map has no WebGL check or error boundary. Confirmed by Ride & Transfer: with WebGL off, the whole app is a white page | A | waits-jakob (recommended first) | Integration |
 | 33 | Info | At 1440x900 the labels do not overlap (#7 only matters on small screens) | — | info | — |
 | 34 | Info | The long blank map was the dev server; production shows the map in 1-2 s | — | info | — |
@@ -53,7 +53,7 @@ Kept by the Integration session, so nothing the "Game quality control" session f
 | 38 | Low | After a loss the calendar jumps months in one click; a short "8 months passed" line would explain it | A | waits-jakob | Integration |
 | 39 | Med | Replay says "Choice: Give up the search - failed"; the report tells a different story (same root as #35) | A | waits-jakob | Integration |
 | 40 | Low | Replay timeline buttons have no aria-label | A | waits-jakob | Integration |
-| 41 | Med | The replay is the least dramatic screen; nothing visual happens at the loss | C6 | waits-jakob | — |
+| 41 | Med | The replay is the least dramatic screen; nothing visual happens at the loss | C6 | go (read as yes to the question; 18:35), after round 2 | Integration |
 | 42 | Info | Keep: replay timeline colours, event marks and per-turn numbers | — | info | — |
 | 43 | Low-Med | The event card is not a dialog: no role, no focus, Escape does nothing | A | waits-jakob | Integration |
 | 44 | Info | Keep: picking a ride updates the dashboard and Go/No-Go instantly, with the reason | — | info | — |
