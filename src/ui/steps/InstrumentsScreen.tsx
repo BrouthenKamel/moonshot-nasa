@@ -1,7 +1,10 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FocusEvent, type MouseEvent } from 'react'
 import { computeBudgets } from '../../sim/budgets'
 import { useGameStore } from '../../state/gameStore'
+import { useUiStore } from '../../state/uiStore'
 import { DesignDiagramPanel } from '../../viz/DesignDiagramPanel'
+import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
+import { useDesignPreview } from '../useDesignPreview'
 import { StageBoundary } from '../../scene/instrumentStage/StageBoundary'
 import { canUseWebGL } from '../../scene/webgl'
 import { instruments, type InstrumentPart } from '../../data/parts'
@@ -33,22 +36,59 @@ function Fallen({ onFall }: { onFall: () => void }) {
 }
 
 /** The Research Lab simulator (it carries the instrument cards), or the flat diagram where 3D cannot run. */
-function Stage({ onFall }: { onFall: () => void }) {
+function Stage({
+  onFall,
+  onPreview,
+}: {
+  onFall: () => void
+  onPreview: (id: string | null) => void
+}) {
   const flat = <DesignDiagramPanel step="instruments" />
   if (!canUseWebGL()) return flat
+
+  const pickId = (target: EventTarget | null) =>
+    target instanceof Element ? target.closest<HTMLElement>('[data-choice-id]')?.dataset.choiceId ?? null : null
+
   return (
-    <StageBoundary fallback={<Fallen onFall={onFall} />}>
-      <Suspense fallback={<div className="mb-4 h-[66vh] min-h-[460px] rounded-xl bg-slate-900" />}>
-        <InstrumentStage />
-      </Suspense>
-    </StageBoundary>
+    <div
+      onMouseOver={(e: MouseEvent<HTMLDivElement>) => onPreview(pickId(e.target))}
+      onMouseLeave={() => onPreview(null)}
+      onFocus={(e: FocusEvent<HTMLDivElement>) => onPreview(pickId(e.target))}
+      onBlurCapture={(e: FocusEvent<HTMLDivElement>) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onPreview(null)
+      }}
+    >
+      <StageBoundary fallback={<Fallen onFall={onFall} />}>
+        <Suspense fallback={<div className="mb-4 h-[66vh] min-h-[460px] rounded-xl bg-slate-900" />}>
+          <InstrumentStage />
+        </Suspense>
+      </StageBoundary>
+    </div>
   )
 }
 
 /** With the stage running, the cards live on its bar; here the player can read each instrument's full entry. */
-function BriefTabs({ shown, chosen, onShow }: { shown: string; chosen: string[]; onShow: (id: string) => void }) {
+function BriefTabs({
+  shown,
+  chosen,
+  onShow,
+  onPreview,
+}: {
+  shown: string
+  chosen: string[]
+  onShow: (id: string) => void
+  onPreview: (id: string | null) => void
+}) {
   return (
-    <div role="group" aria-label="Read an instrument's file" className="flex flex-wrap gap-2">
+    <div
+      role="group"
+      aria-label="Read an instrument's file"
+      className="flex flex-wrap gap-2"
+      onMouseLeave={() => onPreview(null)}
+      onBlurCapture={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onPreview(null)
+      }}
+    >
       {instruments.map((inst) => {
         const on = inst.id === shown
         const color = instrumentColor(inst.id)
@@ -59,7 +99,11 @@ function BriefTabs({ shown, chosen, onShow }: { shown: string; chosen: string[];
             type="button"
             aria-pressed={on}
             onClick={() => onShow(inst.id)}
-            onPointerEnter={() => audio.play('sfx.hover')}
+            onPointerEnter={() => {
+              audio.play('sfx.hover')
+              onPreview(inst.id)
+            }}
+            onFocus={() => onPreview(inst.id)}
             className={`flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-xs font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 ${
               on ? 'text-white' : 'border-slate-700 text-slate-400 hover:text-slate-200'
             }`}
@@ -85,15 +129,25 @@ function InstrumentHand({
   day,
   onToggle,
   onInspect,
+  onPreview,
 }: {
   chosen: string[]
   day: number
   onToggle: (id: string) => void
   onInspect: (id: string) => void
+  onPreview: (id: string | null) => void
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   return (
-    <div role="group" aria-label="Instruments: pick up to two" className="grid grid-cols-2 justify-items-center gap-4 sm:grid-cols-4">
+    <div
+      role="group"
+      aria-label="Instruments: pick up to two"
+      className="grid grid-cols-2 justify-items-center gap-4 sm:grid-cols-4"
+      onMouseLeave={() => onPreview(null)}
+      onBlurCapture={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onPreview(null)
+      }}
+    >
       {instruments.map((inst, i) => {
         const on = chosen.includes(inst.id)
         const color = instrumentColor(inst.id)
@@ -121,9 +175,13 @@ function InstrumentHand({
               }}
               onHover={() => {
                 onInspect(inst.id)
+                onPreview(inst.id)
                 if (!view.blocked) audio.play('sfx.hover')
               }}
-              onFocus={() => onInspect(inst.id)}
+              onFocus={() => {
+                onInspect(inst.id)
+                onPreview(inst.id)
+              }}
               onKeyDown={(e) => {
                 const next = rowFocusKey(e.key, i, instruments.length)
                 if (next === null) return
@@ -151,16 +209,16 @@ function InstrumentHand({
 /** The full catalogue entry of the card under the pointer or focus: what it does and its limits */
 function InstrumentBrief({ instrument, selected }: { instrument: InstrumentPart; selected: boolean }) {
   const color = instrumentColor(instrument.id)
-  const chip = 'rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-200'
+  const chip = 'rounded-full border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[11px] font-medium tabular-nums text-slate-200'
   return (
     <div
       aria-live="polite"
-      className="relative overflow-hidden rounded-xl border bg-[#060a14] p-4 transition-colors duration-300"
+      className="hud-panel relative overflow-hidden p-4 transition-colors duration-300"
       style={{ borderColor: `${color}66`, boxShadow: `inset 4px 0 0 ${color}` }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="font-display text-lg font-bold text-white">{instrument.name}</div>
-        <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color }}>
+        <div className="font-mono text-[11px] font-semibold uppercase tracking-wider" style={{ color }}>
           {selected ? 'Aboard' : 'In the catalogue'}
         </div>
       </div>
@@ -176,13 +234,110 @@ function InstrumentBrief({ instrument, selected }: { instrument: InstrumentPart;
   )
 }
 
+/** Live 12-Month Ice Coverage gauge (70% target tick in cyan) + Data Link generation vs downlink funnel */
+function CoverageAndLinkFunnel() {
+  const { budgets, previewBudgets, isPreviewing } = useDesignPreview()
+  const active = previewBudgets ?? budgets
+  const activeCov = Math.max(0, Math.min(100, active.projectedCoverage))
+  const currentCov = Math.max(0, Math.min(100, budgets.projectedCoverage))
+  const covOnTarget = activeCov >= 70
+  const covDelta = active.projectedCoverage - budgets.projectedCoverage
+
+  const made = active.dataPerTurn
+  const link = active.downlinkPerTurn
+  const funnelMax = Math.max(made, link, 1)
+  const madePct = Math.min(100, (made / funnelMax) * 100)
+  const linkPct = Math.min(100, (link / funnelMax) * 100)
+  const overflow = made > link
+
+  return (
+    <div className="hud-panel grid gap-4 p-4 sm:grid-cols-2">
+      <div>
+        <div className="flex items-baseline justify-between gap-2 font-mono text-xs tabular-nums">
+          <span className="uppercase tracking-[0.16em] text-slate-400">12-Month Ice Coverage</span>
+          <span className={covOnTarget ? 'font-bold text-[#22d3ee]' : 'font-bold text-amber-300'}>
+            {activeCov.toFixed(0)}%
+            {isPreviewing && Math.abs(covDelta) >= 1 && (
+              <span className="ml-1 text-[11px] opacity-85">
+                ({covDelta > 0 ? `+${covDelta.toFixed(0)}` : covDelta.toFixed(0)}%)
+              </span>
+            )}
+          </span>
+        </div>
+        <div className="relative mt-2 h-3.5 overflow-hidden rounded border border-slate-700/70 bg-slate-950">
+          <div
+            className={`absolute inset-y-0 left-0 transition-all duration-300 ${
+              covOnTarget ? 'bg-[#22d3ee]/85' : 'bg-amber-400/80'
+            }`}
+            style={{ width: `${activeCov}%` }}
+          />
+          {isPreviewing && Math.abs(covDelta) >= 1 && (
+            <div
+              className="pointer-events-none absolute inset-y-0 border-r-2 border-white/75"
+              style={{ left: `${currentCov}%` }}
+            />
+          )}
+          <div className="hud-bar-segments pointer-events-none absolute inset-0" />
+          <div
+            className="pointer-events-none absolute inset-y-0 w-0.5 bg-[#22d3ee] shadow-[0_0_8px_#22d3ee]"
+            style={{ left: '70%' }}
+            title="70% science target"
+          />
+        </div>
+        <div className="mt-1 flex justify-between font-mono text-[10px] tabular-nums text-slate-400">
+          <span>0%</span>
+          <span className="text-[#22d3ee]">70% Target</span>
+          <span>100%</span>
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-baseline justify-between gap-2 font-mono text-xs tabular-nums">
+          <span className="uppercase tracking-[0.16em] text-slate-400">Data Link Funnel</span>
+          <span className={overflow ? 'font-semibold text-amber-300' : 'font-semibold text-emerald-300'}>
+            {made.toFixed(0)} / {link.toFixed(0)} MB/month
+          </span>
+        </div>
+        <div className="mt-2 space-y-1.5">
+          <div className="relative h-2.5 overflow-hidden rounded bg-slate-950">
+            <div
+              className={`h-full transition-all duration-300 ${overflow ? 'bg-amber-400' : 'bg-sky-400'}`}
+              style={{ width: `${madePct}%` }}
+            />
+          </div>
+          <div className="relative h-2.5 overflow-hidden rounded bg-slate-950">
+            <div className="h-full bg-emerald-400/85 transition-all duration-300" style={{ width: `${linkPct}%` }} />
+          </div>
+        </div>
+        <div className="mt-1 flex justify-between font-mono text-[10px] tabular-nums text-slate-400">
+          <span>Made: {made.toFixed(0)} MB/month</span>
+          <span>Downlink: {link.toFixed(0)} MB/month</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function InstrumentsScreen() {
   const design = useGameStore((s) => s.design)
   const updateDesign = useGameStore((s) => s.updateDesign)
   const setDesignStep = useGameStore((s) => s.setDesignStep)
+  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
 
   const day = useAgencyStore((s) => s.day)
   const toggleInstrument = (id: string) => updateDesign({ instruments: toggleUnlocked(design.instruments, id, day) })
+  const handlePreview = useCallback(
+    (id: string | null) => {
+      if (!id) {
+        setPreviewPatch(null)
+        return
+      }
+      setPreviewPatch({ instruments: toggleUnlocked(design.instruments, id, day) })
+    },
+    [day, design.instruments, setPreviewPatch],
+  )
+  useEffect(() => () => setPreviewPatch(null), [setPreviewPatch])
+
   const lockedAboard = lockedInDesign(design.instruments, day)
   const [inspected, setInspected] = useState<string | null>(null)
   // The stage's bar picks when 3D runs; the cards here pick when it cannot (and in tests)
@@ -202,73 +357,90 @@ export function InstrumentsScreen() {
 
   return (
     <>
-    <Stage onFall={onFall} />
-    <div className="mx-auto max-w-3xl space-y-5">
-      <div className="rounded-lg bg-slate-900 p-6">
-        <h1 className="text-xl font-bold text-green-400">2. Instrument Selection</h1>
-        <p className="mt-2 text-slate-400">
-          The science question decides the instrument: the ice sits in craters that never see the Sun. Pick one or two.
-          Each one costs mass, volume, power and money, and makes data that has to get home.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-green-900/70 bg-green-950/60 px-4 py-3 text-sm text-green-200">
-        <span className="mr-1 font-medium text-green-300">Aboard:</span>
-        <span className="rounded-full bg-green-900/60 px-3 py-1">
-          <span className="font-semibold text-green-300">{design.instruments.length}</span>{' '}
-          {design.instruments.length === 1 ? 'instrument' : 'instruments'}
-        </span>
-        <span className="rounded-full bg-green-900/60 px-3 py-1">
-          <span className="font-semibold text-green-300">{totalMass.toFixed(1)}</span> kg
-        </span>
-        <span className="rounded-full bg-green-900/60 px-3 py-1">
-          <span className="font-semibold text-green-300">{totalPower}</span> W
-        </span>
-        <span className="rounded-full bg-green-900/60 px-3 py-1">
-          <span className="font-semibold text-green-300">{totalData.toFixed(0)}</span> MB/month
-        </span>
-      </div>
-
-      {lockedAboard.map((lock) => {
-        const name = instruments.find((i) => i.id === lock.id)?.name ?? lock.id
-        return (
-          <div key={lock.id} className="rounded-lg border border-amber-500/60 bg-amber-950/60 p-4 text-sm text-amber-200">
-            <span className="font-semibold">{name} is in your design but the Research Lab has not unlocked it yet.</span>{' '}
-            {lock.text}. It stays in your design; Go / No-Go blocks the launch until the lab reaches LV {lock.neededLevel} or you
-            remove it.
+      <Stage onFall={onFall} onPreview={handlePreview} />
+      <div className="mx-auto max-w-3xl space-y-4">
+        <header className="hud-step-header">
+          <div className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--role-accent)]">
+            RESEARCH LAB · LUNAR ICE MAPPER · INSTRUMENTS
           </div>
-        )
-      })}
+          <h1 className="mt-1 font-display text-2xl font-bold text-slate-50">2. Instrument Selection</h1>
+          <p className="mt-1.5 text-sm text-slate-300">
+            The science question decides the instrument: the ice sits in craters that never see the Sun. Pick one or two.
+            Each one costs mass, volume, power and money, and makes data that has to get home.
+          </p>
+        </header>
 
-      {picksHere ? (
-        <InstrumentHand chosen={design.instruments} day={day} onToggle={toggleInstrument} onInspect={setInspected} />
-      ) : (
-        <BriefTabs shown={brief.id} chosen={design.instruments} onShow={setInspected} />
-      )}
-      <InstrumentBrief instrument={brief} selected={design.instruments.includes(brief.id)} />
-
-      {design.instruments.length === 0 && (
-        <div className="rounded-lg bg-red-950 p-4 text-center text-sm text-red-300">
-          Select at least one instrument to continue.
+        <div className="hud-panel flex flex-wrap items-center gap-2 border-[var(--role-border)] bg-[var(--role-surface)] px-4 py-3 text-sm text-emerald-100">
+          <span className="mr-1 font-mono text-xs uppercase tracking-wider text-[var(--role-accent)]">Aboard:</span>
+          <span className="rounded-full border border-emerald-400/25 bg-slate-950/60 px-3 py-1 font-mono text-xs tabular-nums">
+            <span className="font-semibold text-emerald-300">{design.instruments.length}</span>{' '}
+            {design.instruments.length === 1 ? 'instrument' : 'instruments'}
+          </span>
+          <span className="rounded-full border border-emerald-400/25 bg-slate-950/60 px-3 py-1 font-mono text-xs tabular-nums">
+            <span className="font-semibold text-emerald-300">{totalMass.toFixed(1)}</span> kg
+          </span>
+          <span className="rounded-full border border-emerald-400/25 bg-slate-950/60 px-3 py-1 font-mono text-xs tabular-nums">
+            <span className="font-semibold text-emerald-300">{totalPower}</span> W
+          </span>
+          <span className="rounded-full border border-emerald-400/25 bg-slate-950/60 px-3 py-1 font-mono text-xs tabular-nums">
+            <span className="font-semibold text-emerald-300">{totalData.toFixed(0)}</span> MB/month
+          </span>
         </div>
-      )}
 
-      <div className="flex justify-between">
-        <button
-          onClick={() => setDesignStep('planning')}
-          className="rounded-lg bg-slate-700 px-6 py-2 font-medium text-slate-300 hover:bg-slate-600"
-        >
-          ← Back
-        </button>
-        <button
-          onClick={() => setDesignStep('rocket')}
-          disabled={design.instruments.length === 0}
-          className="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Configure Spacecraft →
-        </button>
+        <CoverageAndLinkFunnel />
+
+        <SynergyStrip step="instruments" />
+
+        {picksHere && <DesignDeltaLine />}
+
+        {lockedAboard.map((lock) => {
+          const name = instruments.find((i) => i.id === lock.id)?.name ?? lock.id
+          return (
+            <div key={lock.id} className="hud-panel border-amber-500/60 bg-amber-950/60 p-4 text-sm text-amber-200">
+              <span className="font-semibold">{name} is in your design but the Research Lab has not unlocked it yet.</span>{' '}
+              {lock.text}. It stays in your design; Go / No-Go blocks the launch until the lab reaches LV {lock.neededLevel} or you
+              remove it.
+            </div>
+          )
+        })}
+
+        {picksHere ? (
+          <InstrumentHand
+            chosen={design.instruments}
+            day={day}
+            onToggle={toggleInstrument}
+            onInspect={setInspected}
+            onPreview={handlePreview}
+          />
+        ) : (
+          <BriefTabs shown={brief.id} chosen={design.instruments} onShow={setInspected} onPreview={handlePreview} />
+        )}
+        <InstrumentBrief instrument={brief} selected={design.instruments.includes(brief.id)} />
+
+        {design.instruments.length === 0 && (
+          <div className="hud-panel border-rose-500/50 bg-rose-950/70 p-4 text-center text-sm text-rose-200">
+            Select at least one instrument to continue.
+          </div>
+        )}
+
+        <div className="flex justify-between pt-1">
+          <button
+            type="button"
+            onClick={() => setDesignStep('planning')}
+            className="tactical-btn-back"
+          >
+            ← Back
+          </button>
+          <button
+            type="button"
+            onClick={() => setDesignStep('rocket')}
+            disabled={design.instruments.length === 0}
+            className="tactical-btn-next"
+          >
+            Configure Spacecraft →
+          </button>
+        </div>
       </div>
-    </div>
     </>
   )
 }

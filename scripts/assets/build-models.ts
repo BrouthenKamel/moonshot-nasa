@@ -17,6 +17,7 @@ import sharp from 'sharp'
 import { assets, type ModelAsset } from '../../src/assets/manifest.ts'
 import { exportGlb } from './lib/three-node.ts'
 import { ensureDir, kb, outPath, srcPath } from './lib/paths.ts'
+import { importNasa3D } from './import-nasa-3d.ts'
 import { buildCubeSat6U } from './models/cubesat-6u.ts'
 
 /**
@@ -41,9 +42,17 @@ const arg = (name: string) => (process.argv.includes(name) ? process.argv[proces
 const only = arg('--only')
 /** --group power-avionics: only the models made by scripts/assets/models/parts/power-avionics.ts */
 const group = arg('--group')
+const refreshNasa = process.argv.includes('--refresh-nasa')
 const models = (assets as readonly { kind: string }[]).filter((a): a is ModelAsset => a.kind === 'model')
 const selected = models.filter((m) => (!only || m.id === only) && (!group || (m.credit ?? '').includes(`parts/${group}.ts`)))
 if ((only || group) && selected.length === 0) throw new Error(`No model matches ${only ?? group}`)
+
+if (!group && (!only || selected[0]?.source === 'nasa')) {
+  await importNasa3D({
+    refresh: refreshNasa,
+    onlySrc: only ? selected[0].src : null,
+  })
+}
 
 await MeshoptDecoder.ready
 await MeshoptEncoder.ready
@@ -68,7 +77,7 @@ for (const m of selected) {
     dedup(),
     prune(),
     weld(),
-    textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [1024, 1024] }),
+    textureCompress({ encoder: sharp, targetFormat: 'webp', resize: m.source === 'nasa' ? [512, 512] : [1024, 1024] }),
     meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
   )
   const out = outPath(m.file)

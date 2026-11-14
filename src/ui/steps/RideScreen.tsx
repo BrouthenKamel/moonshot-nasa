@@ -1,5 +1,8 @@
-import { Component, lazy, Suspense, useLayoutEffect, useState, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
+import { useUiStore } from '../../state/uiStore'
+import { useDesignPreview } from '../useDesignPreview'
+import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { canUseWebGL } from '../../scene/webgl'
 import { RideOverlay, RideTimeline } from './RideOverlay'
 import { getPartById, type PropulsionPart } from '../../data/parts'
@@ -25,31 +28,39 @@ class PadBoundary extends Component<{ children: ReactNode; onError: () => void }
 
 /** The delta-v budget in words: shown on the plain screen, read by screen readers over the 3D pad */
 function BudgetSummary({ hidden }: { hidden: boolean }) {
-  const getBudgets = useGameStore((s) => s.getBudgets)
-  useGameStore((s) => s.design)
-  const budgets = getBudgets()
+  const { budgets, previewBudgets } = useDesignPreview()
+  const active = previewBudgets ?? budgets
   return (
-    <div className={hidden ? 'sr-only' : 'rounded-xl border border-orange-400/20 bg-orange-950/60 p-4 text-sm'}>
-      <div className="font-medium text-orange-300">Delta-v Budget</div>
-      <div className="mt-2 grid grid-cols-2 gap-4 text-orange-200">
+    <div className={hidden ? 'sr-only' : 'hud-panel border-[var(--role-border)] bg-[var(--role-surface)] p-4 text-sm'}>
+      <div className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--role-accent)]">Delta-v Budget</div>
+      <div className="mt-2.5 grid grid-cols-2 gap-4 font-mono text-xs tabular-nums text-orange-100">
         <div>
-          On board: <span className="text-orange-400">{budgets.deltaVAvailable.toFixed(0)} m/s</span>
-          <span className="text-orange-200/60"> ({budgets.propellantMass} kg propellant)</span>
+          On board: <span className="font-bold text-orange-300">{active.deltaVAvailable.toFixed(0)} m/s</span>
+          <span className="text-orange-200/70"> ({active.propellantMass} kg propellant)</span>
         </div>
         <div>
           Capture + 12 months of upkeep:{' '}
-          <span className={budgets.captureDeltaV !== null && budgets.deltaVMargin >= 0 ? 'text-green-400' : 'text-red-400'}>
-            {budgets.captureDeltaV === null ? 'not possible' : `${budgets.deltaVTotal.toFixed(0)} m/s`}
+          <span
+            className={
+              active.captureDeltaV !== null && active.deltaVMargin >= 0
+                ? 'font-bold text-emerald-400'
+                : 'font-bold text-rose-400'
+            }
+          >
+            {active.captureDeltaV === null ? 'not possible' : `${active.deltaVTotal.toFixed(0)} m/s`}
           </span>
         </div>
         <div>
-          Climbing out from the drop-off: <span className="text-orange-400">{budgets.deltaVTransfer.toFixed(0)} m/s</span>
+          Climbing out from the drop-off:{' '}
+          <span className="font-bold text-orange-300">{active.deltaVTransfer.toFixed(0)} m/s</span>
         </div>
         <div>
           Arrival:{' '}
-          <span className="text-orange-400">{budgets.arrivalTurn === null ? '-' : `month ${budgets.arrivalTurn}`}</span>
-          {budgets.transferTurns !== null && budgets.transferTurns > 0 && (
-            <span className="text-orange-200/60"> ({budgets.transferTurns} months of running the team in transit)</span>
+          <span className="font-bold text-orange-300">
+            {active.arrivalTurn === null ? '-' : `month ${active.arrivalTurn}`}
+          </span>
+          {active.transferTurns !== null && active.transferTurns > 0 && (
+            <span className="text-orange-200/70"> ({active.transferTurns} months of running the team in transit)</span>
           )}
         </div>
       </div>
@@ -70,35 +81,67 @@ function Briefing({ id, className = '' }: { id: string; className?: string }) {
 /** The plain screen: no 3D (tests, server rendering, no WebGL, or the pad failed) */
 function PlainRide() {
   const design = useGameStore((s) => s.design)
+  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
   const [hover, setHover] = useState<string | null>(null)
   const propulsion = getPartById(design.propulsion) as PropulsionPart | undefined
   const propType = propulsion?.type ?? 'chemical'
+
+  const onHoverRide = useCallback(
+    (id: string | null) => {
+      setHover(id)
+      setPreviewPatch(id ? { ride: id } : null)
+    },
+    [setPreviewPatch],
+  )
+
+  const onHoverTransfer = useCallback(
+    (id: string | null) => {
+      setHover(id)
+      setPreviewPatch(id ? { transfer: id } : null)
+    },
+    [setPreviewPatch],
+  )
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div className="rounded-xl bg-slate-900 p-6">
-        <div className="text-xs font-semibold tracking-widest text-orange-500">LAUNCH SITE · LUNAR ICE MAPPER · RIDE &amp; TRANSFER</div>
-        <h1 className="mt-1 text-xl font-bold text-orange-400">5. Ride & Transfer</h1>
-        <p className="mt-2 text-slate-400">
+    <div className="mx-auto max-w-4xl space-y-5">
+      <header className="hud-step-header">
+        <div className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--role-accent)]">
+          LAUNCH SITE · LUNAR ICE MAPPER · RIDE &amp; TRANSFER
+        </div>
+        <h1 className="mt-1 font-display text-2xl font-bold text-slate-50">5. Ride &amp; Transfer</h1>
+        <p className="mt-1.5 text-sm text-slate-300">
           Choose your rideshare launch and transfer trajectory. The ride drops you off; you navigate the rest.
         </p>
-      </div>
+      </header>
       <BudgetSummary hidden={false} />
-      <section>
-        <h2 className="mb-4 font-semibold text-slate-200">Rideshare Options</h2>
-        <div className="pt-3 pl-2">
-          <RideCardTray size="xs" onHover={setHover} />
+      <SynergyStrip step="ride" />
+      <DesignDeltaLine />
+      <section className="hud-panel p-4">
+        <h2 className="mb-3 font-mono text-xs uppercase tracking-[0.18em] text-slate-300">Rideshare Options</h2>
+        <div
+          className="pt-2 pl-2"
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onHoverRide(null)
+          }}
+        >
+          <RideCardTray size="xs" onHover={onHoverRide} />
         </div>
         <Briefing id={hover && hover.startsWith('ride-') ? hover : design.ride} className="mt-3" />
       </section>
-      <section>
-        <h2 className="mb-1 font-semibold text-slate-200">Transfer Trajectory</h2>
+      <section className="hud-panel p-4">
+        <h2 className="mb-1 font-mono text-xs uppercase tracking-[0.18em] text-slate-300">Transfer Trajectory</h2>
         <p className="mb-4 text-sm text-slate-400">
           Your engine limits your transfer options:{' '}
           <b className="font-semibold text-slate-200">{propulsion ? propulsion.name : 'none'}</b> ({propType === 'electric' ? 'ion' : propType}, chosen at
           the Factory).
         </p>
-        <div className="max-w-xl">
-          <TransferCardTray size="xs" onHover={setHover} />
+        <div
+          className="max-w-xl"
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onHoverTransfer(null)
+          }}
+        >
+          <TransferCardTray size="xs" onHover={onHoverTransfer} />
         </div>
         <Briefing id={hover && hover.startsWith('transfer-') ? hover : design.transfer} className="mt-3" />
       </section>
@@ -121,8 +164,8 @@ function useSize(el: HTMLElement | null) {
   return size
 }
 
-const DOCK = 'pointer-events-auto absolute rounded-2xl border border-orange-400/20 bg-[#060a14]/92 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.6)] backdrop-blur-md'
-const DOCK_TITLE = 'mb-1.5 flex items-baseline justify-between gap-2 px-1 text-[10.5px] font-bold tracking-[0.18em] text-orange-400'
+const DOCK = 'hud-panel pointer-events-auto absolute border-[var(--role-border)] bg-[#060a14]/92 p-2.5 shadow-[0_20px_50px_rgba(0,0,0,0.6)] backdrop-blur-md'
+const DOCK_TITLE = 'mb-1.5 flex items-baseline justify-between gap-2 px-1 font-mono text-[10.5px] font-bold tracking-[0.18em] text-[var(--role-accent)]'
 
 /** The title line at the top left is about 360 px wide: keep the transfer dock clear of it */
 const TITLE_RIGHT = 380
@@ -133,6 +176,7 @@ function clearOfTitle<T extends { left: number; width: number }>(d: T): T {
 /** The ride and transfer cards laid over the pad, exactly where its board and signs are */
 function PadDocks() {
   const design = useGameStore((s) => s.design)
+  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
   const [wrap, setWrap] = useState<HTMLDivElement | null>(null)
   const size = useSize(wrap)
   const [hover, setHover] = useState<string | null>(null)
@@ -147,6 +191,23 @@ function PadDocks() {
   const rideBriefing = hover?.startsWith('ride-') ? hover : design.ride
   const transferBriefing = hover?.startsWith('transfer-') ? hover : design.transfer
   const roomy = !!size && size.h >= 760
+
+  const handleRideHover = useCallback(
+    (id: string | null) => {
+      setHover(id)
+      setPreviewPatch(id ? { ride: id } : null)
+    },
+    [setPreviewPatch],
+  )
+
+  const handleTransferHover = useCallback(
+    (id: string | null) => {
+      setHover(id)
+      setPreviewPatch(id ? { transfer: id } : null)
+    },
+    [setPreviewPatch],
+  )
+
   return (
     <div ref={setWrap} className="pointer-events-none absolute inset-0">
       <RideOverlay maxWidth={transfer ? Math.max(260, transfer.left - 32) : undefined} />
@@ -156,28 +217,38 @@ function PadDocks() {
           className={DOCK}
           style={{ left: transfer.left, width: transfer.width, ...transferPos }}
           aria-labelledby="transfer-dock-title"
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) handleTransferHover(null)
+          }}
         >
           <div className="flex gap-2">
             <div className="flex w-[88px] shrink-0 flex-col justify-between px-1 py-0.5">
-              <h2 id="transfer-dock-title" className="text-[10.5px] leading-snug font-bold tracking-[0.16em] text-orange-400">
+              <h2 id="transfer-dock-title" className="font-mono text-[10.5px] leading-snug font-bold tracking-[0.16em] text-[var(--role-accent)]">
                 TRANSFER TO THE MOON
               </h2>
               <EngineNote />
             </div>
             <div className="min-w-0 flex-1">
-              <TransferCardTray size="xs" onHover={setHover} />
+              <TransferCardTray size="xs" onHover={handleTransferHover} />
             </div>
           </div>
           {roomy && <Briefing id={transferBriefing} className="mt-2 line-clamp-2 px-1" />}
         </section>
       )}
       {ride && (
-        <section className={DOCK} style={{ left: ride.left, width: ride.width, bottom: ride.bottom }} aria-labelledby="ride-dock-title">
+        <section
+          className={DOCK}
+          style={{ left: ride.left, width: ride.width, bottom: ride.bottom }}
+          aria-labelledby="ride-dock-title"
+          onBlurCapture={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) handleRideHover(null)
+          }}
+        >
           <h2 id="ride-dock-title" className={DOCK_TITLE}>
-            DEPARTURES <span className="text-[10px] font-semibold tracking-wider text-slate-500">PICK YOUR RIDE</span>
+            DEPARTURES <span className="text-[10px] font-semibold tracking-wider text-slate-400">PICK YOUR RIDE</span>
           </h2>
           <div className="pt-2 pl-1.5">
-            <RideCardTray size="xs" onHover={setHover} />
+            <RideCardTray size="xs" onHover={handleRideHover} />
           </div>
           {roomy && <Briefing id={rideBriefing} className="mt-2 line-clamp-3 px-0.5" />}
         </section>
@@ -190,16 +261,18 @@ function StepButtons({ overlay }: { overlay: boolean }) {
   const setDesignStep = useGameStore((s) => s.setDesignStep)
   const back = (
     <button
+      type="button"
       onClick={() => setDesignStep('orbit')}
-      className="rounded-lg bg-slate-700/90 px-6 py-2 font-medium text-slate-200 backdrop-blur hover:bg-slate-600"
+      className="tactical-btn-back"
     >
       ← Back
     </button>
   )
   const next = (
     <button
+      type="button"
       onClick={() => setDesignStep('comms')}
-      className="rounded-lg bg-orange-600 px-6 py-2 font-medium text-white shadow-lg shadow-orange-900/50 hover:bg-orange-500"
+      className="tactical-btn-next"
     >
       Setup Communications →
     </button>
@@ -212,7 +285,7 @@ function StepButtons({ overlay }: { overlay: boolean }) {
       </>
     )
   return (
-    <div className="mx-auto mt-6 flex max-w-3xl justify-between">
+    <div className="mx-auto mt-6 flex max-w-4xl justify-between">
       {back}
       {next}
     </div>
@@ -220,6 +293,8 @@ function StepButtons({ overlay }: { overlay: boolean }) {
 }
 
 export function RideScreen() {
+  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
+  useEffect(() => () => setPreviewPatch(null), [setPreviewPatch])
   // The 3D launch pad starts only in a browser with WebGL; server rendering and tests take the plain path
   const [pad, setPad] = useState(canUseWebGL)
 

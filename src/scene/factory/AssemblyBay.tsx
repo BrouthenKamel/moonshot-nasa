@@ -9,6 +9,8 @@ import { PartSlot, type SlotLive } from './PartSlot'
 import { preloadPartModels } from './partModels'
 import { choiceArt } from '../../assets/catalogueArt'
 import { audio } from '../../assets/audio'
+import type { ModelId } from '../../assets/manifest'
+import { useModel } from '../../assets/models'
 import {
   paintBoard,
   paintScale,
@@ -55,6 +57,51 @@ function makeCanvasTexture(w: number, h: number) {
 
 /* ---------------- room ---------------- */
 
+class BayBoundary extends Component<{ fallback?: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? (this.props.fallback ?? null) : this.props.children
+  }
+}
+
+function LoadedBayModel({
+  id,
+  position,
+  rotation,
+  scale = 1,
+}: {
+  id: ModelId
+  position?: [number, number, number]
+  rotation?: [number, number, number]
+  scale?: number
+}) {
+  const scene = useModel(id)
+  return <primitive object={scene} position={position} rotation={rotation} scale={scale} />
+}
+
+function SafeBayModel({
+  id,
+  fallback = null,
+  ...props
+}: {
+  id: ModelId
+  position?: [number, number, number]
+  rotation?: [number, number, number]
+  scale?: number
+  fallback?: ReactNode
+}) {
+  return (
+    <BayBoundary fallback={fallback}>
+      <Suspense fallback={fallback}>
+        <LoadedBayModel id={id} {...props} />
+      </Suspense>
+    </BayBoundary>
+  )
+}
+
 function Room({ alarm, reduced }: { alarm: boolean; reduced: boolean }) {
   const accent = useRef<THREE.PointLight>(null)
   useFrame((state) => {
@@ -99,6 +146,20 @@ function Room({ alarm, reduced }: { alarm: boolean; reduced: boolean }) {
         <boxGeometry args={[0.9, 0.35, 0.7]} />
         <meshStandardMaterial color={PURPLE} emissive={PURPLE} emissiveIntensity={0.25} />
       </mesh>
+      {/* NASA cleanroom props: 1.8m astronaut beside stand, ORU rack, and IceCube 3U reference display */}
+      <SafeBayModel id="model.env-astronaut" position={[SAT_X - 2.35, 0, -0.75]} rotation={[0, 0.55, 0]} scale={1} />
+      <SafeBayModel id="model.env-cleanroom-oru" position={[5.1, 0, -1.55]} rotation={[0, -0.45, 0]} scale={1.05} />
+      <group position={[0.35, 0, -2.1]}>
+        <mesh position={[0, 0.5, 0]}>
+          <cylinderGeometry args={[0.32, 0.36, 1.0, 24]} />
+          <meshStandardMaterial color="#141d2e" metalness={0.6} roughness={0.4} />
+        </mesh>
+        <mesh position={[0, 1.02, 0]} rotation-x={Math.PI / 2}>
+          <torusGeometry args={[0.32, 0.015, 8, 32]} />
+          <meshBasicMaterial color="#38bdf8" />
+        </mesh>
+        <SafeBayModel id="model.nasa-icecube" position={[0, 1.46, 0]} rotation={[0, 0.4, 0]} scale={1.4} />
+      </group>
     </group>
   )
 }
@@ -596,11 +657,20 @@ function Turntable({ view, reduced, children }: { view: BayView; reduced: boolea
         <meshBasicMaterial ref={ring} color={TONE_COLORS[view.massTone]} />
       </mesh>
       <group ref={turn}>
-        {[-0.7, 0.7].map((x) => (
-          <mesh key={x} position={[x, (STAND_Y + 0.5) / 2, 0]} material={DARK}>
-            <boxGeometry args={[0.12, STAND_Y - 0.5, 0.12]} />
-          </mesh>
-        ))}
+        <SafeBayModel
+          id="model.env-support-stand"
+          position={[0, 0.5, 0]}
+          scale={0.625}
+          fallback={
+            <>
+              {[-0.7, 0.7].map((x) => (
+                <mesh key={x} position={[x, (STAND_Y + 0.5) / 2, 0]} material={DARK}>
+                  <boxGeometry args={[0.12, STAND_Y - 0.5, 0.12]} />
+                </mesh>
+              ))}
+            </>
+          }
+        />
         {children}
       </group>
     </group>

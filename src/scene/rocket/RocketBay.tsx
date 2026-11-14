@@ -1,8 +1,9 @@
-import { Suspense, useEffect, useMemo, useRef, type ComponentRef } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, type ComponentRef, type ReactNode } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Html, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import type { ModelId } from '../../assets/manifest'
 import { preloadModel, useModel } from '../../assets/models'
 import { rocketParts, rocketSlots, type RocketConfig, type RocketPart, type RocketSlot } from '../../data/rocket'
 import { layoutRocket, type PlacedPart } from '../../viz/rocket/rocketView'
@@ -133,6 +134,76 @@ const TABLE_PROFILE = [
   new THREE.Vector2(1.4, -0.25),
 ]
 
+class HangarModelBoundary extends Component<{ fallback?: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? (this.props.fallback ?? null) : this.props.children
+  }
+}
+
+function LoadedHangarModel({
+  id,
+  position,
+  rotation,
+  scale = 1,
+}: {
+  id: ModelId
+  position?: [number, number, number]
+  rotation?: [number, number, number]
+  scale?: number
+}) {
+  const scene = useModel(id)
+  return <primitive object={scene} position={position} rotation={rotation} scale={scale} />
+}
+
+function SafeHangarModel({
+  id,
+  fallback = null,
+  ...props
+}: {
+  id: ModelId
+  position?: [number, number, number]
+  rotation?: [number, number, number]
+  scale?: number
+  fallback?: ReactNode
+}) {
+  return (
+    <HangarModelBoundary fallback={fallback}>
+      <Suspense fallback={fallback}>
+        <LoadedHangarModel id={id} {...props} />
+      </Suspense>
+    </HangarModelBoundary>
+  )
+}
+
+function ServiceTowersFallback() {
+  return (
+    <>
+      {[-1, 1].map((s) => (
+        <group key={s} position={[s * 7, 0, -4]}>
+          <mesh position-y={9} castShadow>
+            <boxGeometry args={[0.9, 18, 0.9]} />
+            <meshStandardMaterial color="#1c2638" metalness={0.7} roughness={0.5} />
+          </mesh>
+          {[2, 6, 10, 14].map((y) => (
+            <mesh key={y} position={[-s * 0.9, y, 0]}>
+              <boxGeometry args={[1.8, 0.1, 0.5]} />
+              <meshStandardMaterial color="#26334a" metalness={0.6} />
+            </mesh>
+          ))}
+          <mesh position-y={17.6}>
+            <sphereGeometry args={[0.18, 12, 12]} />
+            <meshBasicMaterial color="#ef4444" />
+          </mesh>
+        </group>
+      ))}
+    </>
+  )
+}
+
 /** `topY` is the highest point of the rocket in scene units; the crane rail hangs above it */
 function Hangar({ topY }: { topY: number }) {
   return (
@@ -177,25 +248,9 @@ function Hangar({ topY }: { topY: number }) {
           <meshStandardMaterial color="#111a2c" />
         </mesh>
       ))}
-      {/* service towers either side */}
-      {[-1, 1].map((s) => (
-        <group key={s} position={[s * 7, 0, -4]}>
-          <mesh position-y={9} castShadow>
-            <boxGeometry args={[0.9, 18, 0.9]} />
-            <meshStandardMaterial color="#1c2638" metalness={0.7} roughness={0.5} />
-          </mesh>
-          {[2, 6, 10, 14].map((y) => (
-            <mesh key={y} position={[-s * 0.9, y, 0]}>
-              <boxGeometry args={[1.8, 0.1, 0.5]} />
-              <meshStandardMaterial color="#26334a" metalness={0.6} />
-            </mesh>
-          ))}
-          <mesh position-y={17.6}>
-            <sphereGeometry args={[0.18, 12, 12]} />
-            <meshBasicMaterial color="#ef4444" />
-          </mesh>
-        </group>
-      ))}
+      {/* NASA launch gantry framing the vehicle bay + astronaut technician for scale */}
+      <SafeHangarModel id="model.env-launch-gantry" position={[0, 0, -4.5]} scale={0.9} fallback={<ServiceTowersFallback />} />
+      <SafeHangarModel id="model.env-astronaut" position={[4.35, 0, 2.6]} rotation={[0, -0.55, 0]} scale={1.15} />
       {/* the crane rail and hook above the rocket */}
       <mesh position={[0, Math.max(18, topY + 4), 0]}>
         <boxGeometry args={[26, 0.5, 0.7]} />

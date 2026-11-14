@@ -31,7 +31,7 @@ function PanelBody({ step }: { step: DesignStep }) {
   const showCraft = step !== 'brief'
 
   return (
-    <div className="mb-4 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
+    <div className="hud-panel mb-4 rounded-2xl p-3">
       <div className="flex h-32 gap-3">
         {showCraft && (
           <div className="h-full w-1/3 min-w-0">

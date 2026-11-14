@@ -1,12 +1,67 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Component, Suspense, createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { Color, DoubleSide, MOUSE, TOUCH, Vector3, type Group, type InstancedMesh, Object3D } from 'three'
+import { Color, DoubleSide, MOUSE, TOUCH, Vector3, type Group, type InstancedMesh, Mesh, Object3D } from 'three'
+import type { ModelId } from '../assets/manifest'
+import { useModel } from '../assets/models'
 import { MAP_SIZE, buildings, type BuildingId } from '../data/agency'
 import { buildingIcons } from './buildingIcons'
 import { BuildingList, MapBoundary } from './BuildingList'
 import { canUseWebGL } from './webgl'
 import { BaseEffects, ChimneySmoke, Clouds, Truck } from './base/Life'
+
+class ModelBoundary extends Component<{ fallback?: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? (this.props.fallback ?? null) : this.props.children
+  }
+}
+
+function LoadedModel({
+  id,
+  position,
+  rotation,
+  scale = 1,
+}: {
+  id: ModelId
+  position?: [number, number, number]
+  rotation?: [number, number, number]
+  scale?: number
+}) {
+  const scene = useModel(id)
+  useLayoutEffect(() => {
+    scene.traverse((obj) => {
+      if (obj instanceof Mesh) {
+        obj.castShadow = true
+        obj.receiveShadow = true
+      }
+    })
+  }, [scene])
+  return <primitive object={scene} position={position} rotation={rotation} scale={scale} />
+}
+
+function SafeModel({
+  id,
+  fallback = null,
+  ...props
+}: {
+  id: ModelId
+  position?: [number, number, number]
+  rotation?: [number, number, number]
+  scale?: number
+  fallback?: ReactNode
+}) {
+  return (
+    <ModelBoundary fallback={fallback}>
+      <Suspense fallback={fallback}>
+        <LoadedModel id={id} {...props} />
+      </Suspense>
+    </ModelBoundary>
+  )
+}
 
 /* ------------------------------------------------------------------ */
 /* Layout helpers                                                      */
@@ -252,10 +307,9 @@ function ResearchLab() {
   )
 }
 
-function Factory() {
+function FactoryHallFallback() {
   return (
     <group>
-      <Pad w={5} d={4} />
       {/* Hall */}
       <mesh position={[-0.2, 0.75, -0.2]} castShadow receiveShadow>
         <boxGeometry args={[4, 1.2, 2.8]} />
@@ -284,7 +338,23 @@ function Factory() {
         <boxGeometry args={[0.02, 0.3, 2.2]} />
         <meshStandardMaterial color={GLASS} />
       </mesh>
-      {/* Chimney */}
+    </group>
+  )
+}
+
+function Factory() {
+  return (
+    <group>
+      <Pad w={5} d={4} />
+      {/* NASA Vehicle Assembly Building (VAB) as the primary integration bay */}
+      <SafeModel
+        id="model.env-vab"
+        position={[-0.35, 0.1, -0.15]}
+        rotation={[0, -Math.PI / 2, 0]}
+        scale={0.145}
+        fallback={<FactoryHallFallback />}
+      />
+      {/* Cleanroom utility annex + chimney */}
       <mesh position={[1.3, 2.0, -1.2]} castShadow>
         <cylinderGeometry args={[0.15, 0.18, 1.2, 10]} />
         <meshStandardMaterial color="#8d939c" />
@@ -292,9 +362,9 @@ function Factory() {
       <ChimneySmoke position={[1.3, 2.65, -1.2]} />
       {/* Crates waiting outside */}
       {[
-        [2.1, 0.35, 1.3],
-        [2.1, 0.35, 0.8],
-        [2.1, 0.75, 1.05],
+        [2.05, 0.35, 1.3],
+        [2.05, 0.35, 0.8],
+        [2.05, 0.75, 1.05],
       ].map((p, i) => (
         <mesh key={i} position={p as [number, number, number]} castShadow>
           <boxGeometry args={[0.4, 0.4, 0.4]} />
@@ -427,6 +497,25 @@ function Rocket() {
   )
 }
 
+function ServiceTowerFallback() {
+  return (
+    <group position={[-0.75, 0, -0.3]}>
+      <mesh position={[0, 1.65, 0]} castShadow>
+        <boxGeometry args={[0.45, 3.1, 0.45]} />
+        <meshStandardMaterial color="#d9452b" wireframe />
+      </mesh>
+      <mesh position={[0, 1.65, 0]} castShadow>
+        <boxGeometry args={[0.12, 3.1, 0.12]} />
+        <meshStandardMaterial color="#d9452b" />
+      </mesh>
+      <mesh position={[0.35, 2.3, 0.15]} castShadow>
+        <boxGeometry args={[0.6, 0.08, 0.1]} />
+        <meshStandardMaterial color="#d9452b" />
+      </mesh>
+    </group>
+  )
+}
+
 function LaunchSite() {
   return (
     <group>
@@ -444,21 +533,10 @@ function LaunchSite() {
         <Rocket />
       </group>
       <LaunchSmoke />
-      {/* Service tower */}
-      <group position={[-0.75, 0, -0.3]}>
-        <mesh position={[0, 1.65, 0]} castShadow>
-          <boxGeometry args={[0.45, 3.1, 0.45]} />
-          <meshStandardMaterial color="#d9452b" wireframe />
-        </mesh>
-        <mesh position={[0, 1.65, 0]} castShadow>
-          <boxGeometry args={[0.12, 3.1, 0.12]} />
-          <meshStandardMaterial color="#d9452b" />
-        </mesh>
-        <mesh position={[0.35, 2.3, 0.15]} castShadow>
-          <boxGeometry args={[0.6, 0.08, 0.1]} />
-          <meshStandardMaterial color="#d9452b" />
-        </mesh>
-      </group>
+      {/* NASA Mobile Launcher, Launch Gantry, and Crawler-Transporter */}
+      <SafeModel id="model.env-mobile-launcher" position={[0, 0.1, -0.25]} scale={0.14} fallback={<ServiceTowerFallback />} />
+      <SafeModel id="model.env-launch-gantry" position={[-1.05, 0.1, -0.35]} rotation={[0, Math.PI * 0.25, 0]} scale={0.13} />
+      <SafeModel id="model.env-crawler" position={[0.1, 0.1, 1.55]} rotation={[0, Math.PI * 0.5, 0]} scale={0.14} />
       {/* Propellant tanks */}
       {[
         [1.6, 1.4],
@@ -542,8 +620,20 @@ function CommsCenter() {
         <cylinderGeometry args={[0.03, 0.03, 1, 6]} />
         <meshStandardMaterial color="#6b717a" />
       </mesh>
-      <Dish position={[0.9, 0.1, -0.9]} phase={0.6} />
-      <Dish position={[-0.9, 0.1, -1.1]} phase={2.2} />
+      {/* NASA DSN 34-meter deep-space dish and Radome telemetry dome */}
+      <SafeModel
+        id="model.env-dsn-34m"
+        position={[0.95, 0.1, -0.85]}
+        rotation={[0, -Math.PI * 0.2, 0]}
+        scale={0.055}
+        fallback={<Dish position={[0.9, 0.1, -0.9]} phase={0.6} />}
+      />
+      <SafeModel
+        id="model.env-radome"
+        position={[-0.95, 0.1, -0.95]}
+        scale={0.55}
+        fallback={<Dish position={[-0.9, 0.1, -1.1]} phase={2.2} />}
+      />
     </group>
   )
 }
@@ -558,9 +648,9 @@ const models: Record<BuildingId, () => React.ReactElement> = {
 /** How tall each model is, so its label floats just above it */
 const labelHeight: Record<BuildingId, number> = {
   'research-lab': 3.0,
-  factory: 2.6,
-  'launch-site': 3.4,
-  'comms-center': 2.2,
+  factory: 2.8,
+  'launch-site': 3.8,
+  'comms-center': 2.4,
 }
 
 /* ------------------------------------------------------------------ */
@@ -695,6 +785,43 @@ export interface BaseMapProps {
   rocketGone?: boolean
 }
 
+function BuildingStatusIndicator({ size, label }: { size: [number, number]; label?: BuildingLabel }) {
+  const ringRef = useRef<Mesh>(null)
+  useFrame(({ clock }) => {
+    if (!ringRef.current) return
+    const s = 1 + Math.sin(clock.elapsedTime * 3.2) * 0.04
+    ringRef.current.scale.set(s, s, 1)
+  })
+  if (!label) return null
+  const [w, d] = size
+  const beaconColor = label.alert ? '#ef4444' : label.pulse ? '#34d399' : '#fb923c'
+  const showBeacon = !!(label.highlight || label.pulse || label.alert)
+  const radius = Math.hypot(w, d) * 0.52
+
+  return (
+    <group position={[0, 0.12, 0]}>
+      {showBeacon && (
+        <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[radius - 0.14, radius, 48]} />
+          <meshBasicMaterial color={beaconColor} transparent opacity={0.75} side={DoubleSide} />
+        </mesh>
+      )}
+      {label.progress !== undefined && label.progress > 0 && (
+        <group position={[0, 0.02, d / 2 + 0.18]}>
+          <mesh>
+            <boxGeometry args={[w * 0.72, 0.04, 0.14]} />
+            <meshStandardMaterial color="#334155" />
+          </mesh>
+          <mesh position={[-(w * 0.72 * (1 - Math.min(1, label.progress))) / 2, 0.015, 0]}>
+            <boxGeometry args={[Math.max(0.06, w * 0.72 * Math.min(1, label.progress)), 0.05, 0.16]} />
+            <meshStandardMaterial color="#fb923c" emissive="#f97316" emissiveIntensity={0.45} />
+          </mesh>
+        </group>
+      )}
+    </group>
+  )
+}
+
 function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = false }: BaseMapProps) {
   const launch = useMemo(() => ({ launchAt, gone: rocketGone }), [launchAt, rocketGone])
   const labelEls = useRef<(HTMLDivElement | null)[]>([])
@@ -761,6 +888,7 @@ function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = fals
               onPointerOut={onBuildingClick ? () => (document.body.style.cursor = '') : undefined}
             >
               <Model />
+              <BuildingStatusIndicator size={b.size} label={labels[b.id]} />
             </group>
           )
         })}

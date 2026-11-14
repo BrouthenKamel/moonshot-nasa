@@ -1,4 +1,7 @@
 import { create } from 'zustand'
+import type { Design } from '../sim/types'
+
+export type FlightCamMode = 'director' | 'chase' | 'pole' | 'overview'
 
 /**
  * Session-only interface state (never saved): what is on screen around the game,
@@ -11,6 +14,15 @@ interface UiState {
   /** During the flight, which view fills the base's centre panel */
   flightView: 'space' | 'island'
   setFlightView: (v: 'space' | 'island') => void
+  /** Interactive camera preset when flightView === 'space' */
+  flightCam: FlightCamMode
+  setFlightCam: (cam: FlightCamMode) => void
+  /** Auto-fly simulation speed multiplier (1x = 500ms/month, 2x = 250ms/month) */
+  autoFlySpeed: 1 | 2
+  setAutoFlySpeed: (speed: 1 | 2) => void
+  /** Transient hovered "what-if" patch across design screens */
+  previewPatch: Partial<Design> | null
+  setPreviewPatch: (patch: Partial<Design> | null) => void
   /** performance.now() when the rocket's countdown started on the island; null when no launch is playing */
   launchAt: number | null
   startLaunch: () => void
@@ -22,6 +34,12 @@ export const useUiStore = create<UiState>()((set) => ({
   finishOpening: () => set({ openingDone: true }),
   flightView: 'space',
   setFlightView: (flightView) => set({ flightView }),
+  flightCam: 'director',
+  setFlightCam: (flightCam) => set({ flightCam }),
+  autoFlySpeed: 1,
+  setAutoFlySpeed: (autoFlySpeed) => set({ autoFlySpeed }),
+  previewPatch: null,
+  setPreviewPatch: (previewPatch) => set({ previewPatch }),
   launchAt: null,
   startLaunch: () => set({ launchAt: performance.now(), flightView: 'island' }),
   endLaunch: () => set({ launchAt: null, flightView: 'space' }),

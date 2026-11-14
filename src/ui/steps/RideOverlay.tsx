@@ -1,5 +1,6 @@
 import { useRideView } from '../../viz/ride/useRideView'
 import { timelineLayout } from '../../viz/ride/rideView'
+import { DesignDeltaLine } from '../../viz/DesignDeltaLine'
 import type { BarStatus } from '../../sim/types'
 import { ROCKET_X, SKY_W } from '../../viz/ride/skyPath'
 
@@ -20,14 +21,21 @@ const CHIP = { go: 'bg-green-400', caution: 'bg-amber-300', nogo: 'bg-red-400' }
 export function RideOverlay({ maxWidth }: { maxWidth?: number }) {
   const view = useRideView()
   return (
-    <div className="pointer-events-none absolute top-14 left-4 max-w-[38%] select-none" style={maxWidth ? { maxWidth } : undefined}>
-      <div className="text-[13px] font-bold whitespace-nowrap text-slate-200">LAUNCH SITE · LUNAR ICE MAPPER · RIDE &amp; TRANSFER</div>
+    <div
+      className="hud-panel pointer-events-none absolute top-14 left-4 max-w-[38%] p-3 backdrop-blur-md select-none"
+      style={maxWidth ? { maxWidth } : undefined}
+    >
+      <div className="font-mono text-[11px] font-bold tracking-[0.18em] whitespace-nowrap text-[var(--role-accent)]">
+        LAUNCH SITE · LUNAR ICE MAPPER · RIDE &amp; TRANSFER
+      </div>
       <div className="mt-2 flex flex-wrap items-center gap-1.5 whitespace-nowrap">
-        <span className={`rounded-md px-2 py-0.5 text-xs font-extrabold text-[#03050a] ${CHIP[view.status]}`}>{view.statusLabel}</span>
+        <span className={`rounded-md px-2 py-0.5 font-mono text-xs font-extrabold text-[#03050a] ${CHIP[view.status]}`}>
+          {view.statusLabel}
+        </span>
         {view.bars.map((b) => (
           <span
             key={b.resource}
-            className={`flex items-center gap-1 rounded-full border bg-[#03050a]/60 px-2 py-0.5 text-[11px] font-bold ${BAR_BORDER[b.status]} ${BAR_TEXT[b.status]}`}
+            className={`flex items-center gap-1 rounded-full border bg-[#03050a]/75 px-2 py-0.5 font-mono text-[11px] font-bold ${BAR_BORDER[b.status]} ${BAR_TEXT[b.status]}`}
           >
             <span className={`h-2 w-2 rounded-full ${BAR_DOT[b.status]}`} />
             {b.resource.toUpperCase()}
@@ -40,8 +48,11 @@ export function RideOverlay({ maxWidth }: { maxWidth?: number }) {
             {r.resource.toUpperCase()}: {r.reason}
           </p>
         ))}
-        <p className="pt-1 text-xs font-semibold tracking-wide text-slate-400">{view.costLine}</p>
+        <p className="pt-1 font-mono text-xs font-semibold tracking-wide tabular-nums text-slate-400">
+          {view.costLine}
+        </p>
       </div>
+      <DesignDeltaLine className="mt-2" />
     </div>
   )
 }
@@ -60,12 +71,12 @@ export function RideTimeline() {
   return (
     <div className="pointer-events-none absolute right-4 bottom-0 left-4 select-none">
       <div className="absolute bottom-[6.75rem] text-center" style={{ left: `${(ROCKET_X / SKY_W) * 100}%`, transform: 'translateX(-50%)' }}>
-        <div className="text-sm font-bold tracking-wide text-slate-200">{view.rideName}</div>
-        <div className={`text-xs font-semibold ${view.payload.over ? 'text-red-400' : 'text-slate-400'}`}>
+        <div className="font-display text-sm font-bold tracking-wide text-slate-100">{view.rideName}</div>
+        <div className={`font-mono text-xs font-semibold tabular-nums ${view.payload.over ? 'text-rose-400' : 'text-slate-400'}`}>
           PAYLOAD {view.payload.mass.toFixed(1)} kg · LIMIT {view.payload.limit} kg
         </div>
       </div>
-      <div className="relative mb-7 h-7 rounded bg-slate-900/90 text-[11px] font-semibold">
+      <div className="relative mb-7 h-7 rounded border border-slate-700/70 bg-slate-950/90 font-mono text-[11px] font-semibold tabular-nums">
         {blocks.map((b) => (
           <div
             key={b.key}
@@ -75,6 +86,7 @@ export function RideTimeline() {
             <span className="truncate px-1">{b.label}</span>
           </div>
         ))}
+        <div className="hud-bar-segments pointer-events-none absolute inset-0" />
         {flags.map((f) => {
           const colour = tone[f.tone]
           const above = f.side === 'above'
