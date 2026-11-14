@@ -54,3 +54,25 @@ export function createSafeStorage(base: BaseStorage): StateStorage {
     },
   }
 }
+
+/**
+ * Wrap a persist storage so a write is skipped when every persisted field is
+ * reference-equal to the last write (e.g. replay cursor or pending action
+ * changes that are not partialized), avoiding repeated stringify + setItem.
+ */
+export function skipUnchangedWrites<S extends { state: Record<string, unknown> }>(
+  storage: { getItem: (n: string) => unknown; setItem: (n: string, v: S) => unknown; removeItem: (n: string) => unknown },
+) {
+  let last: Record<string, unknown> | null = null
+  return {
+    ...storage,
+    setItem: (name: string, value: S) => {
+      const next = value.state
+      if (last && Object.keys(next).length === Object.keys(last).length && Object.keys(next).every((k) => next[k] === last![k])) {
+        return undefined
+      }
+      last = next
+      return storage.setItem(name, value)
+    },
+  }
+}

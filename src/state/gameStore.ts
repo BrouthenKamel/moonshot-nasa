@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
-import { createSafeStorage } from './safeStorage'
+import { createSafeStorage, skipUnchangedWrites } from './safeStorage'
 import type { Difficulty } from '../data/brief'
 import type { Budgets } from '../sim/types'
 import type {
@@ -369,7 +369,7 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: 'moonshot-game-storage',
-      storage: createJSONStorage(() => createSafeStorage(getBaseStorage()) as StateStorage),
+      storage: skipUnchangedWrites(createJSONStorage(() => createSafeStorage(getBaseStorage()) as StateStorage)!) as never,
       partialize: (state) => ({
         difficulty: state.difficulty,
         mode: state.mode,

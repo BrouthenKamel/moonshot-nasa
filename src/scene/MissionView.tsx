@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef } from 'react'
+import { Suspense, useCallback, useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Line } from '@react-three/drei'
 import * as THREE from 'three'
@@ -77,8 +77,14 @@ function LunarOrbit({ radius }: { radius: number }) {
 }
 
 function Spacecraft({ pose }: { pose: Pose }) {
-  const groupRef = useRef<THREE.Group>(null)
+  const groupRef = useRef<THREE.Group | null>(null)
   const target = poseToPosition(pose)
+  // Set once on mount; useFrame is the only writer afterwards so the tween is not overridden by a prop.
+  const setInitial = useCallback((g: THREE.Group | null) => {
+    groupRef.current = g
+    if (g) g.position.set(target[0], target[1], target[2] ?? 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useFrame((_, delta) => {
     const g = groupRef.current
@@ -88,7 +94,7 @@ function Spacecraft({ pose }: { pose: Pose }) {
   })
 
   return (
-    <group ref={groupRef} position={target}>
+    <group ref={setInitial}>
       <mesh>
         <boxGeometry args={[0.08, 0.08, 0.08]} />
         <meshStandardMaterial color="#60a5fa" />

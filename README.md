@@ -24,6 +24,9 @@ pnpm dev        # http://localhost:5173
 ### The Mission
 You are designing the **Lunar Ice Mapper** - a 6U CubeSat mission to detect and map water ice in permanently shadowed craters at the Moon's south pole.
 
+### The Diagram and Replay
+While you design, a live diagram shows how each choice connects to the mission. After a run, the replay panel lets you step or play through every turn, scrubbing a timeline while the 3D mission view follows the spacecraft.
+
 ### The Challenge
 Balance six interconnected resources (mass, power, budget, delta-v, data, time) to:
 - Capture into lunar polar orbit

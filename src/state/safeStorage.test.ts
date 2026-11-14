@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createSafeStorage } from './safeStorage'
+import { createSafeStorage, skipUnchangedWrites } from './safeStorage'
 
 function makeValue(runs: boolean[]): string {
   return JSON.stringify({
@@ -49,5 +49,22 @@ describe('createSafeStorage', () => {
     expect(() => s.setItem('k', makeValue([true, false]))).not.toThrow()
     expect(() => s.setItem('k', 'not json, but too long to fit')).not.toThrow()
     expect(base.store.has('k')).toBe(false)
+  })
+})
+
+describe('skipUnchangedWrites', () => {
+  it('writes only when a persisted field reference changes', () => {
+    const calls: unknown[] = []
+    const s = skipUnchangedWrites({
+      getItem: () => null,
+      setItem: (_n: string, v: { state: Record<string, unknown> }) => calls.push(v),
+      removeItem: () => undefined,
+    })
+    const hist: unknown[] = []
+    s.setItem('k', { state: { runHistory: hist, mode: 'solo' } })
+    s.setItem('k', { state: { runHistory: hist, mode: 'solo' } })
+    expect(calls).toHaveLength(1)
+    s.setItem('k', { state: { runHistory: [...hist], mode: 'solo' } })
+    expect(calls).toHaveLength(2)
   })
 })
