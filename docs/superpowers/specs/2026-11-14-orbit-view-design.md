@@ -1,6 +1,6 @@
 # Orbit view for step 4 (Orbit Selection): design
 
-Status: direction approved by Jakob on 2026-11-14 (he chose "A: space view", then said "Yes, write design" after the mockup). Not implemented. Branch: `claude/orbit-selection-visual`, cut from `main` at bc9574c.
+Status: direction approved by Jakob on 2026-11-14 (he chose "A: space view", then said "Yes, write design" after the mockup). Reviewed once by a builder check; aligned with `docs/DESIGN-DIRECTION.md` (PR #10). Not implemented. Branch: `claude/orbit-selection-visual`, cut from `main` at bc9574c.
 
 Reference, approved as the direction:
 
@@ -25,12 +25,12 @@ The step has one lesson that must stay visible: the ice instruments only work cl
 4. Each number the orbit changes has a picture:
    - **passes over the pole**: the strips on the cap;
    - **height over the pole**: a side view of the pole pass with the instruments' range band, and a sensor beam under the craft (cyan when in range, red and broken when too high);
-   - **sunlight and shadow**: the ring is dim where it runs through the Moon's shadow, and the craft dims there;
-   - **Earth in view**: a thin line from the craft to a far blue Earth, which vanishes when the Moon is in the way;
+   - **sunlight and shadow**: the ring has a dim stretch behind the Moon whose length is the orbit's share of time in shadow, and the craft dims there;
+   - **Earth in view**: a thin line from the craft to a far blue Earth, which is cut for the orbit's share of time without Earth in view;
    - **fuel to get in and to hold**: a bar against the fuel on board;
    - **ice mapped in 12 months**: a large number and a bar with the 70% goal marked.
 5. A verdict in plain words sits above the numbers (for example "GOOD MAPPING ORBIT", "TOO HIGH FOR THE ICE INSTRUMENTS").
-6. Because the scene hides the Resource Dashboard, the three Go / No-Go checks this step moves (Delta-v, Power, Science) are shown inside the scene with their reason text.
+6. Because the step hides the Resource Dashboard, the Go / No-Go checks an orbit pick can move are shown inside the step with their reason text: Delta-v, Power and Science always, Budget and Data Link when they are not green.
 7. The step works with the keyboard, with reduced motion, and when 3D is unavailable; the existing test suite still passes.
 
 ## Non-goals
@@ -43,7 +43,7 @@ The step has one lesson that must stay visible: the ice instruments only work cl
 
 ## Anti-goals (a failure even if it works technically)
 
-- The scene shows a number or a status that differs from `computeBudgets` or `goNoGo`. In particular: nothing is shown as a launch blocker (red verdict) unless a Go / No-Go check is red.
+- The scene shows a number or a status that differs from `computeBudgets` or `goNoGo`. In particular: red means blocked and is used only when a Go / No-Go check is red; the verdict is never green while a shown check is not green.
 - The 100 km orbit looks fine. A player must see at a glance that it maps no ice with ice instruments.
 - Text too small to read on a laptop or a projector (minimum 12 px in the panels).
 - The scene stutters on a normal laptop during the pitch.
@@ -57,8 +57,9 @@ The step has one lesson that must stay visible: the ice instruments only work cl
 - Facts this step shows:
   - Orbit facts from `src/data/orbits.ts`: `altitude`, `farPointKm`, `passesPerTurn`, `sunlitShare`, `eclipseHours`, `earthVisible`, `stationKeepingDeltaV`.
   - Per orbit, from `computeBudgets({ ...design, orbit: id }, difficulty)`: `captureDeltaV` (null = no way in), `deltaVAvailable`, `deltaVAfterCapture`, `upkeepTurns`, `deltaVStationKeeping`, `batteryNeedWh`, `batteryUsableWh`, `batteryOk`, `scienceDuty`, `quality[instrumentId]`, `coverageRate[instrumentId]`, `projectedCoverage`.
-  - Per orbit, from `goNoGo(trialDesign, trialBudgets)`: the checks named `Delta-v`, `Power` and `Science` (status and reason).
-  - An ice instrument is an instrument part with `seesShadow: true`. Its `maxAltitudeKm` is 20 (laser) or 25 (neutron). Above it `quality` is 0.
+  - Per orbit, from `goNoGo(trialDesign, trialBudgets)`: the checks named `Delta-v`, `Power`, `Science`, `Budget` and `Data Link` (status and reason). The orbit moves Budget through the transfer time of an ion engine, and Data Link through `earthVisible`.
+  - An ice instrument is an instrument part with `seesShadow: true`. Its `maxAltitudeKm` is 20 (laser) or 25 (neutron); it works at that height and below (`altitude <= limit`). Above it `quality` is 0.
+  - `budgets.projectedCoverage` is the game's projection: it counts only ice instruments, only coverage that was sent home, and runs for `min(12, upkeepTurns)` turns. The scene never recomputes it.
 
 ## Border with the Ride & Transfer session (agreed 2026-11-14)
 
@@ -66,7 +67,7 @@ Both steps live in the Launch Site building. `openBuilding('launch-site')` opens
 
 - This step draws the Moon end: the three science orbits. Ride & Transfer draws the rocket, the launch and the Earth-Moon path. The capture burn is the seam.
 - Earth appears here only as a far blue dot labelled "Earth", with the line home. No journey is drawn.
-- Shared look: background `#03050a`; amber = caution, red = blocked; slow camera motion that is off under reduced motion; plain cards as fallback.
+- Shared look: background `#03050a`; amber = caution, red = blocked; slow camera motion that is off under reduced motion; plain cards as fallback. From the shared design direction: the Launch Site's role colour, orange `#f97316`, is the accent of both steps' interface (title line, panel headings, focus rings), and the title line reads `LAUNCH SITE · LUNAR ICE MAPPER · ORBIT`.
 - Orbit colours, used by both sessions (their transfer path ends in the picked orbit's colour): halo loop violet `#a78bfa`, elliptical lime `#a3e635`, low circular sky blue `#38bdf8`. Cyan (`#22d3ee`, `#67e8f9`) is reserved for ice and the sensor beam. A picked orbit is shown by brightness, not by a colour change.
 - File names: this step uses `src/scene/OrbitView.tsx` and `src/viz/orbit/*`. It does not use `LaunchSite*` or `LaunchPad*`.
 - Buttons: Back goes to `spacecraft`, forward ("Choose Ride →") to `ride`.
@@ -85,12 +86,12 @@ Within approach 1 the panels are ordinary HTML over the canvas, not canvas-paint
 
 - Whole column: the 3D canvas on `#03050a`.
 - Top left: "← Back" button. Top right: "Choose Ride →" button. Same styles as `PlanningScreen`'s overlay buttons.
-- Top centre: a small chip, `LAUNCH SITE · ORBIT SELECTION`, and under it the time-lapse label `TIME-LAPSE · MONTH n OF 12`.
+- Top centre: the title line `LAUNCH SITE · LUNAR ICE MAPPER · ORBIT` in orange `#f97316`, and under it the time-lapse label `TIME-LAPSE · MONTH n OF 12`.
 - Right, below the button: the readout panel, about 290 px wide.
 - Left, above the cards: the side-view panel, about 270 px wide.
 - Bottom: three orbit cards in a row.
 - Panels: `rgba(2, 6, 23, .72)` with a thin slate border, 12 px radius and backdrop blur.
-- Below 1100 px of column width the side-view panel is hidden; below 900 px the step uses the plain fallback. (My call.)
+- Below 1000 px of column width the side-view panel is hidden; below 900 px the step uses the plain fallback. (My call. At a 1280 px window the column is 1088 px, so everything shows.)
 
 ### The 3D scene
 
@@ -98,11 +99,11 @@ Within approach 1 the panels are ordinary HTML over the canvas, not canvas-paint
 - **Moon**: sphere of radius 1 with a procedural crater texture (also used as bump map), lit by one sun light plus a weak ambient light so the night side is not black. The polar axis is the scene's y axis; the south pole is at −y.
 - **Camera**: starts below the equator (pitch about −24°), so the south pole faces the viewer. Drag rotates, scroll zooms between fixed limits, no panning. It drifts slowly around the Moon when idle. Its distance eases to a per-orbit value on pick (the halo loop needs a wider view).
 - **Ice cap**: a spherical cap of 30° around the south pole, just above the surface, carrying a canvas texture painted by `icePainter`: a dashed outline, dark crater patches with a thin cyan rim ("ice may be here"), the pass strips, and bright ice inside the patches where strips have passed. The cap is unlit (always readable).
-- **Rings**: one tube per orbit with per-vertex brightness: 30% where the Moon blocks the sun, and fading with distance beyond 4.5 Moon radii (the halo loop fades out instead of ending). Picked ring opacity 1, others 0.22. Each ring has a wider invisible tube for clicking; hovering one brightens it and shows a pointer cursor.
-- **Craft**: a small bright dot with a soft glow and a short trail in the orbit's colour, moving by Kepler's law (fast at the low point). It is grey while in the Moon's shadow.
-- **Sensor beam**: while the craft is over the cap, a cone from the craft to the surface. Cyan when at least one ice instrument is in range; red, thin and flickering when ice instruments are on board but out of range; absent when no ice instrument is on board.
-- **Earth**: a small blue sphere far away with a faint glow, plus a thin blue line from the craft while the Moon does not block it.
-- When the picked orbit cannot be reached (`captureDeltaV === null` or not enough fuel to capture), no craft, trail, beam or strips are drawn, and the top label reads `THE CRAFT NEVER ARRIVES IN THIS ORBIT`.
+- **Rings**: one tube per orbit with per-vertex brightness: 30% inside the orbit's shadow stretch (see "Shadow and Earth stretches"), and fading with distance beyond 4.5 Moon radii (the halo loop fades out instead of ending). Picked ring opacity 1, others 0.22. Each ring has a wider invisible tube for clicking; hovering one brightens it and shows a pointer cursor.
+- **Craft**: a small bright dot with a soft glow and a short trail in the orbit's colour, moving by Kepler's law (fast at the low point). It is grey while inside the shadow stretch.
+- **Sensor beam**: while the craft is over the cap, a cone from the craft to the surface. Cyan when at least one ice instrument is in range; amber, thin and flickering when ice instruments are on board but out of range ("no signal"); absent when no ice instrument is on board.
+- **Earth**: a small blue sphere far away with a faint glow, plus a thin blue line from the craft while it is outside the Earth-hidden stretch.
+- An orbit is **reachable** when `captureDeltaV !== null`, `thrustLevel > 0` and `deltaVAvailable >= captureDeltaV`. When the picked orbit is not reachable, no craft, trail, beam or strips are drawn, coverage is 0, and the top label reads `THE CRAFT NEVER ARRIVES IN THIS ORBIT`.
 
 ### Shapes (stylised, fixed per orbit id)
 
@@ -116,11 +117,15 @@ Moon radius = 1. All three orbits are polar (their plane contains the y axis). T
 
 Low heights are exaggerated about four times (15 km would be 1.009, 100 km 1.058). Earth direction: azimuth 14°, raised 0.42. Sun direction: azimuth 160°, raised 0.05. Camera start azimuth 212°. These values are from the mockup and may be tuned by eye. An orbit id not in this table gets the circular shape. A hint line says "Heights are exaggerated".
 
+### Shadow and Earth stretches
+
+The stylised shapes do not give the real shadow times, so the dim stretch of a ring and the cut in the line home are sized from the data, not from the drawn geometry (the mockup uses geometry; this replaces it). For a direction d (the sun or Earth) and a hidden share h (`1 − sunlitShare`, or `1 − earthVisible`): the stretch is centred on the point of the orbit that lies deepest behind the Moon as seen from d, and covers the share h of the lap **in time** (mean anomaly). With h = 0 there is no stretch: the halo loop is never dim, matching "Never in the Moon's shadow".
+
 ### Time-lapse
 
 - A loop: 14 s for the 12 months, a 3.5 s hold at the end, then restart. It also restarts on every pick.
-- Coverage at month t (0 to 12) for the picked orbit: `projectedCoverage × (1 − (1 − r)^t) / (1 − (1 − r)^12)`, where r is the best `coverageRate` among the ice instruments on board. If r is 0 or the orbit is unreachable, coverage is 0. So month 12 always equals `budgets.projectedCoverage`, the number the rest of the game shows.
-- Strips drawn on the cap: when ice instruments are in range, `n = min(600, round(−ln(1 − min(coverage, 99.5) / 100) / 0.02))`, so the lit share of the cap tracks the coverage number. When they are out of range: thin red strips, `min(300, passesPerTurn × t)`, lighting nothing. Strip i lies through the pole at angle `i × 2.39996` rad (golden angle).
+- Coverage at month t (0 to 12) for the picked orbit: `projectedCoverage × (1 − (1 − r)^t) / (1 − (1 − r)^12)`, where r is the best `coverageRate` among the ice instruments on board. If r is 0 or the orbit is not reachable, coverage is 0. So month 12 always equals `budgets.projectedCoverage`, the number the rest of the game shows. The curve between is an illustration scaled to that projection, not a second simulation.
+- Strips drawn on the cap: when ice instruments are in range, `n = min(600, round(−ln(1 − min(coverage, 99.5) / 100) / 0.02))`, so the lit share of the cap tracks the coverage number. When they are out of range: thin amber strips, `min(300, passesPerTurn × t)`, lighting nothing. With no ice instrument on board: the same count of thin grey strips, lighting nothing, so the scene still shows the passes. Strip i lies through the pole at angle `i × 2.39996` rad (golden angle).
 - Reduced motion: no time-lapse, no camera drift, no flicker; the scene shows the month-12 state and the craft stands at the low point.
 
 ### Readout panel (right)
@@ -131,29 +136,35 @@ Top to bottom, all for the picked orbit:
 
    | Condition | Tone | Text |
    |---|---|---|
-   | `captureDeltaV === null` | red | `CANNOT REACH THIS ORBIT` |
-   | `deltaVAvailable < captureDeltaV` | red | `NOT ENOUGH FUEL TO GET IN` |
-   | Delta-v check red | red | `CANNOT HOLD THE ORBIT` |
-   | Power check red and `!batteryOk` | red | `BATTERY TOO SMALL FOR THE SHADOW` |
-   | Power check red | red | `NO POWER FOR THE INSTRUMENTS` |
+   | Delta-v check red and `captureDeltaV === null` | red | `CANNOT REACH THIS ORBIT` |
+   | Delta-v check red and `thrustLevel === 0` | red | `NO POWER TO FLY THERE` |
+   | Delta-v check red and `deltaVAvailable < captureDeltaV` | red | `NOT ENOUGH FUEL TO GET IN` |
+   | Delta-v check red (otherwise) | red | `CANNOT HOLD THE ORBIT` |
+   | Power check red and `scienceDuty <= 0` | red | `NO POWER FOR THE INSTRUMENTS` |
+   | Power check red (otherwise: battery) | red | `BATTERY TOO SMALL FOR THE SHADOW` |
+   | Budget check red | red | `OVER BUDGET WITH THIS ORBIT` |
+   | Data Link check red | red | `NOTHING CAN BE SENT HOME` |
    | no ice instrument on board | amber | `NO ICE INSTRUMENT ON BOARD` |
-   | every ice instrument has quality 0 from altitude | amber | `TOO HIGH FOR THE ICE INSTRUMENTS` |
+   | ice instruments on board, none in range | amber | `TOO HIGH FOR THE ICE INSTRUMENTS` |
    | `projectedCoverage < 70` | amber | `MAPS TOO SLOWLY` |
+   | Science check yellow (otherwise: too little data) | amber | `TOO LITTLE DATA SENT HOME` |
    | Delta-v check yellow | amber | `LITTLE FUEL TO SPARE` |
    | Power check yellow | amber | `POWER LIMITS THE SCIENCE` |
+   | Budget check yellow | amber | `EATS INTO THE RESERVE` |
+   | Data Link check not green | amber | `DATA LINK NEARLY FULL` |
    | otherwise | green | `GOOD MAPPING ORBIT` |
 
-   "Too high" is amber, not red, because Science never blocks the launch in the rules. The 0% number and the red beam carry the weight. (My call; the mockup shows it red.)
-2. **Ice mapped**: the time-lapse coverage as a large number, "of the polar ice mapped", "N% after 12 months" (the final value), and a bar with a tick at 70% labelled "goal 70%". The number is green at 70 or more, red when the final value is 0, else white.
+   The order of the red rows follows `goNoGo`'s own order of tests, so the verdict and the check's reason text never name different causes. "Too high" is amber, not red, because Science never blocks the launch in the rules; its beam, strips and 0% number are amber too. (My call; the mockup shows them red.)
+2. **Ice mapped**: the time-lapse coverage as a large number, "of the polar ice mapped", "N% after 12 months" (the final value), and a bar with a tick at 70% labelled "goal 70%". The number is green at 70 or more, amber when the final value is 0, else white.
 3. **Passes over the pole**: `passesPerTurn` "a month", with a plain line: under 10 "About one pass a week.", under 200 "About five passes a day.", else "One pass every two hours."
 4. **In sunlight**: `sunlitShare` as % with an amber bar; below it either "Never in the Moon's shadow." or "Longest shadow H h per orbit: needs X Wh, battery gives Y Wh." (red when `!batteryOk`).
 5. **Earth in view**: `earthVisible` as % with a blue bar.
 6. **Fuel to get in**: "C of A m/s" with a bar (green when it fits, red when not, full red and "not possible" when null); below it "Holding the orbit then costs S m/s a month; fuel for U months." or "Short by D m/s."
-7. **Checks**: three compact rows, Delta-v, Power and Science, each with a status dot (green, amber, red) and, when not green, the check's `reason` text from `goNoGo`.
+7. **Checks**: compact rows, each with a status dot (green, yellow, red) and, when not green, the check's `reason` text from `goNoGo`: Delta-v, Power and Science always; Budget and Data Link only when not green.
 
 ### Side-view panel (left)
 
-Title `THE POLE PASS, SEEN FROM THE SIDE`. An SVG: grey ground with one dark crater marked "ice?"; a cyan band from the ground up to the range of the ice instruments on board (labelled with their real limits, for example "ice instruments work below 20 km"; when both are on board, "below 20 to 25 km"); a horizontal line and craft marker at the orbit's `altitude` in the orbit's colour with "N km"; a vertical beam, cyan and solid when in range, red and dashed when not. Scale 0 to 110 km. One sentence below: "Close enough. At 15 km the ice instruments read the crater floor." or "Too high. At 100 km the ice signal is lost: this orbit maps no ice." With no ice instrument on board the band is drawn at 20 to 25 km in grey and the sentence reads "No ice instrument on board: nothing here can see into the dark craters."
+Title `THE POLE PASS, SEEN FROM THE SIDE`. An SVG: grey ground with one dark crater marked "ice?"; a cyan band from the ground up to the range of the ice instruments on board (labelled with their real limits, for example "ice instruments work up to 20 km"; when both are on board, "up to 20 to 25 km"); a horizontal line and craft marker at the orbit's `altitude` in the orbit's colour with "N km"; a vertical beam, cyan and solid when in range, amber and dashed when not. Scale 0 to 110 km. One sentence below: "Close enough. At 15 km the ice instruments read the crater floor." or "Too high. At 100 km the ice signal is lost: this orbit maps no ice." With no ice instrument on board the band is drawn at 20 to 25 km in grey and the sentence reads "No ice instrument on board: nothing here can see into the dark craters."
 
 ### Orbit cards (bottom)
 
@@ -162,7 +173,8 @@ Three real `<button>` elements with `aria-pressed`. Each shows a colour dot, a s
 ### Fallback and accessibility
 
 - `OrbitScreen` starts the scene only when `canUseWebGL()` is true (existing helper in `src/scene/webgl.ts`), the column is wide enough, and the scene has not thrown; an error boundary switches to the fallback, as `PlanningScreen` does. The scene is lazy-loaded.
-- The fallback is today's screen (summary box and three cards), unchanged in content, in a scrolling column, so server rendering and the smoke test take this path.
+- The fallback is today's screen (summary box and three cards) in a scrolling column, plus the same check rows as the readout panel, because the Dashboard is hidden on this step in the fallback too. Server rendering and the smoke test take this path.
+- The orbit cards are the keyboard path in the scene; no hidden duplicate controls are needed, because the pick is made with real buttons.
 - The readout panel is a live region (`aria-live="polite"`) for the verdict only, not for the ticking coverage number.
 
 ### Shell integration (the only shared-file edits)
@@ -189,6 +201,7 @@ React:
 - How the time-lapse clock is shared between the canvas and the panels (a ref read in `useFrame` plus a throttled state for the panel number is the suggested way; the panel number need not update more than about ten times a second).
 - Whether to use drei's `OrbitControls` or a small hand-written drag and zoom.
 - Optional, only if time allows: a brief flash at the low point when a reachable orbit is picked ("capture burn"), to meet the Ride & Transfer step's capture marker.
+- Optional, only if Integration has merged the `assets-pipeline` branch by then: use its `cubesat-6u.glb` model for the craft. At this scale a bright dot reads better, so the dot is the default.
 
 ## Checks before the PR
 
