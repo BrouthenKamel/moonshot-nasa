@@ -70,15 +70,15 @@ export function BriefScreen() {
           <div className="rounded bg-blue-900 px-3 py-1 text-blue-300">Build & Test</div>
           <span className="text-slate-600">→</span>
           <div className="rounded bg-orange-900 px-3 py-1 text-orange-300">
-            Ride (Turn {brief.defaultRideTurn})
+            Ride (Month {brief.defaultRideTurn})
           </div>
           <span className="text-slate-600">→</span>
           <div className="rounded bg-green-900 px-3 py-1 text-green-300">
-            Lunar Ops ({brief.missionDurationTurns} turns)
+            Lunar Ops ({brief.missionDurationTurns} months)
           </div>
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          One turn = one month. Be ready before your ride leaves!
+          The mission clock counts months from month 0, when the mission starts. Be ready before your ride leaves!
         </p>
       </div>
 

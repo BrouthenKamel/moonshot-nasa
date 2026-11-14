@@ -94,12 +94,12 @@ export function goNoGo(
       status,
       b.readyTurn,
       b.rideTurn,
-      'turn',
+      'month',
       status === 'red'
-        ? `Ready on turn ${b.readyTurn} (${b.buildTurns} month${b.buildTurns === 1 ? '' : 's'} of building, plus testing), but the ride leaves on turn ${b.rideTurn}. Test less, choose simpler parts, or take a later ride.`
+        ? `Ready in month ${b.readyTurn} (${b.buildTurns} month${b.buildTurns === 1 ? '' : 's'} of building, plus testing), but the ride leaves in month ${b.rideTurn}. Test less, choose simpler parts, or take a later ride.`
         : status === 'yellow'
-          ? 'Ready exactly on the ride turn. One build delay and you miss the ride.'
-          : `Ready ${b.timeMarginTurns} turn(s) before the ride.`,
+          ? 'Ready exactly on the ride month. One build delay and you miss the ride.'
+          : `Ready ${b.timeMarginTurns} month(s) before the ride.`,
       'planning'
     )
   )
@@ -138,10 +138,10 @@ export function goNoGo(
     status = band((b.deltaVAvailable - need) / need)
     reason =
       status === 'red'
-        ? `Enough to capture, but not to hold the orbit for ${turns} turns (${b.upkeepTurns} turns of upkeep on board).`
+        ? `Enough to capture, but not to hold the orbit for ${turns} months (${b.upkeepTurns} months of upkeep on board).`
         : status === 'yellow'
           ? `Less than ${spare}% delta-v to spare. A weak thruster would end the mission.`
-          : `${(b.deltaVAvailable - need).toFixed(0)} m/s to spare after capture and ${turns} turns of upkeep.`
+          : `${(b.deltaVAvailable - need).toFixed(0)} m/s to spare after capture and ${turns} months of upkeep.`
     fix = 'orbit'
   }
   checks.push(check('Delta-v', status, need, b.deltaVAvailable, 'm/s', reason, fix))
@@ -158,7 +158,7 @@ export function goNoGo(
     reason = `Power only lets the instruments run ${Math.round(b.scienceDuty * 100)}% of the time they could.`
   } else if (!b.batteryLongOk) {
     status = 'yellow'
-    reason = 'The battery cannot carry the bus through a long eclipse: science stops on those turns.'
+    reason = 'The battery cannot carry the bus through a long eclipse: science stops in those months.'
   } else {
     status = 'green'
     reason = `Instruments can run all the time; the battery covers the eclipses.`
@@ -191,15 +191,15 @@ export function goNoGo(
     reason = b.downlinkPerTurn <= 0 ? 'Nothing can be sent home: see Comms.' : 'The instruments make no data: they have no power.'
   } else if (b.downlinkPerTurn >= b.dataPerTurn * (1 + C.greenMargin)) {
     status = 'green'
-    reason = `The link carries ${b.downlinkPerTurn.toFixed(0)} MB a turn; the instruments make ${b.dataPerTurn.toFixed(0)}.`
+    reason = `The link carries ${b.downlinkPerTurn.toFixed(0)} MB a month; the instruments make ${b.dataPerTurn.toFixed(0)}.`
   } else if (b.downlinkPerTurn < b.dataPerTurn) {
     status = 'yellow'
-    reason = `The instruments make ${b.dataPerTurn.toFixed(0)} MB a turn but the link carries ${b.downlinkPerTurn.toFixed(0)}: ${(b.dataPerTurn - b.downlinkPerTurn).toFixed(0)} MB a turn is lost once the ${b.storageCapacity} MB storage is full, and its coverage with it.`
+    reason = `The instruments make ${b.dataPerTurn.toFixed(0)} MB a month but the link carries ${b.downlinkPerTurn.toFixed(0)}: ${(b.dataPerTurn - b.downlinkPerTurn).toFixed(0)} MB a month is lost once the ${b.storageCapacity} MB storage is full, and its coverage with it.`
   } else {
     status = 'yellow'
-    reason = `The link carries ${b.downlinkPerTurn.toFixed(0)} MB a turn and the instruments make ${b.dataPerTurn.toFixed(0)}: less than ${spare}% to spare. What cannot be sent waits in storage (${b.storageCapacity} MB); overflow is lost, and its coverage with it.`
+    reason = `The link carries ${b.downlinkPerTurn.toFixed(0)} MB a month and the instruments make ${b.dataPerTurn.toFixed(0)}: less than ${spare}% to spare. What cannot be sent waits in storage (${b.storageCapacity} MB); overflow is lost, and its coverage with it.`
   }
-  checks.push(check('Data Link', status, b.dataPerTurn, b.downlinkPerTurn, 'MB/turn', reason, 'comms'))
+  checks.push(check('Data Link', status, b.dataPerTurn, b.downlinkPerTurn, 'MB/month', reason, 'comms'))
 
   // Budget: the reserve is locked for fixes in flight, so the plan must fit in what is left.
   // A bigger reserve means a cheaper craft (Jakob, 14 Nov: the reserve line is a hard limit).
@@ -226,12 +226,12 @@ export function goNoGo(
       coverageTarget,
       '% ice',
       enough
-        ? `Projected ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} clean turns.`
+        ? `Projected ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} clean months.`
         : `${
             design.instruments.some((id) => (getPartById(id) as InstrumentPart | undefined)?.seesShadow)
               ? ''
               : 'No instrument on board can see into the shadowed craters: fit the laser reflectometer or the neutron spectrometer at the Research Lab. '
-          }Even with no bad luck this reaches only ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} turns (needed: ${coverageTarget}% and ${dataTarget} MB); an extended mission of up to ${turns} more turns can add some. It may fly, but it is unlikely to fully succeed.`,
+          }Even with no bad luck this reaches only ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} months (needed: ${coverageTarget}% and ${dataTarget} MB); an extended mission of up to ${turns} more months can add some. It may fly, but it is unlikely to fully succeed.`,
       'instruments'
     )
   checks.push({ ...science, margin: b.projectedCoverage - coverageTarget })

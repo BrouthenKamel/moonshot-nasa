@@ -189,20 +189,20 @@ describe('timelineLayout', () => {
     const l = timelineLayout(v.timeline)
     expect(flag(l, 'ready').at).toBeCloseTo(block(l, 'design').to, 9)
     expect(flag(l, 'launch').at - flag(l, 'ready').at).toBeCloseTo(1 / v.timeline.turns, 9)
-    expect(block(l, 'transit')).toMatchObject({ label: '11 TURNS IN TRANSIT' })
-    expect(flag(l, 'arrive').label).toBe('ARRIVE · TURN 19')
+    expect(block(l, 'transit')).toMatchObject({ label: '11 MONTHS IN TRANSIT' })
+    expect(flag(l, 'arrive').label).toBe('ARRIVE · MONTH 19')
   })
 
   it('a short transit joins launch and arrival in one label', () => {
     const l = layout({ ...flashlightDesign, ride: 'ride-commercial' })
-    expect(flag(l, 'launch').label).toBe('LAUNCH · TURN 10 → ARRIVE · TURN 11')
+    expect(flag(l, 'launch').label).toBe('LAUNCH · MONTH 10 → ARRIVE · MONTH 11')
     expect(flag(l, 'arrive').label).toBe('')
-    expect(block(l, 'transit').label).toBe('1 TURN IN TRANSIT')
+    expect(block(l, 'transit').label).toBe('1 MONTH IN TRANSIT')
   })
 
   it('a direct transfer arrives five days after launch', () => {
     const l = layout({ ...flashlightDesign, ride: 'ride-commercial', transfer: 'transfer-direct' })
-    expect(flag(l, 'launch').label).toBe('LAUNCH · TURN 10 · AT THE MOON 5 DAYS LATER')
+    expect(flag(l, 'launch').label).toBe('LAUNCH · MONTH 10 · AT THE MOON 5 DAYS LATER')
     expect(l.flags.some((f) => f.key === 'arrive')).toBe(false)
     expect(l.blocks.some((b) => b.key === 'transit')).toBe(false)
     expect(block(l, 'mapping').from).toBeCloseTo(10 / 28, 9)
@@ -210,7 +210,7 @@ describe('timelineLayout', () => {
 
   it('flying past shows no mapping', () => {
     const l = layout({ ...flashlightDesign, transfer: 'transfer-direct' })
-    expect(flag(l, 'launch').label).toBe('LAUNCH · TURN 8 · FLIES PAST THE MOON 5 DAYS LATER')
+    expect(flag(l, 'launch').label).toBe('LAUNCH · MONTH 8 · FLIES PAST THE MOON 5 DAYS LATER')
     expect(l.blocks.some((b) => b.key === 'mapping')).toBe(false)
   })
 

@@ -153,7 +153,7 @@ export function Dashboard() {
           label="Data Link"
           value={budgets.dataPerTurn}
           limit={budgets.downlinkPerTurn}
-          unit="MB/turn"
+          unit="MB/month"
           status={getStatus('Data Link')}
           reason={getReason('Data Link')}
           previous={previous?.dataPerTurn}
@@ -204,15 +204,15 @@ export function Dashboard() {
 
       <div className="mt-4 border-t border-slate-800 pt-4 text-xs text-slate-500">
         <div className="flex justify-between">
-          <span>Ready turn:</span>
+          <span>Ready in month:</span>
           <span>{budgets.readyTurn}</span>
         </div>
         <div className="flex justify-between">
-          <span>Ride turn:</span>
+          <span>Ride month:</span>
           <span>{budgets.rideTurn}</span>
         </div>
         <div className="flex justify-between">
-          <span>Arrival turn:</span>
+          <span>Arrival month:</span>
           <span>{budgets.arrivalTurn ?? '-'}</span>
         </div>
         <div className="flex justify-between">

@@ -69,13 +69,13 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
       <div className="rounded-lg bg-slate-900 p-6">
         <h2 className="mb-2 font-semibold text-slate-200">Build Time</h2>
         <p className="text-sm text-slate-400">
-          Set by what you build: {budgets.buildEffort} effort points = {budgets.buildTurns} turns. Simpler parts build faster.
+          Set by what you build: {budgets.buildEffort} effort points = {budgets.buildTurns} months. Simpler parts build faster.
         </p>
       </div>
 
       <div className="rounded-lg bg-slate-900 p-6">
         <label htmlFor="planning-test" className="mb-2 block font-semibold text-slate-200">
-          Test Time: {p.testTurns} turns
+          Test Time: {p.testTurns} months
         </label>
         <input
           id="planning-test"
@@ -89,7 +89,7 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
           onBlur={() => onFocus(null)}
           className="w-full"
         />
-        <div className="mt-2 text-xs text-slate-500">0.4 M per test turn</div>
+        <div className="mt-2 text-xs text-slate-500">0.4 M per test month</div>
         <OddsRow
           byValue={odds?.test}
           current={p.testTurns}
@@ -137,12 +137,12 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
       </div>
 
       <div className="rounded-lg bg-yellow-950 p-4 text-sm text-yellow-200" aria-live="polite">
-        Ready on turn {budgets.readyTurn} (design 1 + build {budgets.buildTurns} + test {p.testTurns} + fitting 1). Ride leaves turn{' '}
+        Ready in month {budgets.readyTurn} (design 1 + build {budgets.buildTurns} + test {p.testTurns} + fitting 1). Ride leaves in month{' '}
         {budgets.rideTurn}.{' '}
         {budgets.timeMarginTurns >= 0 ? (
-          <span className="text-green-400">{budgets.timeMarginTurns} turn(s) margin.</span>
+          <span className="text-green-400">{budgets.timeMarginTurns} month(s) spare.</span>
         ) : (
-          <span className="text-red-400">Will miss the ride by {-budgets.timeMarginTurns} turn(s)!</span>
+          <span className="text-red-400">Will miss the ride by {-budgets.timeMarginTurns} month(s)!</span>
         )}
       </div>
     </div>

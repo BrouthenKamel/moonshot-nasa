@@ -27,14 +27,11 @@ export function BuildingList({ labels, onBuildingClick }: BaseMapProps) {
                   {buildingIcons[b.id]}
                 </span>
                 <span className="font-display text-base font-bold">{b.name}</span>
-                <span className="rounded-md bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                  LV {label.level}
-                </span>
               </span>
               <span className="mt-1 block text-sm text-slate-600">{label.status}</span>
             </>
           )
-          const border = label.alert ? 'border-red-500' : label.highlight ? 'border-orange-400' : 'border-transparent'
+          const border = label.alert ? 'border-red-500' : label.highlight ? 'border-orange-400' : label.pulse ? 'border-emerald-400' : 'border-transparent'
           return (
             <li key={b.id}>
               {onBuildingClick ? (

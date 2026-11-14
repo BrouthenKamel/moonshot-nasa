@@ -115,7 +115,7 @@ export const lunarIceMapperBrief: MissionBrief = {
       description: 'Operate for 12 months in the science orbit',
       type: 'lifetime',
       target: 12,
-      unit: 'turns',
+      unit: 'months',
     },
     {
       id: 'budget',

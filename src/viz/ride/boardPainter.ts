@@ -75,11 +75,11 @@ export function paintBoard(ctx: Ctx, view: RideView, hover: Hover): void {
     text(ctx, s, x, 62, MIN, DIM, 'center', 700)
     if (unit) text(ctx, unit, x, 110, MIN, '#64748b', 'center', 500)
   }
-  head('LEAVES', 'turn', COL.leaves)
+  head('LEAVES', 'month', COL.leaves)
   head('COST', 'whole plan', COL.cost)
   head('TAKES', 'kg', COL.takes)
   head('BURN', 'm/s', COL.burn)
-  head('ARRIVES', 'turn', COL.arrives)
+  head('ARRIVES', 'month', COL.arrives)
 
   view.rows.forEach((r, i) => row(ctx, r, rowRect(i), hover?.kind === 'ride' && hover.id === r.id))
 }

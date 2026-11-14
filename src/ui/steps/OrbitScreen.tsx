@@ -77,8 +77,8 @@ function OrbitCard({ orbit, selected, onSelect }: { orbit: LunarOrbit; selected:
 
       <div className="mt-4 grid grid-cols-4 gap-2 text-xs">
         <Stat label="Over the pole" value={`${orbit.altitude} km`} />
-        <Stat label="Passes a turn" value={`${orbit.passesPerTurn}`} />
-        <Stat label="Upkeep" value={`${orbit.stationKeepingDeltaV} m/s/turn`} />
+        <Stat label="Passes a month" value={`${orbit.passesPerTurn}`} />
+        <Stat label="Upkeep" value={`${orbit.stationKeepingDeltaV} m/s/month`} />
         <Stat label="Earth in view" value={`${Math.round(orbit.earthVisible * 100)}%`} />
       </div>
 
@@ -94,7 +94,7 @@ function OrbitCard({ orbit, selected, onSelect }: { orbit: LunarOrbit; selected:
         <span>
           Your ice instruments map:{' '}
           <span className={bestRate > 0.09 ? 'text-green-400' : 'text-orange-400'}>
-            {iceRates.length ? `${(bestRate * 100).toFixed(1)}% of what is left, per turn` : 'nothing (none sees into shadow)'}
+            {iceRates.length ? `${(bestRate * 100).toFixed(1)}% of what is left, per month` : 'nothing (none sees into shadow)'}
           </span>
         </span>
       </div>
@@ -182,7 +182,7 @@ function PlainOrbit() {
           <div className="font-medium text-orange-300">This orbit with your design</div>
           <div className="mt-2 grid grid-cols-2 gap-4 text-orange-200">
             <div>
-              Projected ice coverage in 12 clean turns:{' '}
+              Projected ice coverage in 12 clean months:{' '}
               <span className={budgets.projectedCoverage >= COVERAGE_GOAL ? 'text-green-400' : 'text-red-400'}>
                 {budgets.projectedCoverage.toFixed(0)}%
               </span>{' '}
@@ -201,7 +201,7 @@ function PlainOrbit() {
             <div>
               {budgets.captureDeltaV === null ? (
                 <>
-                  Holding the orbit: <span className="text-orange-400">{budgets.deltaVStationKeeping} m/s a turn</span>
+                  Holding the orbit: <span className="text-orange-400">{budgets.deltaVStationKeeping} m/s a month</span>
                 </>
               ) : (
                 <span className={budgets.upkeepTurns < MISSION_MONTHS ? 'text-red-400' : undefined}>

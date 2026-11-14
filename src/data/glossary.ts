@@ -197,7 +197,7 @@ export const glossary: Record<string, GlossaryEntry> = {
   'data-margin': {
     term: 'Data margin',
     definition:
-      'How many more megabytes a turn the radio could send home than the instruments make. Below zero, data piles up in storage and some is lost.',
+      'How many more megabytes a month the radio could send home than the instruments make. Below zero, data piles up in storage and some is lost.',
     relatedTerms: ['downlink'],
   },
 }

@@ -6,7 +6,7 @@ import { getTransferById } from '../data/transfers'
 import { getGroundStationById } from '../data/ground'
 import { computeBudgets, createDefaultDesign } from '../sim/budgets'
 import { goNoGo } from '../sim/checks'
-import type { Design, DesignStep, Player, Report, RunHistoryEntry, SimState, TurnAction } from '../sim/types'
+import type { Design, DesignStep, Report, RunHistoryEntry, SimState, TurnAction } from '../sim/types'
 
 /**
  * The guard between a saved game and the store (QC #70). A save from an older
@@ -125,11 +125,9 @@ function validReport(raw: unknown): Report | null {
 const ActionSchema = z.object({ mode: z.string(), buyExtraPass: z.boolean(), useReserve: z.boolean() }).loose()
 
 export interface SavedGame {
-  mode?: 'solo' | 'team'
   design: Design
   designStep: DesignStep
   visitedSteps: DesignStep[]
-  players: Player[]
   runHistory: RunHistoryEntry[]
   simState: SimState | null
   pendingAction?: TurnAction
@@ -150,24 +148,16 @@ export function sanitizeSavedGame(raw: unknown): SavedGame {
           !!e && typeof e === 'object' && typeof (e as RunHistoryEntry).id === 'string' && !!validReport((e as RunHistoryEntry).report)
       )
     : []
-  const players = Array.isArray(s.players)
-    ? (s.players as unknown[]).filter(
-        (p): p is Player => !!p && typeof p === 'object' && typeof (p as Player).name === 'string' && typeof (p as Player).role === 'string'
-      )
-    : []
-
   const out: SavedGame = {
     design: validDesign(s.design) ?? createDefaultDesign(),
     designStep: isStep(s.designStep) ? s.designStep : 'brief',
     visitedSteps: Array.isArray(s.visitedSteps) ? (s.visitedSteps as unknown[]).filter(isStep) : [],
-    players,
     runHistory,
     simState,
     replayTurn: simState && typeof s.replayTurn === 'number' && Number.isFinite(s.replayTurn) ? s.replayTurn : 0,
     // A report belongs to the finished flight it came from
     currentReport: simState && complete ? validReport(s.currentReport) : null,
   }
-  if (s.mode === 'solo' || s.mode === 'team') out.mode = s.mode
   if (simState && ActionSchema.safeParse(s.pendingAction).success) out.pendingAction = s.pendingAction as TurnAction
   return out
 }

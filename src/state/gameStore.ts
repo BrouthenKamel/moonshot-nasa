@@ -23,8 +23,8 @@ import { BUILDING_STEPS, suggestedStep } from '../viz/missionMap'
 import { useAgencyStore } from './agencyStore'
 import { sanitizeSavedGame } from './saveGuard'
 
-/** Version of the saved game; every load goes through the save guard (QC #70) */
-export const GAME_SAVE_VERSION = 1
+/** Version of the saved game (1: no team mode; 2: every load goes through the save guard, QC #70) */
+export const GAME_SAVE_VERSION = 2
 
 /** Difficulty levels are off for now (Jakob, 14 Nov): the game plays on the Engineer values */
 export const FIXED_DIFFICULTY: Difficulty = 'engineer'
@@ -493,16 +493,14 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: 'moonshot-game-storage',
-      // Version 1 dropped team mode (QC D3): an older save loses its mode, players and sign-offs
-      version: 1,
+      storage: skipUnchangedWrites(createJSONStorage(() => createSafeStorage(getBaseStorage()) as StateStorage)!) as never,
+      version: GAME_SAVE_VERSION,
+      // Version 1 dropped team mode (QC D3): an older save loses its mode, players and sign-offs.
+      // Version 2 adds the save guard: every other field is checked in merge, on every load.
       migrate: (persisted) => {
         const { mode: _mode, players: _players, signOffs: _signOffs, ...rest } = (persisted ?? {}) as Record<string, unknown>
         return rest as never
       },
-      storage: skipUnchangedWrites(createJSONStorage(() => createSafeStorage(getBaseStorage()) as StateStorage)!) as never,
-      version: GAME_SAVE_VERSION,
-      // Any older save is checked field by field in merge, so migrate passes it through
-      migrate: (persisted) => persisted as GameState,
       // Only what the save guard accepts is loaded; a save from an older build that does not
       // fit falls back to the default design and no flight instead of white-screening (QC #70).
       // Difficulty is not saved: a stored Cadet or Flight Director setting from before is ignored.

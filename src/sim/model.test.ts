@@ -290,7 +290,7 @@ describe('report explains the misses', () => {
       const coverage = buildReport(s).requirements.find((r) => r.id === 'coverage')!
       const line = coverage.causes.find((c) => c.startsWith('Too few passes'))
       if (!line) continue
-      expect(line).toContain(`in ${s.flight.scienceTurns} turns`)
+      expect(line).toContain(`in ${s.flight.scienceTurns} months`)
       const ideal = Number(line.match(/maps only (\d+)%/)![1])
       expect(ideal).toBeGreaterThanOrEqual(Math.floor(s.flight.coverage))
       return

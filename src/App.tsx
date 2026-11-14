@@ -47,9 +47,9 @@ function SimulationPlaceholder() {
       <div className="rounded-lg bg-slate-900 p-6">
         <h1 className="text-xl font-bold text-blue-400">Mission Simulation</h1>
         <p className="mt-2 text-slate-400">
-          Turn {simState.currentTurn}: {PHASE_TEXT[simState.phase] ?? simState.phase}
+          Month {simState.currentTurn}: {PHASE_TEXT[simState.phase] ?? simState.phase}
           {simState.phase === 'build' || simState.phase === 'test' || simState.phase === 'wait'
-            ? `. The ride leaves on turn ${f.launchTurn}.`
+            ? `. The ride leaves in month ${f.launchTurn}.`
             : ''}
         </p>
         {lastNotes.length > 0 && <p className="mt-1 text-sm text-slate-500">{lastNotes.join(' ')}</p>}
@@ -69,7 +69,7 @@ function SimulationPlaceholder() {
           tone={simState.totalDataReturned >= dataTarget ? 'text-green-400' : 'text-blue-400'}
         />
         <SimStat
-          label="Turns in orbit"
+          label="Months in orbit"
           value={`${simState.turnsInOrbit}`}
           sub="need 12"
           tone={simState.turnsInOrbit >= 12 ? 'text-green-400' : 'text-purple-400'}
@@ -77,7 +77,7 @@ function SimulationPlaceholder() {
         <SimStat
           label="Delta-v left"
           value={`${Math.max(0, simState.fuelRemaining).toFixed(0)} m/s`}
-          sub={f.captured ? `${b.deltaVStationKeeping} m/s a turn to hold the orbit` : `capture needs ${(b.captureDeltaV ?? 0).toFixed(0)} m/s`}
+          sub={f.captured ? `${b.deltaVStationKeeping} m/s a month to hold the orbit` : `capture needs ${(b.captureDeltaV ?? 0).toFixed(0)} m/s`}
           tone="text-orange-400"
         />
         <SimStat label="Money" value={`${f.main.toFixed(1)} M`} sub="main budget" tone="text-slate-200" />
@@ -236,7 +236,7 @@ function ReportPlaceholder() {
         <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
           <span>Ice coverage {report.score.coverage ?? 0} / 400</span>
           <span>Science data {report.score.data ?? 0} / 250</span>
-          <span>Turns in orbit {report.score.lifetime ?? 0} / 150</span>
+          <span>Months in orbit {report.score.lifetime ?? 0} / 150</span>
           <span>Sunlit-ground map {report.score.context ?? 0} / 100</span>
           <span>Money left {report.score.money ?? 0} / 100</span>
         </div>

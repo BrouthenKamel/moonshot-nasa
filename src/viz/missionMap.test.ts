@@ -11,9 +11,11 @@ import {
   buildingForStep,
   fixLocation,
   flightFeed,
-  lunarMissionView,
   missionClockLabel,
   missionLabels,
+  missionMonth,
+  missionStatus,
+  researchLabPulses,
   suggestedStep,
 } from './missionMap'
 
@@ -39,7 +41,25 @@ describe('mission map', () => {
     const l = labelsFor()
     expect(l.factory.status).toContain('14.0 / 14 kg')
     expect(l['research-lab'].status).toContain('74%')
-    expect(l['launch-site'].status).toContain('turn 8')
+    expect(l['launch-site'].status).toContain('month 8')
+    // Time is the mission month, never a turn or a calendar day (DESIGN-DIRECTION 1a)
+    for (const label of Object.values(l)) expect(label.status).not.toMatch(/\bturns?\b|\bdays?\b/i)
+  })
+
+  it('shows no building levels (MVP: no levels or upgrades)', () => {
+    for (const label of Object.values(labelsFor())) expect(label).not.toHaveProperty('level')
+  })
+
+  // Jakob (I5b): point new players at the first lesson in the Research Lab
+  it('the Research Lab pulses until the instruments step has been opened', () => {
+    expect(researchLabPulses([], null)).toBe(true)
+    expect(researchLabPulses(['brief', 'planning'], null)).toBe(true)
+    expect(researchLabPulses(['brief', 'planning', 'instruments'], null)).toBe(false)
+    expect(labelsFor(flashlightDesign, [])['research-lab'].pulse).toBe(true)
+    expect(labelsFor(flashlightDesign, ['instruments'])['research-lab'].pulse).toBe(false)
+    expect(labelsFor(flashlightDesign, [])['factory'].pulse).toBeFalsy()
+    const sim = runSimulation(flashlightDesign, 'engineer', 1)
+    expect(researchLabPulses([], sim)).toBe(false)
   })
 
   it('marks the building that fixes a red bar and highlights the suggested one', () => {
@@ -55,31 +75,37 @@ describe('mission map', () => {
     expect(status).not.toMatch(/NaN|null|undefined/)
   })
 
-  it('builds the feed from the flight log on the base calendar', () => {
+  it('builds the mission log from the flight log, labelled by month', () => {
     const sim = runSimulation(flashlightDesign, 'engineer', 1)
-    const feed = flightFeed(sim.turnLogs, 112)
+    const feed = flightFeed(sim.turnLogs)
     const launch = feed.find((e) => e.title.startsWith('Launched'))!
-    expect(launch.day).toBe(112 + sim.flight.launchedTurn! * 30)
-    expect(feed.every((e) => Number.isFinite(e.day))).toBe(true)
-    // One unit on the flight clock: days, never turns (Jakob, 14 Nov)
-    expect(feed.every((e) => !/turn/i.test(e.detail ?? ''))).toBe(true)
+    expect(launch.month).toBe(sim.flight.launchedTurn)
+    expect(feed.every((e) => Number.isInteger(e.month))).toBe(true)
+    // Newest first, and the end of the mission is in it
+    expect(feed[0].month).toBe(Math.max(...feed.map((e) => e.month)))
+    expect(feed.some((e) => /Mission over|Primary mission done|All requirements/.test(e.title))).toBe(true)
   })
 
-  it('the flight clock counts mission days, 30 to a turn', () => {
-    expect(missionClockLabel(0)).toBe('mission day 0')
-    expect(missionClockLabel(8)).toBe('mission day 240')
+  it('the mission clock is the mission month, from month 0', () => {
+    expect(missionClockLabel(0)).toBe('month 0')
+    expect(missionClockLabel(8)).toBe('month 8')
+    expect(missionMonth(null)).toBe(0)
+    const sim = runSimulation(flashlightDesign, 'engineer', 1)
+    expect(missionMonth(sim)).toBe(sim.currentTurn)
   })
 
-  it('mission card progress comes from the flight', () => {
+  it('the mission status in the top bar comes from the steps or the flight', () => {
     const budgets = computeBudgets(flashlightDesign, 'engineer')
     const done = runSimulation(flashlightDesign, 'engineer', 1)
-    const view = lunarMissionView({ design: flashlightDesign, budgets, visited: [], sim: done })
-    expect(view.status).toBe('complete')
-    expect(view.progress).toBe(1)
-    const planning = lunarMissionView({ design: flashlightDesign, budgets, visited: ['brief', 'planning'], sim: null })
-    expect(planning.status).toBe('planning')
+    const over = missionStatus({ budgets, visited: [], sim: done })
+    expect(['success', 'partial']).toContain(over.stage)
+    expect(over.progress).toBe(1)
+    expect(over.opens).toBe('report')
+    const planning = missionStatus({ budgets, visited: ['brief', 'planning'], sim: null })
+    expect(planning.stage).toBe('planning')
     expect(planning.progress).toBeCloseTo(2 / 8)
-    expect(planning.detail).toContain('Research Lab')
+    expect(planning.next).toContain('Research Lab')
+    expect(planning.opens).toBe('research-lab')
   })
 
   // Jakob, 14 Nov: a failed mission must not look like a success
@@ -90,9 +116,10 @@ describe('mission map', () => {
     const report = buildReport(s)
     expect(report.outcome).toBe('failed')
     expect(report.score.money).toBe(0)
-    const view = lunarMissionView({ design: noIce, budgets, visited: [], sim: s })
-    expect(view.status).toBe('failed')
-    expect(view.detail).toMatch(/budget/i)
+    const view = missionStatus({ budgets, visited: [], sim: s })
+    expect(view.stage).toBe('failed')
+    expect(view.next).toMatch(/budget/i)
+    expect(view.opens).toBe('report')
   })
 
   it('a lost mission no longer reads as in transfer', () => {
@@ -105,7 +132,7 @@ describe('mission map', () => {
     expect(lost).not.toBeNull()
     const budgets = computeBudgets(design, 'engineer')
     const l = missionLabels({ design, budgets, checks: goNoGo(design, budgets), visited: [], sim: lost })
-    expect(l['launch-site'].status).not.toContain('turns left')
+    expect(l['launch-site'].status).not.toContain('months left')
     expect(l['launch-site'].status).toContain('lost')
   })
 

@@ -21,7 +21,7 @@ const PHASE_COLOURS: Record<TurnLog['phase'], string> = {
 }
 
 /** Each turn button's name, for the tooltip and for screen readers (QC #40) */
-const turnTitle = (log: TurnLog) => `Turn ${log.turn}: ${log.phase}${log.events.length ? `, ${log.events.length} event(s)` : ''}`
+const turnTitle = (log: TurnLog) => `Month ${log.turn}: ${log.phase}${log.events.length ? `, ${log.events.length} event(s)` : ''}`
 
 interface Segment {
   phase: TurnLog['phase']
@@ -62,7 +62,7 @@ export function ReplayTimeline({ logs, turnIndex, onSelect, playing, onTogglePla
           step={1}
           value={current}
           onChange={(e) => onSelect(Number(e.target.value))}
-          aria-label="Turn"
+          aria-label="Month"
           className="flex-1 accent-blue-500"
         />
         <span className="w-28 text-right text-sm text-slate-400">

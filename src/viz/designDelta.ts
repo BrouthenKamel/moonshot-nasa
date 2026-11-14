@@ -21,9 +21,9 @@ const TRACKED: { key: NumericBudgetKey; label: string; unit: string; betterWhenH
   // The whole plan's cost (parts, build time, transfer and operations), not just the part's price
   { key: 'totalCost', label: 'Mission cost', unit: '$M', betterWhenHigher: false },
   { key: 'deltaVMargin', label: 'Delta-v margin', unit: 'm/s', betterWhenHigher: true },
-  { key: 'dataMarginPerTurn', label: 'Data margin', unit: 'MB/turn', betterWhenHigher: true },
+  { key: 'dataMarginPerTurn', label: 'Data margin', unit: 'MB/month', betterWhenHigher: true },
   { key: 'projectedCoverage', label: 'Projected ice coverage', unit: '%', betterWhenHigher: true },
-  { key: 'timeMarginTurns', label: 'Time margin', unit: 'turns', betterWhenHigher: true },
+  { key: 'timeMarginTurns', label: 'Time margin', unit: 'months', betterWhenHigher: true },
 ]
 
 /** Budget numbers that differ between two designs, in a fixed order. */

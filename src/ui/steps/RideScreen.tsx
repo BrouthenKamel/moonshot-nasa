@@ -63,7 +63,7 @@ function RideCard({
       <div className="mt-4 grid grid-cols-4 gap-2 text-xs">
         <div className="rounded bg-slate-900 p-2 text-center">
           <div className="text-slate-500">Departs</div>
-          <div className="font-bold text-slate-300">Turn {ride.departureTurn}</div>
+          <div className="font-bold text-slate-300">Month {ride.departureTurn}</div>
         </div>
         <div className="rounded bg-slate-900 p-2 text-center">
           <div className="text-slate-500">Cost</div>
@@ -107,7 +107,7 @@ function TransferCard({
   // What this transfer would mean for the current design
   const trial = computeBudgets({ ...design, transfer: transfer.id }, difficulty)
   const duration =
-    trial.transferTurns === null ? 'not possible' : trial.transferTurns === 0 ? 'about 5 days' : `${trial.transferTurns} turns`
+    trial.transferTurns === null ? 'not possible' : trial.transferTurns === 0 ? 'about 5 days' : `${trial.transferTurns} months`
   return (
     <button
       onClick={onSelect}
@@ -193,7 +193,7 @@ function RideControls({ hidden, onFocus }: { hidden: boolean } & FocusProps) {
             <span className="text-orange-200/60"> ({budgets.propellantMass} kg propellant)</span>
           </div>
           <div>
-            Capture + 12 turns of upkeep:{' '}
+            Capture + 12 months of upkeep:{' '}
             <span className={budgets.captureDeltaV !== null && budgets.deltaVMargin >= 0 ? 'text-green-400' : 'text-red-400'}>
               {budgets.captureDeltaV === null ? 'not possible' : `${budgets.deltaVTotal.toFixed(0)} m/s`}
             </span>
@@ -204,10 +204,10 @@ function RideControls({ hidden, onFocus }: { hidden: boolean } & FocusProps) {
           <div>
             Arrival:{' '}
             <span className="text-orange-400">
-              {budgets.arrivalTurn === null ? '-' : `turn ${budgets.arrivalTurn}`}
+              {budgets.arrivalTurn === null ? '-' : `month ${budgets.arrivalTurn}`}
             </span>
             {budgets.transferTurns !== null && budgets.transferTurns > 0 && (
-              <span className="text-orange-200/60"> ({budgets.transferTurns} turns of running the team in transit)</span>
+              <span className="text-orange-200/60"> ({budgets.transferTurns} months of running the team in transit)</span>
             )}
           </div>
         </div>

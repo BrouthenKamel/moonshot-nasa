@@ -45,16 +45,16 @@ function eventsThatCostScience(state: SimState): string[] {
   const out: string[] = []
   if (n['radiation-reset'])
     out.push(
-      `Radiation resets cost ${countOf(n['radiation-reset'], 'science turn')}.` +
+      `Radiation resets cost ${countOf(n['radiation-reset'], 'science month')}.` +
         (state.design.computer === 'computer-redundant' ? '' : ' A radiation-hard computer resets far less often.')
     )
   if (n['long-eclipse'])
-    out.push(`Long eclipses drained the battery on ${countOf(n['long-eclipse'], 'turn')}. The large battery rides them out.`)
+    out.push(`Long eclipses drained the battery in ${countOf(n['long-eclipse'], 'month')}. The large battery rides them out.`)
   if (n['instrument-degrades'])
     out.push(
-      `The instrument degraded ${countOf(n['instrument-degrades'], 'time')}, leaving ${Math.round(state.flight.scienceFactor * 100)}% of its science per turn. More test turns lower the odds.`
+      `The instrument degraded ${countOf(n['instrument-degrades'], 'time')}, leaving ${Math.round(state.flight.scienceFactor * 100)}% of its science per month. More test months lower the odds.`
     )
-  if (n['station-outage']) out.push(`Ground station outages halved the downlink on ${countOf(n['station-outage'], 'turn')}.`)
+  if (n['station-outage']) out.push(`Ground station outages halved the downlink in ${countOf(n['station-outage'], 'month')}.`)
   return out
 }
 
@@ -64,22 +64,22 @@ function moneyDrains(state: SimState, b: Budgets): string[] {
   if (f.missedRides) {
     const wait = f.missedRides * missedRideWaitTurns
     out.push(
-      `Missing the ride meant ${wait} more turns of team cost (${(wait * C.teamCostPrelaunch).toFixed(1)} M). Slack in the schedule protects against build delays.`
+      `Missing the ride meant ${wait} more months of team cost (${(wait * C.teamCostPrelaunch).toFixed(1)} M). Slack in the schedule protects against build delays.`
     )
   }
   if (b.totalCost > b.spendable)
     out.push(`The plan already cost ${b.totalCost.toFixed(1)} M against ${b.spendable.toFixed(1)} M spendable.`)
   if (b.transferTurns && b.transferTurns > C.cruiseTurns)
     out.push(
-      `The ${b.transferTurns}-turn electric transfer cost ${(b.transferTurns * b.transferCostPerTurn).toFixed(1)} M in team and ground time before any science.`
+      `The ${b.transferTurns}-month electric transfer cost ${(b.transferTurns * b.transferCostPerTurn).toFixed(1)} M in team and ground time before any science.`
     )
   const propulsion = getPartById(state.design.propulsion) as PropulsionPart | undefined
   if (f.counts.thruster && !f.thrusterOk && propulsion && !propulsion.impulsive)
-    out.push('The weak thruster stretched the transfer, and every extra turn costs money.')
+    out.push('The weak thruster stretched the transfer, and every extra month costs money.')
   const extra = f.scienceTurns - lunarIceMapperBrief.missionDurationTurns
   if (extra > 0)
     out.push(
-      `The extended mission ran ${countOf(extra, 'turn')} past the planned ${lunarIceMapperBrief.missionDurationTurns}, at ${b.opsCostPerTurn.toFixed(2)} M a turn.`
+      `The extended mission ran ${countOf(extra, 'month')} past the planned ${lunarIceMapperBrief.missionDurationTurns}, at ${b.opsCostPerTurn.toFixed(2)} M a month.`
     )
   if (b.reserveAmount === 0) out.push('No reserve was held back for surprises (CubeSat 101 advises at least 10%).')
   return out.length ? out : ['Running costs and fixes ate the budget before the mission was over.']
@@ -91,7 +91,7 @@ function whyNoCapture(state: SimState, b: Budgets): string[] {
   if (f.end === 'lost contact after deployment') {
     out.push('Contact was lost right after deployment, as happened to Lunar IceCube.')
     if (f.testTurns < 2)
-      out.push(`Only ${countOf(f.testTurns, 'test turn')} had been flown: that made this x${f.testFactor} as likely. More testing lowers the odds.`)
+      out.push(`Only ${countOf(f.testTurns, 'test month')} had been flown: that made this x${f.testFactor} as likely. More testing lowers the odds.`)
     // Say what the player actually chose at the card (QC #35)
     const choice = state.allEvents.find((e) => e.eventId === 'no-signal')?.choiceId
     out.push(
@@ -113,11 +113,11 @@ function whyNoCapture(state: SimState, b: Budgets): string[] {
   } else if (f.end === 'this craft cannot reach the science orbit') {
     out.push('With this engine, ride and transfer the craft has no way into the chosen orbit. The Go / No-Go check flags this in red.')
   } else if (f.end.startsWith('budget ran out')) {
-    out.push(`The money ran out on turn ${state.currentTurn}, before the craft reached orbit.`)
+    out.push(`The money ran out in month ${state.currentTurn}, before the craft reached orbit.`)
     out.push(...moneyDrains(state, b))
   } else {
-    out.push(`The programme was closed on turn ${state.currentTurn} with the craft still on its way.`)
-    if (f.missedRides) out.push(`It missed ${countOf(f.missedRides, 'ride')} and waited ${missedRideWaitTurns} turns for each next one.`)
+    out.push(`The programme was closed in month ${state.currentTurn} with the craft still on its way.`)
+    if (f.missedRides) out.push(`It missed ${countOf(f.missedRides, 'ride')} and waited ${missedRideWaitTurns} months for each next one.`)
     if (f.counts.thruster && !f.thrusterOk) out.push('The weak thruster doubled what was left of the transfer.')
   }
   return out
@@ -128,17 +128,17 @@ function whyShortLife(state: SimState, b: Budgets): string[] {
   if (!f.captured) return [NEVER_ARRIVED]
   if (f.end === 'out of propellant, orbit lost' || f.dvLeft < 0)
     return [
-      `The propellant ran out after ${countOf(f.scienceTurns, 'turn')}: holding this orbit costs ${b.deltaVStationKeeping} m/s a turn and ${b.deltaVAfterCapture.toFixed(0)} m/s was left after capture.`,
+      `The propellant ran out after ${countOf(f.scienceTurns, 'month')}: holding this orbit costs ${b.deltaVStationKeeping} m/s a month and ${b.deltaVAfterCapture.toFixed(0)} m/s was left after capture.`,
     ]
   if (f.end.startsWith('budget ran out'))
-    return [`The money ran out after ${countOf(f.scienceTurns, 'science turn')}.`, ...moneyDrains(state, b)]
-  return [`The programme was closed on turn ${state.currentTurn}: the craft reached orbit too late (captured on turn ${f.captureTurn}).`]
+    return [`The money ran out after ${countOf(f.scienceTurns, 'science month')}.`, ...moneyDrains(state, b)]
+  return [`The programme was closed in month ${state.currentTurn}: the craft reached orbit too late (captured in month ${f.captureTurn}).`]
 }
 
 function linkCause(state: SimState, b: Budgets): string {
   const crowd = instrumentsOf(state).filter((i) => i.kind === 'outreach')
   let text =
-    `${state.flight.science.lost.toFixed(0)} MB of data never got home: the instruments made ${b.dataPerTurn.toFixed(0)} MB a turn, ` +
+    `${state.flight.science.lost.toFixed(0)} MB of data never got home: the instruments made ${b.dataPerTurn.toFixed(0)} MB a month, ` +
     `the link carried ${b.downlinkPerTurn.toFixed(0)} and storage holds ${b.storageCapacity} MB. The coverage in the lost data was lost with it.`
   if (crowd.length && state.design.instruments.length > 1) text += ` The ${nouns(crowd)} data crowded out the ice data.`
   return text + ' More contact time, a bigger dish on the ground or a dish antenna on board would carry it.'
@@ -165,8 +165,8 @@ function whyCoverageShort(state: SimState, b: Budgets): string[] {
   const ideal = 100 * (1 - Math.exp(-passes * best.footprint * flown))
   if (ideal < COVERAGE_TARGET)
     out.push(
-      `Too few passes: this orbit (${orbit?.name}) crosses the pole ${passes} times a turn and the ${noun} sees a narrow strip each time. ` +
-        `Even a perfect craft maps only ${ideal.toFixed(0)}% in ${flown} turns. It takes an orbit with more passes or an instrument with a wider view.`
+      `Too few passes: this orbit (${orbit?.name}) crosses the pole ${passes} times a month and the ${noun} sees a narrow strip each time. ` +
+        `Even a perfect craft maps only ${ideal.toFixed(0)}% in ${flown} months. It takes an orbit with more passes or an instrument with a wider view.`
     )
   if (best.maxAltitudeKm !== null && orbit && orbit.altitude > best.maxAltitudeKm) {
     out.push(
@@ -195,7 +195,7 @@ function whyDataShort(state: SimState, b: Budgets, need: number): string[] {
   const out: string[] = []
   if (made * turns < need) {
     out.push(
-      `The science instruments make ${made.toFixed(0)} MB a turn: ${(made * turns).toFixed(0)} MB in ${turns} turns, short of ${need} MB before anything goes wrong.`
+      `The science instruments make ${made.toFixed(0)} MB a month: ${(made * turns).toFixed(0)} MB in ${turns} months, short of ${need} MB before anything goes wrong.`
     )
     if (b.scienceDuty < 1) out.push(`Power held them to ${Math.round(b.scienceDuty * 100)}% of the time they could run.`)
   }
@@ -232,7 +232,7 @@ export function buildReport(state: SimState): Report {
 
   const requirements: RequirementResult[] = [
     req('capture', 'Lunar Orbit Insertion', f.captured, 1, f.captured ? 1 : 0, '',
-      f.captured ? `Captured into the science orbit on turn ${f.captureTurn}.` : 'Never captured into lunar orbit.',
+      f.captured ? `Captured into the science orbit in month ${f.captureTurn}.` : 'Never captured into lunar orbit.',
       () => whyNoCapture(state, b)),
     req('coverage', 'Ice Coverage', f.coverage >= COVERAGE_TARGET, COVERAGE_TARGET, Math.round(f.coverage * 10) / 10, '%',
       `${f.coverage.toFixed(1)}% of the south polar region mapped by an instrument that sees into shadow, with its data home.`,
@@ -240,8 +240,8 @@ export function buildReport(state: SimState): Report {
     req('data', 'Science Data Return', f.data >= dataTarget, dataTarget, Math.round(f.data), 'MB',
       `${f.data.toFixed(0)} MB of science data on the ground.`,
       () => whyDataShort(state, b, dataTarget)),
-    req('lifetime', 'Mission Lifetime', f.scienceTurns >= turnsNeeded, turnsNeeded, f.scienceTurns, 'turns',
-      `${f.scienceTurns} turns in the science orbit.`,
+    req('lifetime', 'Mission Lifetime', f.scienceTurns >= turnsNeeded, turnsNeeded, f.scienceTurns, 'months',
+      `${f.scienceTurns} months in the science orbit.`,
       () => whyShortLife(state, b)),
     req('budget', 'Budget Compliance', f.reserve >= 0, 1, f.reserve >= 0 ? 1 : 0, '',
       f.reserve >= 0 ? `${moneyLeft.toFixed(1)} M left.` : `Reserve overdrawn by ${(-f.reserve).toFixed(2)} M.`,
@@ -305,7 +305,7 @@ export function buildReport(state: SimState): Report {
     if (score.data < w.data)
       scoreNotes.push(`Science data ${score.data}/${w.data}: ${f.data.toFixed(0)} MB home of the ${dataTarget} MB target.${iceNote}`)
     if (score.lifetime < w.lifetime)
-      scoreNotes.push(`Turns in orbit ${score.lifetime}/${w.lifetime}: ${f.scienceTurns} of ${turnsNeeded} science turns flown.${iceNote}`)
+      scoreNotes.push(`Months in orbit ${score.lifetime}/${w.lifetime}: ${f.scienceTurns} of ${turnsNeeded} science months flown.${iceNote}`)
     if (score.context < w.context)
       scoreNotes.push(
         instruments.some((i) => i.kind === 'context')
