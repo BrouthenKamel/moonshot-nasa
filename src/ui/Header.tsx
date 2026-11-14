@@ -1,3 +1,4 @@
+import { AudioControls } from './kit/AudioControls'
 import { useGameStore } from '../state/gameStore'
 import { lunarIceMapperBrief } from '../data/brief'
 
@@ -37,6 +38,7 @@ export function Header() {
             ← Agency base
           </button>
         )}
+        <AudioControls />
       </div>
     </header>
   )

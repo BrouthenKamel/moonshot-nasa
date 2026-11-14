@@ -66,7 +66,7 @@ export function ReplayTimeline({ logs, turnIndex, onSelect, playing, onTogglePla
           className="flex-1 accent-blue-500"
         />
         <span className="w-28 text-right text-sm text-slate-400">
-          Turn {logs[current].turn} / {logs[last].turn}
+          Month {logs[current].turn} / {logs[last].turn}
         </span>
       </div>
 

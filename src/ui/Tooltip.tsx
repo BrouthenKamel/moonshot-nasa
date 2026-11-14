@@ -33,7 +33,7 @@ export function Tooltip({ term, children }: TooltipProps) {
     <span
       tabIndex={0}
       aria-describedby={id}
-      className="relative cursor-help border-b border-dotted border-current focus:outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-blue-400"
+      className="pointer-events-auto relative cursor-help border-b border-dotted border-current focus:outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-blue-400"
       onMouseEnter={() => later(true, 300)}
       onMouseLeave={() => later(false, 100)}
       onFocus={() => {
@@ -47,16 +47,16 @@ export function Tooltip({ term, children }: TooltipProps) {
       <span
         id={id}
         role="tooltip"
-        className={`absolute bottom-full left-1/2 z-50 mb-2 block w-64 -translate-x-1/2 rounded-lg bg-slate-800 p-3 text-left text-sm font-normal normal-case tracking-normal shadow-lg ${
+        className={`absolute bottom-full left-1/2 z-50 mb-2 block w-72 -translate-x-1/2 rounded-xl border border-white/10 bg-slate-900/95 p-3 text-left text-sm font-normal normal-case tracking-normal shadow-2xl backdrop-blur ${
           isOpen ? '' : 'hidden'
         }`}
         onMouseEnter={() => later(true, 0)}
         onMouseLeave={() => later(false, 100)}
       >
-        <span className="block font-semibold text-blue-300">{entry.term}</span>
+        <span className="block font-semibold text-orange-300">{entry.term}</span>
         <span className="mt-1 block text-slate-200">{entry.definition}</span>
         {entry.example && <span className="mt-2 block text-xs text-slate-300">Example: {entry.example}</span>}
-        <span className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+        <span className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
       </span>
     </span>
   )
