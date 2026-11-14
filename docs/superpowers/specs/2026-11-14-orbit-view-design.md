@@ -142,7 +142,8 @@ Top to bottom, all for the picked orbit:
    | Delta-v check red (otherwise) | red | `CANNOT HOLD THE ORBIT` |
    | Power check red and `scienceDuty <= 0` | red | `NO POWER FOR THE INSTRUMENTS` |
    | Power check red (otherwise: battery) | red | `BATTERY TOO SMALL FOR THE SHADOW` |
-   | Budget check red | red | `OVER BUDGET WITH THIS ORBIT` |
+   | Budget check red and `totalCost <= budgetCap` | red | `INTO THE RESERVE WITH THIS ORBIT` |
+   | Budget check red (otherwise: over the cap) | red | `OVER BUDGET WITH THIS ORBIT` |
    | Data Link check red | red | `NOTHING CAN BE SENT HOME` |
    | no ice instrument on board | amber | `NO ICE INSTRUMENT ON BOARD` |
    | ice instruments on board, none in range | amber | `TOO HIGH FOR THE ICE INSTRUMENTS` |
@@ -150,7 +151,6 @@ Top to bottom, all for the picked orbit:
    | Science check yellow (otherwise: too little data) | amber | `TOO LITTLE DATA SENT HOME` |
    | Delta-v check yellow | amber | `LITTLE FUEL TO SPARE` |
    | Power check yellow | amber | `POWER LIMITS THE SCIENCE` |
-   | Budget check yellow | amber | `EATS INTO THE RESERVE` |
    | Data Link check not green | amber | `DATA LINK NEARLY FULL` |
    | otherwise | green | `GOOD MAPPING ORBIT` |
 
@@ -210,7 +210,7 @@ React:
 
 ## Calls made while building (2026-11-14)
 
-- The orbit also moves the Budget check (an ion engine's longer transfer), so on the Engineer budget the LunaH-Map-like design reads "EATS INTO THE RESERVE" on the elliptical orbit and "OVER BUDGET WITH THIS ORBIT" on the 100 km orbit. The table order stays as written: a red check always wins.
+- The orbit also moves the Budget check (an ion engine's longer transfer). Since Jakob made the reserve line a hard limit (14 Nov, PR #21), Budget is never yellow: spending into the reserve reads "INTO THE RESERVE WITH THIS ORBIT" and going over the cap "OVER BUDGET WITH THIS ORBIT", both red. With the fixture's 4% reserve the LunaH-Map-like design's elliptical orbit reads "GOOD MAPPING ORBIT".
 - Upkeep is said against the 12-month mission (Integration's playtest finding): "fuel for far beyond the 12-month mission", "fuel for N months, enough for the mission", or "Only N months of fuel to hold the orbit: the mission will end early". Used in the scene and in the fallback.
 - The Go / No-Go rows sit directly under the ice number in the readout panel (they were below the fold at 1280 x 720); sunlight and Earth in view share one row.
 - The idle camera sways ±0.25 rad around where the player left it instead of circling the Moon, because circling reached the night side, where the Moon is black.

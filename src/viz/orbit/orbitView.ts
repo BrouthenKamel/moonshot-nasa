@@ -90,6 +90,8 @@ interface VerdictInput {
   hasIce: boolean
   iceInRange: boolean
   projectedCoverage: number
+  totalCost: number
+  budgetCap: number
 }
 
 /** The design doc's verdict table, first match wins. Red rows follow goNoGo's own order of tests. */
@@ -105,7 +107,9 @@ function verdictOf(v: VerdictInput): { tone: Tone; text: string } {
     if (v.scienceDuty <= 0) return { tone: 'bad', text: 'NO POWER FOR THE INSTRUMENTS' }
     return { tone: 'bad', text: 'BATTERY TOO SMALL FOR THE SHADOW' }
   }
-  if (s['Budget'] === 'red') return { tone: 'bad', text: 'OVER BUDGET WITH THIS ORBIT' }
+  // The reserve line is a hard limit (Jakob, 14 Nov): spending into it is as red as going over the cap
+  if (s['Budget'] === 'red')
+    return { tone: 'bad', text: v.totalCost <= v.budgetCap ? 'INTO THE RESERVE WITH THIS ORBIT' : 'OVER BUDGET WITH THIS ORBIT' }
   if (s['Data Link'] === 'red') return { tone: 'bad', text: 'NOTHING CAN BE SENT HOME' }
   if (!v.hasIce) return { tone: 'warn', text: 'NO ICE INSTRUMENT ON BOARD' }
   if (!v.iceInRange) return { tone: 'warn', text: 'TOO HIGH FOR THE ICE INSTRUMENTS' }
@@ -113,7 +117,6 @@ function verdictOf(v: VerdictInput): { tone: Tone; text: string } {
   if (s['Science'] === 'yellow') return { tone: 'warn', text: 'TOO LITTLE DATA SENT HOME' }
   if (s['Delta-v'] === 'yellow') return { tone: 'warn', text: 'LITTLE FUEL TO SPARE' }
   if (s['Power'] === 'yellow') return { tone: 'warn', text: 'POWER LIMITS THE SCIENCE' }
-  if (s['Budget'] === 'yellow') return { tone: 'warn', text: 'EATS INTO THE RESERVE' }
   if (s['Data Link'] && s['Data Link'] !== 'green') return { tone: 'warn', text: 'DATA LINK NEARLY FULL' }
   return { tone: 'good', text: 'GOOD MAPPING ORBIT' }
 }
@@ -188,6 +191,8 @@ export function buildOrbitView(design: Design, difficulty: Difficulty): OrbitVie
         hasIce: iceInstruments.length > 0,
         iceInRange,
         projectedCoverage: b.projectedCoverage,
+        totalCost: b.totalCost,
+        budgetCap: b.budgetCap,
       }),
       checks: pickChecks(all),
     }

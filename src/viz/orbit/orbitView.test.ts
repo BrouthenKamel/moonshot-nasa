@@ -47,13 +47,24 @@ describe('buildOrbitView', () => {
   it('gives the verdicts of the LunaH-Map-like design', () => {
     const v = buildOrbitView(lunahMapDesign, 'engineer')
     expect(opt(v, 'orbit-halo').verdict).toEqual({ tone: 'warn', text: 'MAPS TOO SLOWLY' })
-    // The long ion transfer makes these two orbits cost more: the Budget check decides their verdicts
-    expect(opt(v, 'orbit-elliptical').verdict).toEqual({ tone: 'warn', text: 'EATS INTO THE RESERVE' })
-    expect(opt(v, 'orbit-elliptical').checks.find((c) => c.resource === 'Science')!.status).toBe('green')
-    expect(opt(v, 'orbit-100km').verdict).toEqual({ tone: 'bad', text: 'OVER BUDGET WITH THIS ORBIT' })
+    expect(opt(v, 'orbit-elliptical').verdict).toEqual({ tone: 'good', text: 'GOOD MAPPING ORBIT' })
     expect(opt(v, 'orbit-100km').stripTone).toBe('blind')
     expect(opt(v, 'orbit-100km').iceInRange).toBe(false)
     expect(opt(v, 'orbit-elliptical').stripTone).toBe('ice')
+  })
+
+  it('names the locked reserve apart from going over the cap (the reserve line is a hard limit)', () => {
+    const d = { ...lunahMapDesign, planning: { ...lunahMapDesign.planning, reservePercent: 10 } }
+    const b = computeBudgets({ ...d, orbit: 'orbit-elliptical' }, 'engineer')
+    expect(b.totalCost).toBeGreaterThan(b.spendable)
+    expect(b.totalCost).toBeLessThanOrEqual(b.budgetCap)
+    const v = buildOrbitView(d, 'engineer')
+    expect(opt(v, 'orbit-elliptical').verdict).toEqual({ tone: 'bad', text: 'INTO THE RESERVE WITH THIS ORBIT' })
+    const over = opt(buildOrbitView(d, 'engineer'), 'orbit-100km')
+    const bo = computeBudgets({ ...d, orbit: 'orbit-100km' }, 'engineer')
+    expect(bo.totalCost).toBeGreaterThan(bo.budgetCap)
+    expect(over.verdict).toEqual({ tone: 'bad', text: 'OVER BUDGET WITH THIS ORBIT' })
+    for (const o of v.options) expect(o.verdict.text).not.toBe('EATS INTO THE RESERVE')
   })
 
   it('blocks orbits the tank cannot reach', () => {
