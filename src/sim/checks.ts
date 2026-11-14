@@ -33,6 +33,11 @@ function check(
  * (trial designs, tests, older callers).
  */
 export function goNoGo(design: Design, budgets: Budgets, labDay?: number): GoNoGoResult {
+  // While the neutron spectrometer is locked, only suggest what the player can fit
+  const neutronLocked = labDay !== undefined && researchLabLevel(labDay) < (instrumentLabLevel['inst-neutron'] ?? 1)
+  const shadowAdvice = neutronLocked
+    ? `fit the laser reflectometer (the neutron spectrometer unlocks at Research Lab level ${instrumentLabLevel['inst-neutron']})`
+    : 'fit the laser reflectometer or the neutron spectrometer at the Research Lab'
   const b = budgets
   const spare = Math.round(C.greenMargin * 100)
   const turns = lunarIceMapperBrief.missionDurationTurns
@@ -221,7 +226,7 @@ export function goNoGo(design: Design, budgets: Budgets, labDay?: number): GoNoG
         : `${
             design.instruments.some((id) => (getPartById(id) as InstrumentPart | undefined)?.seesShadow)
               ? ''
-              : 'No instrument on board can see into the shadowed craters: fit the laser reflectometer or the neutron spectrometer at the Research Lab. '
+              : `No instrument on board can see into the shadowed craters: ${shadowAdvice}. `
           }Even with no bad luck this reaches only ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} turns (needed: ${coverageTarget}% and ${dataTarget} MB); an extended mission of up to ${turns} more turns can add some. It may fly, but it is unlikely to fully succeed.`,
       'instruments'
     )
