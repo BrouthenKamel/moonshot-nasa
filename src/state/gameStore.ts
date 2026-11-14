@@ -20,6 +20,9 @@ import { goNoGo, type GoNoGoResult } from '../sim/checks'
 import { initSim, stepTurn, flyUntilDecision, getDefaultAction, isSimComplete } from '../sim/simulate'
 import { buildReport } from '../sim/evaluate'
 import { generateSeed } from '../sim/rng'
+import type { BuildingId } from '../data/agency'
+import { BUILDING_STEPS, suggestedStep } from '../viz/missionMap'
+import { useAgencyStore } from './agencyStore'
 
 /** Screen the player is on */
 export type Screen =
@@ -105,6 +108,11 @@ export interface GameState {
 
   /** Start planning a fresh Lunar Ice Mapper mission from the agency base */
   startNewMission: () => void
+
+  /** Design steps the player has opened in this mission (drives the map's suggested building) */
+  visitedSteps: DesignStep[]
+  /** Walk into a building on the map: opens the step it holds that is due next */
+  openBuilding: (id: BuildingId) => void
 }
 
 /** localStorage if present (browser), otherwise an in-memory fallback (Node/tests) */
@@ -190,11 +198,26 @@ export const useGameStore = create<GameState>()(
       previousBudgets: null,
       replayTurn: 0,
       replayEntryId: null,
+      visitedSteps: [],
 
       // Navigation
       setScreen: (screen) => set({ screen }),
       setDesignStep: (designStep) =>
-        set({ designStep, previousBudgets: null, replayTurn: 0 }),
+        set((state) => ({
+          designStep,
+          previousBudgets: null,
+          replayTurn: 0,
+          visitedSteps: state.visitedSteps.includes(designStep) ? state.visitedSteps : [...state.visitedSteps, designStep],
+        })),
+
+      openBuilding: (id) => {
+        const { visitedSteps } = get()
+        const steps = BUILDING_STEPS[id]
+        const next = suggestedStep(visitedSteps)
+        const step = steps.includes(next) ? next : (steps.find((s) => !visitedSteps.includes(s)) ?? steps[0])
+        get().setDesignStep(step)
+        set({ screen: 'design' })
+      },
 
       // Visualiser
       setReplayTurn: (n) =>
@@ -261,11 +284,14 @@ export const useGameStore = create<GameState>()(
         const { design, difficulty } = get()
         const seed = generateSeed()
         const simState = initSim(design, difficulty, seed)
+        // The flight plays on the agency base, whose clock now follows the turns
+        useAgencyStore.getState().startMissionClock()
         set({
           simState,
+          currentReport: null,
           replayEntryId: null,
           replayTurn: 0,
-          screen: 'simulation',
+          screen: 'base',
           pendingAction: getDefaultAction(),
         })
       },
@@ -390,9 +416,11 @@ export const useGameStore = create<GameState>()(
           previousBudgets: null,
           replayTurn: 0,
           replayEntryId: null,
+          visitedSteps: [],
         }),
 
-      startNewMission: () =>
+      startNewMission: () => {
+        useAgencyStore.getState().resetMissionClock()
         set({
           screen: 'design',
           designStep: 'brief',
@@ -401,7 +429,9 @@ export const useGameStore = create<GameState>()(
           currentReport: null,
           signOffs: [],
           pendingAction: getDefaultAction(),
-        }),
+          visitedSteps: [],
+        })
+      },
     }),
     {
       name: 'moonshot-game-storage',
@@ -412,6 +442,7 @@ export const useGameStore = create<GameState>()(
         // Keep the mission being planned, so the base can show and resume it
         design: state.design,
         designStep: state.designStep,
+        visitedSteps: state.visitedSteps,
         players: state.players,
         runHistory: state.runHistory,
       }),

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useGameStore } from './gameStore'
+import { useAgencyStore } from './agencyStore'
 import { createDefaultDesign, computeBudgets } from '../sim/budgets'
 import { isSimComplete } from '../sim/simulate'
 import { buildReport } from '../sim/evaluate'
@@ -22,9 +23,50 @@ function runToEnd() {
   s.startSimulation()
   let guard = 0
   while (!isSimComplete(useGameStore.getState().simState!) && guard++ < 500) {
-    useGameStore.getState().advanceTurn()
+    const st = useGameStore.getState()
+    // An event card waits for an answer; take its first option (the standing orders)
+    if (st.simState!.pendingDecision) st.answerEvent(st.simState!.pendingDecision.options[0].id)
+    else st.advanceTurn()
   }
 }
+
+describe('gameStore building navigation', () => {
+  beforeEach(reset)
+
+  it('opens the step of a building and remembers it', () => {
+    const s = useGameStore.getState()
+    s.startNewMission()
+    s.openBuilding('factory')
+    expect(useGameStore.getState().screen).toBe('design')
+    expect(useGameStore.getState().designStep).toBe('spacecraft')
+    expect(useGameStore.getState().visitedSteps).toContain('spacecraft')
+  })
+
+  it('opens the suggested step when the building holds it', () => {
+    const s = useGameStore.getState()
+    s.startNewMission()
+    s.openBuilding('comms-center')
+    expect(useGameStore.getState().designStep).toBe('brief')
+    s.openBuilding('comms-center')
+    expect(useGameStore.getState().designStep).toBe('planning')
+  })
+
+  it('a new mission forgets the visited steps and the mission clock', () => {
+    useGameStore.getState().openBuilding('factory')
+    useAgencyStore.getState().startMissionClock()
+    useGameStore.getState().startNewMission()
+    expect(useGameStore.getState().visitedSteps).toEqual([])
+    expect(useAgencyStore.getState().missionStartDay).toBeNull()
+  })
+
+  it('launching returns to the base and starts the mission clock', () => {
+    useAgencyStore.getState().resetAgency()
+    useGameStore.getState().startSimulation()
+    expect(useGameStore.getState().screen).toBe('base')
+    expect(useGameStore.getState().simState).not.toBeNull()
+    expect(useAgencyStore.getState().missionStartDay).toBe(112)
+  })
+})
 
 describe('gameStore visualiser state', () => {
   beforeEach(reset)
@@ -40,10 +82,10 @@ describe('gameStore visualiser state', () => {
     expect(useGameStore.getState().previousBudgets).toBeNull()
   })
 
-  it('stays on simulation after the last turn and stores run data', () => {
+  it('stays on the base after the last turn and stores run data', () => {
     runToEnd()
     const st = useGameStore.getState()
-    expect(st.screen).toBe('simulation')
+    expect(st.screen).toBe('base')
     expect(st.currentReport).not.toBeNull()
     expect(st.runHistory[0].run?.turnLogs.length).toBe(st.simState!.turnLogs.length)
     expect(st.runHistory[0].run?.seed).toBe(st.simState!.seed)
