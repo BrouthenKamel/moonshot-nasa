@@ -151,12 +151,3 @@ export const glossary: Record<string, GlossaryEntry> = {
 export function getGlossaryEntry(term: string): GlossaryEntry | undefined {
   return glossary[term.toLowerCase()]
 }
-
-export function searchGlossary(query: string): GlossaryEntry[] {
-  const lowerQuery = query.toLowerCase()
-  return Object.values(glossary).filter(
-    (entry) =>
-      entry.term.toLowerCase().includes(lowerQuery) ||
-      entry.definition.toLowerCase().includes(lowerQuery)
-  )
-}

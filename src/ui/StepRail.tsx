@@ -1,24 +1,16 @@
 import { useGameStore } from '../state/gameStore'
-import type { DesignStep, Role } from '../sim/types'
+import type { DesignStep } from '../sim/types'
 
-const steps: { id: DesignStep; name: string; role: Role }[] = [
-  { id: 'brief', name: 'Brief', role: 'ground' },
-  { id: 'planning', name: '1. Planning', role: 'ground' },
-  { id: 'instruments', name: '2. Instruments', role: 'science' },
-  { id: 'spacecraft', name: '3. Spacecraft', role: 'space' },
-  { id: 'orbit', name: '4. Orbit', role: 'launch' },
-  { id: 'ride', name: '5. Ride & Transfer', role: 'launch' },
-  { id: 'comms', name: '6. Communications', role: 'ground' },
-  { id: 'go-nogo', name: '7. Go/No-Go', role: 'ground' },
+const steps: { id: DesignStep; name: string }[] = [
+  { id: 'brief', name: 'Brief' },
+  { id: 'planning', name: '1. Planning' },
+  { id: 'instruments', name: '2. Instruments' },
+  { id: 'spacecraft', name: '3. Spacecraft' },
+  { id: 'orbit', name: '4. Orbit' },
+  { id: 'ride', name: '5. Ride & Transfer' },
+  { id: 'comms', name: '6. Communications' },
+  { id: 'go-nogo', name: '7. Go/No-Go' },
 ]
-
-const roleColors: Record<Role, string> = {
-  ground: 'bg-blue-500',
-  science: 'bg-green-500',
-  space: 'bg-purple-500',
-  launch: 'bg-orange-500',
-}
-
 
 export function StepRail() {
   const designStep = useGameStore((s) => s.designStep)
@@ -46,9 +38,7 @@ export function StepRail() {
               `}
             >
               <span
-                className={`h-2 w-2 rounded-full ${roleColors[step.role]} ${
-                  isFuture ? 'opacity-40' : ''
-                }`}
+                className={`h-2 w-2 rounded-full ${isCurrent ? 'bg-blue-400' : isPast ? 'bg-emerald-500' : 'bg-slate-600'}`}
               />
               <span className={isPast ? 'line-through opacity-60' : ''}>
                 {step.name}
@@ -56,28 +46,6 @@ export function StepRail() {
             </button>
           )
         })}
-      </div>
-
-      <div className="mt-4 border-t border-slate-800 pt-4">
-        <div className="text-xs text-slate-500">Roles</div>
-        <div className="mt-2 space-y-1 text-xs">
-          <div className="flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full ${roleColors.ground}`} />
-            <span className="text-slate-400">Ground</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full ${roleColors.science}`} />
-            <span className="text-slate-400">Science</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full ${roleColors.space}`} />
-            <span className="text-slate-400">Space</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full ${roleColors.launch}`} />
-            <span className="text-slate-400">Launch</span>
-          </div>
-        </div>
       </div>
     </nav>
   )

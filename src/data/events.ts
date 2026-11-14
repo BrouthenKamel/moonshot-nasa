@@ -192,7 +192,3 @@ export const events: MissionEvent[] = [
 export function getEventById(id: EventType): MissionEvent | undefined {
   return events.find((e) => e.id === id)
 }
-
-export function getEventsForPhase(phase: MissionPhase): MissionEvent[] {
-  return events.filter((e) => e.phases.includes(phase))
-}

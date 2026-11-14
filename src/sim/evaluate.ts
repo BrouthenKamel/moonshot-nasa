@@ -346,34 +346,3 @@ export function buildReport(state: SimState): Report {
     timestamp: Date.now(),
   }
 }
-
-/**
- * Get outcome emoji for display.
- */
-export function getOutcomeEmoji(outcome: 'success' | 'partial' | 'failed'): string {
-  switch (outcome) {
-    case 'success':
-      return '' // No emoji per instructions
-    case 'partial':
-      return ''
-    case 'failed':
-      return ''
-  }
-}
-
-/**
- * Get a letter grade from score.
- */
-export function getGrade(score: number): string {
-  if (score >= 900) return 'A+'
-  if (score >= 850) return 'A'
-  if (score >= 800) return 'A-'
-  if (score >= 750) return 'B+'
-  if (score >= 700) return 'B'
-  if (score >= 650) return 'B-'
-  if (score >= 600) return 'C+'
-  if (score >= 550) return 'C'
-  if (score >= 500) return 'C-'
-  if (score >= 400) return 'D'
-  return 'F'
-}
