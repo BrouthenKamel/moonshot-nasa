@@ -55,3 +55,7 @@ Kept by the Integration session, so nothing the "Game quality control" session f
 | 40 | Low | Replay timeline buttons have no aria-label | A | waits-jakob | Integration |
 | 41 | Med | The replay is the least dramatic screen; nothing visual happens at the loss | C6 | waits-jakob | — |
 | 42 | Info | Keep: replay timeline colours, event marks and per-turn numbers | — | info | — |
+| 43 | Low-Med | The event card is not a dialog: no role, no focus, Escape does nothing | A | waits-jakob | Integration |
+| 44 | Info | Keep: picking a ride updates the dashboard and Go/No-Go instantly, with the reason | — | info | — |
+| 45 | Low | "Build effort 37 points = 4 turns" is jargon; say "4 months of building" | A | waits-jakob | Integration |
+| 46 | Info | Rapid clicks: no duplicate launch, no duplicate feed entries | — | info | — |
