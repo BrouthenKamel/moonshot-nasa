@@ -32,7 +32,7 @@ Placeholders for later, not to be built now: agency economy, publicity, building
 - **Base map look (outside):** navy `#14213d`, warm panels `#fbf7ef`, orange accents `#f97316`, display font `font-display` (Fredoka). Building labels stay as they are.
 - **Inside a building:** a dark room or scene, like the mission control room (`#03050a` background), with the building's role colour from the board as the accent: Ground / Comms Center blue, Science / Research Lab green, Space / Factory purple, Launch / Launch Site orange.
 - **Title line inside every building**, in the control room's format: `BUILDING · LUNAR ICE MAPPER · STEP`, e.g. `COMMS CENTER · LUNAR ICE MAPPER · MISSION PLANNING`, `RESEARCH LAB · LUNAR ICE MAPPER · INSTRUMENTS`, `FACTORY · LUNAR ICE MAPPER · SPACECRAFT`, `LAUNCH SITE · LUNAR ICE MAPPER · ORBIT` / `· RIDE & TRANSFER`.
-- **Units, written the same everywhere:** kg, U, W, Wh, $M (or "M"), MB and MB/turn, kbps, m/s, km, turns (1 turn = 1 month). Go / No-Go colours: green, yellow, red.
+- **Units, written the same everywhere:** kg, U, W, Wh, $M (or "M"), MB and MB/turn, kbps, m/s, km. Time: a turn is one month, so in-scene wording may say months ("2 MONTHS SPARE", "RIDE · END OF MONTH 8", matching the base's "Month" counter); buttons, the dashboard and plain controls say turns. Go / No-Go colours: green, yellow, red.
 - **Words:** plain English, short sentences; say what a number means for the mission ("cannot map ice at this height"), not just the number. Name the real mission a choice comes from where there is one (Lunar Flashlight, Lunar IceCube, LunaH-Map, LRO).
 - **Two sessions in one building** (Launch Site) agree one look together and bring it to Jakob as one.
 
