@@ -36,7 +36,7 @@ function StepScreen({ designStep }: { designStep: string }) {
 }
 
 /** Steps that draw their own full view instead of the shared diagram panel. */
-const STEPS_WITHOUT_DIAGRAM: DesignStep[] = ['planning', 'instruments', 'spacecraft', 'orbit']
+const STEPS_WITHOUT_DIAGRAM: DesignStep[] = ['planning', 'instruments', 'spacecraft', 'orbit', 'ride']
 
 export function DesignScreen() {
   const designStep = useGameStore((s) => s.designStep)

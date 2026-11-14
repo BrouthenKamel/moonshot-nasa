@@ -194,7 +194,7 @@ export function buildRideView(design: Design, difficulty: Difficulty, budgets: B
         type: t.type,
         title: direct ? 'DIRECT TRANSFER' : 'LOW-ENERGY TRANSFER',
         sub: !selectable
-          ? 'needs a chemical engine · chosen at the Factory'
+          ? 'needs a chemical engine (Factory)'
           : direct
             ? 'about 5 days · one big braking burn'
             : 'turns of coasting · small burn',

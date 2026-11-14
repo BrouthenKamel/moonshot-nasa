@@ -23,12 +23,20 @@ export function text(
   size: number,
   colour: string,
   align: CanvasTextAlign = 'left',
-  weight = 600
+  weight = 600,
+  halo = false
 ) {
   ctx.font = `${weight} ${size}px ${FONT}`
-  ctx.fillStyle = colour
   ctx.textAlign = align
   ctx.textBaseline = 'alphabetic'
+  if (halo) {
+    // A dark outline keeps a label readable where it crosses a path or a star
+    ctx.lineJoin = 'round'
+    ctx.lineWidth = 6
+    ctx.strokeStyle = 'rgba(3,5,10,.9)'
+    ctx.strokeText(s, x, y)
+  }
+  ctx.fillStyle = colour
   ctx.fillText(s, x, y)
 }
 

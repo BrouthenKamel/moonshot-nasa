@@ -42,8 +42,8 @@ const D_SKY = 60
 const D_PAD = 20
 
 /** The board and the tank in sky coordinates (canvas aspect ratios kept) */
-const BOARD_RECT: Rect = { x: 920, y: 460, w: 660, h: (660 * BOARD_H) / BOARD_W }
-const TANK_RECT: Rect = { x: 30, y: 310, w: 300, h: (300 * TANK_H) / TANK_W }
+const BOARD_RECT: Rect = { x: 880, y: 450, w: 700, h: (700 * BOARD_H) / BOARD_W }
+const TANK_RECT: Rect = { x: 16, y: GROUND_Y - (330 * TANK_H) / TANK_W - 3, w: 330, h: (330 * TANK_H) / TANK_W }
 
 /** World units per sky unit at a depth */
 const unit = (depth: number) => (2 * depth * TAN) / SKY_H
@@ -293,7 +293,7 @@ function Vapour({ reduced, puff }: { reduced: boolean; puff: React.RefObject<num
 function Floods({ colour }: { colour: THREE.Color }) {
   const shapes = useMemo(
     () =>
-      [-210, 230].map((x0) => {
+      [-80, 230].map((x0) => {
         const s = new THREE.Shape()
         s.moveTo(x0, 110)
         s.lineTo(-90, 435)
@@ -362,8 +362,8 @@ function Pad({ view, reduced }: { view: RideView; reduced: boolean }) {
   return (
     <>
       {/* Ground, from just in front of the camera to a little behind the pad */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, groundY - 0.01, -(D_PAD + 4) / 2]}>
-        <planeGeometry args={[400, D_PAD + 4]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, groundY - 0.01, -(D_PAD + 0.6) / 2]}>
+        <planeGeometry args={[400, D_PAD + 0.6]} />
         <meshStandardMaterial color="#070b14" roughness={1} />
       </mesh>
       <group position={base} scale={u}>
@@ -377,7 +377,7 @@ function Pad({ view, reduced }: { view: RideView; reduced: boolean }) {
         <Floods colour={flood} />
         <pointLight ref={alarm} position={[79, 360, 40]} color="#ff3b3b" intensity={0} distance={0} decay={0} />
         <spotLight
-          position={[-210, 130, 120]}
+          position={[-80, 130, 120]}
           target-position={[base[0], base[1] + 4, base[2]]}
           color={flood}
           intensity={1.4}

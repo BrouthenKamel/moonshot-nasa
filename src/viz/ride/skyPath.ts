@@ -41,8 +41,8 @@ export const DROP: Record<DropKind, Pt> = {
 }
 
 export const SIGN_RECT: Record<'low_energy' | 'direct', Rect> = {
-  low_energy: { x: 720, y: 22, w: 320, h: 62 },
-  direct: { x: 720, y: 92, w: 320, h: 62 },
+  low_energy: { x: 640, y: 22, w: 360, h: 62 },
+  direct: { x: 640, y: 92, w: 360, h: 62 },
 }
 
 /** Cubic Bézier from p0 to p3, sampled at n + 1 points */

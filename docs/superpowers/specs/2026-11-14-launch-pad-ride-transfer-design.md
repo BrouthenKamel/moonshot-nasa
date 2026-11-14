@@ -1,6 +1,6 @@
 # Launch pad for step 5 (Ride & Transfer): design
 
-Status: look approved by Jakob on 2026-11-14 ("A: pad + night sky", then "Yes, write design" on the mockup). Not implemented. Branch: `claude/ride-transfer-visual`, cut from `main` (bc9574c).
+Status: look approved by Jakob on 2026-11-14 ("A: pad + night sky", then "Yes, write design" on the mockup). Implemented on 2026-11-14 (screenshots: `assets/2026-11-14-launch-pad-built.jpg`, `-built-nogo.jpg`, `-built-flies-past.jpg`). Branch: `claude/ride-transfer-visual`, cut from `main` (bc9574c).
 
 Reference, approved as the direction:
 

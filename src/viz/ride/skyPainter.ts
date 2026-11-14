@@ -71,7 +71,7 @@ function moon(ctx: Ctx, orbitColour: string) {
     circle(ctx, MOON.x + dx, MOON.y + dy, r)
     ctx.fill()
   }
-  text(ctx, 'THE MOON', MOON.x, MOON.y - MOON.r - 22, 20, DIM, 'center')
+  text(ctx, 'THE MOON', MOON.x, MOON.y - MOON.r - 22, 20, DIM, 'center', 600, true)
   // The science orbit, decided in the Orbit step: only a thin ring here
   ctx.save()
   ctx.globalAlpha = 0.8
@@ -96,7 +96,7 @@ function signs(ctx: Ctx, view: RideView, hover: Hover) {
     ctx.lineWidth = s.selected || hovered ? 3 : 1.5
     ctx.stroke()
     text(ctx, `${s.selected ? '●' : '○'} ${s.title}`, r.x + 16, r.y + 27, 20, s.selected ? '#fff' : INK, 'left', 700)
-    text(ctx, s.sub, r.x + 16, r.y + 51, 17, s.selected ? '#fed7aa' : DIM, 'left', 500)
+    text(ctx, s.sub, r.x + 16, r.y + 52, 18, s.selected ? '#fed7aa' : DIM, 'left', 500)
     ctx.restore()
   }
 }
@@ -139,7 +139,9 @@ function path(ctx: Ctx, view: RideView) {
     polyline(ctx, slice(leg, 0, BLOCK_AT), RED, 4, [10, 10])
     const p = pointAlong(leg, BLOCK_AT)
     cross(ctx, p.x, p.y)
-    text(ctx, view.path.blockedLabel ?? '', p.x + 26, p.y + 8, 22, RED, 'left', 700)
+    // Near the right edge the label goes on the cross's left, so it stays on screen
+    const right = p.x > SKY_W * 0.6
+    text(ctx, view.path.blockedLabel ?? '', right ? p.x - 26 : p.x + 26, p.y + (right ? -22 : 8), 22, RED, right ? 'right' : 'left', 700, true)
   } else {
     const cut = 1 - CAPTURE_SHARE
     ctx.save()
@@ -157,15 +159,15 @@ function path(ctx: Ctx, view: RideView) {
       ctx.fillStyle = colour
       circle(ctx, CAPTURE.x, CAPTURE.y, 6)
       ctx.fill()
-      text(ctx, 'CAPTURE BURN', CAPTURE.x - 30, CAPTURE.y - 16, 22, colour, 'right', 700)
-      text(ctx, view.path.captureLabel, CAPTURE.x - 30, CAPTURE.y + 10, 20, INK, 'right', 600)
-      text(ctx, 'orbit decided in the Orbit step', CAPTURE.x - 30, CAPTURE.y + 32, 16, DIM, 'right', 500)
+      text(ctx, 'CAPTURE BURN', CAPTURE.x - 30, CAPTURE.y - 16, 22, colour, 'right', 700, true)
+      text(ctx, view.path.captureLabel, CAPTURE.x - 30, CAPTURE.y + 10, 20, INK, 'right', 600, true)
+      text(ctx, 'orbit decided in the Orbit step', CAPTURE.x - 30, CAPTURE.y + 34, 18, DIM, 'right', 500, true)
     } else {
       // flyPast: reaches the Moon but cannot brake, so it sails on
       const tail = slice(leg, cut, 1)
       polyline(ctx, tail.concat(overshoot(leg, 160)), RED, 4, [10, 10])
       const p = pointAlong(leg, cut)
-      text(ctx, view.path.blockedLabel ?? '', p.x - 20, p.y - 6, 20, RED, 'right', 700)
+      text(ctx, view.path.blockedLabel ?? '', p.x - 20, p.y - 6, 20, RED, 'right', 700, true)
     }
   }
 
@@ -175,12 +177,13 @@ function path(ctx: Ctx, view: RideView) {
   circle(ctx, d.x, d.y, 8)
   ctx.fill()
   if (drop === 'gto') {
-    text(ctx, view.path.dropLabel, d.x - 70, d.y + 92, 20, '#f8fafc', 'left', 700)
-    if (reach !== 'noWay' && reach !== 'noPower') text(ctx, view.path.spiralLabel, d.x - 70, d.y + 118, 20, AMBER, 'left', 700)
+    // Right-aligned under the spiral, clear of the gantry and the departures board
+    text(ctx, view.path.dropLabel, d.x + 140, d.y + 92, 20, '#f8fafc', 'right', 700, true)
+    if (reach !== 'noWay' && reach !== 'noPower') text(ctx, view.path.spiralLabel, d.x + 140, d.y + 118, 20, AMBER, 'right', 700, true)
   } else if (drop === 'lunar-vicinity') {
-    text(ctx, view.path.dropLabel, d.x - 16, d.y + 38, 20, '#f8fafc', 'right', 700)
+    text(ctx, view.path.dropLabel, d.x - 16, d.y + 38, 20, '#f8fafc', 'right', 700, true)
   } else {
-    text(ctx, view.path.dropLabel, d.x - 16, d.y + 38, 20, '#f8fafc', 'left', 700)
+    text(ctx, view.path.dropLabel, d.x - 16, d.y + 38, 20, '#f8fafc', 'left', 700, true)
   }
 }
 
