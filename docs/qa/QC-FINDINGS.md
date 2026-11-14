@@ -191,6 +191,24 @@ The MVP is ONE mission. The agency dashboard, the calendar, building levels and 
 | 94 | Info | One run uses about 26 KB of browser storage | — | Jakob: don't worry about it | — |
 | 70 | High | Old saves white-screen the app | H | go (18:51): mvp-builder | mvp/single-mission |
 
+## Batch 26: review of feat/odds-and-ops (#30)
+
+| # | Sev | Finding | Group | Status | Owner |
+|---|-----|---------|-------|--------|-------|
+| 95 | Med | The "This month" choices are dominated: full science with no extra pass is always best (flashlight 86% vs reduced 14%, safe 0%, extra pass 47%). The extra pass is a trap on a tight budget. Make the right answer change month to month (safe mode only before an eclipse the battery can't carry; the extra pass only when the link is the bottleneck) | K1 | waits-jakob | — |
+| 96 | Low | Player text still says "turn" ("Advance one turn") | — | go (part of the month sweep) | mvp/single-mission |
+| 97 | Low | No fast-forward: 0.5 s a month means the whole flight takes about 15 s | — | info | — |
+
+## Ideas round 2 (Ideas session, played 9326036)
+
+| # | Idea | Status |
+|---|------|--------|
+| I6 | 1-3 small choices during the 7 build and test months (extra vibration test, pay to rush, review team) as event cards | waits-jakob |
+| I7 | "Fly until something happens" skips quiet months, with a visible month log | waits-jakob (partly covered by the mission log on mvp/single-mission) |
+| I8 | Show the craft moving between Earth and Moon on the map or an inset, with ice and data ticking up | waits-jakob |
+| I9 | Name the craft and pick a patch colour; flight text uses the name | waits-jakob |
+| I10 | Base map labels overlap in the default camera | same as QC 7: small screens; laptop only (C2) |
+
 ## Sound (C3)
 
 - PR #24 (merged) adds the music on the base and a mute button.
