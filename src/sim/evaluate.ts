@@ -268,7 +268,8 @@ export function buildReport(state: SimState): Report {
         data: w.data * Math.min(1, f.data / dataTarget) * iceShare,
         lifetime: w.lifetime * Math.min(1, f.scienceTurns / turnsNeeded) * iceShare,
         context: w.context * Math.min(1, f.context / COVERAGE_TARGET),
-        money: (w.money * Math.max(0, moneyLeft)) / b.budgetCap,
+        // A failed mission uses up its whole budget: no points for money left (Jakob, 14 Nov)
+        money: outcome === 'failed' ? 0 : (w.money * Math.max(0, moneyLeft)) / b.budgetCap,
       }
     : { coverage: 0, data: 0, lifetime: 0, context: 0, money: 0 }
   const score: ScoreBreakdown = {

@@ -108,7 +108,7 @@ export const MAP_SIZE = 20
 /* Example missions                                                    */
 /* ------------------------------------------------------------------ */
 
-export type MissionStatus = 'planning' | 'building' | 'transfer' | 'in-orbit' | 'complete'
+export type MissionStatus = 'planning' | 'building' | 'transfer' | 'in-orbit' | 'complete' | 'failed'
 
 export interface MissionView {
   id: string

@@ -3,6 +3,7 @@ import { getPartById } from '../data/parts'
 import type { BuildingLabel } from '../scene/BaseMap'
 import { DAYS_PER_TURN, missionDay } from '../state/agencyStore'
 import type { Budgets, Design, DesignStep, GoNoGoResult, SimState, TurnLog } from '../sim/types'
+import { buildReport } from '../sim/evaluate'
 
 /**
  * What the agency map shows for the Lunar Ice Mapper: which building holds
@@ -156,7 +157,12 @@ export function lunarMissionView(input: {
 
   const f = sim.flight
   if (sim.phase === 'complete' || sim.phase === 'failed') {
-    return { ...base, status: 'complete', progress: 1, detail: sim.phase === 'failed' ? `Mission lost: ${f.end}` : `Mission over: ${f.end}` }
+    // A failed mission reads as failed, never as a green "complete"; its budget is used up
+    if (buildReport(sim).outcome === 'failed') {
+      const why = sim.phase === 'failed' ? `lost: ${f.end}` : 'the brief was not met'
+      return { ...base, status: 'failed', progress: 1, detail: `Mission failed, ${why}. Its budget is used up.` }
+    }
+    return { ...base, status: 'complete', progress: 1, detail: `Mission over: ${f.end}` }
   }
   if (f.launchedTurn === null) {
     return {

@@ -4,6 +4,7 @@ import { goNoGo } from '../sim/checks'
 import { flashlightDesign } from '../sim/fixtures'
 import type { Design, DesignStep } from '../sim/types'
 import { runSimulation } from '../sim/simulate'
+import { buildReport } from '../sim/evaluate'
 import {
   BUILDING_STEPS,
   STEP_ORDER,
@@ -79,6 +80,19 @@ describe('mission map', () => {
     expect(planning.status).toBe('planning')
     expect(planning.progress).toBeCloseTo(2 / 8)
     expect(planning.detail).toContain('Research Lab')
+  })
+
+  // Jakob, 14 Nov: a failed mission must not look like a success
+  it('a failed mission card says FAILED, and its budget is used up', () => {
+    const noIce = { ...flashlightDesign, instruments: ['inst-camera'] }
+    const budgets = computeBudgets(noIce, 'engineer')
+    const s = runSimulation(noIce, 'engineer', 1)
+    const report = buildReport(s)
+    expect(report.outcome).toBe('failed')
+    expect(report.score.money).toBe(0)
+    const view = lunarMissionView({ design: noIce, budgets, visited: [], sim: s })
+    expect(view.status).toBe('failed')
+    expect(view.detail).toMatch(/budget/i)
   })
 
   it('a lost mission no longer reads as in transfer', () => {

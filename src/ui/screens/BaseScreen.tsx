@@ -320,6 +320,7 @@ const statusStyle: Record<MissionStatus, { label: string; pill: string; bar: str
   transfer: { label: 'Transfer', pill: 'bg-orange-100 text-orange-700', bar: 'bg-orange-500' },
   'in-orbit': { label: 'In orbit', pill: 'bg-sky-100 text-sky-700', bar: 'bg-sky-500' },
   complete: { label: 'Complete', pill: 'bg-slate-200 text-slate-600', bar: 'bg-slate-400' },
+  failed: { label: 'Failed', pill: 'bg-red-100 text-red-700', bar: 'bg-red-500' },
 }
 
 const kindIcon: Record<MissionView['kind'], string> = {
