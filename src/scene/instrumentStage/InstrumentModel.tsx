@@ -15,8 +15,8 @@ import { StageBoundary } from './StageBoundary'
 const MOUNT_Y = -0.25
 /** Biggest size across track (two fit side by side at slotX ±0.2), along track and down */
 const MAX_ACROSS = 0.38
-const MAX_ALONG = 0.8
-const MAX_DOWN = 0.42
+const MAX_ALONG = 0.9
+const MAX_DOWN = 0.5
 /** Front of the instrument, just behind where the beam starts */
 const FRONT_Z = -0.08
 /** The beam leaves forward and down; tilt the aperture the same way */
@@ -107,7 +107,7 @@ function ApertureRing({ at, color }: { at: [number, number, number]; color: stri
         <torusGeometry args={[0.085, 0.014, 10, 32]} />
         <meshBasicMaterial color={color} toneMapped={false} />
       </mesh>
-      <pointLight position={[at[0], at[1] - 0.1, at[2] - 0.2]} intensity={0.8} distance={1.4} decay={2} color={color} />
+      <pointLight position={[at[0], at[1] - 0.1, at[2] - 0.2]} intensity={2.2} distance={1.6} decay={2} color={color} />
     </>
   )
 }

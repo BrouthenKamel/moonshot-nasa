@@ -6,7 +6,8 @@ import { choiceArt } from '../../../assets/catalogueArt'
  * Keyboard and sound for a tray of ChoiceCards in radio mode: one card in the tab order (the
  * picked one), arrow keys move to the next card and pick it, Home / End jump to the ends; like
  * a native radio group. The cards run with sounds={false} (the game's one rule for pick
- * sounds), so this hook plays each card's own pick sound, once, for a click or an arrow key.
+ * sounds), so this hook plays each card's own pick sound, once, for a click or an arrow key,
+ * and the tray calls hoverSound() from its onHover so the cards sound like every other tray.
  */
 export function useCardRadioGroup(ids: string[], selected: string, onPick: (id: string) => void) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
@@ -44,4 +45,9 @@ export function useCardRadioGroup(ids: string[], selected: string, onPick: (id: 
     },
   })
   return props
+}
+
+/** The hover tick every card tray plays (ChoiceCard's own is off with sounds={false}) */
+export function hoverSound() {
+  audio.play('sfx.hover')
 }

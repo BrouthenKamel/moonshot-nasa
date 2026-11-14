@@ -194,7 +194,7 @@ describe('activityText', () => {
 
 describe('passesText', () => {
   it('keeps the catalogue figure instead of rounding it', () => {
-    expect(passesText(4.5)).toBe('4.5 passes over the pole per turn')
-    expect(passesText(141)).toBe('141 passes over the pole per turn')
+    expect(passesText(4.5)).toBe('4.5 passes over the pole per month')
+    expect(passesText(141)).toBe('141 passes over the pole per month')
   })
 })

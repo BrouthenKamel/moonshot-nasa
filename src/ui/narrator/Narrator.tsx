@@ -65,22 +65,32 @@ export function Narrator() {
     return () => window.removeEventListener('keydown', onKey)
   }, [visible])
 
+  // In the design steps the mentor lives in the step rail's empty lower half (the rail is
+  // w-48), so the bubble never covers a card tray or catches clicks meant for the step.
+  const inRail = screen === 'design'
+
   return (
-    <div className="pointer-events-none fixed bottom-4 left-4 z-40 w-[min(22rem,calc(100vw-2rem))]">
+    <div
+      className={
+        inRail
+          ? 'pointer-events-none fixed bottom-3 left-2 z-40 w-44'
+          : 'pointer-events-none fixed bottom-4 left-4 z-40 w-[min(22rem,calc(100vw-2rem))]'
+      }
+    >
       {/* Always mounted, so screen readers announce each new line politely */}
       <div aria-live="polite" aria-atomic="true">
         {visible && beat && (
           <section
             aria-label={`${NARRATOR_NAME}, mission mentor`}
             data-beat={beat.id}
-            className="pointer-events-auto flex items-end gap-2"
+            className={inRail ? 'pointer-events-auto flex flex-col items-start gap-1.5' : 'pointer-events-auto flex items-end gap-2'}
           >
             <div className="shrink-0 drop-shadow-lg">
               <Portrait />
             </div>
             <div
               onClick={close}
-              className="relative flex-1 cursor-pointer rounded-2xl rounded-bl-sm border border-orange-400/60 bg-[#fbf7ef] px-3 pb-2.5 pt-2 text-sm text-[#14213d] shadow-xl"
+              className={`relative cursor-pointer rounded-2xl border ${inRail ? 'w-full rounded-tl-sm text-[13px]' : 'flex-1 rounded-bl-sm text-sm'} border-orange-400/60 bg-[#fbf7ef] px-3 pb-2.5 pt-2 text-[#14213d] shadow-xl`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="font-display text-xs font-semibold uppercase tracking-wide text-orange-700">

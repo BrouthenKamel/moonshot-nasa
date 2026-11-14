@@ -127,7 +127,7 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
       'This craft cannot reach and hold this orbit, so nothing is mapped. Engine: Factory. Orbit and ride: Launch Site.'
     )
   } else if (b.upkeepTurns < turns) {
-    reasons.push(`Propellant holds this orbit for ${Math.floor(b.upkeepTurns)} of ${turns} turns.`)
+    reasons.push(`Propellant holds this orbit for ${Math.floor(b.upkeepTurns)} of ${turns} months.`)
   }
   if (b.projectedLost > 0.5) {
     reasons.push(
@@ -160,7 +160,7 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
 
 /** The orbit's passes as the catalogue gives them (4.5 stays 4.5). */
 export function passesText(passes: number): string {
-  return `${Number.isInteger(passes) ? passes : passes.toFixed(1)} passes over the pole per turn`
+  return `${Number.isInteger(passes) ? passes : passes.toFixed(1)} passes over the pole per month`
 }
 
 /** What the instrument is doing at this moment of the pass, in words. */
