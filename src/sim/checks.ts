@@ -30,9 +30,15 @@ function check(
  */
 /**
  * labDay: the agency base day, for the Research Lab lock. Left out, nothing is locked
- * (trial designs, tests, older callers).
+ * (trial designs, tests, older callers). unlocks: level per instrument; the MVP table is
+ * empty, so nothing is locked until the agency extension fills it.
  */
-export function goNoGo(design: Design, budgets: Budgets, labDay?: number): GoNoGoResult {
+export function goNoGo(
+  design: Design,
+  budgets: Budgets,
+  labDay?: number,
+  unlocks: Record<string, number> = instrumentLabLevel
+): GoNoGoResult {
   const b = budgets
   const spare = Math.round(C.greenMargin * 100)
   const turns = lunarIceMapperBrief.missionDurationTurns
@@ -227,7 +233,7 @@ export function goNoGo(design: Design, budgets: Budgets, labDay?: number): GoNoG
     )
   checks.push({ ...science, margin: b.projectedCoverage - coverageTarget })
 
-  if (labDay !== undefined) checks.push(...researchLabChecks(design, labDay))
+  if (labDay !== undefined) checks.push(...researchLabChecks(design, labDay, unlocks))
 
   const blockers = checks.filter((c) => c.status === 'red')
   const warnings = checks.filter((c) => c.status === 'yellow')
@@ -240,11 +246,11 @@ export function cannotMeetBrief(result: GoNoGoResult): boolean {
 }
 
 /** One red check per instrument aboard that needs a higher Research Lab level than the lab has. */
-function researchLabChecks(design: Design, day: number): CheckResult[] {
+function researchLabChecks(design: Design, day: number, unlocks: Record<string, number>): CheckResult[] {
   const level = researchLabLevel(day)
   const up = buildings.find((b) => b.id === 'research-lab')?.upgrade
   return design.instruments.flatMap((id) => {
-    const needed = instrumentLabLevel[id] ?? 1
+    const needed = unlocks[id] ?? 1
     if (level >= needed) return []
     const name = (getPartById(id) as InstrumentPart | undefined)?.name ?? id
     const when =

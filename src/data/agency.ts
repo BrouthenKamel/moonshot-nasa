@@ -106,9 +106,16 @@ export function researchLabLevel(day: number): number {
   return lab.upgrade && day >= lab.upgrade.endDay ? lab.upgrade.toLevel : lab.level
 }
 
-/** Research Lab level an instrument needs; instruments not listed need none beyond level 1. */
-export const instrumentLabLevel: Record<string, number> = {
-  'inst-neutron': 3, // "Level 3 unlocks the neutron spectrometer"
+/**
+ * Research Lab level each instrument needs. Empty in the MVP: one mission, every part
+ * available (docs/DESIGN-DIRECTION.md, 1a). Building levels and unlocks are a later
+ * agency extension; to switch the lock on, use EXTENSION_INSTRUMENT_LAB_LEVEL here.
+ */
+export const instrumentLabLevel: Record<string, number> = {}
+
+/** The agency extension's unlock table: "Level 3 unlocks the neutron spectrometer". */
+export const EXTENSION_INSTRUMENT_LAB_LEVEL: Record<string, number> = {
+  'inst-neutron': 3,
 }
 
 export const buildPlot ={ tile: [16, 6] as [number, number], size: [3, 3] as [number, number] }
