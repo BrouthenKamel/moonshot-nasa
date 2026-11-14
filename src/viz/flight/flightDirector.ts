@@ -34,6 +34,8 @@ export interface ShotOptions {
   terminal?: 'complete' | 'failed'
   /** Live flight only: transfer turns still to fly (the core's `flight.transferLeft`) */
   transferLeft?: number | null
+  /** Live flight only: how far into the next month the agency clock is, 0..1, so the craft moves day by day */
+  monthFraction?: number
 }
 
 const launched = (l: TurnLog) => l.notes.some((n) => n.startsWith('Launched'))
@@ -59,7 +61,9 @@ export function flightShot(design: Design, logs: TurnLog[], turnIndex: number, o
         : typeof left === 'number' && Number.isFinite(left) && idx === last
           ? flown + Math.max(0, left)
           : flown + 1
-    transferT = total > 0 ? Math.min(1, flown / total) : 0
+    // Between two months the craft keeps going: add the part of the next month already flown
+    const frac = idx === last && captureIdx < launchIdx ? Math.min(1, Math.max(0, options.monthFraction ?? 0)) : 0
+    transferT = total > 0 ? Math.min(1, (flown + frac) / total) : 0
   }
 
   return {

@@ -1,12 +1,14 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { Color, DoubleSide, MOUSE, TOUCH, Vector3, type Group, type InstancedMesh, Object3D } from 'three'
+import { Color, DoubleSide, MOUSE, TOUCH, Vector3, type Group, type InstancedMesh, Object3D, type OrthographicCamera } from 'three'
 import { MAP_SIZE, buildings, type BuildingId } from '../data/agency'
-import { buildingIcons } from './buildingIcons'
 import { BuildingList, MapBoundary } from './BuildingList'
 import { canUseWebGL } from './webgl'
 import { BaseEffects, ChimneySmoke, Clouds, Truck } from './base/Life'
+import { FOREST_REACH, Forest } from './base/Forest'
+import { Blinker, Spin } from './base/Animated'
+import { HQ_LABEL_HEIGHT, HQ_SIZE, HQ_TILE, Headquarters } from './base/Headquarters'
 
 /* ------------------------------------------------------------------ */
 /* Layout helpers                                                      */
@@ -25,6 +27,8 @@ function footprintCenter(tile: [number, number], size: [number, number]): [numbe
 
 const key = (x: number, z: number) => `${x},${z}`
 
+const HQ_CENTER = footprintCenter(HQ_TILE, HQ_SIZE)
+
 /** Road tiles: a main street on z = 7, a cross street on x = 7, short spurs to each door */
 function roadTiles(): Set<string> {
   const roads = new Set<string>()
@@ -35,6 +39,7 @@ function roadTiles(): Set<string> {
     [11, 6], // factory
     [6, 11], [6, 12], // comms center
     [8, 11], // launch site
+    [16, 8], [16, 9], // headquarters
   ].forEach(([x, z]) => roads.add(key(x, z)))
   return roads
 }
@@ -46,6 +51,7 @@ function occupiedTiles(): Set<string> {
       for (let z = tile[1] - pad; z < tile[1] + size[1] + pad; z++) used.add(key(x, z))
   }
   buildings.forEach((b) => add(b.tile, b.size, 1))
+  add(HQ_TILE, HQ_SIZE, 1)
   return used
 }
 
@@ -238,11 +244,15 @@ function ResearchLab() {
           <sphereGeometry args={[0.68, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
           <meshStandardMaterial color="#b9c0cb" metalness={0.3} roughness={0.4} />
         </mesh>
-        <mesh position={[0.35, 0.65, 0.35]} rotation={[-0.6, Math.PI / 4, 0]} castShadow>
-          <cylinderGeometry args={[0.1, 0.13, 0.9, 12]} />
-          <meshStandardMaterial color="#59616e" />
-        </mesh>
+        {/* The telescope sweeps the sky */}
+        <Spin rpm={3} swing={0.9}>
+          <mesh position={[0.35, 0.65, 0.35]} rotation={[-0.6, Math.PI / 4, 0]} castShadow>
+            <cylinderGeometry args={[0.1, 0.13, 0.9, 12]} />
+            <meshStandardMaterial color="#59616e" />
+          </mesh>
+        </Spin>
       </group>
+      <Blinker position={[1.2, 0.82, 1.2]} color="#34d399" period={2.4} />
       {/* Side annex */}
       <mesh position={[1.2, 0.45, 1.2]} castShadow>
         <boxGeometry args={[1, 0.6, 0.9]} />
@@ -290,6 +300,24 @@ function Factory() {
         <meshStandardMaterial color="#8d939c" />
       </mesh>
       <ChimneySmoke position={[1.3, 2.65, -1.2]} />
+      {/* Roof fan */}
+      <mesh position={[-1.4, 2.08, 0.7]}>
+        <cylinderGeometry args={[0.3, 0.3, 0.12, 12]} />
+        <meshStandardMaterial color="#8d939c" />
+      </mesh>
+      <Spin position={[-1.4, 2.16, 0.7]} rpm={40}>
+        <mesh>
+          <boxGeometry args={[0.5, 0.03, 0.08]} />
+          <meshStandardMaterial color="#4a4f57" />
+        </mesh>
+        <mesh rotation={[0, Math.PI / 2, 0]}>
+          <boxGeometry args={[0.5, 0.03, 0.08]} />
+          <meshStandardMaterial color="#4a4f57" />
+        </mesh>
+      </Spin>
+      {/* Work lights over the doors */}
+      <Blinker position={[-1.1, 1.05, 1.25]} color="#fbbf24" period={1.2} />
+      <Blinker position={[0.6, 1.05, 1.25]} color="#fbbf24" period={1.2} phase={0.6} />
       {/* Crates waiting outside */}
       {[
         [2.1, 0.35, 1.3],
@@ -458,6 +486,7 @@ function LaunchSite() {
           <boxGeometry args={[0.6, 0.08, 0.1]} />
           <meshStandardMaterial color="#d9452b" />
         </mesh>
+        <Blinker position={[0, 3.25, 0]} period={1.4} />
       </group>
       {/* Propellant tanks */}
       {[
@@ -542,6 +571,7 @@ function CommsCenter() {
         <cylinderGeometry args={[0.03, 0.03, 1, 6]} />
         <meshStandardMaterial color="#6b717a" />
       </mesh>
+      <Blinker position={[-1.3, 2.13, 0.2]} period={2} phase={0.9} />
       <Dish position={[0.9, 0.1, -0.9]} phase={0.6} />
       <Dish position={[-0.9, 0.1, -1.1]} phase={2.2} />
     </group>
@@ -578,57 +608,61 @@ export interface BuildingLabel {
   alert?: boolean
 }
 
-function Label({
-  id,
+/**
+ * A small sign above a building: just its name on a post. Clickable when the building can be
+ * entered. The details (the label's status) are in its tooltip and in the mission panel.
+ * Orange: the next building to visit. Green glow: a first lesson here. Red dot: a problem here.
+ */
+function Sign({
   name,
   label,
   onClick,
+  title,
 }: {
-  id: BuildingId
   name: string
-  label: BuildingLabel
+  label?: BuildingLabel
   onClick?: () => void
+  title?: string
 }) {
-  const border = label.alert ? 'border-red-500' : label.highlight ? 'border-orange-400' : 'border-slate-700/80'
   // A real button when it walks in, so it can be reached and pressed by keyboard
   const Tag = onClick ? 'button' : 'div'
+  const tip = [title ?? (onClick ? `Enter the ${name}` : name), label?.status].filter(Boolean).join(': ')
+  const board = label?.highlight && !label.alert ? 'bg-orange-500' : 'bg-[#14213d]/90'
   return (
     <Tag
       type={onClick ? 'button' : undefined}
       onClick={onClick}
-      title={onClick ? `Enter the ${name}` : undefined}
-      className={`relative block w-max max-w-[280px] select-none rounded-xl border-2 bg-white/95 px-3 py-1.5 text-left shadow-lg ${border} ${
-        onClick
-          ? 'pointer-events-auto cursor-pointer transition hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-orange-400'
-          : ''
+      title={tip}
+      aria-label={tip}
+      className={`group relative flex select-none flex-col items-center ${
+        onClick ? 'pointer-events-auto cursor-pointer focus-visible:outline-none' : ''
       }`}
     >
-      {label.highlight && !label.alert && (
-        <span className="pointer-events-none absolute -inset-1.5 rounded-2xl ring-4 ring-orange-400/60 motion-safe:animate-pulse" />
-      )}
-      {label.pulse && !label.alert && (
+      {label?.pulse && !label.alert && (
         <span
           data-testid="label-pulse"
-          className="pointer-events-none absolute -inset-3 rounded-3xl ring-4 ring-emerald-400/70 shadow-[0_0_24px_rgba(52,211,153,0.6)] motion-safe:animate-pulse"
+          className="pointer-events-none absolute -inset-x-2 -top-2 bottom-2 rounded-xl ring-4 ring-emerald-400/70 shadow-[0_0_18px_rgba(52,211,153,0.6)] motion-safe:animate-pulse"
         />
       )}
-      <span className="flex items-center gap-2">
-        <span className="text-base leading-none">{buildingIcons[id]}</span>
-        <span className="whitespace-nowrap font-display text-sm font-bold uppercase tracking-wide text-slate-800">
-          {name}
-        </span>
+      <span
+        className={`relative flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 font-display text-[11px] font-bold uppercase tracking-wider text-white shadow-md ring-1 ring-white/25 transition ${board} ${
+          onClick ? 'group-hover:-translate-y-0.5 group-hover:bg-orange-500 group-focus-visible:ring-4 group-focus-visible:ring-orange-300' : ''
+        } ${label?.highlight && !label.alert ? 'motion-safe:animate-pulse' : ''}`}
+      >
+        {label?.alert && <span className="h-2 w-2 rounded-full bg-red-500 ring-2 ring-white/70" />}
+        {name}
       </span>
-      <span className="mt-0.5 block text-[11px] leading-tight text-slate-600">{label.status}</span>
-      {label.progress !== undefined && (
-        <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-          <span
-            className="block h-full rounded-full bg-orange-500"
-            style={{ width: `${Math.round(label.progress * 100)}%` }}
-          />
-        </span>
-      )}
+      <span className={`h-2.5 w-0.5 ${label?.highlight && !label.alert ? 'bg-orange-500' : 'bg-[#14213d]/80'}`} />
     </Tag>
   )
+}
+
+/** Headquarters on the map: the agency's campaign, 0-1 per phase (shown when it is opened) */
+export interface HqView {
+  satellites: number
+  moon: number
+  mars: number
+  onClick?: () => void
 }
 
 /* ------------------------------------------------------------------ */
@@ -645,6 +679,47 @@ function FitCamera() {
     camera.zoom = Math.max(14, zoom)
     camera.updateProjectionMatrix()
   }, [camera, size.width, size.height])
+  return null
+}
+
+/**
+ * Keeps the view inside the forest: never zoomed out or panned so far that the empty land
+ * beyond the trees shows. The camera looks down from (1, 1, 1), so on the ground the screen's
+ * horizontal axis is u = (x - z)/√2 and its vertical axis v = (x + z)/√2, stretched by
+ * 1/sin(elevation). The square forest is the diamond |u| + |v| <= edge·√2 in those axes;
+ * the visible rectangle must fit inside it.
+ */
+const FOREST_EDGE = HALF + FOREST_REACH - 2.5
+const GROUND_STRETCH = 1 / Math.sin(Math.atan(1 / Math.SQRT2)) // 1/sin(35.26°) ≈ 1.73
+
+function KeepInForest() {
+  const controls = useThree((s) => s.controls) as unknown as {
+    target: Vector3
+    minZoom: number
+    update: () => void
+  } | null
+  const offset = useMemo(() => new Vector3(), [])
+  useFrame(({ camera, size }) => {
+    if (!controls) return
+    const cam = camera as OrthographicCamera
+    const reach = FOREST_EDGE * Math.SQRT2
+    const minZoom = Math.max(14, (size.width / 2 + (size.height / 2) * GROUND_STRETCH) / reach)
+    controls.minZoom = minZoom
+    if (cam.zoom < minZoom) {
+      cam.zoom = minZoom
+      cam.updateProjectionMatrix()
+    }
+    const slack = Math.max(0, reach - size.width / 2 / cam.zoom - (size.height / 2 / cam.zoom) * GROUND_STRETCH)
+    const t = controls.target
+    const u = (t.x - t.z) / Math.SQRT2
+    const v = (t.x + t.z) / Math.SQRT2
+    const m = Math.abs(u) + Math.abs(v)
+    if (m <= slack) return
+    const k = slack / m
+    offset.copy(cam.position).sub(t)
+    t.set(((u + v) * k) / Math.SQRT2, t.y, ((v - u) * k) / Math.SQRT2)
+    cam.position.copy(t).add(offset)
+  })
   return null
 }
 
@@ -693,21 +768,26 @@ export interface BaseMapProps {
   launchAt?: number | null
   /** The rocket has left (the craft is flying) */
   rocketGone?: boolean
+  /** Headquarters and its campaign progress; no HQ on the map without it */
+  hq?: HqView
 }
 
-function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = false }: BaseMapProps) {
+function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = false, hq }: BaseMapProps) {
   const launch = useMemo(() => ({ launchAt, gone: rocketGone }), [launchAt, rocketGone])
   const labelEls = useRef<(HTMLDivElement | null)[]>([])
   // Until the canvas has drawn, show a placeholder instead of a blank green field
   const [ready, setReady] = useState(false)
 
-  // One anchor per building, above its roof
+  // One anchor per building, above its roof; Headquarters last
+  const hqCenter = HQ_CENTER
   const anchors = useMemo(
-    () =>
-      buildings.map((b) => {
+    () => [
+      ...buildings.map((b) => {
         const [x, , z] = footprintCenter(b.tile, b.size)
         return new Vector3(x, labelHeight[b.id], z)
       }),
+      new Vector3(HQ_CENTER[0], HQ_LABEL_HEIGHT, HQ_CENTER[2]),
+    ],
     []
   )
 
@@ -738,7 +818,25 @@ function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = fals
 
         <LaunchContext.Provider value={launch}>
         <Ground />
+        <Forest half={HALF} ground={-0.86} />
         <Scenery />
+        {hq && (
+          <group
+            position={[hqCenter[0], 0.05, hqCenter[2]]}
+            onClick={
+              hq.onClick
+                ? (e) => {
+                    e.stopPropagation()
+                    hq.onClick?.()
+                  }
+                : undefined
+            }
+            onPointerOver={hq.onClick ? () => (document.body.style.cursor = 'pointer') : undefined}
+            onPointerOut={hq.onClick ? () => (document.body.style.cursor = '') : undefined}
+          >
+            <Headquarters />
+          </group>
+        )}
         <Clouds />
         <Truck z={7.5 - HALF} from={-7} to={6} />
 
@@ -769,7 +867,9 @@ function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = fals
         <BaseEffects />
         <LabelProjector anchors={anchors} elements={labelEls} />
 
+        <KeepInForest />
         <OrbitControls
+          makeDefault
           enableRotate={false}
           enableDamping
           mouseButtons={{ LEFT: MOUSE.PAN, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN }}
@@ -789,14 +889,19 @@ function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = fals
             }}
             className="invisible absolute left-0 top-0"
           >
-            <Label
-              id={b.id}
-              name={b.name}
-              label={labels[b.id]}
-              onClick={onBuildingClick ? () => onBuildingClick(b.id) : undefined}
-            />
+            <Sign name={b.name} label={labels[b.id]} onClick={onBuildingClick ? () => onBuildingClick(b.id) : undefined} />
           </div>
         ))}
+        {hq && (
+          <div
+            ref={(el) => {
+              labelEls.current[buildings.length] = el
+            }}
+            className="invisible absolute left-0 top-0"
+          >
+            <Sign name="Headquarters" onClick={hq.onClick} title="Open the campaign" />
+          </div>
+        )}
       </div>
 
       {!ready && (

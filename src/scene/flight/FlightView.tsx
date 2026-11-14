@@ -64,18 +64,28 @@ const TRANSFER = new THREE.CubicBezierCurve3(
   new THREE.Vector3(0.25, -0.35, 1.5),
 )
 
-const smooth = (a: number, b: number, x: number) => {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
-  return t * t * (3 - 2 * t)
-}
+/**
+ * Where the camera looks from:
+ * 'overview' far above, with Earth, the Moon and the whole path in frame;
+ * 'moon' close behind the craft, looking ahead to the Moon (the polar view once in orbit);
+ * 'earth' close to the craft, looking back home.
+ */
+export type SpaceView = 'overview' | 'moon' | 'earth'
+
+/** The overview frame: Earth on the left, the Moon on the right, the path between them */
+const OVERVIEW_LOOK = new THREE.Vector3(-17, 0, 3)
+const OVERVIEW_POS = new THREE.Vector3(-17, 24, 33)
+const MOON_POS = new THREE.Vector3(0, 0, 0)
 
 interface DirectorProps {
   design: Design
   shot: FlightShot
   reduced: boolean
+  view: SpaceView
 }
 
-function Director({ design, shot, reduced }: DirectorProps) {
+function Director({ design, shot, reduced, view }: DirectorProps) {
+  const marker = useRef<THREE.Mesh>(null)
   const { camera } = useThree()
   const craft = useRef<THREE.Group>(null)
   const beams = useRef<THREE.Group>(null)
@@ -143,14 +153,17 @@ function Director({ design, shot, reduced }: DirectorProps) {
       // Nose along the path, wings level
       v.z.copy(v.tan)
       v.y.copy(UP).addScaledVector(v.z, -UP.dot(v.z)).normalize()
-      // Camera swings from ahead of the craft (Earth behind it) round to behind it (Moon ahead)
-      const swing = 2.55 - 2.0 * smooth(0.06, 0.42, t) + (reduced ? 0 : Math.sin(time * 0.13) * 0.08)
-      v.wantPos
-        .copy(v.pos)
-        .addScaledVector(v.tan, -Math.cos(swing) * 0.46)
-        .addScaledVector(v.side, Math.sin(swing) * 0.46)
-        .addScaledVector(UP, 0.1)
-      v.wantLook.copy(v.pos).addScaledVector(v.tan, 0.06)
+      // Close views: the craft in front, the Moon (or Earth) beyond it
+      const bob = reduced ? 0 : Math.sin(time * 0.13) * 0.03
+      if (view === 'earth') {
+        v.toEarth.copy(EARTH_POS).sub(v.pos).normalize()
+        v.wantPos.copy(v.pos).addScaledVector(v.toEarth, -0.5).addScaledVector(v.side, 0.12).addScaledVector(UP, 0.12 + bob)
+        v.wantLook.copy(EARTH_POS)
+      } else if (view === 'moon') {
+        v.toEarth.copy(MOON_POS).sub(v.pos).normalize() // toward the Moon here
+        v.wantPos.copy(v.pos).addScaledVector(v.toEarth, -0.5).addScaledVector(v.side, 0.12).addScaledVector(UP, 0.12 + bob)
+        v.wantLook.copy(MOON_POS)
+      }
       a.burn = a.burnLeft > 0 ? 1 : 0
       a.deploy = t > 0.02 ? 1 : 0
     } else {
@@ -166,9 +179,29 @@ function Director({ design, shot, reduced }: DirectorProps) {
       v.y.crossVectors(v.z, ORBIT_NORMAL).normalize()
       // A composed shot of the south pole, lit from the side, that leans a little toward the craft;
       // the craft sweeps through the frame on each pass over the ice
-      const sway = reduced ? 0 : Math.sin(time * 0.05) * 0.12
-      v.wantPos.copy(POLE_VIEW).addScaledVector(SIDE, sway).normalize().multiplyScalar(2.55)
-      v.wantLook.set(0, -0.62, 0).addScaledVector(v.pos, 0.12)
+      if (view === 'earth') {
+        // From just behind the craft, home in the distance
+        v.toEarth.copy(EARTH_POS).sub(v.pos).normalize()
+        v.wantPos.copy(v.pos).addScaledVector(v.toEarth, -0.55).addScaledVector(UP, 0.15)
+        v.wantLook.copy(EARTH_POS)
+      } else {
+        const sway = reduced ? 0 : Math.sin(time * 0.05) * 0.12
+        v.wantPos.copy(POLE_VIEW).addScaledVector(SIDE, sway).normalize().multiplyScalar(2.55)
+        v.wantLook.set(0, -0.62, 0).addScaledVector(v.pos, 0.12)
+      }
+    }
+
+    // Overview: one fixed frame of the whole trip, whatever the stage
+    if (view === 'overview') {
+      v.wantPos.copy(OVERVIEW_POS)
+      v.wantLook.copy(OVERVIEW_LOOK)
+    }
+    // A bright marker so the craft can be found from far away
+    const mk = marker.current
+    if (mk) {
+      mk.visible = view === 'overview'
+      mk.position.copy(v.pos)
+      if (!reduced) mk.scale.setScalar(1 + Math.sin(time * 3) * 0.15)
     }
 
     if (shot.ending === 'failed' && !reduced) a.tumble += dt * 0.35
@@ -178,8 +211,8 @@ function Director({ design, shot, reduced }: DirectorProps) {
     c.quaternion.setFromRotationMatrix(v.m)
     if (a.tumble) c.rotateOnAxis(v.x.set(0.3, 1, 0.2).normalize(), a.tumble)
 
-    // Camera: cut on the first frame and on a rig change, glide otherwise
-    const cut = a.first || a.camPos.distanceTo(v.wantPos) > 6 || reduced
+    // Camera: cut on the first frame and on a rig or view change, glide otherwise
+    const cut = a.first || a.camPos.distanceTo(v.wantPos) > (view === 'overview' ? 12 : 6) || reduced
     const k = cut ? 1 : ease(dt, 2.4)
     a.camPos.lerp(v.wantPos, k)
     a.camLook.lerp(v.wantLook, k)
@@ -230,6 +263,10 @@ function Director({ design, shot, reduced }: DirectorProps) {
       <group ref={craft}>
         <CubeSat design={design} scale={craftScale} live={live} />
       </group>
+      <mesh ref={marker} visible={false}>
+        <sphereGeometry args={[0.32, 16, 12]} />
+        <meshBasicMaterial color={new THREE.Color('#fb923c').multiplyScalar(2)} toneMapped={false} />
+      </mesh>
       {/* Beams point along +Z (toward the Moon); scaled in z to reach the ground */}
       <group ref={beams} visible={false}>
         {beamColors.map((color, i) => (
@@ -251,14 +288,22 @@ interface FlightViewProps {
   design: Design
   shot: FlightShot
   className?: string
+  /** Camera: the whole trip, close toward the Moon (default), or close toward Earth */
+  view?: SpaceView
 }
 
 /** The space view. Mount it only where WebGL is available (see canUseWebGL). */
-export function FlightView({ design, shot, className = '' }: FlightViewProps) {
+export function FlightView({ design, shot, className = '', view = 'moon' }: FlightViewProps) {
   const reduced = useMemo(() => prefersReducedMotion(), [])
   const quality = useGraphics((s) => s.quality)
   const shape = ORBIT_SHAPES[shot.orbitId] ?? DEFAULT_SHAPE
   const pathPoints = useMemo(() => TRANSFER.getPoints(120), [])
+  // The part of the path already flown, drawn solid in the overview
+  const flownPoints = useMemo(() => {
+    const t = shot.stage === 'orbit' ? 1 : shot.transferT
+    const n = Math.max(2, Math.ceil(t * 120))
+    return Array.from({ length: n + 1 }, (_, i) => TRANSFER.getPoint((i / n) * t))
+  }, [shot.stage, shot.transferT])
   const ringPoints = useMemo(() => {
     const pts: THREE.Vector3[] = []
     for (let i = 0; i <= 160; i++) pts.push(orbitPoint(shape, (i / 160) * Math.PI * 2, new THREE.Vector3()))
@@ -281,11 +326,12 @@ export function FlightView({ design, shot, className = '' }: FlightViewProps) {
         <group position={EARTH_POS}>
           <Earth radius={3.67} spin={0.006} />
         </group>
-        {shot.stage !== 'orbit' && (
-          <Line points={pathPoints} color="#fbbf24" lineWidth={1.2} dashed dashSize={0.25} gapSize={0.2} transparent opacity={0.5} />
+        {(shot.stage !== 'orbit' || view === 'overview') && (
+          <Line points={pathPoints} color="#fbbf24" lineWidth={view === 'overview' ? 1.6 : 1.2} dashed dashSize={view === 'overview' ? 0.6 : 0.25} gapSize={view === 'overview' ? 0.45 : 0.2} transparent opacity={0.5} />
         )}
+        {view === 'overview' && shot.transferT > 0 && <Line points={flownPoints} color="#fb923c" lineWidth={3.5} />}
         <Line points={ringPoints} color={orbitColor} lineWidth={shot.stage === 'orbit' ? 1.6 : 1} transparent opacity={shot.stage === 'orbit' ? 0.75 : 0.3} />
-        <Director design={design} shot={shot} reduced={reduced} />
+        <Director design={design} shot={shot} reduced={reduced} view={view} />
         <Effects bloom={1} vignette={0.7} />
       </Suspense>
     </Canvas>

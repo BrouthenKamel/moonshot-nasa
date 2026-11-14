@@ -21,6 +21,7 @@ import App from '../App'
 import { StartOverDialog } from './screens/BaseScreen'
 import { useGameStore } from '../state/gameStore'
 import { useAgencyStore } from '../state/agencyStore'
+import { useWorldStore } from '../state/worldStore'
 import { flashlightDesign } from '../sim/fixtures'
 import { initSim, flyUntilDecision, getDefaultAction } from '../sim/simulate'
 import type { DesignStep } from '../sim/types'
@@ -30,36 +31,41 @@ import { clearOddsCache, estimateSuccess, planningOdds } from '../sim/odds'
 describe('screens render', () => {
   beforeEach(() => useGameStore.getState().newGame())
 
-  it('the game starts on the base map', () => {
+  it('the game starts on the base map, with no mission chosen yet', () => {
+    useWorldStore.getState().resetWorld()
     expect(useGameStore.getState().screen).toBe('base')
     const html = renderToString(<App />)
-    expect(html).toContain('Lunar Ice Mapper')
+    expect(html).toContain('No mission running')
+    expect(html).toContain('New mission')
     expect(html).not.toContain('Select Difficulty')
   })
 
-  // Jakob, 14 Nov 18:49: the MVP is one mission (DESIGN-DIRECTION 1a). The agency layer
-  // (funds, popularity, the agency dashboard) sits on top of it; no calendar, levels or missions list.
-  it('the base shows one mission, with the agency layer and no agency calendar', () => {
+  // The agency layer: clock, funds, popularity, notifications and the current mission card.
+  // Still no building levels, build plots or list of made-up missions.
+  it('the base shows the agency layer and the current mission', () => {
+    useWorldStore.getState().resetWorld()
     const html = renderToString(<App />).replace(/<!-- -->/g, '')
-    for (const gone of [
-      'PUBLIC SUPPORT', 'Funding trend', 'Activity', 'Upcoming', 'Reset demo',
-      '+ BUILD', 'coming soon', '+ New mission', '>Missions<', 'DAY ', 'Pause', 'LV ',
-    ]) {
+    for (const gone of ['PUBLIC SUPPORT', 'Funding trend', 'Upcoming', 'Reset demo', '+ BUILD', 'coming soon', '>Missions<', 'LV ']) {
       expect(html).not.toContain(gone)
     }
-    expect(html).toContain('Agency dashboard')
+    expect(html).toContain('Day 112')
+    expect(html).toContain('Pause time')
     expect(html).toContain('FUNDS')
     expect(html).toContain('POPULARITY')
+    expect(html).toContain('Notifications')
     expect(html).not.toMatch(/Aurora-1|Relay Pathfinder|Solar Scout/)
-    // Before launch: month 0, no mission log
-    expect(html).toContain('Month 0')
-    expect(html).not.toContain('Mission log')
-    // The mission's status sits in the top bar, with a stage, the next step and a progress bar
-    expect(html).toContain('Planning')
-    expect(html).toContain('Next: Brief at the Communications Center')
-    expect(html).toContain('role="progressbar"')
     expect(html).toContain('Start over')
     expect(html).toContain('Mute sound')
+
+    // Once a mission is chosen, its card shows the stage, the next step and a progress bar
+    useWorldStore.getState().openMission()
+    const open = renderToString(<App />).replace(/<!-- -->/g, '')
+    expect(open).toContain('Lunar Ice Mapper')
+    expect(open).toContain('Month 0')
+    expect(open).not.toContain('Mission log') // before launch
+    expect(open).toContain('Planning')
+    expect(open).toContain('Next: Brief at the Communications Center')
+    expect(open).toContain('role="progressbar"')
   })
 
   it('start over asks in the game first, then resets the mission on the base', () => {
@@ -187,7 +193,7 @@ describe('screens render', () => {
     expect(html).toContain(`Month ${s.currentTurn}`)
     expect(html).toContain(`Event, month ${s.pendingDecision!.turn}`)
     expect(html).toContain('Mission log')
-    expect(html).not.toMatch(/\bDAY\b|mission day/i)
+    expect(html).not.toMatch(/mission day/i)
     useGameStore.getState().setScreen('design')
     useGameStore.getState().setScreen('base')
     expect(useGameStore.getState().simState!.currentTurn).toBe(s.currentTurn)

@@ -48,3 +48,53 @@ describe('agency layer follows the mission', () => {
     expect(useWorldStore.getState().mission).toBeNull()
   })
 })
+
+describe('agency clock', () => {
+  beforeEach(() => {
+    useGameStore.getState().resetDemo()
+    useWorldStore.getState().resetWorld()
+    useGameStore.setState({ design: flashlightDesign })
+    useWorldStore.getState().setSpeed('normal')
+  })
+
+  it('runs days and brings in government money', () => {
+    const before = useWorldStore.getState()
+    useWorldStore.getState().tick(1) // 1 day
+    for (let i = 0; i < 29; i++) useWorldStore.getState().tick(1)
+    const after = useWorldStore.getState()
+    expect(after.day).toBeCloseTo(before.day + 30, 5)
+    expect(after.funds).toBeGreaterThan(before.funds + 0.5)
+  })
+
+  it('stands still when paused', () => {
+    const before = useWorldStore.getState().day
+    useWorldStore.getState().setSpeed('paused')
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBe(before)
+  })
+
+  it('flies one mission month every 30 days and waits for event cards', () => {
+    useGameStore.getState().startSimulation()
+    const start = useWorldStore.getState().mission!.approvedDay
+    useWorldStore.getState().setSpeed('fast')
+    for (let i = 0; i < 400; i++) {
+      const sim = useGameStore.getState().simState!
+      if (sim.phase === 'complete' || sim.phase === 'failed') break
+      if (sim.pendingDecision) {
+        // The clock waits for the card
+        const day = useWorldStore.getState().day
+        useWorldStore.getState().tick(1)
+        expect(useWorldStore.getState().day).toBe(day)
+        useGameStore.getState().answerEvent(sim.pendingDecision.options[0].id)
+        continue
+      }
+      useWorldStore.getState().tick(1) // 10 days
+      const now = useGameStore.getState().simState!
+      // The mission is never ahead of the clock
+      expect(useWorldStore.getState().day).toBeGreaterThanOrEqual(start + now.currentTurn * 30 - 1e-6)
+    }
+    const w = useWorldStore.getState()
+    expect(w.mission?.last.ended).toBe(true)
+    expect(w.mission?.settled).toBe(true)
+  })
+})

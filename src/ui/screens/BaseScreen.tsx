@@ -5,27 +5,34 @@ import type { BuildingId } from '../../data/agency'
 import { computeBudgets } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
 import {
-  STAGE_NAMES,
   flightFeed,
   missionClockLabel,
   missionLabels,
   missionMonth,
   missionStatus,
   type MissionLogEntry,
-  type MissionStage,
-  type MissionStatusView,
 } from '../../viz/missionMap'
-import { FlightStage } from '../flight/FlightStage'
+import { FlightStage, useSpaceShowing } from '../flight/FlightStage'
 import { AudioControls } from '../kit/AudioControls'
 import { useUiStore } from '../../state/uiStore'
-import { AgencyDashboard, AgencyWallet } from '../agency/AgencyPanels'
+import {
+  AgencyClock,
+  AgencyWallet,
+  CampaignDialog,
+  MissionPanel,
+  NewMissionDialog,
+  Notifications,
+  useAgencyClock,
+  useCampaignProgress,
+} from '../agency/AgencyPanels'
+import { useWorldStore } from '../../state/worldStore'
 
 /*
- * The base screen of the MVP: one mission, the Lunar Ice Mapper (docs/DESIGN-DIRECTION.md, 1a).
- * The map is the menu; the top bar holds the mission month and the mission's status.
- * The agency layer (money, popularity, mission money, research, news) sits on top of it:
- * src/ui/agency/AgencyPanels.tsx, fed by src/state/worldStore.ts, which only listens to the mission.
- * No agency calendar, building levels, build plots or missions list.
+ * The agency base. The map is the menu: walk into a building to plan the mission, and the flight
+ * plays here. Top bar: agency clock, mission month, funds, popularity. Right: the current mission
+ * and its log, with New mission (one mission at a time). Left: notifications. Headquarters opens
+ * the campaign. The agency parts are in src/ui/agency/AgencyPanels.tsx, fed by
+ * src/state/worldStore.ts (rules in src/game).
  */
 
 /* ------------------------------------------------------------------ */
@@ -71,67 +78,8 @@ export function MissionLog({ entries }: { entries: MissionLogEntry[] }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Top bar: mission month, mission status, start over, sound           */
+/* Top bar: agency clock, mission month, funds, popularity, start over, sound */
 /* ------------------------------------------------------------------ */
-
-const stageChip: Record<MissionStage, string> = {
-  planning: 'bg-violet-100 text-violet-700',
-  building: 'bg-teal-100 text-teal-700',
-  transfer: 'bg-orange-100 text-orange-700',
-  'in-orbit': 'bg-sky-100 text-sky-700',
-  success: 'bg-emerald-100 text-emerald-700',
-  partial: 'bg-yellow-100 text-yellow-800',
-  failed: 'bg-red-100 text-red-700',
-}
-
-const stageBar: Record<MissionStage, string> = {
-  planning: 'bg-violet-400',
-  building: 'bg-teal-400',
-  transfer: 'bg-orange-400',
-  'in-orbit': 'bg-sky-400',
-  success: 'bg-emerald-400',
-  partial: 'bg-yellow-400',
-  failed: 'bg-red-400',
-}
-
-function MissionStatusButton({ status, onOpen }: { status: MissionStatusView; onOpen?: () => void }) {
-  const pct = Math.round(status.progress * 100)
-  const content = (
-    <>
-      <span className="flex items-center gap-2">
-        <span className="font-display text-base font-bold leading-none">Lunar Ice Mapper</span>
-        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${stageChip[status.stage]}`}>
-          {STAGE_NAMES[status.stage]}
-        </span>
-      </span>
-      <span className="mt-1 flex items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-[11px] text-slate-300">{status.next}</span>
-        <span
-          className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-white/15"
-          role="progressbar"
-          aria-label="Mission progress"
-          aria-valuenow={pct}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        >
-          <span className={`block h-full rounded-full ${stageBar[status.stage]}`} style={{ width: `${pct}%` }} />
-        </span>
-      </span>
-    </>
-  )
-  const box = 'flex min-w-0 max-w-full flex-col rounded-xl border border-white/20 bg-white/5 px-3 py-1.5 text-left sm:w-[26rem]'
-  if (!onOpen) return <div className={box}>{content}</div>
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      title={status.opens === 'report' ? 'Open the mission report' : 'Walk into the next building'}
-      className={`${box} transition hover:border-orange-400 hover:bg-white/10`}
-    >
-      {content}
-    </button>
-  )
-}
 
 /** In-app confirm for "Start over" (not window.confirm) */
 export function StartOverDialog({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
@@ -182,7 +130,7 @@ export function StartOverDialog({ onCancel, onConfirm }: { onCancel: () => void;
   )
 }
 
-function TopBar({ month, status, onOpenStatus }: { month: number; status: MissionStatusView; onOpenStatus?: () => void }) {
+function TopBar({ month }: { month: number }) {
   const startNewMission = useGameStore((s) => s.startNewMission)
   const [confirming, setConfirming] = useState(false)
   return (
@@ -194,16 +142,15 @@ function TopBar({ month, status, onOpenStatus }: { month: number; status: Missio
 
       <div className="hidden h-10 w-px bg-white/20 sm:block" />
 
+      <AgencyClock />
+
       <div className="leading-tight" title="The mission clock: month 0 when the mission starts">
         <div className="text-[10px] font-semibold tracking-wider text-slate-300">MISSION</div>
         <div className="font-display text-xl font-bold tabular-nums">Month {month}</div>
       </div>
 
-      <MissionStatusButton status={status} onOpen={onOpenStatus} />
-
-      <AgencyWallet />
-
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        <AgencyWallet />
         <button
           type="button"
           onClick={() => setConfirming(true)}
@@ -261,42 +208,75 @@ export function BaseScreen() {
   const launchAt = useUiStore((s) => s.launchAt)
   const rocketGone = !!simState && simState.flight.launchedTurn !== null && launchAt === null
 
+  // The agency: its clock runs while the base is open; one mission at a time
+  useAgencyClock()
+  const spaceShowing = useSpaceShowing(simState)
+  const missionOpen = useWorldStore((s) => s.missionOpen) || !!simState || visitedSteps.length > 0
+  const openMission = useWorldStore((s) => s.openMission)
+  const startNewMission = useGameStore((s) => s.startNewMission)
+  const [dialog, setDialog] = useState<'new-mission' | 'campaign' | null>(null)
+  const campaignProgress = useCampaignProgress()
+  const hq = useMemo(() => ({ ...campaignProgress, onClick: () => setDialog('campaign') }), [campaignProgress])
+  const startMission = () => {
+    // A finished flight goes to the history; the new mission starts at the Comms Center
+    if (simState) startNewMission()
+    openMission()
+    setDialog(null)
+  }
+
   // Walking into a building. While the craft flies, the design is fixed and the buildings only show its state.
-  const onBuildingClick = simState ? undefined : (id: BuildingId) => openBuilding(id)
+  // With no mission chosen yet, a building asks for one first.
+  const onBuildingClick = simState
+    ? undefined
+    : missionOpen
+      ? (id: BuildingId) => openBuilding(id)
+      : () => setDialog('new-mission')
 
   return (
     <div className="flex min-h-screen flex-col bg-[#14213d] lg:h-screen lg:min-h-0">
-      <TopBar month={missionMonth(simState)} status={status} onOpenStatus={onOpenStatus} />
+      <TopBar month={missionMonth(simState)} />
       {/* Wide screens: the map fills the area and both dashboards float over its edges. Phones: stacked. */}
       <div className="relative flex flex-1 flex-col gap-3 p-3 lg:block lg:min-h-0">
         <div className="relative h-[60vh] min-h-[360px] overflow-hidden rounded-2xl shadow-inner lg:absolute lg:inset-3 lg:h-auto lg:min-h-0">
           {simState ? (
             <FlightStage
               sim={simState}
-              island={<BaseMap labels={labels} onBuildingClick={onBuildingClick} launchAt={launchAt} rocketGone={rocketGone} />}
+              island={<BaseMap labels={labels} onBuildingClick={onBuildingClick} launchAt={launchAt} rocketGone={rocketGone} hq={hq} />}
             />
           ) : (
-            <BaseMap labels={labels} onBuildingClick={onBuildingClick} />
+            <BaseMap labels={labels} onBuildingClick={onBuildingClick} hq={hq} />
           )}
           <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-black/30 px-2 py-1 text-[11px] text-white lg:left-1/2 lg:-translate-x-1/2">
             {simState ? 'Drag to move · scroll to zoom' : 'Click a building to walk in · drag to move · scroll to zoom'}
           </div>
         </div>
-        {/* Left: agency. Ends above the narrator's corner. */}
-        <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-36 lg:left-6 lg:top-6 lg:z-10 lg:w-72">
-          <div className="flex min-h-0 flex-col lg:pointer-events-auto">
-            <AgencyDashboard />
-          </div>
-        </div>
-        {/* Right: the flight's mission log */}
-        {simState && (
-          <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:right-6 lg:top-6 lg:z-10 lg:w-72">
-            <div className="flex min-h-0 flex-col lg:pointer-events-auto">
-              <MissionLog entries={logEntries} />
+        {/* The space view has the whole map: no side panels, only its own Back to agency */}
+        {!spaceShowing && (
+          <>
+            {/* Left: notifications */}
+            <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:left-6 lg:top-6 lg:z-10 lg:w-72">
+              <div className="flex min-h-0 flex-col lg:pointer-events-auto">
+                <Notifications />
+              </div>
             </div>
-          </div>
+            {/* Right: the current mission and its log */}
+            <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:right-6 lg:top-6 lg:z-10 lg:w-80">
+              <div className="flex min-h-0 flex-col lg:pointer-events-auto">
+                <MissionPanel
+                  status={status}
+                  onOpenStatus={onOpenStatus}
+                  log={logEntries}
+                  sim={simState}
+                  missionOpen={missionOpen}
+                  onNewMission={() => setDialog('new-mission')}
+                />
+              </div>
+            </div>
+          </>
         )}
       </div>
+      {dialog === 'new-mission' && <NewMissionDialog onClose={() => setDialog(null)} onStart={startMission} />}
+      {dialog === 'campaign' && <CampaignDialog onClose={() => setDialog(null)} />}
     </div>
   )
 }
