@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildOrbitView, coverageAt, stripCount, COVERAGE_GOAL } from './orbitView'
+import { buildOrbitView, coverageAt, stripCount, upkeepLine, COVERAGE_GOAL } from './orbitView'
 import { computeBudgets, createDefaultDesign } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
 import { flashlightDesign, lunahMapDesign } from '../../sim/fixtures'
@@ -113,5 +113,13 @@ describe('buildOrbitView', () => {
     }
     expect(coverageAt(slow, 12)).toBeLessThan(COVERAGE_GOAL)
     expect(stripCount(full, 12)).toBeGreaterThan(stripCount(slow, 12))
+  })
+
+  it('says upkeep against the 12-month mission, with a number only when it falls short', () => {
+    const halo = opt(buildOrbitView(lunahMapDesign, 'engineer'), 'orbit-halo')
+    expect(halo.upkeepTurns).toBeGreaterThan(24)
+    expect(upkeepLine(halo)).toBe('Holding the orbit costs 1 m/s a month: fuel for far beyond the 12-month mission.')
+    expect(upkeepLine({ ...halo, upkeepTurns: 15 })).toBe('Holding the orbit costs 1 m/s a month: fuel for 15 months, enough for the mission.')
+    expect(upkeepLine({ ...halo, upkeepTurns: 9 })).toBe('Only 9 months of fuel to hold the orbit: the mission will end early.')
   })
 })

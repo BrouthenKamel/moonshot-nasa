@@ -217,3 +217,11 @@ export function stripCount(o: OrbitOption, months: number): number {
   }
   return Math.min(300, Math.round(o.passesPerTurn * m))
 }
+
+/** Fuel for holding the orbit, said against the 12-month mission (a bare "363 turns" means nothing to a player). */
+export function upkeepLine(o: Pick<OrbitOption, 'upkeepTurns' | 'holdDeltaV'>): string {
+  if (o.upkeepTurns < MISSION_MONTHS) return `Only ${o.upkeepTurns} months of fuel to hold the orbit: the mission will end early.`
+  if (o.upkeepTurns >= 2 * MISSION_MONTHS)
+    return `Holding the orbit costs ${o.holdDeltaV} m/s a month: fuel for far beyond the 12-month mission.`
+  return `Holding the orbit costs ${o.holdDeltaV} m/s a month: fuel for ${o.upkeepTurns} months, enough for the mission.`
+}
