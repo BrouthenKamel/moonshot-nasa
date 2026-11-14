@@ -7,6 +7,7 @@ import { getPartById, type ComputerPart, type PropulsionPart } from '../data/par
 import { getGroundStationById } from '../data/ground'
 import { computeBudgets, newScienceState, scienceTurn, scienceTotals } from './budgets'
 import { SeededRNG } from './rng'
+import { EXTRA_PASS_COST, EXTRA_PASS_LINK } from './ops'
 import type { Budgets, Decision, Design, FlightState, SimState, TurnAction, TurnEvent, TurnLog } from './types'
 
 /**
@@ -248,7 +249,8 @@ function buildDelay(ctx: TurnContext) {
       },
       {
         id: 'cut-test',
-        label: `Cut one test turn and make the ride. Failure odds in flight go from x${f.testFactor} to x${worse}; ${C.testCost} M comes back.`,
+        // The store adds the chance of full success with each answer (src/sim/odds.ts)
+        label: `Cut one test turn and make the ride. Less testing makes failures in flight more likely; ${C.testCost} M comes back.`,
       },
     ]
   )
@@ -382,8 +384,8 @@ function scienceTurnStep(ctx: TurnContext) {
   let duty = ctx.action.mode === 'safe-mode' ? 0 : ctx.action.mode === 'reduced' ? 0.5 : 1
   let link = 1
   if (ctx.action.buyExtraPass) {
-    link *= 1.5
-    pay(f, 0.1)
+    link *= EXTRA_PASS_LINK
+    pay(f, EXTRA_PASS_COST)
   }
   if (ctx.events) {
     const computer = getPartById(s.design.computer) as ComputerPart | undefined
@@ -454,9 +456,9 @@ function scienceTurnStep(ctx: TurnContext) {
 }
 
 // ---------------------------------------------------------------- turn engine
-function runTurn(s: SimState, action: TurnAction) {
+function runTurn(s: SimState, action: TurnAction, budgets?: Budgets) {
   const f = s.flight
-  const b = computeBudgets(s.design, s.difficulty)
+  const b = budgets ?? computeBudgets(s.design, s.difficulty)
   s.currentTurn += 1
   const log: TurnLog = {
     turn: s.currentTurn,
@@ -546,8 +548,10 @@ export function stepTurn(state: SimState, action: TurnAction): SimState {
 export function flyUntilDecision(state: SimState, action: TurnAction, maxTurns = programmeHorizonTurns): SimState {
   let s = stepTurn(state, action)
   let n = 1
+  // Later turns keep the player's month choice, but not the answer to this turn's card
+  const standing: TurnAction = { ...action, choices: undefined, eventChoice: undefined }
   while (!isSimComplete(s) && !s.pendingDecision && n < maxTurns) {
-    s = stepTurn(s, getDefaultAction())
+    s = stepTurn(s, standing)
     n++
   }
   return s
@@ -567,14 +571,25 @@ export function isMilestone(prev: SimState, next: SimState): boolean {
  * Run a complete simulation on standing orders (every event card gets its first option).
  */
 export function runSimulation(design: Design, difficulty: Difficulty, seed: number): SimState {
-  let state = initSim(design, difficulty, seed)
-  const action: TurnAction = { ...getDefaultAction(), autoDecide: true }
+  return runToEnd(initSim(design, difficulty, seed))
+}
+
+/**
+ * Fly a state to its end on standing orders, with `seed` for the dice of the
+ * turns still to come. Gives exactly what stepTurn turn by turn gives, but
+ * works on one private copy and works out the budgets once, so it is fast
+ * enough to run hundreds of times for the odds (src/sim/odds.ts).
+ */
+export function runToEnd(state: SimState, seed = state.seed, action: TurnAction = getDefaultAction()): SimState {
+  const s: SimState = structuredClone({ ...state, seed, pendingDecision: undefined })
+  const standing: TurnAction = { ...action, choices: undefined, eventChoice: undefined, autoDecide: true }
+  const b = computeBudgets(s.design, s.difficulty)
   let turns = 0
-  while (!isSimComplete(state) && turns < programmeHorizonTurns + 5) {
-    state = stepTurn(state, action)
+  while (!isSimComplete(s) && turns < programmeHorizonTurns + 5) {
+    runTurn(s, standing, b)
     turns++
   }
-  return state
+  return s
 }
 
 /**

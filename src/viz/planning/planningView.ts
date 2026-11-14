@@ -53,7 +53,26 @@ export interface PlanningView {
   reservePercent: number
   status: { level: StatusLevel; chip: string }
   checks: StepCheck[] // Time, then Budget
-  readouts: { test: string; build: string; reserve: string }
+  /** testOdds / reserveOdds: the chance of full success now and at the neighbouring settings, once worked out */
+  readouts: { test: string; build: string; reserve: string; testOdds?: string; reserveOdds?: string }
+}
+
+/** Chance of full success (0-1) by setting, from src/sim/odds.ts planningOdds */
+export interface PlanningOddsInput {
+  test: Record<number, number>
+  reserve: Record<number, number>
+}
+
+const pct = (x: number) => `${Math.round(x * 100)}%`
+
+/** "≈85% NOW · 1 MO→84% · 3 MO→81%": the current setting against its neighbours on the scale */
+function oddsLine(byValue: Record<number, number>, current: number, label: (v: number) => string): string | undefined {
+  const now = byValue[current]
+  if (now === undefined) return undefined
+  const values = Object.keys(byValue).map(Number).sort((a, b) => a - b)
+  const i = values.indexOf(current)
+  const near = [values[i - 1], values[i + 1]].filter((v) => v !== undefined)
+  return [`≈${pct(now)} NOW`, ...near.map((v) => `${label(v)}→${pct(byValue[v])}`)].join(' · ')
 }
 
 const finite = (x: number | null | undefined, fallback = 0) => (Number.isFinite(x) ? (x as number) : fallback)
@@ -62,7 +81,7 @@ const months = (n: number) => `${n} MONTH${n === 1 ? '' : 'S'}`
 
 export const METER_MAX = 6
 
-export function buildPlanningView(design: Design, budgets: Budgets, checks: CheckResult[]): PlanningView {
+export function buildPlanningView(design: Design, budgets: Budgets, checks: CheckResult[], odds?: PlanningOddsInput): PlanningView {
   const testTurns = design.planning.testTurns
   const reservePercent = design.planning.reservePercent
   const rideMonth = finite(budgets.rideTurn, 8)
@@ -170,6 +189,8 @@ export function buildPlanningView(design: Design, budgets: Budgets, checks: Chec
       test: `${months(testTurns)} · ${money(testCost)}`,
       build: `${buildTurns} MO · SET AT THE FACTORY`,
       reserve: `${reservePercent}% · ${money(reserve)} LOCKED`,
+      testOdds: odds && oddsLine(odds.test, testTurns, (v) => `${v} MO`),
+      reserveOdds: odds && oddsLine(odds.reserve, reservePercent, (v) => `${v}%`),
     },
   }
 }
