@@ -56,6 +56,11 @@ export function migrateAgencyState(persisted: unknown, version: number): AgencyS
   return state as AgencyState
 }
 
+/** Saved state on load: the clock always comes back paused, so it waits for the player (Jakob, 14 Nov) */
+export function mergeAgencyState(persisted: unknown, current: AgencyState): AgencyState {
+  return { ...current, ...((persisted ?? {}) as Partial<AgencyState>), speed: 'paused' }
+}
+
 /** Base day of a mission turn */
 export function missionDay(startDay: number, turn: number): number {
   return startDay + turn * DAYS_PER_TURN
@@ -65,7 +70,8 @@ const initialState = () => ({
   day: DEMO_START_DAY,
   funds: DEMO_START_FUNDS,
   support: DEMO_START_SUPPORT,
-  speed: 'normal' as Speed,
+  // Paused until the player acts (Jakob, 14 Nov): nothing happens while they read
+  speed: 'paused' as Speed,
   fundsHistory: seedFundsHistory(),
   lunarMissionStartedDay: null as number | null,
   missionStartDay: null as number | null,
@@ -141,6 +147,7 @@ export const useAgencyStore = create<AgencyState>()(
       name: 'moonshot-agency',
       version: 2,
       migrate: migrateAgencyState,
+      merge: (persisted, current) => mergeAgencyState(persisted, current),
     }
   )
 )

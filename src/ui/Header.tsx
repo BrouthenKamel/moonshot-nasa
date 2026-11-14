@@ -1,14 +1,11 @@
 import { useGameStore } from '../state/gameStore'
-import { lunarIceMapperBrief, difficultyPresets } from '../data/brief'
+import { lunarIceMapperBrief } from '../data/brief'
 
 export function Header() {
   const screen = useGameStore((s) => s.screen)
-  const difficulty = useGameStore((s) => s.difficulty)
   const simState = useGameStore((s) => s.simState)
   const newGame = useGameStore((s) => s.newGame)
   const setScreen = useGameStore((s) => s.setScreen)
-
-  const preset = difficultyPresets[difficulty]
 
   return (
     <header className="flex items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-2">
@@ -35,17 +32,6 @@ export function Header() {
 
         {screen !== 'title' && (
           <>
-            <span
-              className={`rounded px-2 py-1 text-xs font-medium ${
-                difficulty === 'cadet'
-                  ? 'bg-green-900 text-green-300'
-                  : difficulty === 'engineer'
-                    ? 'bg-yellow-900 text-yellow-300'
-                    : 'bg-red-900 text-red-300'
-              }`}
-            >
-              {preset.name}
-            </span>
             <button
               onClick={() => setScreen('base')}
               className="rounded bg-orange-600 px-3 py-1 text-sm font-medium text-white hover:bg-orange-500"

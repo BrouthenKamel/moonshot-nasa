@@ -234,6 +234,11 @@ export function goNoGo(design: Design, budgets: Budgets, labDay?: number): GoNoG
   return { canGo: blockers.length === 0, checks, blockers, warnings }
 }
 
+/** The launch is allowed, but the Science check says the craft cannot reach the brief's targets */
+export function cannotMeetBrief(result: GoNoGoResult): boolean {
+  return result.canGo && result.checks.some((c) => c.resource === 'Science' && c.status !== 'green')
+}
+
 /** One red check per instrument aboard that needs a higher Research Lab level than the lab has. */
 function researchLabChecks(design: Design, day: number): CheckResult[] {
   const level = researchLabLevel(day)
@@ -254,6 +259,10 @@ function researchLabChecks(design: Design, day: number): CheckResult[] {
  * Get a summary of the Go/No-Go decision.
  */
 export function getGoNoGoSummary(result: GoNoGoResult): string {
+  // Science never blocks, but a Go must not read as an endorsement of a doomed craft (Jakob, 14 Nov)
+  if (cannotMeetBrief(result)) {
+    return 'Go, but this craft cannot meet the brief: it may fly, but even with no bad luck it falls short.'
+  }
   if (result.canGo && result.warnings.length === 0) {
     return 'All systems go. Ready for launch.'
   }

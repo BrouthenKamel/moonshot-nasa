@@ -17,7 +17,6 @@ import {
   researchLabLevel,
 } from '../../data/agency'
 import type { SimState } from '../../sim/types'
-import { difficultyPresets, type Difficulty } from '../../data/brief'
 import { computeBudgets } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
 import { isSimComplete } from '../../sim/simulate'
@@ -119,10 +118,6 @@ function TopBar({ netPerMonth }: { netPerMonth: number }) {
   const speed = useAgencyStore((s) => s.speed)
   const funds = useAgencyStore((s) => s.funds)
   const support = useAgencyStore((s) => s.support)
-  const difficulty = useGameStore((s) => s.difficulty)
-  const setDifficulty = useGameStore((s) => s.setDifficulty)
-  const flying = useGameStore((s) => !!s.simState && !isSimComplete(s.simState))
-
   return (
     <header className="flex flex-wrap items-center gap-x-6 gap-y-2 bg-[#14213d] px-4 py-2 text-white shadow-lg">
       <div className="flex items-center gap-2">
@@ -131,33 +126,6 @@ function TopBar({ netPerMonth }: { netPerMonth: number }) {
           <span className="block font-display text-2xl font-bold tracking-wide">MOONSHOT</span>
           <span className="block text-[10px] tracking-[0.35em] text-slate-300">SPACE AGENCY</span>
         </span>
-      </div>
-
-      <div
-        className="flex items-center gap-1 rounded-full border border-white/20 bg-white/5 p-1"
-        role="radiogroup"
-        aria-label="Difficulty"
-        title={flying ? 'Difficulty is fixed while the mission flies' : 'Difficulty: budget and how often things go wrong'}
-      >
-        {(Object.keys(difficultyPresets) as Difficulty[]).map((d) => {
-          const preset = difficultyPresets[d]
-          const active = d === difficulty
-          return (
-            <button
-              key={d}
-              role="radio"
-              aria-checked={active}
-              disabled={flying}
-              onClick={() => setDifficulty(d)}
-              title={`${preset.description} · budget $${preset.budgetCap}M · bad luck x${preset.eventOddsMultiplier}`}
-              className={`rounded-full px-3 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed ${
-                active ? 'bg-orange-500 text-white' : 'text-slate-200 hover:bg-white/10 disabled:opacity-40'
-              }`}
-            >
-              {preset.name}
-            </button>
-          )
-        })}
       </div>
 
       <div className="hidden h-10 w-px bg-white/20 sm:block" />
@@ -356,6 +324,7 @@ const statusStyle: Record<MissionStatus, { label: string; pill: string; bar: str
   transfer: { label: 'Transfer', pill: 'bg-orange-100 text-orange-700', bar: 'bg-orange-500' },
   'in-orbit': { label: 'In orbit', pill: 'bg-sky-100 text-sky-700', bar: 'bg-sky-500' },
   complete: { label: 'Complete', pill: 'bg-slate-200 text-slate-600', bar: 'bg-slate-400' },
+  failed: { label: 'Failed', pill: 'bg-red-100 text-red-700', bar: 'bg-red-500' },
 }
 
 const kindIcon: Record<MissionView['kind'], string> = {
@@ -489,7 +458,8 @@ export function BaseScreen() {
   useEffect(() => {
     if (turn !== undefined) syncToMissionTurn(turn)
   }, [turn, syncToMissionTurn])
-  // A reload loses the flight (it is not saved): fall back to the free-running clock
+  // The flight is saved and survives a reload; only a save from before that has a mission
+  // clock without a flight: fall back to the free-running clock
   useEffect(() => {
     if (missionStartDay !== null && !simState) resetMissionClock()
   }, [missionStartDay, simState, resetMissionClock])

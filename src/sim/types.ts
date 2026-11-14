@@ -361,6 +361,8 @@ export interface Report {
 
   // Score
   score: ScoreBreakdown
+  /** What cost the missing points: one plain line per score part below its maximum */
+  scoreNotes: string[]
 
   // Stats
   totalCost: number

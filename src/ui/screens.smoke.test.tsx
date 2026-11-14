@@ -28,12 +28,36 @@ import type { DesignStep } from '../sim/types'
 describe('screens render', () => {
   beforeEach(() => useGameStore.getState().newGame())
 
-  it('the game starts on the agency map, with the difficulty picked there', () => {
+  it('the game starts on the agency map', () => {
     expect(useGameStore.getState().screen).toBe('base')
     const html = renderToString(<App />)
     expect(html).toContain('Agency dashboard')
-    expect(html).toContain('Engineer')
     expect(html).not.toContain('Select Difficulty')
+  })
+
+  // Jakob, 14 Nov: one mission only; "+ New mission" walks into the buildings
+  it('lists only the Lunar Ice Mapper, and a new mission stays on the map', () => {
+    const html = renderToString(<App />)
+    expect(html).not.toMatch(/Aurora-1|Relay Pathfinder|Solar Scout/)
+    useGameStore.getState().startNewMission()
+    expect(useGameStore.getState().screen).toBe('base')
+    const after = renderToString(<App />)
+    expect(after.match(/Lunar Ice Mapper<\/h3>|>Lunar Ice Mapper</g)?.length ?? 0).toBeLessThanOrEqual(1)
+  })
+
+  // Jakob, 14 Nov: no difficulty levels for now; one fixed setting (the Engineer values)
+  it('shows no difficulty anywhere and plays on the fixed Engineer values', () => {
+    useGameStore.setState({ difficulty: 'cadet' })
+    useGameStore.getState().newGame()
+    expect(useGameStore.getState().difficulty).toBe('engineer')
+    const pages = [renderToString(<App />)]
+    for (const step of ['brief', 'planning', 'go-nogo'] as DesignStep[]) {
+      useGameStore.setState({ screen: 'design', designStep: step })
+      pages.push(renderToString(<App />))
+    }
+    for (const html of pages) {
+      expect(html).not.toMatch(/Difficulty|Cadet|Flight Director|>Engineer</)
+    }
   })
 
   const steps: DesignStep[] = ['brief', 'planning', 'instruments', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']
@@ -111,6 +135,9 @@ describe('screens render', () => {
     const report = renderToString(<App />)
     expect(report).toContain('/ 1000')
     expect(report).not.toContain('NaN')
+    // The score explains itself when points are missing (Jakob, 14 Nov)
+    const r = useGameStore.getState().currentReport!
+    if (r.score.total < 1000) expect(report).toContain('What cost you points')
 
     useGameStore.getState().openReplay()
     expect(renderToString(<App />)).toContain('Mission Replay')
