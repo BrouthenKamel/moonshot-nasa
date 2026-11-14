@@ -2,6 +2,8 @@ import { useGameStore } from '../../state/gameStore'
 import { cannotMeetBrief, getGoNoGoSummary } from '../../sim/checks'
 import type { CheckResult } from '../../sim/types'
 import { fixLocation } from '../../viz/missionMap'
+import { percent } from '../../sim/odds'
+import { useSuccessEstimate } from '../useOdds'
 
 function CheckRow({ check }: { check: CheckResult }) {
   const statusColors = {
@@ -36,6 +38,27 @@ function CheckRow({ check }: { check: CheckResult }) {
         <div className="mt-2 text-xs opacity-60">
           Fix at {fixLocation(check.fixStep)}
         </div>
+      )}
+    </div>
+  )
+}
+
+/** F2 (Jakob, 14 Nov): the honest chance of full success, from many flights of this design */
+function SuccessOdds() {
+  const design = useGameStore((s) => s.design)
+  const difficulty = useGameStore((s) => s.difficulty)
+  const odds = useSuccessEstimate(design, difficulty)
+  return (
+    <div className="mt-4 text-slate-200" aria-live="polite">
+      {odds ? (
+        <>
+          <div className="text-xl font-semibold">{`Chance of full success: about ${percent(odds.success)}`}</div>
+          <div className="mt-1 text-sm text-slate-400">
+            {`From ${odds.runs} test flights of this design on standing orders: ${percent(odds.partial)} return only part of the science, ${percent(odds.failed)} fail.`}
+          </div>
+        </>
+      ) : (
+        <div className="text-sm text-slate-400">Working out the chance of full success…</div>
       )}
     </div>
   )
@@ -98,6 +121,7 @@ export function GoNoGoScreen() {
           {summary}
         </div>
         {doomed && scienceReason && <div className="mt-2 text-sm text-yellow-200/90">{scienceReason}</div>}
+        <SuccessOdds />
       </div>
 
       {criticalChecks.length > 0 && (

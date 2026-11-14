@@ -122,6 +122,27 @@ describe('buildPlanningView', () => {
     expect(one.readouts.test).toBe('1 MONTH · $0.4M')
   })
 
+  // F2 (Jakob, 14 Nov): the dials show what they really do to the chance of full success
+  it('odds readouts compare the current setting with its neighbours', () => {
+    const p = { ...flashlightDesign.planning, testTurns: 2, reservePercent: 10 }
+    const design = { ...flashlightDesign, planning: p }
+    const budgets = computeBudgets(design, 'engineer')
+    const odds = {
+      current: 0.85,
+      test: { 0: 0.79, 1: 0.84, 2: 0.85, 3: 0.805 },
+      reserve: { 0: 0.84, 5: 0.85, 10: 0.85, 15: 0.85, 20: 0.85 },
+    }
+    const view = buildPlanningView(design, budgets, goNoGo(design, budgets).checks, odds)
+    expect(view.readouts.testOdds).toBe('≈85% NOW · 1 MO→84% · 3 MO→81%')
+    expect(view.readouts.reserveOdds).toBe('≈85% NOW · 5%→85% · 15%→85%')
+    // At the end of the scale there is one neighbour
+    const edge = buildPlanningView({ ...design, planning: { ...p, testTurns: 0, reservePercent: 0 } }, budgets, [], odds)
+    expect(edge.readouts.testOdds).toBe('≈79% NOW · 1 MO→84%')
+    expect(edge.readouts.reserveOdds).toBe('≈84% NOW · 5%→85%')
+    // Still being worked out: no odds line yet
+    expect(buildPlanningView(design, budgets, []).readouts.testOdds).toBeUndefined()
+  })
+
   it('carries the Time and Budget checks with goNoGo reasons, in that order', () => {
     const { budgets, view } = viewFor(flashlightDesign)
     const real = goNoGo(flashlightDesign, budgets).checks

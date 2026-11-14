@@ -19,6 +19,7 @@ import { createDefaultDesign, computeBudgets } from '../sim/budgets'
 import { goNoGo, type GoNoGoResult } from '../sim/checks'
 import { initSim, stepTurn, flyUntilDecision, getDefaultAction, isSimComplete, isMilestone } from '../sim/simulate'
 import { buildReport } from '../sim/evaluate'
+import { estimateChoices, percent } from '../sim/odds'
 import { generateSeed } from '../sim/rng'
 import type { BuildingId } from '../data/agency'
 import { BUILDING_STEPS, suggestedStep } from '../viz/missionMap'
@@ -139,6 +140,22 @@ function getBaseStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
     removeItem: (k) => void mem.delete(k),
   }
 }
+
+/**
+ * A new event card quotes each answer's chance of full success (F2, Jakob 14 Nov),
+ * for the cards where that can be worked out without giving the result away.
+ */
+function withCardOdds(state: SimState, action: TurnAction): SimState {
+  const decision = state.pendingDecision
+  if (!decision || decision.options.some((o) => o.label.includes(ODDS_MARK))) return state
+  const odds = estimateChoices(state, action)
+  if (Object.keys(odds).length === 0) return state
+  const options = decision.options.map((o) =>
+    o.id in odds ? { ...o, label: `${o.label} About ${percent(odds[o.id])} ${ODDS_MARK}.` } : o
+  )
+  return { ...state, pendingDecision: { ...decision, options } }
+}
+const ODDS_MARK = 'chance of full success'
 
 function lastTurnIndex(logs: { length: number } | undefined): number {
   return Math.max(0, (logs?.length ?? 0) - 1)
@@ -366,9 +383,13 @@ export const useGameStore = create<GameState>()(
       },
 
       applyFlight: (newState) => {
+        // The month choice (mode, extra pass) stays until the player changes it;
+        // the answer to an event card counts for its own turn only
+        const { mode, buyExtraPass, useReserve } = get().pendingAction
+        const pendingAction: TurnAction = { ...getDefaultAction(), mode, buyExtraPass, useReserve }
         set({
-          simState: newState,
-          pendingAction: getDefaultAction(),
+          simState: withCardOdds(newState, pendingAction),
+          pendingAction,
           replayTurn: lastTurnIndex(newState.turnLogs),
         })
 

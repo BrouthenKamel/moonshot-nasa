@@ -23,6 +23,7 @@ import { useAgencyStore } from '../state/agencyStore'
 import { flashlightDesign } from '../sim/fixtures'
 import { initSim, flyUntilDecision, getDefaultAction } from '../sim/simulate'
 import type { DesignStep } from '../sim/types'
+import { clearOddsCache, estimateSuccess, planningOdds } from '../sim/odds'
 
 /** Every screen renders with the ported model, without throwing. */
 describe('screens render', () => {
@@ -169,5 +170,26 @@ describe('screens render', () => {
     const html = renderToString(<App />)
     expect(html).toContain('14.0 / 14 kg')
     expect(html).toContain('Click a building to walk in')
+  })
+
+  // F2 (Jakob, 14 Nov): the Go/No-Go review says how likely full success is
+  it('Go/No-Go shows the chance of full success next to the verdict', () => {
+    const design = { ...flashlightDesign, planning: { ...flashlightDesign.planning, testTurns: 1 } }
+    useGameStore.setState({ screen: 'design', designStep: 'go-nogo', design })
+    // Not worked out yet: says so instead of a number
+    clearOddsCache()
+    expect(renderToString(<App />)).toContain('Working out the chance of full success')
+    const e = estimateSuccess(design, 'engineer')
+    const html = renderToString(<App />)
+    expect(html).toContain(`Chance of full success: about ${Math.round(e.success * 100)}%`)
+  })
+
+  it('the planning controls read out the chance of full success for each setting', () => {
+    useGameStore.setState({ screen: 'design', designStep: 'planning', design: flashlightDesign })
+    planningOdds(flashlightDesign, 'engineer')
+    const html = renderToString(<App />)
+    expect(html).toMatch(/Chance of full success: about \d+%/)
+    expect(html).toMatch(/0 test months: about \d+%/)
+    expect(html).toMatch(/20% reserve: about \d+%/)
   })
 })
