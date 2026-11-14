@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { DesignDiagramPanel } from '../../viz/DesignDiagramPanel'
 import { StageBoundary } from '../../scene/instrumentStage/StageBoundary'
-import { canUseWebGL } from '../../scene/instrumentStage/webgl'
+import { canUseWebGL } from '../../scene/webgl'
 import { toggleInstrument as toggle } from '../../scene/instrumentStage/stageModel'
 
 const InstrumentStage = lazy(() => import('../../scene/instrumentStage/InstrumentStage'))
