@@ -33,7 +33,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   solar: '#3b82f6',
   battery: '#22c55e',
   computer: '#a855f7',
-  attitude: '#06b6d4',
+  attitude: '#f472b6', // pink: cyan is reserved for ice
   propulsion: '#f59e0b',
   instrument: '#64748b',
   radio: '#64748b',

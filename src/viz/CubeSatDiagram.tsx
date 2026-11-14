@@ -16,10 +16,10 @@ const CATEGORY_COLOR: Record<PartCategory, string> = {
   instrument: '#a855f7',
   battery: '#22c55e',
   radio: '#3b82f6',
-  computer: '#06b6d4',
+  computer: '#f472b6', // pink: cyan is reserved for ice
   attitude: '#eab308',
   propulsion: '#f97316',
-  solar: '#38bdf8',
+  solar: '#fbbf24', // amber: sky blue is the low circular orbit's colour
   structure: '#64748b',
 }
 
@@ -97,8 +97,8 @@ export function CubeSatDiagram({
       {/* Solar wings, folded flat against the bus or unfolded */}
       {layout.solar !== 'none' && (
         <g style={wingStyle}>
-          <rect x={BUS_X + 30} y={2} width={100} height={26} fill="#0c4a6e" stroke="#38bdf8" />
-          <rect x={BUS_X + 30} y={BUS_Y + BUS_H + 2} width={100} height={26} fill="#0c4a6e" stroke="#38bdf8" />
+          <rect x={BUS_X + 30} y={2} width={100} height={26} fill="#451a03" stroke="#fbbf24" />
+          <rect x={BUS_X + 30} y={BUS_Y + BUS_H + 2} width={100} height={26} fill="#451a03" stroke="#fbbf24" />
         </g>
       )}
       {layout.solar === 'body' && (
@@ -108,7 +108,7 @@ export function CubeSatDiagram({
           width={BUS_W}
           height={BUS_H}
           fill="none"
-          stroke="#38bdf8"
+          stroke="#fbbf24"
           strokeWidth={3}
           strokeDasharray="6 3"
           rx={3}
