@@ -1,4 +1,24 @@
+import { lazy, Suspense } from 'react'
 import { useGameStore } from '../../state/gameStore'
+import { DesignDiagramPanel } from '../../viz/DesignDiagramPanel'
+import { StageBoundary } from '../../scene/instrumentStage/StageBoundary'
+import { canUseWebGL } from '../../scene/instrumentStage/webgl'
+import { toggleInstrument as toggle } from '../../scene/instrumentStage/stageModel'
+
+const InstrumentStage = lazy(() => import('../../scene/instrumentStage/InstrumentStage'))
+
+/** The Research Lab simulator, or the flat diagram where 3D cannot run. */
+function Stage() {
+  const flat = <DesignDiagramPanel step="instruments" />
+  if (!canUseWebGL()) return flat
+  return (
+    <StageBoundary fallback={flat}>
+      <Suspense fallback={<div className="mb-4 h-[66vh] min-h-[460px] rounded-xl bg-slate-900" />}>
+        <InstrumentStage />
+      </Suspense>
+    </StageBoundary>
+  )
+}
 import { instruments, type InstrumentPart } from '../../data/parts'
 
 function InstrumentCard({
@@ -69,15 +89,7 @@ export function InstrumentsScreen() {
   const updateDesign = useGameStore((s) => s.updateDesign)
   const setDesignStep = useGameStore((s) => s.setDesignStep)
 
-  const toggleInstrument = (id: string) => {
-    const current = design.instruments
-    if (current.includes(id)) {
-      updateDesign({ instruments: current.filter((i) => i !== id) })
-    } else {
-      // At most two instruments fit next to the bus: the oldest choice makes room
-      updateDesign({ instruments: [...current, id].slice(-2) })
-    }
-  }
+  const toggleInstrument = (id: string) => updateDesign({ instruments: toggle(design.instruments, id) })
 
   const totalMass = instruments
     .filter((i) => design.instruments.includes(i.id))
@@ -92,6 +104,8 @@ export function InstrumentsScreen() {
     .reduce((sum, i) => sum + i.dataPerTurn, 0)
 
   return (
+    <>
+    <Stage />
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="rounded-lg bg-slate-900 p-6">
         <h1 className="text-xl font-bold text-green-400">2. Instrument Selection</h1>
@@ -150,5 +164,6 @@ export function InstrumentsScreen() {
         </button>
       </div>
     </div>
+    </>
   )
 }
