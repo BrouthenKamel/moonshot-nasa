@@ -454,7 +454,8 @@ export function BaseScreen() {
   useEffect(() => {
     if (turn !== undefined) syncToMissionTurn(turn)
   }, [turn, syncToMissionTurn])
-  // A reload loses the flight (it is not saved): fall back to the free-running clock
+  // The flight is saved and survives a reload; only a save from before that has a mission
+  // clock without a flight: fall back to the free-running clock
   useEffect(() => {
     if (missionStartDay !== null && !simState) resetMissionClock()
   }, [missionStartDay, simState, resetMissionClock])

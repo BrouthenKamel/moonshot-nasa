@@ -135,6 +135,34 @@ describe('gameStore visualiser state', () => {
   })
 })
 
+// Jakob, 14 Nov: a reload mid-flight must not lose the flight
+describe('gameStore keeps the flight across a reload', () => {
+  beforeEach(reset)
+
+  it('saves the flight and brings it back where it was, with auto-fly off', async () => {
+    useGameStore.getState().startSimulation()
+    useGameStore.getState().advanceTurn()
+    useGameStore.getState().advanceTurn()
+    useGameStore.getState().startAutoFly()
+    const before = useGameStore.getState()
+    const saved = useGameStore.persist.getOptions().partialize!(before) as Record<string, unknown>
+    expect(saved.simState).toBeDefined()
+    expect(saved.pendingAction).toBeDefined()
+    expect(saved.replayTurn).toBe(before.replayTurn)
+    expect('autoFly' in saved).toBe(false)
+
+    // A fresh page: the store starts empty, then loads what was saved
+    const json = JSON.parse(JSON.stringify(saved))
+    useGameStore.setState({ simState: null, autoFly: true })
+    const merged = useGameStore.persist.getOptions().merge!(json, useGameStore.getState()) as ReturnType<
+      typeof useGameStore.getState
+    >
+    expect(merged.simState!.currentTurn).toBe(before.simState!.currentTurn)
+    expect(merged.simState!.turnLogs.length).toBe(before.simState!.turnLogs.length)
+    expect(merged.autoFly).toBe(false)
+  })
+})
+
 // Jakob, 14 Nov: the flight plays turn by turn and stops at events and milestones
 describe('gameStore turn-by-turn flight', () => {
   beforeEach(reset)

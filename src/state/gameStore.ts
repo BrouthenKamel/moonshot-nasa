@@ -493,8 +493,14 @@ export const useGameStore = create<GameState>()(
     {
       name: 'moonshot-game-storage',
       storage: skipUnchangedWrites(createJSONStorage(() => createSafeStorage(getBaseStorage()) as StateStorage)!) as never,
-      // Difficulty is not saved: a stored Cadet or Flight Director setting from before is ignored
-      merge: (persisted, current) => ({ ...current, ...(persisted as Partial<GameState>), difficulty: FIXED_DIFFICULTY }),
+      // Difficulty is not saved: a stored Cadet or Flight Director setting from before is ignored.
+      // A reload never keeps auto-flying: the player presses play again.
+      merge: (persisted, current) => ({
+        ...current,
+        ...(persisted as Partial<GameState>),
+        difficulty: FIXED_DIFFICULTY,
+        autoFly: false,
+      }),
       partialize: (state) => ({
         mode: state.mode,
         // Keep the mission being planned, so the base can show and resume it
@@ -503,6 +509,11 @@ export const useGameStore = create<GameState>()(
         visitedSteps: state.visitedSteps,
         players: state.players,
         runHistory: state.runHistory,
+        // Keep the flight, so a reload mid-flight comes back where it was (Jakob, 14 Nov)
+        simState: state.simState,
+        pendingAction: state.pendingAction,
+        replayTurn: state.replayTurn,
+        currentReport: state.currentReport,
       }),
     }
   )
