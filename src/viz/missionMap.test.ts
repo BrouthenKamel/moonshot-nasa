@@ -17,9 +17,9 @@ import {
   suggestedStep,
 } from './missionMap'
 
-const labelsFor = (design: Design = flashlightDesign, visited: DesignStep[] = [], day = 112) => {
+const labelsFor = (design: Design = flashlightDesign, visited: DesignStep[] = []) => {
   const budgets = computeBudgets(design, 'engineer')
-  return missionLabels({ design, budgets, checks: goNoGo(design, budgets), visited, sim: null, day })
+  return missionLabels({ design, budgets, checks: goNoGo(design, budgets), visited, sim: null })
 }
 
 describe('mission map', () => {
@@ -104,7 +104,7 @@ describe('mission map', () => {
     }
     expect(lost).not.toBeNull()
     const budgets = computeBudgets(design, 'engineer')
-    const l = missionLabels({ design, budgets, checks: goNoGo(design, budgets), visited: [], sim: lost, day: 112 })
+    const l = missionLabels({ design, budgets, checks: goNoGo(design, budgets), visited: [], sim: lost })
     expect(l['launch-site'].status).not.toContain('turns left')
     expect(l['launch-site'].status).toContain('lost')
   })
@@ -112,21 +112,5 @@ describe('mission map', () => {
   it('names the building where a step is fixed', () => {
     expect(fixLocation('spacecraft')).toBe('the Factory (Spacecraft)')
     expect(fixLocation('comms')).toBe('the Communications Center (Comms)')
-  })
-})
-
-describe('Research Lab badge follows the lab level', () => {
-  // Demo days: the lab is LV 2 on day 112 and reaches LV 3 on day 122.
-  it('shows LV 2 before the upgrade and LV 3 after it while planning', () => {
-    expect(labelsFor(flashlightDesign, [], 112)['research-lab'].level).toBe(2)
-    expect(labelsFor(flashlightDesign, [], 122)['research-lab'].level).toBe(3)
-  })
-
-  it('shows LV 3 after the upgrade while the mission flies', () => {
-    const design = flashlightDesign
-    const budgets = computeBudgets(design, 'engineer')
-    const sim = runSimulation(design, 'engineer', 1)
-    const labels = missionLabels({ design, budgets, checks: goNoGo(design, budgets), visited: [], sim, day: 200 })
-    expect(labels['research-lab'].level).toBe(3)
   })
 })

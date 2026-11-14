@@ -1,4 +1,4 @@
-import { buildings, researchLabLevel, type AgencyEvent, type BuildingId, type MissionView } from '../data/agency'
+import { buildings, type AgencyEvent, type BuildingId, type MissionView } from '../data/agency'
 import { getPartById } from '../data/parts'
 import type { BuildingLabel } from '../scene/BaseMap'
 import { DAYS_PER_TURN, missionDay } from '../state/agencyStore'
@@ -52,9 +52,7 @@ export function suggestedStep(visited: DesignStep[]): DesignStep {
   return STEP_ORDER.find((s) => !visited.includes(s)) ?? 'go-nogo'
 }
 
-/** A building's level on a base day. The Research Lab follows its upgrade, as the instrument lock does. */
-function levelOf(id: BuildingId, day: number): number {
-  if (id === 'research-lab') return researchLabLevel(day)
+function levelOf(id: BuildingId): number {
   return buildings.find((b) => b.id === id)?.level ?? 1
 }
 
@@ -64,7 +62,7 @@ function goWord(checks: GoNoGoResult): string {
 }
 
 /** Labels while the flight runs */
-function flightLabels(budgets: Budgets, sim: SimState, day: number): Record<BuildingId, BuildingLabel> {
+function flightLabels(budgets: Budgets, sim: SimState): Record<BuildingId, BuildingLabel> {
   const f = sim.flight
   const launched = f.launchedTurn !== null
   const factory = !launched
@@ -79,10 +77,10 @@ function flightLabels(budgets: Budgets, sim: SimState, day: number): Record<Buil
         ? `Launched turn ${f.launchedTurn} · in lunar orbit`
         : `Launched turn ${f.launchedTurn} · transfer, ${Math.max(0, f.transferLeft ?? 0)} turns left`
   return {
-    'comms-center': { level: levelOf('comms-center', day), status: `${f.data.toFixed(0)} MB home · ${budgets.linkKbps} kbps` },
-    'research-lab': { level: levelOf('research-lab', day), status: `Ice ${f.coverage.toFixed(0)}% mapped` },
-    factory: { level: levelOf('factory', day), status: factory },
-    'launch-site': { level: levelOf('launch-site', day), status: launch },
+    'comms-center': { level: levelOf('comms-center'), status: `${f.data.toFixed(0)} MB home · ${budgets.linkKbps} kbps` },
+    'research-lab': { level: levelOf('research-lab'), status: `Ice ${f.coverage.toFixed(0)}% mapped` },
+    factory: { level: levelOf('factory'), status: factory },
+    'launch-site': { level: levelOf('launch-site'), status: launch },
   }
 }
 
@@ -93,10 +91,9 @@ export function missionLabels(input: {
   checks: GoNoGoResult
   visited: DesignStep[]
   sim: SimState | null
-  day: number // base day: the Research Lab's level follows it
 }): Record<BuildingId, BuildingLabel> {
-  const { design, budgets: b, checks, visited, sim, day } = input
-  if (sim) return flightLabels(b, sim, day)
+  const { design, budgets: b, checks, visited, sim } = input
+  if (sim) return flightLabels(b, sim)
 
   const next = buildingForStep(suggestedStep(visited))
   const redSteps = new Set(checks.blockers.map((c) => c.fixStep).filter((s): s is DesignStep => !!s))
@@ -111,22 +108,22 @@ export function missionLabels(input: {
 
   return {
     'comms-center': {
-      level: levelOf('comms-center', day),
+      level: levelOf('comms-center'),
       status: `${b.downlinkPerTurn.toFixed(0)} MB/turn home · ${goWord(checks)}`,
       ...flags('comms-center'),
     },
     'research-lab': {
-      level: levelOf('research-lab', day),
+      level: levelOf('research-lab'),
       status: `${instrumentNames || 'No instruments'} · ice ${b.projectedCoverage.toFixed(0)}% projected`,
       ...flags('research-lab'),
     },
     factory: {
-      level: levelOf('factory', day),
+      level: levelOf('factory'),
       status: `${b.totalMass.toFixed(1)} / ${b.massLimit} kg · ${b.totalVolume.toFixed(1)} / ${b.volumeLimit} U`,
       ...flags('factory'),
     },
     'launch-site': {
-      level: levelOf('launch-site', day),
+      level: levelOf('launch-site'),
       status:
         b.captureDeltaV === null || b.arrivalTurn === null
           ? `Ride on turn ${b.rideTurn} · no way into this orbit`

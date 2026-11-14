@@ -521,7 +521,7 @@ export function BaseScreen() {
   })()
   const labels =
     lunarStartedDay !== null
-      ? missionLabels({ design, budgets, checks, visited: visitedSteps, sim: simState, day })
+      ? missionLabels({ design, budgets, checks, visited: visitedSteps, sim: simState })
       : mockLabels
 
   return (
