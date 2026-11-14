@@ -397,6 +397,8 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   const launchAt = useUiStore((s) => s.launchAt)
   const startLaunch = useUiStore((s) => s.startLaunch)
   const endLaunch = useUiStore((s) => s.endLaunch)
+  const agencyDashboardOpen = useUiStore((s) => s.agencyDashboardOpen)
+  const missionLogOpen = useUiStore((s) => s.missionLogOpen)
   const launched = sim.flight.launchedTurn !== null
   const webgl = useMemo(() => canUseWebGL(), [])
 
@@ -418,6 +420,8 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
     [sim, terminal],
   )
   const showSpace = webgl && launched && launchAt === null && view === 'space'
+  const leftInset = agencyDashboardOpen ? 'lg:left-[19.25rem]' : 'lg:left-40'
+  const rightInset = missionLogOpen ? 'lg:right-[19.25rem]' : 'lg:right-48'
 
   return (
     <>
@@ -432,7 +436,7 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
       ) : (
         island
       )}
-      <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-col gap-2">
+      <div className={`pointer-events-none absolute inset-x-3 ${leftInset} ${rightInset} top-3 z-10 flex flex-col gap-2`}>
         <MissionPhaseTimeline sim={sim} />
         <div className="flex flex-wrap items-start justify-between gap-2">
           <Hud sim={sim} />
@@ -450,7 +454,7 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
           </div>
         </div>
       )}
-      <div className="pointer-events-none absolute inset-x-3 bottom-10 z-10 flex flex-col items-center gap-2">
+      <div className={`pointer-events-none absolute inset-x-3 ${leftInset} ${rightInset} bottom-10 z-10 flex flex-col items-center gap-2`}>
         <div className="pointer-events-auto w-[min(100%,540px)]">
           <FlightControls compact />
         </div>

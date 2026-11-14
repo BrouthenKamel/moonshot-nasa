@@ -887,6 +887,12 @@ function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = fals
               onPointerOver={onBuildingClick ? () => (document.body.style.cursor = 'pointer') : undefined}
               onPointerOut={onBuildingClick ? () => (document.body.style.cursor = '') : undefined}
             >
+              {onBuildingClick && (
+                <mesh position={[0, 1.1, 0]}>
+                  <boxGeometry args={[b.size[0] - 0.2, 2.2, b.size[1] - 0.2]} />
+                  <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                </mesh>
+              )}
               <Model />
               <BuildingStatusIndicator size={b.size} label={labels[b.id]} />
             </group>

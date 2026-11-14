@@ -4,7 +4,9 @@ import { BaseMap } from '../../scene/BaseMap'
 import type { BuildingId } from '../../data/agency'
 import { computeBudgets } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
+import { isSimComplete } from '../../sim/simulate'
 import {
+  BUILDING_STEPS,
   STAGE_NAMES,
   flightFeed,
   missionClockLabel,
@@ -40,41 +42,54 @@ const toneDot: Record<MissionLogEntry['tone'], string> = {
 }
 
 export function MissionLog({ entries }: { entries: MissionLogEntry[] }) {
+  const open = useUiStore((s) => s.missionLogOpen)
+  const setOpen = useUiStore((s) => s.setMissionLogOpen)
   return (
     <aside
       aria-label="Mission log"
       className="relative flex max-h-[40vh] min-h-0 flex-col rounded-2xl border border-[#d6c9b2] bg-[#fbf7ef] p-3.5 text-slate-800 shadow-[0_18px_40px_rgba(0,0,0,0.45)] lg:max-h-none"
     >
-      <div className="flex items-center justify-between border-b border-slate-300/70 pb-2">
-        <div>
-          <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-            Telemetry Clipboard
+      <div className="flex items-center justify-between gap-2 border-b border-slate-300/70 pb-2">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          className="flex flex-1 cursor-pointer items-center justify-between gap-2 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-400"
+        >
+          <div>
+            <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+              Telemetry Clipboard
+            </div>
+            <h2 className="font-display text-lg font-bold text-[#14213d]">Mission log</h2>
           </div>
-          <h2 className="font-display text-lg font-bold text-[#14213d]">Mission log</h2>
-        </div>
-        <span className="h-2.5 w-8 rounded-full bg-slate-300/80 shadow-inner" aria-hidden="true" />
+          <span className="rounded-full border border-slate-300/80 bg-white/80 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-slate-600 hover:bg-slate-100">
+            {open ? 'Hide' : 'Show'}
+          </span>
+        </button>
       </div>
-      {entries.length === 0 ? (
-        <p className="mt-2 text-xs text-slate-500">Nothing yet. Advance a month to start the flight.</p>
-      ) : (
-        <ul className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
-          {entries.map((e, i) => (
-            <li
-              key={e.id}
-              className={`flex gap-2.5 rounded-xl border p-2 ${
-                i === 0 ? 'border-orange-200 bg-orange-50/90' : 'border-transparent bg-white/50'
-              }`}
-            >
-              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneDot[e.tone]}`} />
-              <div className="min-w-0 text-xs">
-                <div className="font-mono text-[10px] font-semibold uppercase tracking-wide text-slate-500 tabular-nums">
-                  {missionClockLabel(e.month)}
+      {open && (
+        entries.length === 0 ? (
+          <p className="mt-2 text-xs text-slate-500">Nothing yet. Advance a month to start the flight.</p>
+        ) : (
+          <ul className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+            {entries.map((e, i) => (
+              <li
+                key={e.id}
+                className={`flex gap-2.5 rounded-xl border p-2 ${
+                  i === 0 ? 'border-orange-200 bg-orange-50/90' : 'border-transparent bg-white/50'
+                }`}
+              >
+                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneDot[e.tone]}`} />
+                <div className="min-w-0 text-xs">
+                  <div className="font-mono text-[10px] font-semibold uppercase tracking-wide text-slate-500 tabular-nums">
+                    {missionClockLabel(e.month)}
+                  </div>
+                  <div className="font-medium text-slate-800">{e.title}</div>
                 </div>
-                <div className="font-medium text-slate-800">{e.title}</div>
-              </div>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        )
       )}
     </aside>
   )
@@ -258,7 +273,10 @@ export function BaseScreen() {
   const simState = useGameStore((s) => s.simState)
   const currentReport = useGameStore((s) => s.currentReport)
   const openBuilding = useGameStore((s) => s.openBuilding)
+  const reviseAt = useGameStore((s) => s.reviseAt)
   const showReport = useGameStore((s) => s.showReport)
+  const agencyDashboardOpen = useUiStore((s) => s.agencyDashboardOpen)
+  const missionLogOpen = useUiStore((s) => s.missionLogOpen)
 
   const budgets = computeBudgets(design, difficulty)
   const checks = goNoGo(design, budgets)
@@ -281,13 +299,16 @@ export function BaseScreen() {
   const launchAt = useUiStore((s) => s.launchAt)
   const rocketGone = !!simState && simState.flight.launchedTurn !== null && launchAt === null
 
-  // Walking into a building. While the craft flies, the design is fixed and the buildings only show its state.
-  const onBuildingClick = simState ? undefined : (id: BuildingId) => openBuilding(id)
+  // Walking into a building: available during planning and after the mission ends; disabled while actively flying.
+  const canClickBuildings = !simState || isSimComplete(simState)
+  const onBuildingClick = !canClickBuildings
+    ? undefined
+    : (id: BuildingId) => (simState ? reviseAt(BUILDING_STEPS[id][0]) : openBuilding(id))
 
   return (
     <div className="flex min-h-screen flex-col bg-[#14213d] lg:h-screen lg:min-h-0">
       <TopBar month={missionMonth(simState)} status={status} onOpenStatus={onOpenStatus} />
-      <div className="flex flex-1 flex-col gap-3 p-3 lg:min-h-0 lg:flex-row">
+      <div className="relative flex flex-1 flex-col gap-3 p-3 lg:min-h-0 lg:flex-row">
         <div className="relative h-[60vh] min-h-[360px] overflow-hidden rounded-2xl border border-white/15 shadow-inner lg:h-auto lg:flex-1">
           {simState ? (
             <FlightStage
@@ -298,18 +319,26 @@ export function BaseScreen() {
             <BaseMap labels={labels} onBuildingClick={onBuildingClick} />
           )}
           <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg border border-white/15 bg-[#091224]/75 px-2.5 py-1 font-mono text-[11px] text-white backdrop-blur-xs">
-            {simState ? 'Drag to move · scroll to zoom' : 'Click a building to walk in · drag to move · scroll to zoom'}
+            {onBuildingClick ? 'Click a building to walk in · drag to move · scroll to zoom' : 'Drag to move · scroll to zoom'}
           </div>
         </div>
         {/* Left: agency. Ends above the narrator's corner. */}
-        <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-36 lg:left-6 lg:top-6 lg:z-10 lg:w-72">
+        <div
+          className={`flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-36 lg:left-6 lg:top-6 lg:z-10 ${
+            agencyDashboardOpen ? 'lg:w-72' : 'lg:w-auto'
+          }`}
+        >
           <div className="flex min-h-0 flex-col lg:pointer-events-auto">
             <AgencyDashboard />
           </div>
         </div>
         {/* Right: the flight's mission log */}
         {simState && (
-          <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:right-6 lg:top-6 lg:z-10 lg:w-72">
+          <div
+            className={`flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:right-6 lg:top-6 lg:z-10 ${
+              missionLogOpen ? 'lg:w-72' : 'lg:w-auto'
+            }`}
+          >
             <div className="flex min-h-0 flex-col lg:pointer-events-auto">
               <MissionLog entries={logEntries} />
             </div>

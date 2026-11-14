@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Design } from '../sim/types'
 
 export type FlightCamMode = 'director' | 'chase' | 'pole' | 'overview'
+export type AgencyWalletFocus = 'funds' | 'popularity' | null
 
 /**
  * Session-only interface state (never saved): what is on screen around the game,
@@ -11,6 +12,13 @@ interface UiState {
   /** The opening curtain was lifted this session */
   openingDone: boolean
   finishOpening: () => void
+  /** Base screen overlay visibility & wallet focus */
+  agencyDashboardOpen: boolean
+  setAgencyDashboardOpen: (open: boolean) => void
+  missionLogOpen: boolean
+  setMissionLogOpen: (open: boolean) => void
+  agencyWalletDetail: AgencyWalletFocus
+  setAgencyWalletDetail: (detail: AgencyWalletFocus) => void
   /** During the flight, which view fills the base's centre panel */
   flightView: 'space' | 'island'
   setFlightView: (v: 'space' | 'island') => void
@@ -32,6 +40,12 @@ interface UiState {
 export const useUiStore = create<UiState>()((set) => ({
   openingDone: false,
   finishOpening: () => set({ openingDone: true }),
+  agencyDashboardOpen: true,
+  setAgencyDashboardOpen: (agencyDashboardOpen) => set({ agencyDashboardOpen }),
+  missionLogOpen: true,
+  setMissionLogOpen: (missionLogOpen) => set({ missionLogOpen }),
+  agencyWalletDetail: null,
+  setAgencyWalletDetail: (agencyWalletDetail) => set({ agencyWalletDetail }),
   flightView: 'space',
   setFlightView: (flightView) => set({ flightView }),
   flightCam: 'director',

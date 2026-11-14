@@ -1,13 +1,11 @@
 import { Component, lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { canUseWebGL } from '../../scene/webgl'
-import { getPartById } from '../../data/parts'
+import { getPartById, type PropulsionPart } from '../../data/parts'
 import { buildBayView, type BayView, type BoardRow, type Tone } from '../../viz/spacecraft/bayView'
 import { buildCraft, type CraftSlot } from '../../viz/spacecraft/craftBuild'
-import { getPartById, type PropulsionPart } from '../../data/parts'
 import { useDesignPreview } from '../useDesignPreview'
 import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
-import { buildBayView, type BayView } from '../../viz/spacecraft/bayView'
 import { trayGroups, type TrayKey } from '../../viz/spacecraft/trayOptions'
 import { TONE_COLORS } from '../../viz/spacecraft/boardPainter'
 import type { ViewPreset } from '../../scene/spacecraft/SpacecraftStage'
@@ -217,13 +215,13 @@ export function SpacecraftScreen() {
           </div>
         )}
 
-        <div className="absolute top-3 left-3 flex flex-col gap-2">
-        <div className="pointer-events-none absolute top-3 left-1/2 hidden -translate-x-1/2 md:block">
+        <div className="pointer-events-none absolute top-3 left-1/2 z-10 hidden -translate-x-1/2 md:block">
           <div className="hud-panel px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--role-accent)]">
             FACTORY · LUNAR ICE MAPPER · SPACECRAFT
           </div>
         </div>
-        <div className="absolute top-3 left-3">
+
+        <div className="absolute top-3 left-3 z-10 flex flex-col items-start gap-2">
           <button
             type="button"
             onClick={() => setDesignStep('rocket')}
@@ -254,7 +252,7 @@ export function SpacecraftScreen() {
           )}
         </div>
 
-        <div className="absolute top-3 right-3 flex w-64 flex-col items-end gap-3">
+        <div className="absolute top-3 right-3 z-10 flex w-64 flex-col items-end gap-3">
           <button
             type="button"
             onClick={() => setDesignStep('orbit')}
@@ -279,7 +277,6 @@ export function SpacecraftScreen() {
         </div>
       </div>
 
-      <div className="space-y-1.5 border-t border-purple-900/40 bg-[#05070d] px-3 pt-2 pb-3">
       <div className="space-y-1.5 border-t border-[var(--role-border)] bg-[#05070d] px-3 pt-2 pb-3">
         <PowerBudgetSplitBar />
         <SynergyStrip step="spacecraft" compact />
