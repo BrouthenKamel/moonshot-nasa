@@ -2,6 +2,7 @@ import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type R
 import { useGameStore } from '../../state/gameStore'
 import { getPartById, type InstrumentPart } from '../../data/parts'
 import { canUseWebGL } from '../../scene/webgl'
+import { lunarOrbits } from '../../data/orbits'
 import { OrbitCardTray } from './launch/OrbitCards'
 import { playPick } from './launch/radioKeys'
 import type { LapseClock } from '../../scene/OrbitView'
@@ -23,9 +24,10 @@ const LAPSE_MS = 14000
 const HOLD_MS = 3500
 const MIN_SCENE_WIDTH = 900
 const MIN_SIDE_WIDTH = 1000
-const SIDE_W = 270
 const READOUT_W = 290
 const CARDS_MAX_W = 600
+/** Below this width the orbit cards are not centred under the Moon, so they can stay wide enough */
+const CARDS_CENTRED_MIN = 1200
 
 const TONE_TEXT: Record<Tone, string> = { good: 'text-green-400', warn: 'text-amber-400', bad: 'text-red-400' }
 const TONE_CHIP: Record<Tone, string> = {
@@ -263,6 +265,7 @@ function ReadoutPanel({ o, months }: { o: OrbitOption; months: number }) {
         </b>{' '}
         {o.description}
       </p>
+      <p className="mt-1 text-[11px] text-slate-500">Flown by: {lunarOrbits.find((x) => x.id === o.id)?.flownBy}</p>
 
       <Row label="Passes over the pole" value={`${o.passesPerTurn} a month`}>
         <p className="mt-0.5 text-slate-500">{o.passesLine}</p>
@@ -311,7 +314,7 @@ function SidePanel({ o }: { o: OrbitOption }) {
   const beam = !ice.length ? '#94a3b8' : inRange ? '#22d3ee' : '#fbbf24'
   const y = yOf(Math.min(o.altitudeKm, 110))
   return (
-    <div className={`${PANEL} pointer-events-auto absolute bottom-3 left-3 w-[270px] p-3`}>
+    <div className={`${PANEL} pointer-events-auto absolute top-16 left-3 w-[270px] p-3`}>
       <h3 className="mb-1.5 text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
         THE POLE PASS, SEEN FROM THE SIDE
       </h3>
@@ -398,6 +401,32 @@ function useWidth(ref: RefObject<HTMLDivElement | null>): number | null {
   return width
 }
 
+/**
+ * How far to end the 3D scene above the bottom edge so the Moon's south pole stays above the card
+ * row. The camera frames the Moon by height: its bottom edge sits at about POLE_AT of the scene's
+ * height (with the idle sway), so ending the scene earlier lifts and shrinks the Moon.
+ */
+const POLE_AT = 0.72
+const POLE_GAP = 16
+function useSceneLift(box: HTMLElement | null, cards: HTMLElement | null): number {
+  const [lift, setLift] = useState(0)
+  useEffect(() => {
+    if (!box || !cards) return
+    const read = () => {
+      const h = box.clientHeight
+      const free = h - (cards.offsetHeight + 12) - POLE_GAP
+      setLift(Math.max(0, Math.round(h - free / POLE_AT)))
+    }
+    read()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(read)
+    ro.observe(box)
+    ro.observe(cards)
+    return () => ro.disconnect()
+  }, [box, cards])
+  return lift
+}
+
 /** Falls back to the plain screen if the 3D scene throws. */
 class SceneBoundary extends Component<{ children: ReactNode; onError: () => void }, { failed: boolean }> {
   state = { failed: false }
@@ -430,14 +459,31 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
   const o = view.selected
   const months = Math.min(MISSION_MONTHS, Math.floor(shownMonths) + 1)
   const side = width === null || width >= MIN_SIDE_WIDTH
+  const [stageEl, setSceneEl] = useState<HTMLDivElement | null>(null)
+  const [cardsEl, setCardsEl] = useState<HTMLDivElement | null>(null)
+  // Wide: centred under the Moon. Narrower: grown to the left (the pole-pass panel sits at the top),
+  // clear of the commander's speech bubble, so the chips keep one line each
+  const cardsLeft = !side ? 12 : width !== null && width < CARDS_CENTRED_MIN ? 190 : READOUT_W + 24
+  const lift = useSceneLift(stageEl?.parentElement ?? null, cardsEl)
 
   return (
     <>
-      <SceneBoundary onError={onSceneError}>
-        <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-500">Pointing the telescope…</div>}>
-          <OrbitScene view={view} lapse={clock} reduced={reduced} onPick={pick} />
-        </Suspense>
-      </SceneBoundary>
+      {/* On short screens the scene ends above part of the card row, so the Moon's south pole (where
+          the ice is) stays clear of the cards; the edge fades into the background. */}
+      <div
+        ref={setSceneEl}
+        className="absolute inset-x-0 top-0"
+        style={{
+          bottom: lift,
+          maskImage: lift > 0 ? 'linear-gradient(to bottom, #000 calc(100% - 48px), transparent)' : undefined,
+        }}
+      >
+        <SceneBoundary onError={onSceneError}>
+          <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-500">Pointing the telescope…</div>}>
+            <OrbitScene view={view} lapse={clock} reduced={reduced} onPick={pick} />
+          </Suspense>
+        </SceneBoundary>
+      </div>
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-3 left-1/2 -translate-x-1/2 text-center">
           <div className="text-xs font-semibold tracking-[0.18em] whitespace-nowrap" style={{ color: ACCENT }}>
@@ -457,8 +503,9 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
         <ReadoutPanel o={o} months={shownMonths} />
         {side && <SidePanel o={o} />}
         <div
+          ref={setCardsEl}
           className="pointer-events-auto absolute bottom-3"
-          style={{ left: side ? SIDE_W + 24 : 12, right: READOUT_W + 24, maxWidth: CARDS_MAX_W, marginInline: 'auto' }}
+          style={{ left: cardsLeft, right: READOUT_W + 24, maxWidth: CARDS_MAX_W, marginInline: 'auto' }}
         >
           <OrbitCardTray options={view.options} selectedId={view.selectedId} onPick={(id, fromKeyboard) => pick(id, !fromKeyboard)} />
         </div>

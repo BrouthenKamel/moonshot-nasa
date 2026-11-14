@@ -1,9 +1,10 @@
-import { Component, lazy, Suspense, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { Component, lazy, Suspense, useLayoutEffect, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { canUseWebGL } from '../../scene/webgl'
 import { RideOverlay, RideTimeline } from './RideOverlay'
 import { getPartById, type PropulsionPart } from '../../data/parts'
-import { EngineNote, RideCardTray, TransferCardTray, choiceBriefing } from './launch/RideCards'
+import { EngineNote, RideCardTray, TransferCardTray } from './launch/RideCards'
+import { choiceBriefing } from './launch/briefing'
 import { rideDock, transferDock } from './launch/skyLayout'
 
 const LaunchPad = lazy(() => import('../../scene/launch/LaunchPad').then((m) => ({ default: m.LaunchPad })))
@@ -91,7 +92,11 @@ function PlainRide() {
       </section>
       <section>
         <h2 className="mb-1 font-semibold text-slate-200">Transfer Trajectory</h2>
-        <p className="mb-4 text-sm text-slate-400">Your propulsion type ({propType}) limits your transfer options.</p>
+        <p className="mb-4 text-sm text-slate-400">
+          Your engine limits your transfer options:{' '}
+          <b className="font-semibold text-slate-200">{propulsion ? propulsion.name : 'none'}</b> ({propType === 'electric' ? 'ion' : propType}, chosen at
+          the Factory).
+        </p>
         <div className="max-w-xl">
           <TransferCardTray size="xs" onHover={setHover} />
         </div>
@@ -101,17 +106,18 @@ function PlainRide() {
   )
 }
 
-function useSize(ref: RefObject<HTMLDivElement | null>) {
+/** Size of an element (its border box), followed as it changes */
+function useSize(el: HTMLElement | null) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null)
   useLayoutEffect(() => {
-    const el = ref.current
     if (!el) return
-    setSize({ w: el.clientWidth, h: el.clientHeight })
+    const read = () => setSize({ w: el.offsetWidth, h: el.offsetHeight })
+    read()
     if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }))
+    const ro = new ResizeObserver(read)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [ref])
+  }, [el])
   return size
 }
 
@@ -127,19 +133,32 @@ function clearOfTitle<T extends { left: number; width: number }>(d: T): T {
 /** The ride and transfer cards laid over the pad, exactly where its board and signs are */
 function PadDocks() {
   const design = useGameStore((s) => s.design)
-  const wrap = useRef<HTMLDivElement>(null)
+  const [wrap, setWrap] = useState<HTMLDivElement | null>(null)
   const size = useSize(wrap)
   const [hover, setHover] = useState<string | null>(null)
+  const [transferEl, setTransferEl] = useState<HTMLElement | null>(null)
+  const transferSize = useSize(transferEl)
   const ride = size && rideDock(size.w, size.h)
   const transfer = size && clearOfTitle(transferDock(size.w, size.h))
-  const briefing = hover ?? design.ride
+  // Short screens: the transfer dock would grow past the top edge, so it hangs from the top instead
+  const transferPos =
+    transfer && size && transferSize && size.h - transfer.bottom - transferSize.h < 8 ? { top: 8 } : { bottom: transfer ? transfer.bottom : 0 }
+  // Each panel describes its own choice: the hovered one, else the picked one
+  const rideBriefing = hover?.startsWith('ride-') ? hover : design.ride
+  const transferBriefing = hover?.startsWith('transfer-') ? hover : design.transfer
+  const roomy = !!size && size.h >= 760
   return (
-    <div ref={wrap} className="pointer-events-none absolute inset-0">
+    <div ref={setWrap} className="pointer-events-none absolute inset-0">
       <RideOverlay maxWidth={transfer ? Math.max(260, transfer.left - 32) : undefined} />
       {transfer && (
-        <section className={DOCK} style={{ left: transfer.left, width: transfer.width, bottom: transfer.bottom }} aria-labelledby="transfer-dock-title">
+        <section
+          ref={setTransferEl}
+          className={DOCK}
+          style={{ left: transfer.left, width: transfer.width, ...transferPos }}
+          aria-labelledby="transfer-dock-title"
+        >
           <div className="flex gap-2">
-            <div className="flex w-[74px] shrink-0 flex-col justify-between px-1 py-0.5">
+            <div className="flex w-[88px] shrink-0 flex-col justify-between px-1 py-0.5">
               <h2 id="transfer-dock-title" className="text-[10.5px] leading-snug font-bold tracking-[0.16em] text-orange-400">
                 TRANSFER TO THE MOON
               </h2>
@@ -149,6 +168,7 @@ function PadDocks() {
               <TransferCardTray size="xs" onHover={setHover} />
             </div>
           </div>
+          {roomy && <Briefing id={transferBriefing} className="mt-2 line-clamp-2 px-1" />}
         </section>
       )}
       {ride && (
@@ -159,7 +179,7 @@ function PadDocks() {
           <div className="pt-2 pl-1.5">
             <RideCardTray size="xs" onHover={setHover} />
           </div>
-          <Briefing id={briefing} className="mt-2 line-clamp-3 px-0.5" />
+          {roomy && <Briefing id={rideBriefing} className="mt-2 line-clamp-3 px-0.5" />}
         </section>
       )}
     </div>

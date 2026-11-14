@@ -97,7 +97,7 @@ export function SpacecraftScreen() {
         </div>
       </div>
       <div className="space-y-1.5 border-t border-purple-900/40 bg-[#05070d] px-3 pt-2 pb-3">
-        <FactStrip option={activeOption} title={activeGroup?.title} group={activeGroup?.key} />
+        <FactStrip option={activeOption} title={activeGroup?.title} group={activeGroup?.key} expanded={hover !== null} />
         <PartsTray groups={groups} selected={selected} onPick={pick} onActive={setHover} />
       </div>
     </div>

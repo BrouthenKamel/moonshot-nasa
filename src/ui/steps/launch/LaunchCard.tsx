@@ -42,11 +42,13 @@ function labelOf(p: LaunchCardProps): string {
   return parts.join('. ')
 }
 
-export function LaunchCard({ inset = false, plaque, insetSize = 64, ...card }: LaunchCardProps) {
+export function LaunchCard({ inset = false, plaque, insetSize = 64, sounds = true, ...card }: LaunchCardProps) {
   const portrait = inset ? choiceArt(card.id)?.portrait : undefined
   return (
     <div className="group/lc relative flex flex-col">
-      <ChoiceCard {...card} look="scene" sounds={false} ariaLabel={labelOf({ ...card, plaque })} />
+      {/* The card plays its own hover, pick and "doesn't fit" sounds; the trays add the pick sound only
+          for picks the card does not see (arrow keys, clicks in the 3D scene). */}
+      <ChoiceCard {...card} look="scene" sounds={sounds} ariaLabel={labelOf({ ...card, plaque })} />
       {portrait && (
         <img
           src={assetUrl(portrait)}

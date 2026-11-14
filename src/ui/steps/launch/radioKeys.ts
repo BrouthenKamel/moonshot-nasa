@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react'
+import { useRef, type KeyboardEvent } from 'react'
 import { audio } from '../../../assets/audio'
 import { choiceArt } from '../../../assets/catalogueArt'
 
@@ -12,13 +12,13 @@ export function playPick(id: string): void {
  * pick, skipping options that cannot be picked; Home / End jump to the ends. Only the picked card
  * is in the Tab order.
  */
-export function radioKeys<T extends { id: string }>(
+export function useRadioKeys<T extends { id: string }>(
   options: T[],
   selectedId: string,
   canPick: (o: T) => boolean,
-  pick: (id: string, fromKeyboard: boolean) => void,
-  refs: { current: (HTMLButtonElement | null)[] }
+  pick: (id: string, fromKeyboard: boolean) => void
 ) {
+  const buttons = useRef<(HTMLButtonElement | null)[]>([])
   const tabTarget = options.some((o) => o.id === selectedId) ? selectedId : options.find(canPick)?.id
   const onKeyDown = (i: number) => (e: KeyboardEvent<HTMLButtonElement>) => {
     const n = options.length
@@ -32,14 +32,14 @@ export function radioKeys<T extends { id: string }>(
     else return
     e.preventDefault()
     if (j < 0 || j >= n) return
-    refs.current[j]?.focus()
+    buttons.current[j]?.focus()
     if (options[j].id !== selectedId) pick(options[j].id, true)
   }
   return {
     tabIndex: (id: string) => (id === tabTarget ? 0 : -1),
     onKeyDown,
     ref: (i: number) => (el: HTMLButtonElement | null) => {
-      refs.current[i] = el
+      buttons.current[i] = el
     },
   }
 }

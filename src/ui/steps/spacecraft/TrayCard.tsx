@@ -1,31 +1,7 @@
 import type { KeyboardEvent, Ref } from 'react'
 import { ChoiceCard, type ChoiceStat } from '../../kit/ChoiceCard'
 import type { TrayKey, TrayOption } from '../../../viz/spacecraft/trayOptions'
-
-/** The label of each category's key number (the last item of TrayOption.stats) */
-const KEY_LABEL: Record<TrayKey, string> = {
-  solar: 'Power',
-  battery: 'Energy',
-  computer: 'Storage',
-  attitude: 'Pointing',
-  propulsion: 'Fuelled',
-}
-
-/**
- * Every number of a tray option as labelled chips, read from TrayOption.stats
- * ("mass · volume · cost · key", built by trayGroups): nothing is recomputed here.
- */
-export function optionChips(key: TrayKey, o: TrayOption): ChoiceStat[] {
-  const parts = o.stats.split(' · ')
-  const keyValue = parts[parts.length - 1]?.replace(/ fuelled$/, '') ?? ''
-  const chips: ChoiceStat[] = [{ label: KEY_LABEL[key], value: keyValue }]
-  for (const p of parts.slice(0, -1)) {
-    if (p.startsWith('$')) chips.push({ label: 'Cost', value: p })
-    else if (p.endsWith(' U')) chips.push({ label: 'Volume', value: p })
-    else if (p.endsWith(' kg')) chips.push({ label: key === 'propulsion' ? 'Dry' : 'Mass', value: p })
-  }
-  return chips
-}
+import { optionChips } from './optionChips'
 
 /** The two numbers on the card itself: the key number and what it costs in the box (mass, or volume for a fuelled engine) */
 function cardChips(key: TrayKey, o: TrayOption): ChoiceStat[] {
@@ -49,6 +25,8 @@ const COMPACT = [
   '[&_.grid-cols-2>div]:px-1 [&_.grid-cols-2>div]:py-px [&_.grid-cols-2>div]:text-center',
   // The unit says what each number is (W, Wh, MB, °, kg, U); the full labels are in the fact strip and the accessible name
   '[&_.grid-cols-2>div>div:first-child]:hidden [&_.grid-cols-2>div>div:last-child]:text-[10.5px] [&_.grid-cols-2>div>div:last-child]:whitespace-nowrap',
+  // A smaller check mark, so it does not cover a third of a 60 px portrait
+  '[&_.h-6.w-6]:right-1 [&_.h-6.w-6]:top-1 [&_.h-6.w-6]:h-4 [&_.h-6.w-6]:w-4 [&_.h-6.w-6]:text-[9px]',
   'motion-reduce:[&_button]:!translate-y-0 motion-reduce:[&_img]:!scale-100 motion-reduce:[&_img]:!transition-none',
 ].join(' ')
 
@@ -59,12 +37,15 @@ interface TrayCardProps {
   tabIndex: number
   buttonRef: Ref<HTMLButtonElement>
   onPick: () => void
+  /** Keyboard focus: shows the part in the fact strip */
   onActive: () => void
+  /** Pointer over the card: the tray plays the hover sound and shows the part */
+  onHover: () => void
   onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => void
 }
 
-/** One Factory part as a compact portrait card, a radio in its bin. Picking plays the category's pick sound. */
-export function TrayCard({ group, option, selected, tabIndex, buttonRef, onPick, onActive, onKeyDown }: TrayCardProps) {
+/** One Factory part as a compact portrait card, a radio in its bin. The tray plays its sounds (sounds={false} here). */
+export function TrayCard({ group, option, selected, tabIndex, buttonRef, onPick, onActive, onHover, onKeyDown }: TrayCardProps) {
   return (
     <div className={COMPACT}>
       <ChoiceCard
@@ -79,7 +60,7 @@ export function TrayCard({ group, option, selected, tabIndex, buttonRef, onPick,
         buttonRef={buttonRef}
         onKeyDown={onKeyDown}
         onFocus={onActive}
-        onHover={onActive}
+        onHover={onHover}
         sounds={false}
         onPick={onPick}
         ariaLabel={`${option.short}: ${option.stats}`}

@@ -3,6 +3,8 @@
  * list. Catalogue facts only (src/data/parts.ts); no mission numbers are worked out here.
  */
 import type { ChoiceStat } from '../../ui/kit/ChoiceCard'
+import { audio } from '../../assets/audio'
+import { choiceArt } from '../../assets/catalogueArt'
 import type { InstrumentPart } from '../../data/parts'
 import type { InstrumentLock } from './labLocks'
 import { INSTRUMENT_COLORS, INSTRUMENT_SHORT_NAMES } from './stageModel'
@@ -67,4 +69,12 @@ export function rowFocusKey(key: string, index: number, count: number): number |
   if (key === 'Home') return 0
   if (key === 'End') return count - 1
   return null
+}
+
+/**
+ * The cards pass sounds={false} (they toggle, and the cue director plays no pick sound), so the
+ * trays sound here: the instrument's pick sound going aboard, a card flip coming off.
+ */
+export function playToggle(id: string, aboard: boolean) {
+  audio.play(aboard ? 'sfx.card-flip' : (choiceArt(id)?.pick ?? 'sfx.pick-instrument'))
 }

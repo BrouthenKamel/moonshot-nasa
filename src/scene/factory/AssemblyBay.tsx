@@ -5,12 +5,14 @@ import { FRAME_HEIGHT, type BayView, type StackBlock, type RowKey } from '../../
 import { CATEGORY_COLORS } from '../../viz/spacecraft/trayOptions'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { CraftModel } from './CraftModel'
-import { PartSlot, preloadPartModels, type SlotLive } from './PartSlot'
+import { PartSlot, type SlotLive } from './PartSlot'
+import { preloadPartModels } from './partModels'
 import { choiceArt } from '../../assets/catalogueArt'
+import { audio } from '../../assets/audio'
 import {
   paintBoard,
   paintScale,
-  paintTag,
+  wrapText,
   animFromView,
   BOARD_W,
   BOARD_H,
@@ -33,6 +35,7 @@ const STAND_Y = 1.25 // top of the stand, bottom of the box
 const W = 2 // box width (scene units)
 const D = 1 // box depth
 const PURPLE = '#8b5cf6'
+const PATCH_RADIO = 'radio-sband'
 const TAG_Z = D / 2 + 0.4
 const ease = (dt: number, k: number) => 1 - Math.exp(-dt * k)
 
@@ -102,10 +105,56 @@ function Room({ alarm, reduced }: { alarm: boolean; reduced: boolean }) {
 
 /* ---------------- labels ---------------- */
 
+/**
+ * A name tag, as boardPainter's paintTag draws it (stripe in the category colour, battery cells or
+ * computer boards, the sub line), but the full name always fits: it shrinks, then takes two lines,
+ * instead of being cut ("Large Battery Pac…").
+ */
+function paintBayTag(ctx: CanvasRenderingContext2D, block: StackBlock) {
+  const color = block.overLimit ? '#ef4444' : (CATEGORY_COLORS[block.category] ?? '#64748b')
+  ctx.clearRect(0, 0, TAG_W, TAG_H)
+  ctx.fillStyle = 'rgba(2, 6, 23, 0.92)'
+  ctx.fillRect(0, 0, TAG_W, TAG_H)
+  ctx.fillStyle = color
+  ctx.fillRect(0, 0, 14, TAG_H)
+  let textX = 36
+  if (block.detail > 0) {
+    for (let i = 0; i < block.detail; i++) {
+      if (block.category === 'battery') ctx.fillRect(36 + i * 34, 52, 24, 96)
+      else ctx.fillRect(36, 60 + i * 44, 92, 30)
+    }
+    textX = block.category === 'battery' ? 56 + block.detail * 34 : 150
+  }
+  const maxW = TAG_W - textX - 20
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = '#ffffff'
+  let lines: string[] = []
+  for (const size of [44, 40, 36]) {
+    ctx.font = `600 ${size}px system-ui, sans-serif`
+    if (ctx.measureText(block.name).width <= maxW) {
+      lines = [block.name]
+      break
+    }
+  }
+  if (lines.length === 0) {
+    ctx.font = '600 36px system-ui, sans-serif'
+    lines = wrapText(ctx, block.name, maxW, 2)
+  }
+  const two = lines.length > 1
+  const nameY = block.sub ? (two ? [46, 90] : [72]) : two ? [78, 122] : [100]
+  lines.forEach((line, i) => ctx.fillText(line, textX, nameY[i]))
+  if (block.sub) {
+    ctx.fillStyle = block.readOnly ? '#94a3b8' : '#cbd5e1'
+    ctx.font = `${two ? 30 : 34}px system-ui, sans-serif`
+    ctx.fillText(wrapText(ctx, block.sub, maxW, 1)[0] ?? '', textX, two ? 146 : 134)
+  }
+}
+
 function useTagTexture(block: StackBlock) {
   const tag = useMemo(() => makeCanvasTexture(TAG_W, TAG_H), [])
   useEffect(() => {
-    paintTag(tag.ctx, block)
+    paintBayTag(tag.ctx, block)
     tag.texture.needsUpdate = true
   }, [tag, block])
   useEffect(() => () => tag.texture.dispose(), [tag])
@@ -115,10 +164,13 @@ function useTagTexture(block: StackBlock) {
 /* ---------------- a part inside the box ---------------- */
 
 /** Every name tag sits in one column left of the box, so the hardware inside stays in view. */
-const TAG_H3 = 0.48 // tag height, scene units
+const TAG_H3 = 0.5 // tag height, scene units
 const TAG_W3 = TAG_H3 * (TAG_W / TAG_H)
-const TAG_GAP = 0.52 // centre to centre
+const TAG_GAP = 0.56 // centre to centre
 const TAG_X = -W / 2 - 0.42 - TAG_W3 / 2
+const TAG_BACK = new THREE.MeshBasicMaterial({ color: '#020617' })
+const _q = new THREE.Quaternion()
+const _v = new THREE.Vector3()
 const FALL = 0.42 // seconds from the crane to the slot
 const DROP = 2.4 // how high a new part starts above its slot
 
@@ -136,7 +188,7 @@ function Block({ block, tagY, delay, reduced }: BlockProps) {
   const lineMat = useRef<THREE.LineBasicMaterial>(null)
   const live = useRef<SlotLive>({ height: block.height, flash: 0, squash: 0 })
   // t: seconds since this part was picked (negative while waiting for its turn)
-  const state = useRef({ base: block.base, tagY, partId: block.partId, t: reduced ? 99 : -delay })
+  const state = useRef({ base: block.base, tagY, partId: block.partId, t: reduced ? 99 : -delay, snap: false })
   const texture = useTagTexture(block)
   const color = block.readOnly ? '#64748b' : (CATEGORY_COLORS[block.category] ?? '#64748b')
   const accent = choiceArt(block.partId)?.accent ?? color
@@ -146,9 +198,11 @@ function Block({ block, tagY, delay, reduced }: BlockProps) {
     if (state.current.partId === block.partId) return
     state.current.partId = block.partId
     state.current.t = reduced ? FALL : 0
+    // The tray card plays the pick sound; the bay adds the clunk when the part lands
+    state.current.snap = true
   }, [block.partId, reduced])
 
-  useFrame((_, delta) => {
+  useFrame(({ camera }, delta) => {
     const s = state.current
     const l = live.current
     const dt = Math.min(delta, 0.1)
@@ -162,17 +216,33 @@ function Block({ block, tagY, delay, reduced }: BlockProps) {
     const p = Math.min(1, Math.max(0, s.t / FALL))
     const drop = reduced || s.t >= FALL ? 0 : s.t < 0 ? DROP : DROP * (1 - p * p)
     const since = s.t - FALL
+    if (s.snap && since >= 0) {
+      s.snap = false
+      // With reduced motion the part is home at once: the card's pick sound is the only one
+      if (!reduced) audio.play('sfx.snap')
+    }
     l.squash = reduced || since < 0 ? 0 : 0.16 * Math.exp(-since * 11) * Math.cos(since * 34)
     l.flash = since < 0 ? 0 : Math.exp(-since * 3.2)
     if (slot.current) {
       slot.current.position.y = s.base + l.height / 2 + drop
       slot.current.visible = s.t >= 0
     }
-    if (tag.current) tag.current.position.y = s.tagY
+    const t = tag.current
+    if (t) {
+      t.position.y = s.tagY
+      // Face the camera as the turntable turns, so the tags read flat instead of skewed
+      if (t.parent) {
+        t.parent.getWorldQuaternion(_q)
+        t.quaternion.copy(_q.invert().multiply(camera.quaternion))
+      }
+    }
     if (line.current) {
       const pos = line.current.attributes.position as THREE.BufferAttribute
       pos.setXYZ(0, -W / 2 + 0.06, s.base + l.height / 2, D / 2 - 0.02)
-      pos.setXYZ(1, TAG_X + TAG_W3 / 2, s.tagY, TAG_Z)
+      // The tag's right edge, wherever the billboard has turned it
+      _v.set(TAG_W3 / 2, 0, 0)
+      if (t) _v.applyQuaternion(t.quaternion)
+      pos.setXYZ(1, TAG_X + _v.x, s.tagY + _v.y, TAG_Z + _v.z)
       pos.needsUpdate = true
     }
     if (lineMat.current) lineMat.current.color.set(block.overLimit ? '#ef4444' : color)
@@ -201,6 +271,10 @@ function Block({ block, tagY, delay, reduced }: BlockProps) {
         <lineBasicMaterial ref={lineMat} color={color} transparent opacity={0.85} />
       </lineSegments>
       <group ref={tag} position={[TAG_X, tagY, TAG_Z]}>
+        {/* Solid backing: the folded-out wing behind must not show through the text */}
+        <mesh position-z={-0.004} material={TAG_BACK}>
+          <planeGeometry args={[TAG_W3, TAG_H3]} />
+        </mesh>
         <mesh>
           <planeGeometry args={[TAG_W3, TAG_H3]} />
           <meshBasicMaterial map={texture} transparent toneMapped={false} />
@@ -344,6 +418,26 @@ function Engine({ kind, starved, reduced }: { kind: BayView['outside']['engine']
   )
 }
 
+const GOLD = new THREE.MeshStandardMaterial({ color: '#d4a64a', metalness: 1, roughness: 0.3 })
+
+/** The S-band radio's two patch antennas, on the box's top end (see Craft). */
+function TopPatches() {
+  return (
+    <group position-y={FRAME_HEIGHT + 0.025}>
+      {[-0.45, 0.45].map((x) => (
+        <group key={x} position={[x, 0, 0.12]} rotation-x={0.5}>
+          <mesh material={DARK}>
+            <boxGeometry args={[0.44, 0.04, 0.44]} />
+          </mesh>
+          <mesh position-y={0.03} material={GOLD}>
+            <boxGeometry args={[0.3, 0.02, 0.3]} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  )
+}
+
 /** The drawn outside parts: the fallback for the CubeSat model. */
 function DrawnOutside({ view, reduced }: { view: BayView; reduced: boolean }) {
   const o = view.outside
@@ -404,6 +498,14 @@ function Craft({ view, reduced }: { view: BayView; reduced: boolean }) {
   const tags = tagHeights(view.stack)
   const top = view.stack.reduce((m, b) => Math.max(m, b.base + b.height), 0)
   const ghost = useRef<THREE.MeshBasicMaterial>(null)
+  // The S-band patches sit on the CubeSat model's top face, which the bay turns into the open
+  // front: there they would hang in front of the engine slot. The bay shows them on the box's
+  // top end instead, where the old drawn bay had its patch antenna.
+  const movePatch = view.outside.modelParts.includes(PATCH_RADIO)
+  const outsideView = useMemo(
+    () => ({ ...view, outside: { ...view.outside, modelParts: view.outside.modelParts.filter((id) => id !== PATCH_RADIO) } }),
+    [view]
+  )
 
   useFrame((state) => {
     if (ghost.current) ghost.current.opacity = reduced ? 0.3 : 0.25 + 0.12 * Math.sin(state.clock.elapsedTime * 8)
@@ -436,7 +538,8 @@ function Craft({ view, reduced }: { view: BayView; reduced: boolean }) {
       {/* Outside parts: Kamel's CubeSat model, or the drawn parts while it loads or if it fails */}
       <ModelBoundary fallback={<DrawnOutside view={view} reduced={reduced} />}>
         <Suspense fallback={<DrawnOutside view={view} reduced={reduced} />}>
-          <CraftModel view={view} reduced={reduced} />
+          <CraftModel view={outsideView} reduced={reduced} />
+          {movePatch && <TopPatches />}
         </Suspense>
       </ModelBoundary>
     </group>

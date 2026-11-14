@@ -3,9 +3,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import * as THREE from 'three'
 import { choiceArt } from '../../assets/catalogueArt'
-import { preloadModel, useModel } from '../../assets/models'
+import { useModel } from '../../assets/models'
 import type { ModelId } from '../../assets/manifest'
-import { allParts } from '../../data/parts'
 
 /**
  * One part inside the open 6U box: the real catalogue model (choiceArt(partId).model),
@@ -18,32 +17,24 @@ const RED = new THREE.Color('#ef4444')
 const BLACK = new THREE.Color('#000000')
 
 /** Slot padding inside the box walls (scene units) */
-export const SLOT_PAD = { x: 0.08, y: 0.012, z: 0.08 }
-
-/** Every part model the bay can show, fetched as soon as the bay opens so swaps are instant. */
-let preloaded = false
-export function preloadPartModels() {
-  if (preloaded) return
-  preloaded = true
-  for (const p of allParts) {
-    const model = choiceArt(p.id)?.model
-    if (model && p.volume > 0) preloadModel(model)
-  }
-}
+const SLOT_PAD = { x: 0.08, y: 0.012, z: 0.08 }
 
 /**
  * Studio reflections for the parts' own metal. The bay's scene environment is kept dim for the
  * room; inside the open box the parts would read nearly black without their own reflections.
  */
 let studio: THREE.Texture | null = null
-function useStudio(): THREE.Texture {
-  const gl = useThree((s) => s.gl)
+function studioFor(gl: THREE.WebGLRenderer): THREE.Texture {
   if (!studio) {
     const pmrem = new THREE.PMREMGenerator(gl)
     studio = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
     pmrem.dispose()
   }
   return studio
+}
+function useStudio(): THREE.Texture {
+  const gl = useThree((s) => s.gl)
+  return useMemo(() => studioFor(gl), [gl])
 }
 
 /* ---------------- fitting ---------------- */

@@ -1,9 +1,8 @@
-import { useRef } from 'react'
 import { lunarOrbits } from '../../../data/orbits'
 import { coverageAt, COVERAGE_GOAL, MISSION_MONTHS, type OrbitOption } from '../../../viz/orbit/orbitView'
 import type { ChoiceStat } from '../../kit/ChoiceCard'
 import { LaunchCard } from './LaunchCard'
-import { radioKeys } from './radioKeys'
+import { useRadioKeys } from './radioKeys'
 
 /**
  * The three science orbits as painted cards in their orbit colours (violet halo, lime elliptical,
@@ -58,8 +57,7 @@ export function OrbitCardTray({
   full?: boolean
   columns?: number
 }) {
-  const refs = useRef<(HTMLButtonElement | null)[]>([])
-  const keys = radioKeys(options, selectedId, () => true, onPick, refs)
+  const keys = useRadioKeys(options, selectedId, () => true, onPick)
   return (
     <div role="radiogroup" aria-label="Science orbit" className="grid items-end gap-2.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
       {options.map((o, i) => (
@@ -68,7 +66,7 @@ export function OrbitCardTray({
           id={o.id}
           title={o.shortName}
           subtitle={full ? `Flown by ${flownBy(o.id)}` : undefined}
-          tag={flownBy(o.id)?.replace(' (planned)', ', planned')}
+          tag={flownBy(o.id)?.replace(' (planned)', '').split(',')[0]}
           stats={stats(o, full)}
           plaque={{ tone: o.verdict.tone, text: o.verdict.text }}
           size={size}

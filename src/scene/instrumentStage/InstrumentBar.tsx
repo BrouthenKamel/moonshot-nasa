@@ -3,7 +3,7 @@ import { instruments as catalogue } from '../../data/parts'
 import { audio } from '../../assets/audio'
 import { ChoiceCard } from '../../ui/kit/ChoiceCard'
 import { instrumentLock } from './labLocks'
-import { altitudeText, instrumentCardView, instrumentColor, instrumentShortName, instrumentStats, rowFocusKey } from './instrumentCards'
+import { altitudeText, instrumentCardView, playToggle, instrumentColor, instrumentShortName, instrumentStats, rowFocusKey } from './instrumentCards'
 
 const MAX = 2
 
@@ -11,8 +11,8 @@ const MAX = 2
  * The instrument bay docked under the stage: the four instruments as cards (their 3D portrait,
  * key numbers and the shadow lesson), and two slots that fill with each instrument's beam colour.
  * Each card is a toggle (aria-pressed); arrow keys move along the row.
- * The pick sound comes from the cue director (a design change plays sfx.select), so the cards
- * only add the hover tick and the "cannot fit" thunk.
+ * Sounds are the tray's own (ChoiceCard sounds off): hover tick, the instrument's pick sound,
+ * a card flip when one comes off, and the "cannot fit" thunk on a locked card.
  */
 export function InstrumentBar({ chosen, day, onToggle }: { chosen: string[]; day: number; onToggle: (id: string) => void }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
@@ -24,7 +24,7 @@ export function InstrumentBar({ chosen, day, onToggle }: { chosen: string[]; day
       className="flex flex-col gap-4 rounded-b-xl border border-t-0 border-slate-800 bg-[radial-gradient(ellipse_at_top,#0b2a1a_0%,#03050a_70%)] px-4 py-4 lg:flex-row lg:items-stretch"
     >
       {/* The bay: what is aboard, slot by slot */}
-      <div className="flex shrink-0 flex-col justify-between gap-3 lg:w-52">
+      <div className="flex shrink-0 flex-col gap-4 lg:w-52">
         <div>
           <div className="font-mono text-[11px] font-semibold tracking-[0.2em] text-green-400">INSTRUMENT BAY</div>
           <div className="mt-1 font-display text-lg font-bold leading-tight text-white">Pick up to two</div>
@@ -59,7 +59,7 @@ export function InstrumentBar({ chosen, day, onToggle }: { chosen: string[]; day
           return (
             <div
               key={inst.id}
-              className="flex w-full max-w-[160px] flex-col items-stretch gap-2"
+              className="flex h-full w-full max-w-[160px] flex-col items-stretch gap-2"
               onClickCapture={() => {
                 if (view.blocked) audio.play('sfx.fit-error')
               }}
@@ -88,10 +88,13 @@ export function InstrumentBar({ chosen, day, onToggle }: { chosen: string[]; day
                   e.preventDefault()
                   refs.current[next]?.focus()
                 }}
-                onPick={() => onToggle(inst.id)}
+                onPick={() => {
+                  playToggle(inst.id, on)
+                  onToggle(inst.id)
+                }}
               />
               {/* Its beam colour, lit when aboard: the same colour as its beam and readout on the stage */}
-              <div className="flex items-center gap-1.5 px-1" aria-hidden>
+              <div className="mt-auto flex items-center gap-1.5 px-1" aria-hidden>
                 <span
                   className="h-1.5 flex-1 rounded-full transition-all duration-300"
                   style={{ background: on ? color : `${color}33`, boxShadow: on ? `0 0 10px ${color}` : 'none' }}

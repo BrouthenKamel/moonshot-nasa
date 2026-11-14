@@ -1,3 +1,6 @@
+import { useRef } from 'react'
+import { audio } from '../../../assets/audio'
+
 /**
  * Contact time: hours a day booked on the ground station, as a console slider with a tick per
  * hour. A real <input type="range"> with a label and a spoken value, so keys and screen
@@ -16,6 +19,7 @@ export function ContactSlider({
   costPerMonth: number
   onChange: (hours: number) => void
 }) {
+  const lastTick = useRef(0)
   const min = 0.25
   const pct = maxHours > min ? ((hours - min) / (maxHours - min)) * 100 : 100
   const ticks = Array.from({ length: Math.floor(maxHours) }, (_, i) => i + 1)
@@ -62,7 +66,15 @@ export function ContactSlider({
           disabled={maxHours <= min}
           aria-describedby="contact-hours-help contact-hours-max"
           aria-valuetext={`${hours} hours a day`}
-          onChange={(e) => onChange(Number(e.target.value))}
+          onChange={(e) => {
+            // A detent click per step; at most one every 70 ms so a fast drag does not buzz
+            const now = performance.now()
+            if (now - lastTick.current > 70) {
+              lastTick.current = now
+              audio.play('sfx.click')
+            }
+            onChange(Number(e.target.value))
+          }}
           className="comms-range relative z-10 h-6 w-full cursor-pointer appearance-none bg-transparent focus:outline-none"
         />
       </div>

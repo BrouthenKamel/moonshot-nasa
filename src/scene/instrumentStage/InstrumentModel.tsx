@@ -14,9 +14,9 @@ import { StageBoundary } from './StageBoundary'
 /** Underside of the bus: the instrument's mounting plate goes here */
 const MOUNT_Y = -0.25
 /** Biggest size across track (two fit side by side at slotX ±0.2), along track and down */
-const MAX_ACROSS = 0.36
-const MAX_ALONG = 0.66
-const MAX_DOWN = 0.36
+const MAX_ACROSS = 0.38
+const MAX_ALONG = 0.8
+const MAX_DOWN = 0.42
 /** Front of the instrument, just behind where the beam starts */
 const FRONT_Z = -0.08
 /** The beam leaves forward and down; tilt the aperture the same way */
@@ -76,7 +76,6 @@ function fitModel(model: THREE.Object3D): Fit {
   const s = Math.min(MAX_ACROSS / size.x, MAX_DOWN / size.y, MAX_ALONG / size.z)
   const position: [number, number, number] = [-((box.min.x + box.max.x) / 2) * s, MOUNT_Y - box.max.y * s, FRONT_Z - box.min.z * s]
   const aperture: [number, number, number] = [0, MOUNT_Y - size.y * s * 0.55, FRONT_Z - 0.01]
-  console.log("FIT", size.toArray(), s, position)
   return { scale: s, position, aperture }
 }
 

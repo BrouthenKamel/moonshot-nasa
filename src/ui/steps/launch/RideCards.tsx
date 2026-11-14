@@ -1,14 +1,14 @@
-import { useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 import { useGameStore } from '../../../state/gameStore'
 import { useRideView, chooseRide, chooseTransfer } from '../../../viz/ride/useRideView'
 import type { BoardRow, RowStatus, TransferSign } from '../../../viz/ride/rideView'
-import { rides, getRideById } from '../../../data/rides'
+import { getRideById } from '../../../data/rides'
 import { transfers, getTransferById } from '../../../data/transfers'
 import { getPartById, type PropulsionPart } from '../../../data/parts'
 import { computeBudgets } from '../../../sim/budgets'
 import type { ChoiceStat } from '../../kit/ChoiceCard'
 import { LaunchCard, type Plaque } from './LaunchCard'
-import { playPick, radioKeys } from './radioKeys'
+import { playPick, useRadioKeys } from './radioKeys'
 
 /**
  * The ride and transfer choices as painted cards. Every number comes from the ride view
@@ -40,8 +40,8 @@ function rideStats(r: BoardRow): ChoiceStat[] {
   return [
     { label: 'Leaves', value: `Month ${r.turn}`, tone: r.status === 'tooEarly' ? 'bad' : undefined },
     { label: 'Arrives', value: r.arrivalTurn === null ? 'never' : `Month ${r.arrivalTurn}`, tone: r.arrivalTurn === null ? 'bad' : undefined },
-    { label: `Plan · fee $${r.fee.toFixed(1)}M`, value: `$${r.planCost.toFixed(1)}M`, tone: r.overBudget ? 'bad' : undefined },
-    { label: 'Capture burn', value: r.burn === null ? 'no way' : ms(r.burn), tone: r.status === 'cantReach' ? 'bad' : undefined },
+    { label: 'Plan cost', value: `$${r.planCost.toFixed(1)}M`, tone: r.overBudget ? 'bad' : undefined },
+    { label: 'Capture', value: r.burn === null ? 'no way' : ms(r.burn), tone: r.burn === null || r.status === 'cantReach' ? 'bad' : undefined },
   ]
 }
 
@@ -50,15 +50,6 @@ const DROP_SHORT: Record<string, string> = {
   gto: 'Earth orbit (GTO)',
   'trans-lunar': 'Path to the Moon',
   'lunar-vicinity': 'Close to the Moon',
-}
-
-/** Which engines a ride takes, in words */
-export function engineLine(rideId: string): string {
-  const ride = getRideById(rideId)
-  if (!ride) return ''
-  if (ride.electricCompatible && ride.chemicalCompatible) return 'Takes ion and chemical engines.'
-  if (ride.electricCompatible) return 'Only an ion engine can climb out from here.'
-  return 'Chemical engines only.'
 }
 
 export function RideCardTray({
@@ -71,13 +62,12 @@ export function RideCardTray({
   onHover?: (id: string | null) => void
 }) {
   const view = useRideView()
-  const refs = useRef<(HTMLButtonElement | null)[]>([])
   const selectedId = view.rows.find((r) => r.selected)?.id ?? ''
   const pick = (id: string, fromKeyboard: boolean) => {
     if (fromKeyboard) playPick(id)
     chooseRide(id)
   }
-  const keys = radioKeys(view.rows, selectedId, () => true, pick, refs)
+  const keys = useRadioKeys(view.rows, selectedId, () => true, pick)
   return (
     <div
       role="radiogroup"
@@ -128,7 +118,8 @@ function useTransferTrials() {
 
 function transferStats(s: TransferSign, b: ReturnType<typeof computeBudgets>): ChoiceStat[] {
   if (!s.selectable) return []
-  const takes = b.transferTurns === null ? 'no power' : b.transferTurns === 0 ? '5 days' : `${b.transferTurns} months`
+  const takes =
+    b.captureDeltaV === null ? 'never' : b.transferTurns === null ? 'no power' : b.transferTurns === 0 ? '5 days' : `${b.transferTurns} months`
   const left = b.captureDeltaV === null ? null : b.deltaVAfterCapture
   return [
     { label: 'Takes', value: takes, tone: b.transferTurns === null ? 'bad' : undefined },
@@ -136,9 +127,13 @@ function transferStats(s: TransferSign, b: ReturnType<typeof computeBudgets>): C
   ]
 }
 
-function transferSubtitle(s: TransferSign, b: ReturnType<typeof computeBudgets>): string {
+function transferSubtitle(s: TransferSign, b: ReturnType<typeof computeBudgets>, rideTakesEngine: boolean): string {
   if (!s.selectable) return s.type === 'direct' ? 'About 5 days, one big braking burn' : cap(s.sub)
-  return b.captureDeltaV === null ? 'Cannot capture into this orbit' : `Capture burn ${ms(b.captureDeltaV)}`
+  if (b.captureDeltaV !== null) return `Capture burn ${ms(b.captureDeltaV)}`
+  // Why the craft never gets there: the ride, the tank, or the orbit
+  if (!rideTakesEngine) return 'Wrong engine for this ride'
+  if (b.propellantMass <= 0) return 'No propellant on board'
+  return 'Cannot capture into this orbit'
 }
 
 export function TransferCardTray({
@@ -153,15 +148,16 @@ export function TransferCardTray({
   const view = useRideView()
   const design = useGameStore((s) => s.design)
   const trials = useTransferTrials()
-  const refs = useRef<(HTMLButtonElement | null)[]>([])
   const engine = getPartById(design.propulsion) as PropulsionPart | undefined
   const engineWords = ENGINE_WORDS[engine?.type ?? 'chemical']
+  const ride = getRideById(design.ride)
+  const rideTakesEngine = !!ride && (engine?.type === 'electric' ? ride.electricCompatible : ride.chemicalCompatible)
   const selectedId = view.signs.find((s) => s.selected)?.id ?? ''
   const pick = (id: string, fromKeyboard: boolean) => {
     if (fromKeyboard) playPick(id)
     chooseTransfer(id)
   }
-  const keys = radioKeys(view.signs, selectedId, (s) => s.selectable, pick, refs)
+  const keys = useRadioKeys(view.signs, selectedId, (s) => s.selectable, pick)
   return (
     <div
       role="radiogroup"
@@ -178,7 +174,7 @@ export function TransferCardTray({
             key={s.id}
             id={s.id}
             title={t?.name ?? s.title}
-            subtitle={transferSubtitle(s, trials[s.id])}
+            subtitle={transferSubtitle(s, trials[s.id], rideTakesEngine)}
             stats={transferStats(s, trials[s.id])}
             disabled={!s.selectable}
             reason={`Needs a chemical engine; yours is ${engineWords}.`}
@@ -205,17 +201,8 @@ export function EngineNote({ className = '' }: { className?: string }) {
   return (
     <div className={className}>
       <div className="text-[9px] font-semibold tracking-widest text-slate-500 uppercase">Engine</div>
-      <div className="text-[11.5px] leading-tight font-semibold text-slate-200">{engine ? engine.name.replace(/\s*\(.*\)$/, '') : 'None'}</div>
+      <div className="text-[11px] leading-tight font-semibold hyphens-auto text-slate-200">{engine ? engine.name.replace(/\s*\(.*\)$/, '') : 'None'}</div>
       <div className="mt-0.5 text-[10px] leading-tight text-slate-500">chosen at the Factory</div>
     </div>
   )
-}
-
-/** The words for a ride or transfer: its description, and for a ride the engines it takes */
-export function choiceBriefing(id: string): { name: string; text: string } | null {
-  const ride = rides.find((r) => r.id === id)
-  if (ride) return { name: ride.name, text: `${ride.description} ${engineLine(ride.id)}` }
-  const t = transfers.find((x) => x.id === id)
-  if (t) return { name: t.name, text: t.description }
-  return null
 }
