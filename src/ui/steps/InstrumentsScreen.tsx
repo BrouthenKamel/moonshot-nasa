@@ -3,7 +3,9 @@ import { useGameStore } from '../../state/gameStore'
 import { DesignDiagramPanel } from '../../viz/DesignDiagramPanel'
 import { StageBoundary } from '../../scene/instrumentStage/StageBoundary'
 import { canUseWebGL } from '../../scene/webgl'
-import { toggleInstrument as toggle } from '../../scene/instrumentStage/stageModel'
+import { instruments, type InstrumentPart } from '../../data/parts'
+import { useAgencyStore } from '../../state/agencyStore'
+import { instrumentLock, lockedInDesign, toggleUnlocked, type InstrumentLock } from '../../scene/instrumentStage/labLocks'
 
 const InstrumentStage = lazy(() => import('../../scene/instrumentStage/InstrumentStage'))
 
@@ -19,24 +21,28 @@ function Stage() {
     </StageBoundary>
   )
 }
-import { instruments, type InstrumentPart } from '../../data/parts'
-
 function InstrumentCard({
   instrument,
   selected,
+  lock,
   onToggle,
 }: {
   instrument: InstrumentPart
   selected: boolean
+  lock: InstrumentLock
   onToggle: () => void
 }) {
+  const blocked = lock.locked && !selected // a locked instrument already aboard stays removable
   return (
     <button
       onClick={onToggle}
+      disabled={blocked}
       className={`w-full rounded-lg p-4 text-left transition-colors ${
         selected
           ? 'bg-green-900 ring-2 ring-green-500'
-          : 'bg-slate-800 hover:bg-slate-700'
+          : blocked
+            ? 'cursor-not-allowed bg-slate-800/60 opacity-70'
+            : 'bg-slate-800 hover:bg-slate-700'
       }`}
     >
       <div className="flex items-start justify-between">
@@ -80,6 +86,7 @@ function InstrumentCard({
         <span>{instrument.volume} U</span>
         <span>Like {instrument.flownOn}</span>
       </div>
+      {lock.locked && <div className="mt-2 text-xs font-medium text-amber-300">🔒 {lock.text}</div>}
     </button>
   )
 }
@@ -89,7 +96,9 @@ export function InstrumentsScreen() {
   const updateDesign = useGameStore((s) => s.updateDesign)
   const setDesignStep = useGameStore((s) => s.setDesignStep)
 
-  const toggleInstrument = (id: string) => updateDesign({ instruments: toggle(design.instruments, id) })
+  const day = useAgencyStore((s) => s.day)
+  const toggleInstrument = (id: string) => updateDesign({ instruments: toggleUnlocked(design.instruments, id, day) })
+  const lockedAboard = lockedInDesign(design.instruments, day)
 
   const totalMass = instruments
     .filter((i) => design.instruments.includes(i.id))
@@ -132,12 +141,24 @@ export function InstrumentsScreen() {
         </div>
       </div>
 
+      {lockedAboard.map((lock) => {
+        const name = instruments.find((i) => i.id === lock.id)?.name ?? lock.id
+        return (
+          <div key={lock.id} className="rounded-lg border border-amber-500/60 bg-amber-950/60 p-4 text-sm text-amber-200">
+            <span className="font-semibold">{name} is in your design but the Research Lab has not unlocked it yet.</span>{' '}
+            {lock.text}. It stays in your design; Go / No-Go blocks the launch until the lab reaches LV {lock.neededLevel} or you
+            remove it.
+          </div>
+        )
+      })}
+
       <div className="space-y-4">
         {instruments.map((inst) => (
           <InstrumentCard
             key={inst.id}
             instrument={inst}
             selected={design.instruments.includes(inst.id)}
+            lock={instrumentLock(inst.id, day)}
             onToggle={() => toggleInstrument(inst.id)}
           />
         ))}
