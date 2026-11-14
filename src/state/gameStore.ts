@@ -338,7 +338,8 @@ export const useGameStore = create<GameState>()(
       applyFlight: (newState) => {
         set({
           simState: newState,
-          pendingAction: getDefaultAction(),
+          // Standing orders carry over from turn to turn; event answers do not
+          pendingAction: { ...getDefaultAction(), buyExtraPass: get().pendingAction.buyExtraPass },
           replayTurn: lastTurnIndex(newState.turnLogs),
         })
 

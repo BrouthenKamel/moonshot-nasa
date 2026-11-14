@@ -22,6 +22,7 @@ import { goNoGo } from '../../sim/checks'
 import { isSimComplete } from '../../sim/simulate'
 import { buildingForStep, flightFeed, lunarMissionView, missionLabels, suggestedStep } from '../../viz/missionMap'
 import { EventCard } from '../flight/EventCard'
+import { AudioControls } from '../kit/AudioControls'
 import { FlightControls } from '../flight/FlightControls'
 
 /* ------------------------------------------------------------------ */
@@ -185,6 +186,9 @@ function TopBar({ netPerMonth }: { netPerMonth: number }) {
               {netPerMonth.toFixed(2)}/mo
             </span>
           </div>
+        </div>
+        <div className="self-center">
+          <AudioControls tone="navy" />
         </div>
       </div>
     </header>

@@ -1,6 +1,12 @@
 import { useGameStore } from './state/gameStore'
 import { Shell } from './ui/Shell'
 import { DesignScreen, BaseScreen } from './ui/screens'
+import { Opening } from './ui/Opening'
+import { useUiStore } from './state/uiStore'
+import { canUseWebGL } from './scene/webgl'
+import { useAudioDirector } from './assets/director'
+import { audio } from './assets/audio'
+import { Captions } from './ui/kit/Captions'
 import { ReplayPanel } from './viz/ReplayPanel'
 import { isSimComplete } from './sim/simulate'
 import { computeBudgets } from './sim/budgets'
@@ -311,12 +317,17 @@ function ReportPlaceholder() {
 
 export default function App() {
   const screen = useGameStore((s) => s.screen)
+  const openingDone = useUiStore((s) => s.openingDone)
+  useAudioDirector()
 
   // The game starts on the agency map, a full-screen game view ('title' is an old name for it)
   if (screen === 'base' || screen === 'title') {
+    // The opening curtain covers the base once per session (only where the 3D picture can be drawn)
+    if (!openingDone && canUseWebGL()) return <Opening onBegin={() => audio.play('sfx.reveal')} />
     return (
       <main className="h-screen text-slate-100">
         <BaseScreen />
+        <Captions />
       </main>
     )
   }
@@ -341,5 +352,10 @@ export default function App() {
       content = <div>Unknown screen</div>
   }
 
-  return <Shell>{content}</Shell>
+  return (
+    <>
+      <Shell>{content}</Shell>
+      <Captions />
+    </>
+  )
 }

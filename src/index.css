@@ -6,3 +6,19 @@
 
 html, body, #root { height: 100%; }
 body { margin: 0; font-family: Inter, system-ui, sans-serif; }
+
+/* Opening curtain: words drift up into place */
+@keyframes opening-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+.opening-rise { animation: opening-rise 1.6s 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .opening-rise { animation: none; }
+}
+
+@keyframes caption-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.caption-in { animation: caption-in 0.25s ease-out both; }

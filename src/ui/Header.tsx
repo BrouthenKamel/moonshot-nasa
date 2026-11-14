@@ -1,3 +1,4 @@
+import { AudioControls } from './kit/AudioControls'
 import { useGameStore } from '../state/gameStore'
 import { lunarIceMapperBrief, difficultyPresets } from '../data/brief'
 
@@ -58,6 +59,7 @@ export function Header() {
             >
               New Game
             </button>
+            <AudioControls />
           </>
         )}
       </div>
