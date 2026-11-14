@@ -59,3 +59,15 @@ Kept by the Integration session, so nothing the "Game quality control" session f
 | 44 | Info | Keep: picking a ride updates the dashboard and Go/No-Go instantly, with the reason | — | info | — |
 | 45 | Low | "Build effort 37 points = 4 turns" is jargon; say "4 months of building" | A | waits-jakob | Integration |
 | 46 | Info | Rapid clicks: no duplicate launch, no duplicate feed entries | — | info | — |
+
+## Deletion candidates (batch 12)
+
+QC tested group D1 in its own worktree: removing it keeps typecheck, 224/224 tests and the build green.
+
+| # | Group | What | Status | Owner |
+|---|-------|------|--------|-------|
+| 47 | D1 dead code (~720 lines) | src/ui/TeamMode.tsx, src/ui/screens/TitleScreen.tsx, src/scene/SpacecraftView.tsx, src/ui/Tooltip.tsx + src/data/glossary.ts, src/data/reference.ts, and their barrel export lines | waits-jakob | Integration (after design/round-2 merges) |
+| 48 | D2 probably dead | src/data/sources.ts (may be the record of where the numbers come from); unused barrels src/{assets,data,scene,sim,ui,viz}/index.ts; nine helpers with no callers (getEventsForPhase, searchGlossary, getPartsByCategory, generateComparison, getReferenceMissionById, getNextRide, getCompatibleTransfers, getOutcomeEmoji, getGrade) | waits-jakob | Integration |
+| 49 | D3 dead team mode | gameStore mode/players/setMode/setPlayers/sign-offs (persisted); the "Roles" legend in src/ui/StepRail.tsx | waits-jakob | Integration |
+| 50 | D4 visible UI | "+ BUILD coming soon" placeholder on the map; funds and support shown twice; "New Game" next to "Agency base" in the design header; "Reset demo to day 112" once the demo missions go | waits-jakob | Integration |
+| 51 | D5 repo weight | docs/resources (3.9 MB of PDFs), assets-src/concepts (5.6 MB of PNGs), the asset lab dev tool | waits-jakob | Kamel / Jakob |
