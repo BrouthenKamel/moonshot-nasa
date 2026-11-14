@@ -163,12 +163,35 @@ All of these are being built on branch fix/qc-round-3 (round-3 builder), except 
 
 | # | Idea | Status |
 |---|------|--------|
-| I1 | Launch moment: a 10-15 s countdown, the Go/No-Go bars polled one by one, then the ride animates | waits-jakob |
-| I2 | Fix-it loop after a failure: the report names the 1-2 decisions behind it, with "Fix at <building>" buttons and "Relaunch with this change" | waits-jakob |
-| I3 | "Your mission vs the real one" comparison (Flashlight, IceCube, LunaH-Map) and a shareable result card | waits-jakob |
-| I4 | Seeded challenge variants (the ride slips 2 turns, budget -3 M, rad-hard computer mandatory) | waits-jakob |
-| I5 | The trap starting design: the brief names the first lesson, or the unvisited building pulses on the map | waits-jakob |
+| I1 | Launch moment: a 10-15 s countdown, the Go/No-Go bars polled one by one, then the ride animates | go (18:51): launch-report-builder, feat/launch-and-fixit |
+| I2 | Fix-it loop after a failure: the report names the 1-2 decisions behind it, with "Fix at <building>" buttons and "Relaunch with this change" | go (18:51): feat/launch-and-fixit |
+| I3 | "Your mission vs the real one" comparison (Flashlight, IceCube, LunaH-Map) and a shareable result card | prototype first: tmp/i3-prototype.html is built, waits for Jakob to look |
+| I4 | Seeded challenge variants (the ride slips 2 turns, budget -3 M, rad-hard computer mandatory) | no: "not yet" |
+| I5 | The trap starting design: the brief names the first lesson, or the unvisited building pulses on the map | go, both (18:55): I5a brief hint and an astronaut narrator story layer (storyteller, feat/narrator); I5b the pulsing Research Lab (mvp/single-mission) |
+
+## Scope change, Jakob 14 Nov 18:49
+
+The MVP is ONE mission. The agency dashboard, the calendar, building levels and the "+ BUILD" plot are later extensions; see docs/DESIGN-DIRECTION.md section 1a. This settles several items:
+- 4, 11, 15, 36, 83, J3 (agency money): moot. Money is the mission's own budget.
+- 13, 73, 81 (lab levels): moot. There are no levels; PR #27 removes the locks.
+- 5, 80, J2 (time): one unit for the player, the mission month (mvp/single-mission).
+- D4, 50, 53, 86, 92 (dashboard items, "+ BUILD", Reset demo): removed by mvp/single-mission.
+
+## Batches 22-25
+
+| # | Sev | Finding | Group | Status | Owner |
+|---|-----|---------|-------|--------|-------|
+| 84 | Med | A reload after a finished mission opens straight on the old report | — | go (with #70): mvp-builder | mvp/single-mission |
+| 85 | Low | The Ride & Transfer canvas has no aria-label | A | waits-jakob | Ride & Transfer |
+| 89 | Low | After a flight, clicking a building does nothing and says nothing | — | waits-jakob | — |
+| 90 | Low | The 'long-eclipse' event never fired in 1500 runs: dead or unreachable | — | sent to the balance redesign | balance-designer |
+| 91 | Med | A run missing 3 of 5 targets with 0% ice is labelled "Partial Success". New rule: success = all 5 met; partial = ice met, another missed; failed = ice missed or budget/loss end | J1 | go (18:56) | launch-report-builder |
+| 92 | Low-Med | "Reset demo to day 112" wipes a mission without confirming | D4 | go: removed with the dashboard | mvp/single-mission |
+| 93 | Info | Keep: the report's "why" chains trace each miss back to a choice | — | info | — |
+| 94 | Info | One run uses about 26 KB of browser storage | — | Jakob: don't worry about it | — |
+| 70 | High | Old saves white-screen the app | H | go (18:51): mvp-builder | mvp/single-mission |
 
 ## Sound (C3)
 
-PR #24 adds music on the base (Kamel's theme.mp3) and a mute button. The five flight cues (launch, event, capture, success, failure) are wired up but silent, because no sound-effect files exist yet.
+- PR #24 (merged) adds the music on the base and a mute button.
+- Five ElevenLabs flight cues were generated with Jakob's go; he listened and liked them (18:53). They're on branch feat/sound-effects, staged and not yet committed.
