@@ -4,7 +4,7 @@ import { OrbitControls, Stars } from '@react-three/drei'
 import * as THREE from 'three'
 import { TILE_LENGTH, TILE_WIDTH, bakeGround } from './ground'
 import { Beam } from './beams'
-import { SAT_SCALE, advancePass, groundAt, lookY, makeGlowTexture, slotX, targetZ, type Pass } from './frame'
+import { SAT_SCALE, advancePass, holdOverCrater, groundAt, lookY, makeGlowTexture, slotX, targetZ, type Pass } from './frame'
 import type { InstrumentView } from './stageModel'
 
 const TAU = Math.PI * 2
@@ -39,7 +39,8 @@ function buildTile(): THREE.BufferGeometry {
 function Driver({ pass, h, still, onShadow }: { pass: Pass; h: number; still: boolean; onShadow: (s: boolean) => void }) {
   const last = useRef<boolean | null>(null)
   useFrame((_, dt) => {
-    if (!still) advancePass(pass, dt)
+    if (still) holdOverCrater(pass, h)
+    else advancePass(pass, dt)
     const s = groundAt(pass, 0, targetZ(h)).shadow > 0.5
     if (s !== last.current) {
       last.current = s
@@ -189,7 +190,7 @@ export function Scene({ pass, h, views, still, onShadow }: SceneProps) {
       <Terrain pass={pass} />
       <Satellite h={h} views={views} />
       {views.map((v, i) => (
-        <Beam key={v.id} pass={pass} h={h} x={slotX(i, views.length)} view={v} glow={glow} />
+        <Beam key={v.id} pass={pass} h={h} x={slotX(i, views.length)} view={v} glow={glow} calm={still} />
       ))}
       <OrbitControls
         makeDefault

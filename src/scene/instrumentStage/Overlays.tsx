@@ -61,7 +61,7 @@ export function ForecastPanel({ forecast }: { forecast: StageForecast }) {
 export function PassChip({ overShadow }: { overShadow: boolean }) {
   return (
     <div
-      className={`pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full border px-4 py-1 text-xs font-medium backdrop-blur transition-colors duration-300 ${
+      className={`w-fit rounded-full border px-4 py-1 text-xs font-medium backdrop-blur transition-colors duration-300 ${
         overShadow
           ? 'border-indigo-400/60 bg-indigo-950/80 text-indigo-200'
           : 'border-amber-300/50 bg-amber-950/70 text-amber-200'
@@ -124,6 +124,7 @@ function countsAsText(v: InstrumentView): string {
 export function ReadOuts({ views, overShadow }: { views: InstrumentView[]; overShadow: boolean }) {
   return (
     <div className="pointer-events-none absolute bottom-3 right-3 w-80 space-y-1.5">
+      <PassChip overShadow={overShadow} />
       {views.length === 0 && (
         <div className={`px-3 py-2 text-sm text-slate-300 ${panel}`}>The instrument bay is empty. Pick one or two below.</div>
       )}

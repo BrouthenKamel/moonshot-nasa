@@ -3,7 +3,7 @@
  * moving pass, where the satellite flies, where the beams land.
  */
 import * as THREE from 'three'
-import { TILE_LENGTH, groundHeight, shadowAt } from './ground'
+import { TILE_LENGTH, TRACK_CRATER, groundHeight, shadowAt } from './ground'
 
 /** Mutable state the frame loop advances; one object per stage. */
 export interface Pass {
@@ -20,6 +20,11 @@ const mod = (a: number, n: number) => ((a % n) + n) % n
 /** Slide the ground on by dt seconds. */
 export function advancePass(pass: Pass, dt: number) {
   pass.offset = (pass.offset + SPEED * Math.min(dt, 0.05)) % TILE_LENGTH
+}
+
+/** Hold the ground so the landing point sits on the dark crater (reduced motion). */
+export function holdOverCrater(pass: Pass, h: number) {
+  pass.offset = mod(TRACK_CRATER.u + targetZ(h), TILE_LENGTH)
 }
 
 export const satHeight = (altitudeKm: number) => 2.6 + altitudeKm * 0.085

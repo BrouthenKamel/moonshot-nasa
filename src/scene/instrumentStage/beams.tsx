@@ -10,12 +10,13 @@ export interface BeamProps {
   x: number // aperture offset under the bus
   view: InstrumentView
   glow: THREE.Texture
+  calm: boolean // reduce motion: no pulsing or flashing
 }
 
 const additive = { transparent: true, blending: THREE.AdditiveBlending, depthWrite: false } as const
 
 /** Aperture and landing point this frame, following the altitude smoothly. */
-function useAim(pass: Pass, h: number, x: number, shaky: boolean) {
+function useAim(pass: Pass, h: number, x: number, shaky: boolean, calm: boolean) {
   const origin = useMemo(() => new THREE.Vector3(), [])
   const target = useMemo(() => new THREE.Vector3(), [])
   const cur = useRef(h)
@@ -23,8 +24,9 @@ function useAim(pass: Pass, h: number, x: number, shaky: boolean) {
     cur.current += (h - cur.current) * 0.07
     const hh = cur.current
     origin.set(x * SAT_SCALE, hh - 0.66 * SAT_SCALE, -0.3 * SAT_SCALE)
-    const jx = shaky ? Math.sin(t * 7.3) * 0.7 + Math.sin(t * 19) * 0.3 : 0
-    const jz = shaky ? Math.cos(t * 5.9) * 0.7 + Math.sin(t * 23) * 0.3 : 0
+    const tj = calm ? 0.7 : t // calm: the aim error stays, frozen in place
+    const jx = shaky ? Math.sin(tj * 7.3) * 0.7 + Math.sin(tj * 19) * 0.3 : 0
+    const jz = shaky ? Math.cos(tj * 5.9) * 0.7 + Math.sin(tj * 23) * 0.3 : 0
     const tx = x * 0.5 + jx
     const tz = targetZ(hh) + jz
     const g = groundAt(pass, tx, tz)
@@ -34,8 +36,8 @@ function useAim(pass: Pass, h: number, x: number, shaky: boolean) {
 }
 
 /** Laser: four thin beams, a spot, and a green glow that lights a dark crater floor. */
-function Laser({ pass, h, x, view, glow }: BeamProps) {
-  const aim = useAim(pass, h, x, view.shaky)
+function Laser({ pass, h, x, view, glow, calm }: BeamProps) {
+  const aim = useAim(pass, h, x, view.shaky, calm)
   const beams = useRef<(THREE.Mesh | null)[]>([])
   const spot = useRef<THREE.Mesh>(null)
   const halo = useRef<THREE.Mesh>(null)
@@ -53,7 +55,7 @@ function Laser({ pass, h, x, view, glow }: BeamProps) {
       placeBetween(m, from, target, i === 4 ? 0.11 : 0.03)
       setOpacity(m, on * (0.25 + 0.7 * view.strength) * (i === 4 ? 0.22 : 1))
     })
-    const pulse = 0.85 + 0.15 * Math.sin(t * 6)
+    const pulse = calm ? 1 : 0.85 + 0.15 * Math.sin(t * 6)
     if (spot.current) {
       spot.current.position.copy(target)
       setOpacity(spot.current, on * pulse * (0.45 + 0.55 * shadow))
@@ -68,7 +70,7 @@ function Laser({ pass, h, x, view, glow }: BeamProps) {
       const a = i * 1.7 + 0.4
       const r = radius * (0.25 + (0.55 * ((i * 37) % 10)) / 10)
       m.position.set(target.x + Math.cos(a) * r, target.y + 0.05, target.z + Math.sin(a) * r)
-      setOpacity(m, on * shadow * Math.max(0, Math.sin(t * (3 + i) + i * 2)))
+      setOpacity(m, on * shadow * (calm ? 0.6 : Math.max(0, Math.sin(t * (3 + i) + i * 2))))
     })
   })
   return (
@@ -98,8 +100,8 @@ function Laser({ pass, h, x, view, glow }: BeamProps) {
 }
 
 /** IR spectrometer: an amber cone and footprint that need sunlight. */
-function InfraRed({ pass, h, x, view }: BeamProps) {
-  const aim = useAim(pass, h, x, view.shaky)
+function InfraRed({ pass, h, x, view, calm }: BeamProps) {
+  const aim = useAim(pass, h, x, view.shaky, calm)
   const cone = useRef<THREE.Mesh>(null)
   const disc = useRef<THREE.Mesh>(null)
   const radius = view.footprint * FOOTPRINT_SCALE
@@ -131,8 +133,8 @@ function InfraRed({ pass, h, x, view }: BeamProps) {
 }
 
 /** Neutron spectrometer: rings rising from the ground to the satellite, in light and dark. */
-function Neutron({ pass, h, x, view, glow }: BeamProps) {
-  const aim = useAim(pass, h, x, view.shaky)
+function Neutron({ pass, h, x, view, glow, calm }: BeamProps) {
+  const aim = useAim(pass, h, x, view.shaky, calm)
   const rings = useRef<(THREE.Mesh | null)[]>([])
   const pad = useRef<THREE.Mesh>(null)
   const radius = view.footprint * FOOTPRINT_SCALE
@@ -142,7 +144,7 @@ function Neutron({ pass, h, x, view, glow }: BeamProps) {
     const on = powered(t, view.poweredShare) * view.strength
     rings.current.forEach((m, i) => {
       if (!m) return
-      const k = (t * 0.3 + i / 5) % 1
+      const k = calm ? i / 5 : (t * 0.3 + i / 5) % 1
       m.position.lerpVectors(target, origin, k)
       m.scale.setScalar(radius * (1.6 - 0.9 * k))
       setOpacity(m, on * (1 - k) * 0.85)
@@ -168,49 +170,94 @@ function Neutron({ pass, h, x, view, glow }: BeamProps) {
   )
 }
 
-/** Camera: a frame on the ground and a shutter flash; it needs sunlight. */
-function Camera({ pass, h, x, view }: BeamProps) {
-  const aim = useAim(pass, h, x, view.shaky)
+/**
+ * Camera: a bright view pyramid down to a framed patch of ground. On each
+ * shutter the patch flashes and a snapshot lifts back up to the satellite.
+ * It needs sunlight, and the snapshot is a picture, not ice.
+ */
+const SHUTTER = 1.5 // seconds between pictures
+const LIFT = 0.8 // seconds for a snapshot to reach the satellite
+
+function Camera({ pass, h, x, view, calm }: BeamProps) {
+  const aim = useAim(pass, h, x, view.shaky, calm)
   const frame = useRef<THREE.LineLoop>(null)
   const flash = useRef<THREE.Mesh>(null)
-  const sight = useRef<THREE.Mesh>(null)
+  const pyramid = useRef<THREE.Mesh>(null)
+  const edges = useRef<THREE.LineSegments>(null)
+  const snap = useRef<THREE.Mesh>(null)
   const half = view.footprint * FOOTPRINT_SCALE
-  const loop = useMemo(() => {
-    const g = new THREE.BufferGeometry().setFromPoints([
+  const corners = useMemo(
+    () => [
       new THREE.Vector3(-half, 0, -half * 0.7),
       new THREE.Vector3(half, 0, -half * 0.7),
       new THREE.Vector3(half, 0, half * 0.7),
       new THREE.Vector3(-half, 0, half * 0.7),
-    ])
-    return new THREE.LineLoop(g, new THREE.LineBasicMaterial({ color: view.color, transparent: true }))
-  }, [half, view.color])
+    ],
+    [half]
+  )
+  const loop = useMemo(
+    () =>
+      new THREE.LineLoop(
+        new THREE.BufferGeometry().setFromPoints(corners),
+        new THREE.LineBasicMaterial({ color: '#bfdbfe', transparent: true })
+      ),
+    [corners]
+  )
+  const edgeLines = useMemo(() => {
+    const g = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 8 }, () => new THREE.Vector3()))
+    return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#93c5fd', transparent: true }))
+  }, [])
+  // A four-sided cone, turned so its square base lines up with the frame.
+  const pyramidGeo = useMemo(() => new THREE.ConeGeometry(1, 1, 4, 1, true).rotateY(Math.PI / 4), [])
+  const corner = useMemo(() => new THREE.Vector3(), [])
   useFrame(({ clock }) => {
     const t = clock.elapsedTime
     const { origin, target, shadow } = aim(t)
     const lit = (1 - shadow) * powered(t, view.poweredShare) * view.strength
     if (frame.current) {
       frame.current.position.copy(target)
-      setOpacity(frame.current, 0.25 + 0.75 * lit)
+      setOpacity(frame.current, 0.3 + 0.7 * lit)
     }
+    if (pyramid.current) {
+      placeBetween(pyramid.current, target, origin, half * Math.SQRT2 * 0.85)
+      setOpacity(pyramid.current, 0.03 + 0.12 * lit)
+    }
+    if (edges.current) {
+      const pos = edges.current.geometry.attributes.position as THREE.BufferAttribute
+      corners.forEach((c, i) => {
+        corner.copy(c).add(target)
+        pos.setXYZ(i * 2, origin.x, origin.y, origin.z)
+        pos.setXYZ(i * 2 + 1, corner.x, corner.y, corner.z)
+      })
+      pos.needsUpdate = true
+      setOpacity(edges.current, 0.15 + 0.6 * lit)
+    }
+    const phase = calm ? 0.35 : t % SHUTTER
     if (flash.current) {
       flash.current.position.copy(target)
-      setOpacity(flash.current, lit * Math.max(0, 1 - (t % 1.5) / 0.22) * 0.6)
+      setOpacity(flash.current, calm ? 0 : lit * Math.max(0, 1 - phase / 0.22) * 0.7)
     }
-    if (sight.current) {
-      placeBetween(sight.current, origin, target, 0.012)
-      setOpacity(sight.current, 0.12 + 0.3 * lit)
+    if (snap.current) {
+      const k = Math.min(1, phase / LIFT)
+      snap.current.position.lerpVectors(target, origin, k)
+      snap.current.scale.setScalar(1 - 0.85 * k)
+      setOpacity(snap.current, lit * (phase < LIFT ? 0.9 * (1 - k * k) : 0))
     }
   })
   return (
     <>
       <primitive object={loop} ref={frame} />
+      <primitive object={edgeLines} ref={edges} />
+      <mesh ref={pyramid} geometry={pyramidGeo}>
+        <meshBasicMaterial color={view.color} opacity={0.1} side={THREE.DoubleSide} {...additive} />
+      </mesh>
       <mesh ref={flash} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[half * 2, half * 1.4]} />
         <meshBasicMaterial color="#dbeafe" opacity={0} {...additive} />
       </mesh>
-      <mesh ref={sight}>
-        <cylinderGeometry args={[1, 1, 1, 6, 1, true]} />
-        <meshBasicMaterial color={view.color} opacity={0.3} {...additive} />
+      <mesh ref={snap} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[half * 2, half * 1.4]} />
+        <meshBasicMaterial color="#eff6ff" opacity={0} side={THREE.DoubleSide} {...additive} />
       </mesh>
     </>
   )
