@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { FRAME_HEIGHT, type BayView, type StackBlock, type RowKey } from '../../viz/spacecraft/bayView'
 import { CATEGORY_COLORS } from '../../viz/spacecraft/trayOptions'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { CraftModel } from './CraftModel'
 import {
   paintBoard,
   paintScale,
@@ -29,6 +31,9 @@ const STAND_Y = 1.25 // top of the stand, bottom of the box
 const W = 2 // box width (scene units)
 const D = 1 // box depth
 const PURPLE = '#8b5cf6'
+// Labels sit just in front of the model's front face (antenna patches, wing hinges)
+const LABEL_Z = D / 2 + 0.09
+const TAG_Z = D / 2 + 0.4
 const ease = (dt: number, k: number) => 1 - Math.exp(-dt * k)
 
 function prefersReducedMotion() {
@@ -154,8 +159,8 @@ function Block({ block, tagY, reduced }: BlockProps) {
     if (tag.current) tag.current.position.y = s.tagY - (s.base + s.height / 2)
     if (line.current) {
       const p = line.current.attributes.position as THREE.BufferAttribute
-      p.setXYZ(0, -W / 2, 0, D / 2)
-      p.setXYZ(1, -W / 2 - 0.34, s.tagY - (s.base + s.height / 2), D / 2 + 0.05)
+      p.setXYZ(0, -W / 2, 0, LABEL_Z)
+      p.setXYZ(1, -W / 2 - 0.34, s.tagY - (s.base + s.height / 2), TAG_Z)
       p.needsUpdate = true
     }
     const over = block.overLimit
@@ -177,7 +182,7 @@ function Block({ block, tagY, reduced }: BlockProps) {
             </bufferGeometry>
             <lineBasicMaterial color={block.overLimit ? '#ef4444' : color} />
           </lineSegments>
-          <group ref={tag} position={[-W / 2 - 1.4, 0, D / 2 + 0.05]}>
+          <group ref={tag} position={[-W / 2 - 1.4, 0, TAG_Z]}>
             <mesh>
               <planeGeometry args={[2.1, 0.66]} />
               <meshBasicMaterial map={texture} transparent toneMapped={false} />
@@ -185,7 +190,7 @@ function Block({ block, tagY, reduced }: BlockProps) {
           </group>
         </>
       ) : (
-        <mesh ref={label} position={[0, 0, D / 2 - 0.04]}>
+        <mesh ref={label} position={[0, 0, LABEL_Z]}>
           <planeGeometry args={[1, 1]} />
           <meshBasicMaterial map={texture} transparent toneMapped={false} />
         </mesh>
@@ -325,27 +330,69 @@ function Engine({ kind, starved, reduced }: { kind: BayView['outside']['engine']
   )
 }
 
+/** The drawn outside parts: the fallback for the CubeSat model. */
+function DrawnOutside({ view, reduced }: { view: BayView; reduced: boolean }) {
+  const o = view.outside
+  const tracker = useRef<THREE.Group>(null)
+  const tk = useRef(o.starTracker ? 1 : 0)
+  useFrame((state, dt) => {
+    CELL.emissiveIntensity = o.powerShort ? (reduced ? 0.1 : 0.15 + 0.15 * Math.sin(state.clock.elapsedTime * 9)) : 0.5
+    tk.current += ((o.starTracker ? 1 : 0) - tk.current) * (reduced ? 1 : ease(dt, 6))
+    if (tracker.current) {
+      tracker.current.scale.setScalar(Math.max(0.001, tk.current))
+      tracker.current.visible = tk.current > 0.02
+    }
+  })
+  return (
+    <group>
+      {/* Solar: cells on the box, or wings that unfold */}
+      {o.solar === 'body' &&
+        ([-1, 1] as const).map((s) => (
+          <mesh key={s} position={[(s * (W + 0.05)) / 2, FRAME_HEIGHT / 2, 0]} material={CELL}>
+            <boxGeometry args={[0.04, FRAME_HEIGHT - 0.2, D - 0.1]} />
+          </mesh>
+        ))}
+      {([-1, 1] as const).map((s) => (
+        <Wing key={s} side={s} segments={o.solar === 'array' ? 2 : o.solar === 'wings' ? 1 : 0} reduced={reduced} />
+      ))}
+      <group ref={tracker} position={[W / 2, FRAME_HEIGHT - 0.5, 0.2]}>
+        <mesh position-x={0.2} rotation-z={-Math.PI / 2.6} material={DARK}>
+          <cylinderGeometry args={[0.13, 0.16, 0.5, 16]} />
+        </mesh>
+        <mesh position={[0.42, 0.12, 0]}>
+          <sphereGeometry args={[0.1, 12, 12]} />
+          <meshBasicMaterial color="#67e8f9" />
+        </mesh>
+      </group>
+      <Antenna kind={o.radio} />
+      <Engine kind={o.engine} starved={o.engineStarved} reduced={reduced} />
+    </group>
+  )
+}
+
+/** Falls back to the drawn parts if the model cannot load. */
+class ModelBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children
+  }
+}
+
 /* ---------------- the craft ---------------- */
 
 function Craft({ view, reduced }: { view: BayView; reduced: boolean }) {
-  const o = view.outside
   const volumeRed = view.rows.find((r) => r.key === 'volume')?.tone === 'red'
   const frameEdges = useMemo(() => new THREE.EdgesGeometry(new THREE.BoxGeometry(W, FRAME_HEIGHT, D)), [])
   useEffect(() => () => frameEdges.dispose(), [frameEdges])
   const tags = calloutHeights(view.stack)
   const top = view.stack.reduce((m, b) => Math.max(m, b.base + b.height), 0)
   const ghost = useRef<THREE.MeshBasicMaterial>(null)
-  const tracker = useRef<THREE.Group>(null)
-  const tk = useRef(o.starTracker ? 1 : 0)
 
-  useFrame((state, dt) => {
-    CELL.emissiveIntensity = o.powerShort ? (reduced ? 0.1 : 0.15 + 0.15 * Math.sin(state.clock.elapsedTime * 9)) : 0.5
+  useFrame((state) => {
     if (ghost.current) ghost.current.opacity = reduced ? 0.3 : 0.25 + 0.12 * Math.sin(state.clock.elapsedTime * 8)
-    tk.current += ((o.starTracker ? 1 : 0) - tk.current) * (reduced ? 1 : ease(dt, 6))
-    if (tracker.current) {
-      tracker.current.scale.setScalar(Math.max(0.001, tk.current))
-      tracker.current.visible = tk.current > 0.02
-    }
   })
 
   return (
@@ -372,27 +419,12 @@ function Craft({ view, reduced }: { view: BayView; reduced: boolean }) {
           <meshBasicMaterial ref={ghost} color="#ef4444" transparent opacity={0.3} depthWrite={false} />
         </mesh>
       )}
-      {/* Solar: cells on the box, or wings that unfold */}
-      {o.solar === 'body' &&
-        ([-1, 1] as const).map((s) => (
-          <mesh key={s} position={[(s * (W + 0.05)) / 2, FRAME_HEIGHT / 2, 0]} material={CELL}>
-            <boxGeometry args={[0.04, FRAME_HEIGHT - 0.2, D - 0.1]} />
-          </mesh>
-        ))}
-      {([-1, 1] as const).map((s) => (
-        <Wing key={s} side={s} segments={o.solar === 'array' ? 2 : o.solar === 'wings' ? 1 : 0} reduced={reduced} />
-      ))}
-      <group ref={tracker} position={[W / 2, FRAME_HEIGHT - 0.5, 0.2]}>
-        <mesh position-x={0.2} rotation-z={-Math.PI / 2.6} material={DARK}>
-          <cylinderGeometry args={[0.13, 0.16, 0.5, 16]} />
-        </mesh>
-        <mesh position={[0.42, 0.12, 0]}>
-          <sphereGeometry args={[0.1, 12, 12]} />
-          <meshBasicMaterial color="#67e8f9" />
-        </mesh>
-      </group>
-      <Antenna kind={o.radio} />
-      <Engine kind={o.engine} starved={o.engineStarved} reduced={reduced} />
+      {/* Outside parts: Kamel's CubeSat model, or the drawn parts while it loads or if it fails */}
+      <ModelBoundary fallback={<DrawnOutside view={view} reduced={reduced} />}>
+        <Suspense fallback={<DrawnOutside view={view} reduced={reduced} />}>
+          <CraftModel view={view} reduced={reduced} />
+        </Suspense>
+      </ModelBoundary>
     </group>
   )
 }
@@ -536,9 +568,14 @@ export function AssemblyBay({ view }: { view: BayView }) {
       dpr={[1, 2]}
       camera={{ fov: 40, position: [0.5, 3.3, 9], near: 0.1, far: 100 }}
       gl={{ antialias: true }}
-      onCreated={({ scene }) => {
+      onCreated={({ scene, gl }) => {
         scene.background = new THREE.Color('#03050a')
         scene.fog = new THREE.Fog('#03050a', 15, 36)
+        // A soft studio reflection so the model's metal and gold read as metal
+        const pmrem = new THREE.PMREMGenerator(gl)
+        scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+        scene.environmentIntensity = 0.35
+        pmrem.dispose()
       }}
     >
       <BayCamera />

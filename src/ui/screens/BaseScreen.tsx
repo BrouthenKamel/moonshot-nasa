@@ -14,6 +14,7 @@ import {
   type MissionStatus,
   type MissionView,
   type Speed,
+  researchLabLevel,
 } from '../../data/agency'
 import type { SimState } from '../../sim/types'
 import { computeBudgets } from '../../sim/budgets'
@@ -22,6 +23,7 @@ import { isSimComplete } from '../../sim/simulate'
 import { buildingForStep, flightFeed, lunarMissionView, missionClockLabel, missionLabels, suggestedStep } from '../../viz/missionMap'
 import { EventCard } from '../flight/EventCard'
 import { FlightControls } from '../flight/FlightControls'
+import { MuteButton } from '../MuteButton'
 
 /* ------------------------------------------------------------------ */
 /* Clock                                                               */
@@ -138,6 +140,8 @@ function TopBar({ netPerMonth }: { netPerMonth: number }) {
         <SpeedButton speed="normal" current={speed} label="▶" title="Play: 1 day per second" />
         <SpeedButton speed="fast" current={speed} label="▶▶" title="Fast: 8 days per second" />
       </div>
+
+      <MuteButton />
 
       <div className="ml-auto flex flex-wrap gap-3">
         <div className="rounded-xl border border-white/20 bg-white/5 px-4 py-1.5">
@@ -461,7 +465,7 @@ export function BaseScreen() {
   }, [missionStartDay, simState, resetMissionClock])
 
   const budgets = computeBudgets(design, difficulty)
-  const checks = goNoGo(design, budgets)
+  const checks = goNoGo(design, budgets, day)
 
   const mockViews = mockMissionViews(day)
   const views =
@@ -492,16 +496,17 @@ export function BaseScreen() {
   const mockLabels = (() => {
     const lab = buildings.find((b) => b.id === 'research-lab')!
     const up = lab.upgrade!
-    const upgrading = day < up.endDay
+    const labLevel = researchLabLevel(day)
+    const upgrading = labLevel < up.toLevel
     const out: Record<BuildingId, BuildingLabel> = {
       'research-lab': upgrading
         ? {
-            level: lab.level,
+            level: labLevel,
             status: `Upgrading to LV ${up.toLevel} · ${Math.ceil(up.endDay - day)} days left`,
             progress: (day - up.startDay) / (up.endDay - up.startDay),
             highlight: true,
           }
-        : { level: up.toLevel, status: 'Neutron spectrometer unlocked' },
+        : { level: labLevel, status: 'Neutron spectrometer unlocked' },
       factory:
         lunarStartedDay !== null && !simState
           ? { level: 1, status: 'Reserved for Lunar Ice Mapper', highlight: true }

@@ -1,20 +1,25 @@
 import { instruments as catalogue } from '../../data/parts'
 import { INSTRUMENT_COLORS, INSTRUMENT_SHORT_NAMES } from './stageModel'
+import { instrumentLock } from './labLocks'
 
 /** The four instruments as quick picks, docked under the stage. */
-export function InstrumentBar({ chosen, onToggle }: { chosen: string[]; onToggle: (id: string) => void }) {
+export function InstrumentBar({ chosen, day, onToggle }: { chosen: string[]; day: number; onToggle: (id: string) => void }) {
   return (
     <div className="grid grid-cols-4 gap-2 rounded-b-xl border border-t-0 border-slate-800 bg-slate-950 p-2">
       {catalogue.map((inst) => {
         const on = chosen.includes(inst.id)
         const color = INSTRUMENT_COLORS[inst.id] ?? '#94a3b8'
+        const lock = instrumentLock(inst.id, day)
+        const blocked = lock.locked && !on // a locked instrument already aboard stays removable
         return (
           <button
             key={inst.id}
             type="button"
             aria-pressed={on}
+            disabled={blocked}
+            title={lock.text || undefined}
             onClick={() => onToggle(inst.id)}
-            className="rounded-lg border-2 px-3 py-2 text-left transition-all hover:-translate-y-0.5"
+            className={`rounded-lg border-2 px-3 py-2 text-left transition-all ${blocked ? 'cursor-not-allowed opacity-50' : 'hover:-translate-y-0.5'}`}
             style={{
               borderColor: on ? color : '#334155',
               background: on ? `${color}26` : '#0f172a',
@@ -31,6 +36,9 @@ export function InstrumentBar({ chosen, onToggle }: { chosen: string[]; onToggle
             <div className={`text-[11px] ${inst.seesShadow ? 'text-green-400' : 'text-orange-300'}`}>
               {inst.seesShadow ? 'sees into shadow' : 'needs sunlight'}
             </div>
+            {lock.locked && (
+              <div className="text-[11px] font-medium text-amber-300">🔒 Locked · needs Research Lab LV {lock.neededLevel}</div>
+            )}
           </button>
         )
       })}

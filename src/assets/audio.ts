@@ -71,14 +71,25 @@ function howlFor(id: AudioId): Howl {
   return h
 }
 
+/** Sound is decoration: a failing audio backend must never break the game */
+function safely(fn: () => void) {
+  try {
+    fn()
+  } catch {
+    // carry on silently
+  }
+}
+
 // Keep live sounds in step with the settings
 useAudioSettings.subscribe((s, prev) => {
-  if (s.muted !== prev.muted) Howler.mute(s.muted)
+  if (s.muted !== prev.muted) safely(() => Howler.mute(s.muted))
   if (s.volume !== prev.volume) {
-    for (const [id, h] of howls) h.volume(gainFor(getAsset(id) as AudioAsset))
+    safely(() => {
+      for (const [id, h] of howls) h.volume(gainFor(getAsset(id) as AudioAsset))
+    })
   }
 })
-Howler.mute(useAudioSettings.getState().muted)
+safely(() => Howler.mute(useAudioSettings.getState().muted))
 
 export const audio = {
   /** Start a music track, crossfading from the current one. No-op if it is already playing. */

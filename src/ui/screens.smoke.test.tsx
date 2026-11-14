@@ -79,6 +79,30 @@ describe('screens render', () => {
     expect(text()).toContain('2 instruments')
   })
 
+  it('the instrument step locks what the Research Lab has not unlocked', () => {
+    const text = () => renderToString(<App />).replace(/<!-- -->/g, '')
+    useAgencyStore.setState({ day: 112 })
+    useGameStore.setState({ screen: 'design', designStep: 'instruments', design: flashlightDesign })
+    const html = text()
+    expect(html).toContain('Needs Research Lab LV 3 · now LV 2')
+    // The neutron card cannot be picked while it is locked
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*Neutron Spectrometer/s)
+    useAgencyStore.setState({ day: 122 })
+    expect(text()).not.toContain('Needs Research Lab LV 3')
+  })
+
+  it('a saved design holding a locked instrument keeps it and says so', () => {
+    useAgencyStore.setState({ day: 112 })
+    useGameStore.setState({
+      screen: 'design',
+      designStep: 'instruments',
+      design: { ...flashlightDesign, instruments: ['inst-laser', 'inst-neutron'] },
+    })
+    const html = renderToString(<App />).replace(/<!-- -->/g, '')
+    expect(html).toContain('Neutron Spectrometer is in your design but the Research Lab has not unlocked it yet')
+    expect(useGameStore.getState().design.instruments).toEqual(['inst-laser', 'inst-neutron'])
+  })
+
   it('the ride and comms screens show real numbers', () => {
     useGameStore.setState({ screen: 'design', designStep: 'ride', design: flashlightDesign })
     expect(renderToString(<App />)).toContain('m/s')

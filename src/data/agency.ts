@@ -99,7 +99,19 @@ export const buildings: Building[] = [
 ]
 
 /** Empty plot for a future building (not interactive in the MVP) */
-export const buildPlot = { tile: [16, 6] as [number, number], size: [3, 3] as [number, number] }
+/** The Research Lab's level on a base day: its upgrade counts once it is done. */
+export function researchLabLevel(day: number): number {
+  const lab = buildings.find((b) => b.id === 'research-lab')
+  if (!lab) return 1
+  return lab.upgrade && day >= lab.upgrade.endDay ? lab.upgrade.toLevel : lab.level
+}
+
+/** Research Lab level an instrument needs; instruments not listed need none beyond level 1. */
+export const instrumentLabLevel: Record<string, number> = {
+  'inst-neutron': 3, // "Level 3 unlocks the neutron spectrometer"
+}
+
+export const buildPlot ={ tile: [16, 6] as [number, number], size: [3, 3] as [number, number] }
 
 /** Map size in tiles */
 export const MAP_SIZE = 20
