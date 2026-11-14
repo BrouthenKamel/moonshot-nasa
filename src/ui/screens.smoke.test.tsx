@@ -46,6 +46,15 @@ describe('screens render', () => {
     })
   }
 
+  it('the instruments summary counts in singular and plural', () => {
+    const text = () => renderToString(<App />).replace(/<[^>]+>/g, '').replace(/<!-- -->/g, '')
+    useGameStore.setState({ screen: 'design', designStep: 'instruments', design: flashlightDesign })
+    expect(text()).toContain('1 instrument')
+    expect(text()).not.toContain('1 instruments')
+    useGameStore.setState({ design: { ...flashlightDesign, instruments: ['inst-laser', 'inst-neutron'] } })
+    expect(text()).toContain('2 instruments')
+  })
+
   it('the ride and comms screens show real numbers', () => {
     useGameStore.setState({ screen: 'design', designStep: 'ride', design: flashlightDesign })
     expect(renderToString(<App />)).toContain('m/s')
