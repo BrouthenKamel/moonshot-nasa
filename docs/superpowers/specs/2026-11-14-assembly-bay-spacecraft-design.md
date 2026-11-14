@@ -102,7 +102,7 @@ Full-bleed inside the Shell (step rail stays on the left, the dashboard is hidde
 
 - The frame is 2 wide × 3 high × 1 deep (one unit = 1 U), open at the front, on a turntable. Dragging the picture turns it; left alone it sways slowly.
 - Inside, one block per part that has volume, stacked bottom to top: propulsion, instruments, radio, attitude control, flight computer, battery. A block's height is its volume ÷ 2, so 6 U fills the frame exactly.
-- Blocks are drawn exactly to scale, so the picture always matches the Volume number. A block at least 0.5 U has its label on its front: name, and one line under it. A thinner block (battery, computer, small radio) gets a call-out instead: a tag beside the frame with a leader line to the block, carrying the name and the detail that tells the option apart (call 3). Chosen-elsewhere blocks are grey and say "chosen in the Research Lab" or "chosen in the Communications Center".
+- Blocks are drawn exactly to scale, so the picture always matches the Volume number. A block at least 0.5 U has its label on its front: name, and one line under it. A thinner block (battery, computer, small radio) gets a call-out instead: a tag beside the frame with a leader line to the block, carrying the name and the detail that tells the option apart (call 3). Chosen-elsewhere blocks are grey and say "chosen at the Research Lab" or "chosen at the Communications Center".
 - Blocks above the 6 U line glow red and pulse, with a red ghost marking the overflow; the frame turns red.
 - Each choice must be tellable from its siblings without reading the label:
   - **Solar:** cells on the box sides (body), one wing each side (84 W), two segments each side (120 W). Wings unfold.
@@ -116,12 +116,12 @@ Full-bleed inside the Shell (step rail stays on the left, the dashboard is hidde
 ### The scale and the bay
 
 - The turntable is a scale. A read-out in front shows the fuelled mass; the turntable's ring and the read-out take the Mass check's colour.
-- Night-shift look as in the control room: dark room, cool key light on the craft, one warm accent. The accent light turns red and pulses while any shown check is red.
+- Night-shift look as in the control room: dark room (`#03050a`), cool key light on the craft, and the Factory's role colour, Space purple, as the accent. The accent light turns red and pulses while any shown check is red.
 - Power short (`scienceDuty <= 0`): the solar cells dim and flicker. Ion engine without enough power (`thrustLevel === 0`): its glow sputters.
 
 ### The wall board
 
-Drawn on a canvas, as the control room's big screen. Header: "FACTORY · ASSEMBLY BAY · LUNAR ICE MAPPER". Rows, each with the check's colour:
+Drawn on a canvas, as the control room's big screen. Header: `FACTORY · LUNAR ICE MAPPER · SPACECRAFT`, the title format of the shared design direction (`docs/DESIGN-DIRECTION.md`, PR #10). Rows, each with the check's colour:
 
 | Row | Text | From |
 |---|---|---|
@@ -182,6 +182,10 @@ Reduced motion and the red states of the frame, ring and board are not droppable
 - Unit tests: the stack sums to `totalVolume`; over-limit blocks are flagged exactly when the Volume check is red; board rows carry the checks' statuses and numbers for the default design, `flashlightDesign`, a too-heavy design and a no-power design; the status box picks the first red; tray options match the catalogue; painters draw only finite numbers.
 - Browser at 1280 × 720: each of the fifteen options changes the craft and the store; too heavy, too full, power short and ion-starved each show; keyboard works; WebGL off shows the fallback with the same numbers.
 - `pnpm typecheck && pnpm test && pnpm lint && pnpm build`, then the PR link goes to the Integration session.
+
+## Not used: the assets-pipeline model
+
+Kamel's branch `assets-pipeline` (not on `main` at the time of writing) has a 6U CubeSat model with every catalogue part as a named node. It is a closed box, while the bay's point is an open box with parts stacked to scale, so this work draws its own simple outside parts. Swapping them for the model's nodes once that branch is on `main` is a follow-up.
 
 ## Left to the builder
 
