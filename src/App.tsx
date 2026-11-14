@@ -55,6 +55,7 @@ function EventCard() {
     </div>
   )
 }
+import { TitleScreen, DesignScreen, BaseScreen } from './ui/screens'
 
 function SimulationPlaceholder() {
   const simState = useGameStore((s) => s.simState)
@@ -372,6 +373,15 @@ export default function App() {
     return (
       <main className="flex h-screen flex-col bg-slate-950 text-slate-100">
         <TitleScreen />
+      </main>
+    )
+  }
+
+  // Agency base is a full-screen game view
+  if (screen === 'base') {
+    return (
+      <main className="h-screen text-slate-100">
+        <BaseScreen />
       </main>
     )
   }

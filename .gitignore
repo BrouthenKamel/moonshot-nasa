@@ -25,3 +25,6 @@ dist-ssr
 
 # Superpowers brainstorming scratch
 .superpowers/
+# Local MCP config (contains API keys)
+.mcp.json
+skills-lock.json

@@ -6,6 +6,7 @@ export function Header() {
   const difficulty = useGameStore((s) => s.difficulty)
   const simState = useGameStore((s) => s.simState)
   const newGame = useGameStore((s) => s.newGame)
+  const setScreen = useGameStore((s) => s.setScreen)
 
   const preset = difficultyPresets[difficulty]
 
@@ -45,6 +46,12 @@ export function Header() {
             >
               {preset.name}
             </span>
+            <button
+              onClick={() => setScreen('base')}
+              className="rounded bg-orange-600 px-3 py-1 text-sm font-medium text-white hover:bg-orange-500"
+            >
+              ← Agency base
+            </button>
             <button
               onClick={newGame}
               className="rounded bg-slate-700 px-3 py-1 text-sm hover:bg-slate-600"

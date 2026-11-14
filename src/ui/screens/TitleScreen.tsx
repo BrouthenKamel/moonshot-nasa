@@ -10,7 +10,7 @@ export function TitleScreen() {
   const difficulties: Difficulty[] = ['cadet', 'engineer', 'flight-director']
 
   const startGame = () => {
-    setScreen('design')
+    setScreen('base')
   }
 
   return (
@@ -49,7 +49,7 @@ export function TitleScreen() {
           onClick={startGame}
           className="w-full rounded-lg bg-green-600 py-3 font-semibold text-white transition-colors hover:bg-green-500"
         >
-          Start Mission
+          Open Agency Base
         </button>
 
         {runHistory.length > 0 && (
