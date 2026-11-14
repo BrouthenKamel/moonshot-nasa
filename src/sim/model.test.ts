@@ -100,6 +100,20 @@ describe('Go / No-Go', () => {
   it('never makes science red', () => {
     expect(status(iceCubeDesign, 'Science')).toBe('yellow')
   })
+
+  it('names the instruments to fit when none can see into shadow', () => {
+    const b = computeBudgets(iceCubeDesign, 'engineer')
+    const science = goNoGo(iceCubeDesign, b).checks.find((c) => c.resource === 'Science')!
+    expect(science.reason).toContain('laser reflectometer')
+    expect(science.reason).toContain('neutron spectrometer')
+  })
+
+  it('counts the science margin up from the 70% target (more coverage is better)', () => {
+    const b = computeBudgets(flashlightDesign, 'engineer')
+    const science = goNoGo(flashlightDesign, b).checks.find((c) => c.resource === 'Science')!
+    expect(science.margin).toBeCloseTo(b.projectedCoverage - 70)
+    expect(science.margin).toBeGreaterThan(0)
+  })
 })
 
 describe('flight', () => {
@@ -166,6 +180,20 @@ describe('flight', () => {
     expect(buildReport(manual).score.total).toBe(buildReport(auto).score.total)
   })
 
+  it('says so when there is no reserve to pay for a fix, without claiming a failed choice', () => {
+    const noReserve: Design = { ...lunahMapDesign, planning: { ...lunahMapDesign.planning, reservePercent: 0, testTurns: 0 } }
+    for (let seed = 1; seed <= 3000; seed++) {
+      const s = runSimulation(noReserve, 'engineer', seed)
+      const ev = s.allEvents.find((e) => e.eventId === 'thruster')
+      if (!ev || s.flight.reserve >= 1) continue
+      expect(ev.choiceSucceeded).toBeUndefined()
+      const log = s.turnLogs.find((l) => l.turn === ev.turn)!
+      expect(log.notes.join(' ')).toContain('No reserve left to pay for a fix')
+      return
+    }
+    throw new Error('no thruster event without reserve in 3000 flights')
+  })
+
   it('spends money every turn and waits for the next ride when late', () => {
     const late: Design = { ...flashlightDesign, planning: { ...flashlightDesign.planning, testTurns: 3 } }
     const s = runSimulation(late, 'engineer', 5)
@@ -201,6 +229,22 @@ describe('report explains the misses', () => {
         expect(r.score.total).toBeLessThanOrEqual(1000)
       }
     }
+  })
+
+  it('the "perfect craft" line counts the turns actually flown, so it never contradicts the result', () => {
+    const design = { ...lunahMapDesign, orbit: 'orbit-halo' }
+    for (let seed = 1; seed <= 200; seed++) {
+      const s = runSimulation(design, 'engineer', seed)
+      if (s.flight.scienceTurns <= 12) continue
+      const coverage = buildReport(s).requirements.find((r) => r.id === 'coverage')!
+      const line = coverage.causes.find((c) => c.startsWith('Too few passes'))
+      if (!line) continue
+      expect(line).toContain(`in ${s.flight.scienceTurns} turns`)
+      const ideal = Number(line.match(/maps only (\d+)%/)![1])
+      expect(ideal).toBeGreaterThanOrEqual(Math.floor(s.flight.coverage))
+      return
+    }
+    throw new Error('no extended neutron-halo flight in 200 seeds')
   })
 
   it('neutron on the halo loop: too few passes', () => {

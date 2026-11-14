@@ -155,11 +155,13 @@ function whyCoverageShort(state: SimState, b: Budgets): string[] {
   const noun = nouns([best])
   const out: string[] = []
   const passes = orbit?.passesPerTurn ?? 0
-  const ideal = 100 * (1 - Math.exp(-passes * best.footprint * turns))
+  // Over the turns actually flown (an extended mission flies more than the planned 12)
+  const flown = Math.max(turns, f.scienceTurns)
+  const ideal = 100 * (1 - Math.exp(-passes * best.footprint * flown))
   if (ideal < COVERAGE_TARGET)
     out.push(
       `Too few passes: this orbit (${orbit?.name}) crosses the pole ${passes} times a turn and the ${noun} sees a narrow strip each time. ` +
-        `Even a perfect craft maps only ${ideal.toFixed(0)}% in ${turns} turns. It takes an orbit with more passes or an instrument with a wider view.`
+        `Even a perfect craft maps only ${ideal.toFixed(0)}% in ${flown} turns. It takes an orbit with more passes or an instrument with a wider view.`
     )
   if (best.maxAltitudeKm !== null && orbit && orbit.altitude > best.maxAltitudeKm) {
     out.push(
@@ -237,7 +239,7 @@ export function buildReport(state: SimState): Report {
       `${f.scienceTurns} turns in the science orbit.`,
       () => whyShortLife(state, b)),
     req('budget', 'Budget Compliance', f.reserve >= 0, 1, f.reserve >= 0 ? 1 : 0, '',
-      f.reserve >= 0 ? `${moneyLeft.toFixed(1)} M left.` : `Reserve overdrawn by ${(-f.reserve).toFixed(1)} M.`,
+      f.reserve >= 0 ? `${moneyLeft.toFixed(1)} M left.` : `Reserve overdrawn by ${(-f.reserve).toFixed(2)} M.`,
       () => moneyDrains(state, b)),
   ]
 

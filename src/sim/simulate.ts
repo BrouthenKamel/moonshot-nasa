@@ -293,8 +293,10 @@ function launch(ctx: TurnContext) {
         record.impact.reserveSpent = recovery.reserveCost
         note(ctx, `Emergency tracking found the craft (reserve -${recovery.reserveCost} M).`)
       }
+      record.choiceSucceeded = recovered
+    } else {
+      note(ctx, `No reserve left to pay for emergency tracking (${recovery.reserveCost} M needed).`)
     }
-    record.choiceSucceeded = recovered
     if (!recovered) {
       fail(ctx, 'lost contact after deployment')
       return
@@ -343,8 +345,11 @@ function transferTurn(ctx: TurnContext) {
         record.impact.turnsLost = 1
         note(ctx, `Thruster fixed (reserve -${fix.reserveCost} M, +1 turn).`)
       }
+      record.choiceSucceeded = fixed
+    } else {
+      // Nothing to choose: no card, and no choice that "failed"
+      note(ctx, `No reserve left to pay for a fix (${fix.reserveCost} M needed).`)
     }
-    record.choiceSucceeded = fixed
     if (!fixed) {
       f.thrusterOk = false
       if (impulsive) {

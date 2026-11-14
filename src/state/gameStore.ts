@@ -185,8 +185,8 @@ function decodeDesign(code: string): Design | null {
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
-      // Initial state
-      screen: 'title',
+      // Initial state: the game starts on the agency map
+      screen: 'base',
       designStep: 'brief',
       mode: 'solo',
       players: [],
@@ -429,7 +429,7 @@ export const useGameStore = create<GameState>()(
       // Full reset
       newGame: () =>
         set({
-          screen: 'title',
+          screen: 'base',
           designStep: 'brief',
           design: createDefaultDesign(),
           simState: null,

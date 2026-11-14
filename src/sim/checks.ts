@@ -1,6 +1,6 @@
 import { getRideById } from '../data/rides'
 import { getTransferById, isTransferCompatible } from '../data/transfers'
-import { getPartById, type PropulsionPart, type RadioPart } from '../data/parts'
+import { getPartById, type InstrumentPart, type PropulsionPart, type RadioPart } from '../data/parts'
 import { lunarIceMapperBrief, modelConstants as C } from '../data/brief'
 import type { Design, Budgets, CheckResult, GoNoGoResult, BarStatus, DesignStep } from './types'
 
@@ -200,10 +200,10 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
   checks.push(check('Budget', status, b.totalCost, b.budgetCap, '$M', reason, 'spacecraft'))
 
   // Science: never red. A design that cannot meet the brief may still fly.
+  // More coverage is better here, so the margin counts up from the target (check() counts down to a limit).
   const coverageTarget = 70
   const enough = b.projectedCoverage >= coverageTarget && b.projectedData >= dataTarget
-  checks.push(
-    check(
+  const science = check(
       'Science',
       enough ? 'green' : 'yellow',
       b.projectedCoverage,
@@ -211,10 +211,14 @@ export function goNoGo(design: Design, budgets: Budgets): GoNoGoResult {
       '% ice',
       enough
         ? `Projected ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} clean turns.`
-        : `Even with no bad luck this reaches only ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB (needed: ${coverageTarget}% and ${dataTarget} MB). It may fly, but it cannot fully succeed.`,
+        : `${
+            design.instruments.some((id) => (getPartById(id) as InstrumentPart | undefined)?.seesShadow)
+              ? ''
+              : 'No instrument on board can see into the shadowed craters: fit the laser reflectometer or the neutron spectrometer at the Research Lab. '
+          }Even with no bad luck this reaches only ${b.projectedCoverage.toFixed(0)}% ice coverage and ${b.projectedData.toFixed(0)} MB in ${turns} turns (needed: ${coverageTarget}% and ${dataTarget} MB); an extended mission of up to ${turns} more turns can add some. It may fly, but it is unlikely to fully succeed.`,
       'instruments'
     )
-  )
+  checks.push({ ...science, margin: b.projectedCoverage - coverageTarget })
 
   const blockers = checks.filter((c) => c.status === 'red')
   const warnings = checks.filter((c) => c.status === 'yellow')
