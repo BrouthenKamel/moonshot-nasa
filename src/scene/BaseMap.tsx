@@ -516,13 +516,30 @@ const icons: Record<BuildingId, string> = {
   'comms-center': '📡',
 }
 
-function Label({ id, name, label }: { id: BuildingId; name: string; label: BuildingLabel }) {
+function Label({
+  id,
+  name,
+  label,
+  onClick,
+}: {
+  id: BuildingId
+  name: string
+  label: BuildingLabel
+  onClick?: () => void
+}) {
+  const border = label.alert ? 'border-red-500' : label.highlight ? 'border-orange-400' : 'border-slate-700/80'
   return (
     <div
-      className={`w-max max-w-[280px] select-none rounded-xl border-2 bg-white/95 px-3 py-1.5 shadow-lg ${
-        label.highlight ? 'border-orange-400' : 'border-slate-700/80'
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      title={onClick ? `Enter the ${name}` : undefined}
+      className={`relative w-max max-w-[280px] select-none rounded-xl border-2 bg-white/95 px-3 py-1.5 shadow-lg ${border} ${
+        onClick ? 'pointer-events-auto cursor-pointer transition hover:scale-105' : ''
       }`}
     >
+      {label.highlight && !label.alert && (
+        <span className="pointer-events-none absolute -inset-1.5 animate-pulse rounded-2xl ring-4 ring-orange-400/60" />
+      )}
       <div className="flex items-center gap-2">
         <span className="text-base leading-none">{icons[id]}</span>
         <span className="whitespace-nowrap font-display text-sm font-bold uppercase tracking-wide text-slate-800">
@@ -600,9 +617,11 @@ function LabelProjector({
 
 export interface BaseMapProps {
   labels: Record<BuildingId, BuildingLabel>
+  /** Walking into a building: clicking its model or its label */
+  onBuildingClick?: (id: BuildingId) => void
 }
 
-export function BaseMap({ labels }: BaseMapProps) {
+export function BaseMap({ labels, onBuildingClick }: BaseMapProps) {
   const plotCenter = footprintCenter(buildPlot.tile, buildPlot.size)
   const labelEls = useRef<(HTMLDivElement | null)[]>([])
 
@@ -642,7 +661,20 @@ export function BaseMap({ labels }: BaseMapProps) {
           const Model = models[b.id]
           const [x, , z] = footprintCenter(b.tile, b.size)
           return (
-            <group key={b.id} position={[x, 0.05, z]}>
+            <group
+              key={b.id}
+              position={[x, 0.05, z]}
+              onClick={
+                onBuildingClick
+                  ? (e) => {
+                      e.stopPropagation()
+                      onBuildingClick(b.id)
+                    }
+                  : undefined
+              }
+              onPointerOver={onBuildingClick ? () => (document.body.style.cursor = 'pointer') : undefined}
+              onPointerOut={onBuildingClick ? () => (document.body.style.cursor = '') : undefined}
+            >
               <Model />
             </group>
           )
@@ -674,7 +706,12 @@ export function BaseMap({ labels }: BaseMapProps) {
             }}
             className="invisible absolute left-0 top-0"
           >
-            <Label id={b.id} name={b.name} label={labels[b.id]} />
+            <Label
+              id={b.id}
+              name={b.name}
+              label={labels[b.id]}
+              onClick={onBuildingClick ? () => onBuildingClick(b.id) : undefined}
+            />
           </div>
         ))}
         <div
