@@ -122,6 +122,14 @@ All of these are being built on branch fix/qc-round-3 (round-3 builder), except 
 | 68 | Med | "Fix at the Factory (Spacecraft)" under each red/yellow Go/No-Go row is 12 px at 2.8:1; make it the brightest line, ideally a button to that building | G | waits-jakob | — |
 | 69 | Low | Visited steps in the sidebar are struck through in dim grey (3.25:1) | G | waits-jakob | — |
 
+## Batch 18: old or bad saved data
+
+| # | Sev | Finding | Group | Status | Owner |
+|---|-----|---------|-------|--------|-------|
+| 70 | High | A saved game from an older build (a design with no `planning`) white-screens the app on every reload. The game store persists with no version and no migrate; #25 (round 2) changes the saved shape again. Fix: version + migrate that validates the design (zod) and falls back to the default design | H | waits-jakob (recommended before merging #25) | Integration |
+| 71 | Info | Garbage JSON and unknown part ids do not crash | — | info | — |
+| 72 | Low | A corrupt-save design shows a self-contradicting Power line (120 W array, 18 W bus, "nothing left") | — | info (only with corrupt saves) | — |
+
 ## Sound (C3)
 
 PR #24 adds music on the base (Kamel's theme.mp3) and a mute button. The five flight cues (launch, event, capture, success, failure) are wired up but silent, because no sound-effect files exist yet.
