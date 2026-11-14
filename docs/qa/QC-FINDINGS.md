@@ -130,6 +130,33 @@ All of these are being built on branch fix/qc-round-3 (round-3 builder), except 
 | 71 | Info | Garbage JSON and unknown part ids do not crash | — | info | — |
 | 72 | Low | A corrupt-save design shows a self-contradicting Power line (120 W array, 18 W bus, "nothing left") | — | info (only with corrupt saves) | — |
 
+## Batches 19-20
+
+| # | Sev | Finding | Group | Status | Owner |
+|---|-----|---------|-------|--------|-------|
+| 73 | High | Building levels have no source of truth: missionLabels() reads the static lab level 2, so the badge stays LV 2 after the upgrade | B1 follow-up | go (part of B1) | Instrument Selection |
+| 74 | Info | At 1366x768 everything fits; read-only parts are shown with their building | — | info | — |
+| 75 | Low | The 0% starting reserve is only visible as a small grey line; say it in Go/No-Go ("No reserve: the first problem in flight cannot be paid") | A | waits-jakob | — |
+| 76 | Med | "New Game" in the header discards the design without confirming, and does not reset the agency | D4 | go (D4 removes it) | round-3 builder |
+| 77 | Info | Option cards on the step screens are real buttons, so they work with the keyboard | — | info | — |
+| 78 | Low | The Communications "contact hours" slider has no aria-label | A | waits-jakob | — |
+
+**Jakob, 18:44:**
+- F1: redesign the balance from the ground up (balance-designer, branch balance/redesign).
+- F2 and F3: yes (odds-ops-builder, branch feat/odds-and-ops).
+- Merged: #22, #23, #24, #25 (main 7d2303b).
+- #51 (cyan in the Factory) is handed to SpaceCraft Design under the A list.
+
+## Ideas from the "Game improvement brainstorm" session (round 1, waits-jakob)
+
+| # | Idea | Status |
+|---|------|--------|
+| I1 | Launch moment: a 10-15 s countdown, the Go/No-Go bars polled one by one, then the ride animates | waits-jakob |
+| I2 | Fix-it loop after a failure: the report names the 1-2 decisions behind it, with "Fix at <building>" buttons and "Relaunch with this change" | waits-jakob |
+| I3 | "Your mission vs the real one" comparison (Flashlight, IceCube, LunaH-Map) and a shareable result card | waits-jakob |
+| I4 | Seeded challenge variants (the ride slips 2 turns, budget -3 M, rad-hard computer mandatory) | waits-jakob |
+| I5 | The trap starting design: the brief names the first lesson, or the unvisited building pulses on the map | waits-jakob |
+
 ## Sound (C3)
 
 PR #24 adds music on the base (Kamel's theme.mp3) and a mute button. The five flight cues (launch, event, capture, success, failure) are wired up but silent, because no sound-effect files exist yet.
