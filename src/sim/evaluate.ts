@@ -162,9 +162,8 @@ function whyCoverageShort(state: SimState, b: Budgets): string[] {
         `Even a perfect craft maps only ${ideal.toFixed(0)}% in ${turns} turns. It takes an orbit with more passes or an instrument with a wider view.`
     )
   if (best.maxAltitudeKm !== null && orbit && orbit.altitude > best.maxAltitudeKm) {
-    const share = (best.maxAltitudeKm / orbit.altitude) ** 2
     out.push(
-      `Too high: the ${noun} works up to ${best.maxAltitudeKm} km and this orbit passes the pole at ${orbit.altitude} km, so it sees only ${Math.round(share * 100)}% of what it could.`
+      `Too high: the ${noun} only works below ${best.maxAltitudeKm} km and this orbit passes the pole at ${orbit.altitude} km, so it maps nothing there.`
     )
   }
   const attitude = getPartById(state.design.attitude) as AttitudePart | undefined
