@@ -1,12 +1,10 @@
-import { Component, lazy, Suspense, useState, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { canUseWebGL } from '../../scene/webgl'
-import type { RideFocus } from '../../scene/launch/LaunchPad'
 import { RideOverlay, RideTimeline } from './RideOverlay'
-import { rides, type Ride } from '../../data/rides'
-import { transfers, type Transfer, isTransferCompatible } from '../../data/transfers'
 import { getPartById, type PropulsionPart } from '../../data/parts'
-import { computeBudgets } from '../../sim/budgets'
+import { EngineNote, RideCardTray, TransferCardTray, choiceBriefing } from './launch/RideCards'
+import { rideDock, transferDock } from './launch/skyLayout'
 
 const LaunchPad = lazy(() => import('../../scene/launch/LaunchPad').then((m) => ({ default: m.LaunchPad })))
 
@@ -24,229 +22,146 @@ class PadBoundary extends Component<{ children: ReactNode; onError: () => void }
   }
 }
 
-type FocusProps = { onFocus: (f: RideFocus) => void }
-
-function RideCard({
-  ride,
-  selected,
-  onSelect,
-  onFocus,
-}: {
-  ride: Ride
-  selected: boolean
-  onSelect: () => void
-} & FocusProps) {
-  return (
-    <button
-      onClick={onSelect}
-      aria-pressed={selected}
-      onFocus={() => onFocus({ kind: 'ride', id: ride.id })}
-      onBlur={() => onFocus(null)}
-      className={`w-full rounded-lg p-4 text-left transition-colors ${
-        selected
-          ? 'bg-orange-900 ring-2 ring-orange-500'
-          : 'bg-slate-800 hover:bg-slate-700'
-      }`}
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="font-semibold text-slate-100">{ride.name}</div>
-          <div className="mt-1 text-sm text-slate-400">{ride.description}</div>
-        </div>
-        <div
-          className={`h-5 w-5 rounded-full border-2 ${
-            selected ? 'border-orange-500 bg-orange-500' : 'border-slate-600'
-          }`}
-        />
-      </div>
-
-      <div className="mt-4 grid grid-cols-4 gap-2 text-xs">
-        <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Departs</div>
-          <div className="font-bold text-slate-300">Month {ride.departureTurn}</div>
-        </div>
-        <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Cost</div>
-          <div className="font-bold text-slate-300">${ride.cost}M</div>
-        </div>
-        <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Mass Limit</div>
-          <div className="font-bold text-slate-300">{ride.massLimit} kg</div>
-        </div>
-        <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Capture burn</div>
-          <div className="font-bold text-slate-300">
-            {ride.extraDeltaV > 0 ? `+${ride.extraDeltaV} m/s` : ride.insertionFactor < 1 ? `x${ride.insertionFactor}` : 'full'}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-2 flex items-center gap-4 text-xs text-slate-500">
-        <span>Drop-off: {ride.dropOffOrbit}</span>
-        {ride.electricCompatible && <span className="text-blue-400">Electric OK</span>}
-        {ride.chemicalCompatible && <span className="text-orange-400">Chemical OK</span>}
-      </div>
-    </button>
-  )
-}
-
-function TransferCard({
-  transfer,
-  selected,
-  compatible,
-  onSelect,
-  onFocus,
-}: {
-  transfer: Transfer
-  selected: boolean
-  compatible: boolean
-  onSelect: () => void
-} & FocusProps) {
-  const design = useGameStore((s) => s.design)
-  const difficulty = useGameStore((s) => s.difficulty)
-  // What this transfer would mean for the current design
-  const trial = computeBudgets({ ...design, transfer: transfer.id }, difficulty)
-  const duration =
-    trial.transferTurns === null ? 'not possible' : trial.transferTurns === 0 ? 'about 5 days' : `${trial.transferTurns} months`
-  return (
-    <button
-      onClick={onSelect}
-      disabled={!compatible}
-      aria-pressed={selected}
-      onFocus={() => onFocus({ kind: 'transfer', id: transfer.id })}
-      onBlur={() => onFocus(null)}
-      className={`w-full rounded-lg p-4 text-left transition-colors ${
-        !compatible
-          ? 'cursor-not-allowed bg-slate-900 opacity-50'
-          : selected
-            ? 'bg-blue-900 ring-2 ring-blue-500'
-            : 'bg-slate-800 hover:bg-slate-700'
-      }`}
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="font-semibold text-slate-100">{transfer.name}</div>
-          <div className="mt-1 text-sm text-slate-400">{transfer.description}</div>
-        </div>
-        <div
-          className={`h-5 w-5 rounded-full border-2 ${
-            selected ? 'border-blue-500 bg-blue-500' : 'border-slate-600'
-          }`}
-        />
-      </div>
-
-      <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-        <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Takes</div>
-          <div className="font-bold text-slate-300">{duration}</div>
-        </div>
-        <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">To capture</div>
-          <div className="font-bold text-slate-300">
-            {trial.captureDeltaV === null ? '-' : `${trial.captureDeltaV.toFixed(0)} m/s`}
-          </div>
-        </div>
-        <div className="rounded bg-slate-900 p-2 text-center">
-          <div className="text-slate-500">Left after capture</div>
-          <div className={`font-bold ${trial.captureDeltaV !== null && trial.deltaVAfterCapture >= 0 ? 'text-slate-300' : 'text-red-400'}`}>
-            {trial.captureDeltaV === null ? '-' : `${trial.deltaVAfterCapture.toFixed(0)} m/s`}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-2 text-xs text-slate-500">
-        Requires: {transfer.propulsionType === 'any' ? 'any propulsion' : `${transfer.propulsionType} propulsion`}
-        {!compatible && <span className="ml-2 text-red-400">(incompatible with your propulsion)</span>}
-      </div>
-    </button>
-  )
-}
-
-/**
- * The plain ride and transfer cards. Always rendered: visible when there is no
- * 3D launch pad, and kept for keyboard and screen-reader users (visually hidden)
- * when there is.
- */
-function RideControls({ hidden, onFocus }: { hidden: boolean } & FocusProps) {
-  const design = useGameStore((s) => s.design)
-  const updateDesign = useGameStore((s) => s.updateDesign)
+/** The delta-v budget in words: shown on the plain screen, read by screen readers over the 3D pad */
+function BudgetSummary({ hidden }: { hidden: boolean }) {
   const getBudgets = useGameStore((s) => s.getBudgets)
-
+  useGameStore((s) => s.design)
   const budgets = getBudgets()
+  return (
+    <div className={hidden ? 'sr-only' : 'rounded-xl border border-orange-400/20 bg-orange-950/60 p-4 text-sm'}>
+      <div className="font-medium text-orange-300">Delta-v Budget</div>
+      <div className="mt-2 grid grid-cols-2 gap-4 text-orange-200">
+        <div>
+          On board: <span className="text-orange-400">{budgets.deltaVAvailable.toFixed(0)} m/s</span>
+          <span className="text-orange-200/60"> ({budgets.propellantMass} kg propellant)</span>
+        </div>
+        <div>
+          Capture + 12 months of upkeep:{' '}
+          <span className={budgets.captureDeltaV !== null && budgets.deltaVMargin >= 0 ? 'text-green-400' : 'text-red-400'}>
+            {budgets.captureDeltaV === null ? 'not possible' : `${budgets.deltaVTotal.toFixed(0)} m/s`}
+          </span>
+        </div>
+        <div>
+          Climbing out from the drop-off: <span className="text-orange-400">{budgets.deltaVTransfer.toFixed(0)} m/s</span>
+        </div>
+        <div>
+          Arrival:{' '}
+          <span className="text-orange-400">{budgets.arrivalTurn === null ? '-' : `month ${budgets.arrivalTurn}`}</span>
+          {budgets.transferTurns !== null && budgets.transferTurns > 0 && (
+            <span className="text-orange-200/60"> ({budgets.transferTurns} months of running the team in transit)</span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Briefing({ id, className = '' }: { id: string; className?: string }) {
+  const b = choiceBriefing(id)
+  if (!b) return null
+  return (
+    <p className={`text-[11.5px] leading-snug text-slate-300 ${className}`}>
+      <b className="font-semibold text-orange-300">{b.name}.</b> {b.text}
+    </p>
+  )
+}
+
+/** The plain screen: no 3D (tests, server rendering, no WebGL, or the pad failed) */
+function PlainRide() {
+  const design = useGameStore((s) => s.design)
+  const [hover, setHover] = useState<string | null>(null)
   const propulsion = getPartById(design.propulsion) as PropulsionPart | undefined
   const propType = propulsion?.type ?? 'chemical'
-
   return (
-    <div className={hidden ? 'sr-only' : 'mx-auto max-w-3xl space-y-6'}>
-      <div className="rounded-lg bg-slate-900 p-6">
-        <h1 className="text-xl font-bold text-orange-400">5. Ride & Transfer</h1>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div className="rounded-xl bg-slate-900 p-6">
+        <div className="text-xs font-semibold tracking-widest text-orange-500">LAUNCH SITE · LUNAR ICE MAPPER · RIDE &amp; TRANSFER</div>
+        <h1 className="mt-1 text-xl font-bold text-orange-400">5. Ride & Transfer</h1>
         <p className="mt-2 text-slate-400">
           Choose your rideshare launch and transfer trajectory. The ride drops you off; you navigate the rest.
         </p>
       </div>
-
-      <div className="rounded-lg bg-orange-950 p-4 text-sm">
-        <div className="font-medium text-orange-300">Delta-v Budget</div>
-        <div className="mt-2 grid grid-cols-2 gap-4 text-orange-200">
-          <div>
-            On board: <span className="text-orange-400">{budgets.deltaVAvailable.toFixed(0)} m/s</span>
-            <span className="text-orange-200/60"> ({budgets.propellantMass} kg propellant)</span>
-          </div>
-          <div>
-            Capture + 12 months of upkeep:{' '}
-            <span className={budgets.captureDeltaV !== null && budgets.deltaVMargin >= 0 ? 'text-green-400' : 'text-red-400'}>
-              {budgets.captureDeltaV === null ? 'not possible' : `${budgets.deltaVTotal.toFixed(0)} m/s`}
-            </span>
-          </div>
-          <div>
-            Climbing out from the drop-off: <span className="text-orange-400">{budgets.deltaVTransfer.toFixed(0)} m/s</span>
-          </div>
-          <div>
-            Arrival:{' '}
-            <span className="text-orange-400">
-              {budgets.arrivalTurn === null ? '-' : `month ${budgets.arrivalTurn}`}
-            </span>
-            {budgets.transferTurns !== null && budgets.transferTurns > 0 && (
-              <span className="text-orange-200/60"> ({budgets.transferTurns} months of running the team in transit)</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div>
+      <BudgetSummary hidden={false} />
+      <section>
         <h2 className="mb-4 font-semibold text-slate-200">Rideshare Options</h2>
-        <div className="space-y-4">
-          {rides.map((ride) => (
-            <RideCard
-              key={ride.id}
-              ride={ride}
-              selected={design.ride === ride.id}
-              onSelect={() => updateDesign({ ride: ride.id })}
-              onFocus={onFocus}
-            />
-          ))}
+        <div className="pt-3 pl-2">
+          <RideCardTray size="xs" onHover={setHover} />
         </div>
-      </div>
-
-      <div>
-        <h2 className="mb-4 font-semibold text-slate-200">Transfer Trajectory</h2>
-        <p className="mb-4 text-sm text-slate-400">
-          Your propulsion type ({propType}) limits your transfer options.
-        </p>
-        <div className="space-y-4">
-          {transfers.map((transfer) => (
-            <TransferCard
-              key={transfer.id}
-              transfer={transfer}
-              selected={design.transfer === transfer.id}
-              compatible={isTransferCompatible(transfer, propType)}
-              onSelect={() => updateDesign({ transfer: transfer.id })}
-              onFocus={onFocus}
-            />
-          ))}
+        <Briefing id={hover && hover.startsWith('ride-') ? hover : design.ride} className="mt-3" />
+      </section>
+      <section>
+        <h2 className="mb-1 font-semibold text-slate-200">Transfer Trajectory</h2>
+        <p className="mb-4 text-sm text-slate-400">Your propulsion type ({propType}) limits your transfer options.</p>
+        <div className="max-w-xl">
+          <TransferCardTray size="xs" onHover={setHover} />
         </div>
-      </div>
+        <Briefing id={hover && hover.startsWith('transfer-') ? hover : design.transfer} className="mt-3" />
+      </section>
+    </div>
+  )
+}
 
+function useSize(ref: RefObject<HTMLDivElement | null>) {
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    setSize({ w: el.clientWidth, h: el.clientHeight })
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref])
+  return size
+}
+
+const DOCK = 'pointer-events-auto absolute rounded-2xl border border-orange-400/20 bg-[#060a14]/92 p-2 shadow-[0_20px_50px_rgba(0,0,0,0.6)] backdrop-blur-md'
+const DOCK_TITLE = 'mb-1.5 flex items-baseline justify-between gap-2 px-1 text-[10.5px] font-bold tracking-[0.18em] text-orange-400'
+
+/** The title line at the top left is about 360 px wide: keep the transfer dock clear of it */
+const TITLE_RIGHT = 380
+function clearOfTitle<T extends { left: number; width: number }>(d: T): T {
+  return d.left >= TITLE_RIGHT ? d : { ...d, left: TITLE_RIGHT, width: d.width - (TITLE_RIGHT - d.left) }
+}
+
+/** The ride and transfer cards laid over the pad, exactly where its board and signs are */
+function PadDocks() {
+  const design = useGameStore((s) => s.design)
+  const wrap = useRef<HTMLDivElement>(null)
+  const size = useSize(wrap)
+  const [hover, setHover] = useState<string | null>(null)
+  const ride = size && rideDock(size.w, size.h)
+  const transfer = size && clearOfTitle(transferDock(size.w, size.h))
+  const briefing = hover ?? design.ride
+  return (
+    <div ref={wrap} className="pointer-events-none absolute inset-0">
+      <RideOverlay maxWidth={transfer ? Math.max(260, transfer.left - 32) : undefined} />
+      {transfer && (
+        <section className={DOCK} style={{ left: transfer.left, width: transfer.width, bottom: transfer.bottom }} aria-labelledby="transfer-dock-title">
+          <div className="flex gap-2">
+            <div className="flex w-[74px] shrink-0 flex-col justify-between px-1 py-0.5">
+              <h2 id="transfer-dock-title" className="text-[10.5px] leading-snug font-bold tracking-[0.16em] text-orange-400">
+                TRANSFER TO THE MOON
+              </h2>
+              <EngineNote />
+            </div>
+            <div className="min-w-0 flex-1">
+              <TransferCardTray size="xs" onHover={setHover} />
+            </div>
+          </div>
+        </section>
+      )}
+      {ride && (
+        <section className={DOCK} style={{ left: ride.left, width: ride.width, bottom: ride.bottom }} aria-labelledby="ride-dock-title">
+          <h2 id="ride-dock-title" className={DOCK_TITLE}>
+            DEPARTURES <span className="text-[10px] font-semibold tracking-wider text-slate-500">PICK YOUR RIDE</span>
+          </h2>
+          <div className="pt-2 pl-1.5">
+            <RideCardTray size="xs" onHover={setHover} />
+          </div>
+          <Briefing id={briefing} className="mt-2 line-clamp-3 px-0.5" />
+        </section>
+      )}
     </div>
   )
 }
@@ -287,12 +202,11 @@ function StepButtons({ overlay }: { overlay: boolean }) {
 export function RideScreen() {
   // The 3D launch pad starts only in a browser with WebGL; server rendering and tests take the plain path
   const [pad, setPad] = useState(canUseWebGL)
-  const [focus, setFocus] = useState<RideFocus>(null)
 
   if (!pad)
     return (
       <div className="h-full overflow-auto p-4">
-        <RideControls hidden={false} onFocus={() => {}} />
+        <PlainRide />
         <StepButtons overlay={false} />
       </div>
     )
@@ -301,12 +215,12 @@ export function RideScreen() {
     <div className="relative h-full min-h-[480px] w-full overflow-hidden bg-[#03050a]">
       <PadBoundary onError={() => setPad(false)}>
         <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-500">Opening the launch site…</div>}>
-          <LaunchPad focus={focus} />
+          <LaunchPad focus={null} />
         </Suspense>
       </PadBoundary>
-      <RideControls hidden onFocus={setFocus} />
-      <RideOverlay />
+      <BudgetSummary hidden />
       <RideTimeline />
+      <PadDocks />
       <StepButtons overlay />
     </div>
   )
