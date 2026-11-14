@@ -79,8 +79,8 @@ export function useAudioDirector() {
       const next = snapshot(state, prev.flight?.logCount ?? 0)
       // A new flight starts from zero logs
       if (state.simState && !prev.flight) next.flight!.newLogs = state.simState.turnLogs
+      if ((!state.simState && prev.flight) || state.screen !== prev.screen) audio.hush()
       for (const cue of cuesFor(prev, next)) play(cue)
-      if (!state.simState && prev.flight) audio.hush()
       prev = next
     })
   }, [])

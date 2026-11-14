@@ -113,7 +113,7 @@ function Director({ design, shot, reduced }: DirectorProps) {
   )
 
   // Read by the craft every frame: engine and wings
-  const live = useRef({ burn: 0, deploy: s.current.deploy })
+  const live = useRef({ burn: 0, deploy: shot.transferT > 0.02 || shot.stage === 'orbit' ? 1 : 0 })
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.1)
@@ -201,7 +201,7 @@ function Director({ design, shot, reduced }: DirectorProps) {
         const height = v.pos.length() - 1
         b.position.copy(v.pos)
         b.quaternion.copy(c.quaternion)
-        b.scale.set(1, 1, height)
+        b.scale.setScalar(height)
       }
     }
 
@@ -233,9 +233,9 @@ function Director({ design, shot, reduced }: DirectorProps) {
       {/* Beams point along +Z (toward the Moon); scaled in z to reach the ground */}
       <group ref={beams} visible={false}>
         {beamColors.map((color, i) => (
-          <mesh key={i} position={[(i - (beamColors.length - 1) / 2) * 0.02, 0, 0.5]} rotation={[Math.PI / 2, 0, 0]}>
-            <coneGeometry args={[0.1 + i * 0.03, 1, 24, 1, true]} />
-            <meshBasicMaterial color={new THREE.Color(color).multiplyScalar(1.6)} transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
+          <mesh key={i} position={[(i - (beamColors.length - 1) / 2) * 0.05, 0, 0.5]} rotation={[-Math.PI / 2, 0, 0]}>
+            <coneGeometry args={[0.16 + i * 0.05, 1, 24, 1, true]} />
+            <meshBasicMaterial color={new THREE.Color(color).multiplyScalar(1.4)} transparent opacity={0.16} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
           </mesh>
         ))}
       </group>

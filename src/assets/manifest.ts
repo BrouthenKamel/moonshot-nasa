@@ -144,6 +144,42 @@ export const assets = [
     credit: 'NASA SVS Deep Star Maps 2020 (svs.gsfc.nasa.gov/4851)',
   },
   {
+    id: 'image.patch',
+    kind: 'image',
+    file: 'img/patch.webp',
+    source: 'elevenlabs',
+    license: AUDIO_LICENSE.replace('ElevenLabs', 'ElevenLabs (GPT Image 2.5)'),
+    ai: true,
+    credit: 'Lunar Ice Mapper mission patch, shown on the report; prompt in assets-src/concepts/images.prompt.md',
+  },
+  {
+    id: 'image.event-thruster',
+    kind: 'image',
+    file: 'img/event-thruster.webp',
+    source: 'elevenlabs',
+    license: AUDIO_LICENSE.replace('ElevenLabs', 'ElevenLabs (GPT Image 2.5)'),
+    ai: true,
+    credit: 'Event card: thruster underperforms; prompt in assets-src/concepts/images.prompt.md',
+  },
+  {
+    id: 'image.event-no-signal',
+    kind: 'image',
+    file: 'img/event-no-signal.webp',
+    source: 'elevenlabs',
+    license: AUDIO_LICENSE.replace('ElevenLabs', 'ElevenLabs (GPT Image 2.5)'),
+    ai: true,
+    credit: 'Event card: no signal after deployment; prompt in assets-src/concepts/images.prompt.md',
+  },
+  {
+    id: 'image.event-build-delay',
+    kind: 'image',
+    file: 'img/event-build-delay.webp',
+    source: 'elevenlabs',
+    license: AUDIO_LICENSE.replace('ElevenLabs', 'ElevenLabs (GPT Image 2.5)'),
+    ai: true,
+    credit: 'Event card: build delay; prompt in assets-src/concepts/images.prompt.md',
+  },
+  {
     id: 'music.theme',
     kind: 'music',
     file: 'audio/music/theme.mp3',
@@ -701,6 +737,7 @@ export const assets = [
 export type AssetId = (typeof assets)[number]['id']
 export type ModelId = Extract<(typeof assets)[number], { kind: 'model' }>['id']
 export type TextureId = Extract<(typeof assets)[number], { kind: 'texture' }>['id']
+export type ImageId = Extract<(typeof assets)[number], { kind: 'image' }>['id']
 export type AudioId = Extract<(typeof assets)[number], { kind: 'music' | 'sfx' | 'voice' }>['id']
 
 const byId = new Map<string, Asset>(assets.map((a) => [a.id, a]))

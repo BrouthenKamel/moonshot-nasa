@@ -15,15 +15,14 @@ import {
   type MissionView,
   type Speed,
 } from '../../data/agency'
-import type { SimState } from '../../sim/types'
 import { difficultyPresets, type Difficulty } from '../../data/brief'
 import { computeBudgets } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
 import { isSimComplete } from '../../sim/simulate'
 import { buildingForStep, flightFeed, lunarMissionView, missionLabels, suggestedStep } from '../../viz/missionMap'
-import { EventCard } from '../flight/EventCard'
+import { FlightStage } from '../flight/FlightStage'
+import { useUiStore } from '../../state/uiStore'
 import { AudioControls } from '../kit/AudioControls'
-import { FlightControls } from '../flight/FlightControls'
 
 /* ------------------------------------------------------------------ */
 /* Clock                                                               */
@@ -50,47 +49,6 @@ const money = (m: number) => `$${m.toFixed(1)}M`
 /* The flight on the map: status, event card and turn buttons           */
 /* (all numbers from the logic core's flight state)                    */
 /* ------------------------------------------------------------------ */
-
-const PHASE_TEXT: Record<SimState['phase'], string> = {
-  build: 'Building in the Factory',
-  test: 'Testing',
-  wait: 'Ready, waiting for the ride',
-  transfer: 'On the way to the Moon',
-  capture: 'Capture burn',
-  orbit: 'Mapping the south pole',
-  complete: 'Mission over',
-  failed: 'Mission lost',
-}
-
-function FlightOverlay({ sim }: { sim: SimState }) {
-  const f = sim.flight
-  return (
-    <>
-      <div className="pointer-events-none absolute left-2 top-2 rounded-xl bg-[#14213d]/90 px-3 py-2 text-xs text-white shadow-lg">
-        <div className="font-display text-sm font-bold">
-          🛰️ Lunar Ice Mapper · turn {sim.currentTurn}
-        </div>
-        <div className="text-slate-300">{PHASE_TEXT[sim.phase]}</div>
-        <div className="mt-1 grid grid-cols-2 gap-x-3 tabular-nums text-slate-200">
-          <span>Ice {f.coverage.toFixed(1)}%</span>
-          <span>Data {f.data.toFixed(0)} MB</span>
-          <span>Δv {Math.max(0, f.dvLeft).toFixed(0)} m/s</span>
-          <span>
-            {f.main.toFixed(1)} M + {Math.max(0, f.reserve).toFixed(1)} M
-          </span>
-        </div>
-      </div>
-      {sim.pendingDecision && (
-        <div className="absolute left-1/2 top-1/2 w-[min(92%,520px)] -translate-x-1/2 -translate-y-1/2">
-          <EventCard />
-        </div>
-      )}
-      <div className="absolute bottom-10 left-1/2 w-[min(92%,520px)] -translate-x-1/2">
-        <FlightControls compact />
-      </div>
-    </>
-  )
-}
 
 /* ------------------------------------------------------------------ */
 /* Top bar                                                             */
@@ -553,6 +511,10 @@ export function BaseScreen() {
       ? missionLabels({ design, budgets, checks, visited: visitedSteps, sim: simState })
       : mockLabels
 
+  // The rocket on the island's pad: it leaves during the launch and stays gone while the craft flies
+  const launchAt = useUiStore((s) => s.launchAt)
+  const rocketGone = !!simState && simState.flight.launchedTurn !== null && launchAt === null
+
   return (
     <div className="flex min-h-screen flex-col bg-[#14213d] lg:h-screen lg:min-h-0">
       <TopBar netPerMonth={income - spending} />
@@ -561,8 +523,14 @@ export function BaseScreen() {
           <Dashboard income={income} spending={spending} missionFeed={missionFeed} />
         </div>
         <div className="relative order-1 h-[60vh] min-h-[360px] overflow-hidden rounded-2xl shadow-inner lg:order-2 lg:h-auto">
-          <BaseMap labels={labels} onBuildingClick={onBuildingClick} />
-          {simState && <FlightOverlay sim={simState} />}
+          {simState ? (
+            <FlightStage
+              sim={simState}
+              island={<BaseMap labels={labels} onBuildingClick={onBuildingClick} launchAt={launchAt} rocketGone={rocketGone} />}
+            />
+          ) : (
+            <BaseMap labels={labels} onBuildingClick={onBuildingClick} />
+          )}
           <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-black/30 px-2 py-1 text-[11px] text-white">
             {simState ? 'Drag to move · scroll to zoom' : 'Click a building to walk in · drag to move · scroll to zoom'}
           </div>

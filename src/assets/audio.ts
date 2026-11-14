@@ -83,7 +83,9 @@ Howler.mute(useAudioSettings.getState().muted)
 /* ---------------- voice: a queue through a radio filter ---------------- */
 
 const voiceBuffers = new Map<AudioId, Promise<AudioBuffer | null>>()
-const voiceQueue: AudioId[] = []
+/** Lines waiting to be spoken, with when they were asked for: a line that waited too long is stale */
+const voiceQueue: { id: AudioId; at: number }[] = []
+const STALE_MS = 7000
 let speaking = false
 /** Most lines a burst of turns may queue; older ones are dropped */
 const MAX_QUEUE = 4
@@ -149,8 +151,10 @@ function radioChain(ctx: AudioContext, gain: number): { input: AudioNode; output
 
 async function speakNext() {
   if (speaking) return
-  const id = voiceQueue.shift()
-  if (!id) return
+  let next = voiceQueue.shift()
+  while (next && performance.now() - next.at > STALE_MS) next = voiceQueue.shift()
+  if (!next) return
+  const id = next.id
   speaking = true
   const a = getAsset(id) as AudioAsset
   useAudioSettings.setState({ caption: a.caption ?? a.prompt ?? null })
@@ -219,7 +223,7 @@ export const audio = {
 
   /** Queue a voice line: radio filter, Quindar tone, caption while it plays */
   say(id: AudioId) {
-    voiceQueue.push(id)
+    voiceQueue.push({ id, at: performance.now() })
     while (voiceQueue.length > MAX_QUEUE) voiceQueue.shift()
     void loadVoice(id)
     void speakNext()

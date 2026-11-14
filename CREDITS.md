@@ -2,7 +2,7 @@
 
 Generated from `src/assets/manifest.ts` by `pnpm assets:credits`. Do not edit by hand.
 
-AI-generated assets: 52 of 60.
+AI-generated assets: 56 of 64.
 
 | Asset | Kind | Source | License | AI-generated | Credit |
 |---|---|---|---|---|---|
@@ -14,6 +14,10 @@ AI-generated assets: 52 of 60.
 | `texture.earth-day` | texture | nasa | Public domain (NASA) | no | NASA Earth Observatory: Blue Marble Next Generation, December |
 | `texture.earth-night` | texture | nasa | Public domain (NASA) | no | NASA Earth Observatory / NOAA: Suomi NPP night lights 2012 |
 | `texture.stars` | texture | nasa | Public domain (NASA) | no | NASA SVS Deep Star Maps 2020 (svs.gsfc.nasa.gov/4851) |
+| `image.patch` | image | elevenlabs | Generated with ElevenLabs (GPT Image 2.5) (use per ElevenLabs terms for the account plan) | yes | Lunar Ice Mapper mission patch, shown on the report; prompt in assets-src/concepts/images.prompt.md |
+| `image.event-thruster` | image | elevenlabs | Generated with ElevenLabs (GPT Image 2.5) (use per ElevenLabs terms for the account plan) | yes | Event card: thruster underperforms; prompt in assets-src/concepts/images.prompt.md |
+| `image.event-no-signal` | image | elevenlabs | Generated with ElevenLabs (GPT Image 2.5) (use per ElevenLabs terms for the account plan) | yes | Event card: no signal after deployment; prompt in assets-src/concepts/images.prompt.md |
+| `image.event-build-delay` | image | elevenlabs | Generated with ElevenLabs (GPT Image 2.5) (use per ElevenLabs terms for the account plan) | yes | Event card: build delay; prompt in assets-src/concepts/images.prompt.md |
 | `music.theme` | music | elevenlabs | Generated with ElevenLabs Music (use per ElevenLabs terms for the account plan) | yes |  |
 | `music.atelier` | music | elevenlabs | Generated with ElevenLabs Music (use per ElevenLabs terms for the account plan) | yes |  |
 | `music.departure` | music | elevenlabs | Generated with ElevenLabs Music (use per ElevenLabs terms for the account plan) | yes |  |

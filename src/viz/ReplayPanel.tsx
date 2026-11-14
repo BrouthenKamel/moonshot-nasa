@@ -1,9 +1,23 @@
-import { useEffect, useState } from 'react'
+import { Component, lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { MissionView } from '../scene/MissionView'
+import { canUseWebGL } from '../scene/webgl'
+import { flightShot } from './flight/flightDirector'
 import { useGameStore } from '../state/gameStore'
 import type { Design, TurnLog } from '../sim/types'
 import { ReplayTimeline } from './ReplayTimeline'
 import { TurnDetail } from './TurnDetail'
+
+const FlightView = lazy(() => import('../scene/flight/FlightView').then((m) => ({ default: m.FlightView })))
+
+class ViewBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children
+  }
+}
 
 interface ReplayPanelProps {
   design: Design
@@ -40,6 +54,9 @@ export function ReplayPanel({ design, logs, terminal, compact = false }: ReplayP
     setPlaying(true)
   }
 
+  const cinematic = useMemo(() => canUseWebGL(), [])
+  const shot = useMemo(() => flightShot(design, logs, turnIndex, { terminal }), [design, logs, turnIndex, terminal])
+
   const select = (i: number) => {
     setPlaying(false)
     setReplayTurn(i)
@@ -55,13 +72,26 @@ export function ReplayPanel({ design, logs, terminal, compact = false }: ReplayP
 
   return (
     <div className="space-y-3">
-      <MissionView
-        design={design}
-        logs={logs}
-        turnIndex={turnIndex}
-        terminal={terminal}
-        className={compact ? 'h-64' : 'h-[28rem]'}
-      />
+      {cinematic ? (
+        <div className={`relative w-full overflow-hidden rounded-xl bg-black ${compact ? 'h-64' : 'h-[30rem]'}`}>
+          <ViewBoundary fallback={<MissionView design={design} logs={logs} turnIndex={turnIndex} terminal={terminal} className="h-full" />}>
+            <Suspense fallback={null}>
+              <FlightView design={design} shot={shot} />
+            </Suspense>
+          </ViewBoundary>
+          <div className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs text-slate-200">
+            Month {shot.turn} · {shot.stage === 'ground' ? 'on the ground' : shot.stage === 'transfer' ? 'on the way to the Moon' : `in lunar orbit · ice ${(shot.coverage * 100).toFixed(1)}%`}
+          </div>
+        </div>
+      ) : (
+        <MissionView
+          design={design}
+          logs={logs}
+          turnIndex={turnIndex}
+          terminal={terminal}
+          className={compact ? 'h-64' : 'h-[28rem]'}
+        />
+      )}
       <ReplayTimeline
         logs={logs}
         turnIndex={turnIndex}
