@@ -42,7 +42,7 @@ export interface OrbitOption {
   captureDeltaV: number | null
   deltaVAvailable: number
   upkeepTurns: number
-  reachable: boolean
+  reachable: boolean // captureDeltaV !== null && deltaVAvailable >= captureDeltaV
   batteryNeedWh: number
   batteryUsableWh: number
   batteryOk: boolean
@@ -59,6 +59,8 @@ export interface OrbitView {
   options: OrbitOption[]
   selectedId: string
   selected: OrbitOption
+  /** False when the saved design names an orbit that is not one of the options (the screen then stores selectedId). */
+  storedIsKnown: boolean
 }
 
 export const COVERAGE_GOAL = 70
@@ -148,7 +150,9 @@ export function buildOrbitView(design: Design, difficulty: Difficulty): OrbitVie
     }))
     const iceInRange = iceInstruments.some((i) => i.inRange)
     const bestIceRate = ice.reduce((m, i) => Math.max(m, b.coverageRate[i.id] ?? 0), 0)
-    const reachable = b.captureDeltaV !== null && b.thrustLevel > 0 && b.deltaVAvailable >= b.captureDeltaV
+    // The game's own projection maps nothing in these two cases; with an engine too weak to thrust it still
+    // projects coverage (budgets.ts), so the view follows it and the red Delta-v verdict carries the problem
+    const reachable = b.captureDeltaV !== null && b.deltaVAvailable >= b.captureDeltaV
     const look = ORBIT_LOOK[orbit.id] ?? { shortName: orbit.name, color: '#e2e8f0' }
 
     return {
@@ -189,8 +193,9 @@ export function buildOrbitView(design: Design, difficulty: Difficulty): OrbitVie
     }
   })
 
-  const selected = options.find((o) => o.id === design.orbit) ?? options[0]
-  return { options, selectedId: selected.id, selected }
+  const stored = options.find((o) => o.id === design.orbit)
+  const selected = stored ?? options[0]
+  return { options, selectedId: selected.id, selected, storedIsKnown: !!stored }
 }
 
 const clampMonths = (m: number) => Math.max(0, Math.min(MISSION_MONTHS, m))

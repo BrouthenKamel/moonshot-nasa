@@ -103,7 +103,7 @@ Within approach 1 the panels are ordinary HTML over the canvas, not canvas-paint
 - **Craft**: a small bright dot with a soft glow and a short trail in the orbit's colour, moving by Kepler's law (fast at the low point). It is grey while inside the shadow stretch.
 - **Sensor beam**: while the craft is over the cap, a cone from the craft to the surface. Cyan when at least one ice instrument is in range; amber, thin and flickering when ice instruments are on board but out of range ("no signal"); absent when no ice instrument is on board.
 - **Earth**: a small blue sphere far away with a faint glow, plus a thin blue line from the craft while it is outside the Earth-hidden stretch.
-- An orbit is **reachable** when `captureDeltaV !== null`, `thrustLevel > 0` and `deltaVAvailable >= captureDeltaV`. When the picked orbit is not reachable, no craft, trail, beam or strips are drawn, coverage is 0, and the top label reads `THE CRAFT NEVER ARRIVES IN THIS ORBIT`.
+- An orbit is **reachable** when `captureDeltaV !== null` and `deltaVAvailable >= captureDeltaV` (the cases in which the game's projection maps nothing). An engine too weak to thrust (`thrustLevel === 0`) still flies in the scene, because `computeBudgets` still projects coverage for it; the red verdict "NO POWER TO FLY THERE" carries the problem. When the picked orbit is not reachable, no craft, trail, beam or strips are drawn, coverage is 0, and the top label reads `THE CRAFT NEVER ARRIVES IN THIS ORBIT`.
 
 ### Shapes (stylised, fixed per orbit id)
 
@@ -216,4 +216,4 @@ React:
 - The idle camera sways ±0.25 rad around where the player left it instead of circling the Moon, because circling reached the night side, where the Moon is black.
 - Earth sits at azimuth 40°, raised 0.9, so it is in open sky above the side-view panel.
 - The fallback adds the title line and a verdict with the check rows above today's cards, because the Dashboard is hidden on this step in the fallback too.
-
+- A saved design whose orbit id is not one of the three is shown as the halo loop, and the screen stores that pick once, so later steps do not carry a stale orbit.

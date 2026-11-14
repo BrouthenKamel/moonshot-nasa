@@ -556,7 +556,19 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
   )
 }
 
+/** A saved design may name an orbit that no longer exists: store the orbit the screen shows, once. */
+function useKnownOrbit() {
+  const design = useGameStore((s) => s.design)
+  const difficulty = useGameStore((s) => s.difficulty)
+  const updateDesign = useGameStore((s) => s.updateDesign)
+  useEffect(() => {
+    const view = buildOrbitView(design, difficulty)
+    if (!view.storedIsKnown) updateDesign({ orbit: view.selectedId })
+  }, [design, difficulty, updateDesign])
+}
+
 export function OrbitScreen() {
+  useKnownOrbit()
   // The 3D scene starts only in a browser with WebGL; server rendering and tests take the plain path
   const [scene, setScene] = useState(canUseWebGL)
   const wrap = useRef<HTMLDivElement>(null)

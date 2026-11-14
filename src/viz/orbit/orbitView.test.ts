@@ -122,4 +122,19 @@ describe('buildOrbitView', () => {
     expect(upkeepLine({ ...halo, upkeepTurns: 15 })).toBe('Holding the orbit costs 1 m/s a month: fuel for 15 months, enough for the mission.')
     expect(upkeepLine({ ...halo, upkeepTurns: 9 })).toBe('Only 9 months of fuel to hold the orbit: the mission will end early.')
   })
+
+  it('agrees with the game when the ion engine has no power to thrust (Important 1)', () => {
+    const d = { ...createDefaultDesign(), solar: 'solar-1wing', instruments: ['inst-laser'], orbit: 'orbit-elliptical' }
+    const b = computeBudgets(d, 'engineer')
+    expect(b.thrustLevel).toBe(0)
+    const o = buildOrbitView(d, 'engineer').selected
+    expect(o.verdict).toEqual({ tone: 'bad', text: 'NO POWER TO FLY THERE' })
+    expect(coverageAt(o, 12)).toBeCloseTo(b.projectedCoverage, 6)
+  })
+
+  it('says when the stored orbit is not one of the three (Important 2)', () => {
+    expect(buildOrbitView({ ...lunahMapDesign, orbit: 'orbit-gone' }, 'engineer').storedIsKnown).toBe(false)
+    expect(buildOrbitView(lunahMapDesign, 'engineer').storedIsKnown).toBe(true)
+  })
 })
+
