@@ -27,6 +27,8 @@ export const flashlightDesign: Design = {
 /** LunaH-Map-like: ion engine, elliptical orbit, neutron spectrometer. Meets the brief, on a thin budget. */
 export const lunahMapDesign: Design = {
   ...flashlightDesign,
+  // Thin budget: the reserve line is a hard limit, so this craft keeps only a 4% reserve
+  planning: { ...flashlightDesign.planning, reservePercent: 4 },
   instruments: ['inst-neutron'],
   solar: 'solar-2wing',
   attitude: 'attitude-basic',

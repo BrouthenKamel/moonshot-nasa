@@ -353,7 +353,8 @@ export function computeBudgets(design: Design, difficulty: Difficulty): Budgets 
 
   // --- step 7: projection of a clean science phase (no events)
   const science = newScienceState(design.instruments)
-  const cleanTurns = captureDeltaV === null ? 0 : Math.min(turns, upkeepTurns)
+  // No way to the Moon (no capture, or an engine that cannot thrust): no science to project
+  const cleanTurns = transferTurns === null ? 0 : Math.min(turns, upkeepTurns)
   for (let i = 0; i < cleanTurns; i++) scienceTurn(design, budgets, science)
   ;[budgets.projectedCoverage, budgets.projectedData, budgets.projectedContext, budgets.projectedOutreach] =
     scienceTotals(design, science)
@@ -371,7 +372,9 @@ export function createDefaultDesign(): Design {
     planning: {
       buildTurns: 0,
       testTurns: 1,
-      reservePercent: 10,
+      // The reserve line is a hard limit and this craft costs 24.9 M of the Engineer's 25 M:
+      // it starts with no reserve, so the first fix in flight it cannot pay teaches the reserve
+      reservePercent: 0,
     },
     instruments: ['inst-ir-spec'],
     structure: 'bus-6u',

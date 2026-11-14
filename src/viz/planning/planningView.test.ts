@@ -84,6 +84,12 @@ describe('buildPlanningView', () => {
       .toEqual({ level: 'caution', chip: 'CAUTION: NO SPARE TIME' })
     expect(status([chk('Time', 'green'), chk('Budget', 'yellow')], { ...d.planning, testTurns: 2, reservePercent: 10 }))
       .toEqual({ level: 'caution', chip: 'CAUTION: EATING THE RESERVE' })
+    // The reserve line is a hard limit: reaching into it is red, and the chip says why
+    const intoReserve = viewFor(d, { totalCost: 24, budgetCap: 25, spendable: 22.5, reserveAmount: 2.5 }, [
+      chk('Time', 'green'),
+      chk('Budget', 'red'),
+    ]).view.status
+    expect(intoReserve).toEqual({ level: 'caution', chip: 'INTO THE RESERVE' })
     expect(status([...ok, chk('Mass', 'red')], { ...d.planning, testTurns: 2, reservePercent: 10 }))
       .toEqual({ level: 'nominal', chip: 'ALL NOMINAL' })
   })

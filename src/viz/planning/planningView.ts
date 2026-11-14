@@ -130,7 +130,7 @@ export function buildPlanningView(design: Design, budgets: Budgets, checks: Chec
   const budget = statusOf('Budget')
   let status: PlanningView['status']
   if (time === 'red') status = { level: 'alert', chip: 'RIDE MISSED' }
-  else if (budget === 'red') status = { level: 'caution', chip: 'OVER BUDGET' }
+  else if (budget === 'red') status = { level: 'caution', chip: budgetState === 'eating' ? 'INTO THE RESERVE' : 'OVER BUDGET' }
   else if (testTurns === 0) status = { level: 'caution', chip: 'CAUTION: UNTESTED' }
   else if (reservePercent === 0) status = { level: 'caution', chip: 'CAUTION: NO RESERVE' }
   else if (time === 'yellow') status = { level: 'caution', chip: 'CAUTION: NO SPARE TIME' }

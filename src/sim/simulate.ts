@@ -554,6 +554,16 @@ export function flyUntilDecision(state: SimState, action: TurnAction, maxTurns =
 }
 
 /**
+ * Whether the turn from `prev` to `next` is worth stopping for when the flight
+ * plays turn by turn: a phase change (build, test, launch, capture, orbit, end),
+ * an event, a waiting decision, or the end of the mission.
+ */
+export function isMilestone(prev: SimState, next: SimState): boolean {
+  const log = next.turnLogs[next.turnLogs.length - 1]
+  return next.phase !== prev.phase || (log?.events.length ?? 0) > 0 || !!next.pendingDecision || isSimComplete(next)
+}
+
+/**
  * Run a complete simulation on standing orders (every event card gets its first option).
  */
 export function runSimulation(design: Design, difficulty: Difficulty, seed: number): SimState {
