@@ -25,7 +25,7 @@ pnpm dev        # http://localhost:5173
 You are designing the **Lunar Ice Mapper** - a 6U CubeSat mission to detect and map water ice in permanently shadowed craters at the Moon's south pole.
 
 ### The Diagram and Replay
-While you design, a live diagram shows how each choice connects to the mission. After a run, the replay panel lets you step or play through every turn, scrubbing a timeline while the 3D mission view follows the spacecraft.
+Each design step shows a live CubeSat cutaway that updates as you choose, a mission strip tracking where the choice sits in the mission, and a "what this choice changed" line summarising its effect on your resources. After a run, the turn replay gives you a scrubber over every turn with the events and numbers for each one, and you can reopen replays of past runs from Run History.
 
 ### The Challenge
 Balance six interconnected resources (mass, power, budget, delta-v, data, time) to:
