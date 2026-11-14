@@ -4,21 +4,34 @@ import { useAgencyStore } from './agencyStore'
 import { DEMO_START_DAY } from '../data/agency'
 import { DAYS_PER_TURN, advanceDays, approveMission, initialWorld, missionTurned, type World } from '../game/world'
 import { research } from '../game/research'
-import { MISSION_NAME, missionBudget, onMissionChange, snapshotOf } from '../game/missionLink'
+import { MISSION_NAME, currentSim, missionBudget, onMissionChange, snapshotOf, stepMission } from '../game/missionLink'
+import { isSimComplete } from '../sim/simulate'
 import type { SimState } from '../sim/types'
 
 /**
- * The agency layer on top of the mission: money, popularity, the news feed and
- * research (rules in src/game). It only listens: the mission and its clock stay
- * in the game store and the agency store, which this file never changes.
+ * The agency layer on top of the mission (rules in src/game): one clock in days,
+ * money, popularity, news and research.
  *
+ * - The clock runs on the base screen: 1 day a second, or 10 when fast.
+ *   Government funding comes in every day and popularity drifts back toward 50.
+ * - A flying mission takes one month (turn) every 30 days. The clock stops
+ *   by itself while an event card waits for the player.
  * - Launching a mission (a new flight at month 0) is the government's Go: the
- *   agency pays its share of the budget.
- * - Every mission month is 30 agency days: funding comes in, data reaches the
- *   Research Lab, papers come out.
- * - "Reset demo" (the base clock going back) resets the agency too.
+ *   agency pays its share of the budget. The mission's own buttons ("Advance
+ *   one month") still work: the clock catches up to the month they reach.
+ * - "Reset demo" resets the agency too.
  */
+export const SPEEDS = { paused: 0, normal: 1, fast: 10 } as const
+export type Speed = keyof typeof SPEEDS
+
 export interface WorldState extends World {
+  speed: Speed
+  /** The player chose a mission to work on (New mission) */
+  missionOpen: boolean
+  setSpeed: (speed: Speed) => void
+  /** Advance the clock by real seconds at the current speed */
+  tick: (seconds: number) => void
+  openMission: () => void
   resetWorld: () => void
 }
 
@@ -32,16 +45,53 @@ const pickWorld = (s: World): World => ({
   research: s.research,
 })
 
+/** The flight the clock may step: this agency's mission, not over, no card waiting */
+function steppableFlight(world: World): SimState | null {
+  const sim = currentSim()
+  if (!sim || !world.mission || world.mission.seed !== sim.seed) return null
+  if (isSimComplete(sim) || sim.pendingDecision) return null
+  return sim
+}
+
+/** Run the clock to `target`, flying one mission month on each 30th day */
+function runUntil(target: number) {
+  const store = useWorldStore
+  for (let guard = 0; guard < 500; guard++) {
+    let world = pickWorld(store.getState())
+    if (world.day >= target) return
+    const sim = steppableFlight(world)
+    const turnDay = sim && world.mission ? world.mission.approvedDay + (sim.currentTurn + 1) * DAYS_PER_TURN : Infinity
+    world = advanceDays(world, Math.min(target, turnDay)).world
+    store.setState(world)
+    if (sim && world.day >= turnDay) {
+      stepMission() // the listener below books the month
+      const after = currentSim()
+      if (!after || after.currentTurn === sim.currentTurn || after.pendingDecision) return
+    }
+  }
+}
+
 export const useWorldStore = create<WorldState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...initialWorld(),
-      resetWorld: () => set(initialWorld()),
+      speed: 'normal' as Speed,
+      missionOpen: false,
+      setSpeed: (speed) => set({ speed }),
+      tick: (seconds) => {
+        const rate = SPEEDS[get().speed]
+        if (rate === 0 || seconds <= 0) return
+        if (currentSim()?.pendingDecision) return // waits for the event card
+        runUntil(get().day + rate * seconds)
+      },
+      openMission: () => set({ missionOpen: true }),
+      resetWorld: () => set({ ...initialWorld(), missionOpen: false }),
     }),
     {
       name: 'moonshot-agency-world',
-      version: 1,
-      partialize: (s) => pickWorld(s),
+      version: 2,
+      migrate: (persisted) => ({ ...(persisted as object), speed: 'normal', missionOpen: false }) as never,
+      partialize: (s) => ({ ...pickWorld(s), speed: s.speed, missionOpen: s.missionOpen }),
     }
   )
 )
@@ -56,7 +106,7 @@ export function bookFlight(sim: SimState | null) {
   if (!world.mission || world.mission.seed !== sim.seed) {
     // A new flight at month 0: the plan was approved and launched into the build
     if (sim.currentTurn !== 0 || snap.ended) return
-    store.setState(approveMission(world, { name: MISSION_NAME, budget: missionBudget(), snapshot: snap }))
+    store.setState({ ...approveMission(world, { name: MISSION_NAME, budget: missionBudget(), snapshot: snap }), missionOpen: true })
     return
   }
 

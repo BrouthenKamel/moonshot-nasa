@@ -90,6 +90,7 @@ interface DirectorProps {
 
 function Director({ design, shot, reduced, camMode, camOffset }: DirectorProps) {
   const { camera } = useThree()
+  const marker = useRef<THREE.Mesh>(null)
   const craft = useRef<THREE.Group>(null)
   const beams = useRef<THREE.Group>(null)
   const link = useRef<THREE.Mesh>(null)
@@ -207,6 +208,16 @@ function Director({ design, shot, reduced, camMode, camOffset }: DirectorProps) 
         v.wantPos.copy(v.pos).addScaledVector(v.tan, -0.58).addScaledVector(v.radial, 0.24).addScaledVector(ORBIT_NORMAL, 0.18 * SUNWARD)
         v.wantLook.copy(v.pos).addScaledVector(v.tan, 0.25).addScaledVector(v.radial, -0.14)
       }
+    } else if (camMode === 'earth') {
+      // Close to the craft, looking back home past it
+      v.toEarth.copy(EARTH_POS).sub(v.pos).normalize()
+      v.wantPos.copy(v.pos).addScaledVector(v.toEarth, -0.55).addScaledVector(UP, 0.14)
+      v.wantLook.copy(EARTH_POS)
+    } else if (camMode === 'moon' && a.mode === 'transfer') {
+      // Close behind the craft, the Moon ahead (once in orbit, 'moon' is the composed south-pole shot below)
+      v.toEarth.copy(v.pos).multiplyScalar(-1).normalize() // toward the Moon at the origin
+      v.wantPos.copy(v.pos).addScaledVector(v.toEarth, -0.5).addScaledVector(v.side, 0.12).addScaledVector(UP, 0.12)
+      v.wantLook.set(0, 0, 0)
     } else if (a.mode === 'transfer') {
       // 'director' transfer: camera swings from ahead of the craft (Earth behind it) round to behind it (Moon ahead)
       const swing = 2.55 - 2.0 * smooth(0.06, 0.42, a.t) + (reduced ? 0 : Math.sin(time * 0.13) * 0.08)
@@ -266,6 +277,14 @@ function Director({ design, shot, reduced, camMode, camOffset }: DirectorProps) 
     live.current.burn = shot.ending === 'failed' ? 0 : a.burn
     live.current.deploy = a.deploy
 
+    // Overview: a bright marker so the craft can be found from far away
+    const mk = marker.current
+    if (mk) {
+      mk.visible = camMode === 'overview'
+      mk.position.copy(v.pos)
+      if (!reduced) mk.scale.setScalar(1 + Math.sin(time * 3) * 0.15)
+    }
+
     // Instrument beams: on over the polar region, while the instruments record
     const overPole = a.mode === 'orbit' && v.pos.y < 0 && Math.acos(Math.min(1, -v.pos.y / v.pos.length())) < 0.42
     const b = beams.current
@@ -305,6 +324,10 @@ function Director({ design, shot, reduced, camMode, camOffset }: DirectorProps) 
       <group ref={craft}>
         <CubeSat design={design} scale={craftScale} live={live} />
       </group>
+      <mesh ref={marker} visible={false}>
+        <sphereGeometry args={[0.45, 16, 12]} />
+        <meshBasicMaterial color={new THREE.Color('#fb923c').multiplyScalar(2)} toneMapped={false} />
+      </mesh>
       {/* Beams point along +Z (toward the Moon); scaled in z to reach the ground */}
       <group ref={beams} visible={false}>
         {beamColors.map((color, i) => (
@@ -402,6 +425,12 @@ export function FlightView({ design, shot, className = '' }: FlightViewProps) {
 
   const shape = ORBIT_SHAPES[shot.orbitId] ?? DEFAULT_SHAPE
   const pathPoints = useMemo(() => TRANSFER.getPoints(120), [])
+  // The part of the path already flown, drawn solid in the overview
+  const flownPoints = useMemo(() => {
+    const t = shot.stage === 'orbit' ? 1 : shot.transferT
+    const n = Math.max(2, Math.ceil(t * 120))
+    return Array.from({ length: n + 1 }, (_, i) => TRANSFER.getPoint((i / n) * t))
+  }, [shot.stage, shot.transferT])
   const ringPoints = useMemo(() => {
     const pts: THREE.Vector3[] = []
     for (let i = 0; i <= 160; i++) pts.push(orbitPoint(shape, (i / 160) * Math.PI * 2, new THREE.Vector3()))
@@ -436,9 +465,10 @@ export function FlightView({ design, shot, className = '' }: FlightViewProps) {
           <Suspense fallback={null}>
             <BennuLandmark reduced={reduced} />
           </Suspense>
-          {shot.stage !== 'orbit' && (
-            <Line points={pathPoints} color="#fbbf24" lineWidth={1.2} dashed dashSize={0.25} gapSize={0.2} transparent opacity={0.5} />
+          {(shot.stage !== 'orbit' || flightCam === 'overview') && (
+            <Line points={pathPoints} color="#fbbf24" lineWidth={flightCam === 'overview' ? 1.6 : 1.2} dashed dashSize={flightCam === 'overview' ? 0.6 : 0.25} gapSize={flightCam === 'overview' ? 0.45 : 0.2} transparent opacity={0.5} />
           )}
+          {flightCam === 'overview' && shot.transferT > 0 && <Line points={flownPoints} color="#fb923c" lineWidth={3.5} />}
           <Line points={ringPoints} color={orbitColor} lineWidth={shot.stage === 'orbit' ? 1.6 : 1} transparent opacity={shot.stage === 'orbit' ? 0.75 : 0.3} />
           <Director design={design} shot={shot} reduced={reduced} camMode={flightCam} camOffset={camOffset} />
           <Effects bloom={1} vignette={0.7} />

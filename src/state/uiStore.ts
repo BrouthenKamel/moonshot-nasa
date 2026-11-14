@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import type { Design } from '../sim/types'
 
-export type FlightCamMode = 'director' | 'chase' | 'pole' | 'overview'
+/** Space-view cameras: the base shows overview, moon and earth; the others stay for other views */
+export type FlightCamMode = 'director' | 'chase' | 'pole' | 'overview' | 'moon' | 'earth'
 export type AgencyWalletFocus = 'funds' | 'popularity' | null
 
 /**
@@ -48,7 +49,7 @@ export const useUiStore = create<UiState>()((set) => ({
   setAgencyWalletDetail: (agencyWalletDetail) => set({ agencyWalletDetail }),
   flightView: 'space',
   setFlightView: (flightView) => set({ flightView }),
-  flightCam: 'director',
+  flightCam: 'overview',
   setFlightCam: (flightCam) => set({ flightCam }),
   autoFlySpeed: 1,
   setAutoFlySpeed: (autoFlySpeed) => set({ autoFlySpeed }),

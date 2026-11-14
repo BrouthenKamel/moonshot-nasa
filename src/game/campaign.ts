@@ -1,47 +1,55 @@
 /**
  * Campaign progress shown at Headquarters: three phases from a tiny agency
- * to a base on Mars. The demo starts with phase 1 done.
+ * to a base on Mars. The demo starts mid-game: the satellite phase is done
+ * and the agency is working on the Moon.
  */
 import type { World } from './world'
 
 export interface CampaignGoal {
   label: string
   state: 'done' | 'active' | 'locked'
+  /** 0-1 for a goal under way */
+  progress?: number
 }
 
 export interface CampaignPhase {
-  id: string
+  id: 'satellites' | 'moon' | 'mars'
   name: string
   goals: CampaignGoal[]
 }
 
-export function campaign(world: World): CampaignPhase[] {
-  const day = world.day
-  const lunar = world.mission
-  const mapped = !!lunar?.last.ended && lunar.last.outcome === 'success'
-  const lunarState: CampaignGoal['state'] = mapped ? 'done' : 'active'
+/** How far the Lunar Ice Mapper has come: launched counts a third, the ice map the rest */
+function iceMapperProgress(world: Pick<World, 'mission'>): number {
+  const last = world.mission?.last
+  if (!last) return 0
+  if (last.ended) return last.outcome === 'success' ? 1 : last.outcome === 'partial' ? 0.6 : 0
+  if (!last.launched) return 0.1
+  return Math.min(0.95, 0.33 + (last.coverage / 70) * 0.62)
+}
 
+export function campaign(world: Pick<World, 'mission'>): CampaignPhase[] {
+  const ice = iceMapperProgress(world)
   return [
     {
-      id: 'earth',
-      name: '1. Earth orbit',
+      id: 'satellites',
+      name: 'Satellites',
       goals: [
-        { label: 'First satellite in orbit (Aurora-1)', state: day >= 41 ? 'done' : 'active' },
-        { label: 'First mission beyond Earth orbit (Relay Pathfinder)', state: day >= 70 ? 'done' : 'active' },
+        { label: 'Weather satellite in Earth orbit', state: 'done' },
+        { label: 'Communications relay satellite', state: 'done' },
       ],
     },
     {
       id: 'moon',
-      name: '2. The Moon',
+      name: 'The Moon',
       goals: [
-        { label: 'Lunar relay in orbit (Relay Pathfinder)', state: day >= 190 ? 'done' : 'active' },
-        { label: 'Map water ice at the south pole (Lunar Ice Mapper)', state: lunarState },
+        { label: 'Lunar relay in orbit', state: 'done' },
+        { label: 'Map water ice at the south pole', state: ice >= 1 ? 'done' : 'active', progress: ice },
         { label: 'Crewed landing', state: 'locked' },
       ],
     },
     {
       id: 'mars',
-      name: '3. Mars base',
+      name: 'Mars base',
       goals: [
         { label: 'Survey Mars with a probe', state: 'locked' },
         { label: 'Send cargo ahead', state: 'locked' },
@@ -52,6 +60,8 @@ export function campaign(world: World): CampaignPhase[] {
   ]
 }
 
+/** 0-1: done goals count fully, a goal under way counts its progress */
 export function phaseProgress(phase: CampaignPhase): number {
-  return phase.goals.filter((g) => g.state === 'done').length / phase.goals.length
+  const sum = phase.goals.reduce((s, g) => s + (g.state === 'done' ? 1 : g.state === 'active' ? (g.progress ?? 0) : 0), 0)
+  return sum / phase.goals.length
 }

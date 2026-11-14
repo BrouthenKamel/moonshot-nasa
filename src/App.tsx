@@ -171,8 +171,8 @@ export default function App() {
     if (!openingDone && canUseWebGL()) return <Opening onBegin={() => audio.play('sfx.reveal')} />
     return (
       <main className="h-screen text-slate-100">
+        {/* No mentor over the base: the mission panel says what comes next */}
         <BaseScreen />
-        <Narrator />
         <Captions />
       </main>
     )

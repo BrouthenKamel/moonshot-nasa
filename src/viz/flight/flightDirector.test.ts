@@ -61,6 +61,24 @@ describe('flightShot', () => {
     expect(shot.transferT).toBeLessThan(1)
   })
 
+  it('a live transfer moves on between months with the agency clock', () => {
+    let s = initSim(iceCubeDesign, 'cadet', 11)
+    const action = { ...getDefaultAction(), autoDecide: true }
+    while (!isSimComplete(s) && (s.flight.launchedTurn === null || s.flight.transferLeft === 0)) s = stepTurn(s, action)
+    s = stepTurn(s, action)
+    if (isSimComplete(s) || s.flight.captured || !s.flight.transferLeft) return // nothing to check for this seed
+    const at = (f: number) =>
+      flightShot(s.design, s.turnLogs, s.turnLogs.length - 1, { transferLeft: s.flight.transferLeft, monthFraction: f }).transferT
+    expect(at(0.5)).toBeGreaterThan(at(0))
+    expect(at(0.99)).toBeGreaterThan(at(0.5))
+    // Never past where the next month will put it
+    const next = stepTurn(s, action)
+    if (!next.flight.captured && !isSimComplete(next)) {
+      const nextT = flightShot(next.design, next.turnLogs, next.turnLogs.length - 1, { transferLeft: next.flight.transferLeft }).transferT
+      expect(at(0.99)).toBeLessThanOrEqual(nextT + 1e-9)
+    }
+  })
+
   it('copes with bad input', () => {
     expect(flightShot(flashlightDesign, logs, Number.NaN).turn).toBe(logs[0].turn)
     expect(flightShot(flashlightDesign, logs, 9999, { terminal }).ending).toBe(terminal)
