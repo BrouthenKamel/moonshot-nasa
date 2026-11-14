@@ -94,10 +94,13 @@ Three rows, one per ride, in turn order. Each row: name, drop-off in plain words
 
 - Column `TAKES`: the what-if `massLimit` (the smaller of the ride's limit and the brief's 14 kg, so GTO reads 14 kg), the same number the Mass bar uses.
 - Column `YOU BURN`: the what-if `captureDeltaV` in m/s (climb and capture together), or `—` when it is `null`. This is where the player sees that the commercial ride more than halves the burn and GTO adds 1,500 m/s, before selecting.
+- Column `PLAN COST`: the what-if `totalCost` as `$27.5M`, red when it is above `budgetCap`. The fee stays beside it in small type. (Playtest, 14 Nov: the GTO ride's $0.8M fee read as the cheap choice, but choosing it added $2.6M of transit cost, 20 turns and a Time no-go. The row must show the consequence, not only the fee.)
+- Column `ARRIVES`: the what-if `arrivalTurn` as `TURN 27`, or `—` when it is `null`.
 - `TOO EARLY` (red) when `readyTurn > departureTurn`; the turn number turns red.
+- `OVER BUDGET` (red) when the what-if `totalCost > budgetCap`; it comes last in the order below.
 - `TOO HEAVY` (red) when the what-if `massMargin < 0`; the limit turns red.
 - `WRONG ENGINE` (red) when the ride does not suit the engine (GTO with a chemical or cold-gas engine).
-- otherwise `ON TIME` (green). When several apply, show the first in this order: wrong engine, too heavy, too early.
+- otherwise `ON TIME` (green). When several apply, show the first in this order: wrong engine, too heavy, too early, over budget.
 
 Every row can be selected (as today). The selected row has the orange fill and outline. Click selects; hover brightens the row and shows a pointer cursor.
 
@@ -201,6 +204,7 @@ Canvases repaint only while a value is easing or the selection changed, never ev
 2. Title, bars, reasons, timeline and the Back / Next buttons are HTML overlays, not painted into the scene, for crisp text and screen readers.
 3. The board shows the mass limit that applies (14, 14, 12 kg), not each ride's own (16, 14, 12 kg), so it never disagrees with the Mass bar. The mockup shows 16 kg for GTO; the document wins.
 9. The board has a `YOU BURN` column the mockup does not have (the reviewer's point: the step's main lesson should be visible before selecting).
+11. The board also has `PLAN COST` and `ARRIVES` columns and an `OVER BUDGET` status, from a playtest finding the coordinator sent after the mockup was approved.
 10. Three ways of not getting there are told apart (`noWay`, `noPower`, `flyPast`); the mockup shows only the first.
 4. An impossible transfer cannot be selected (as today), but an impossible ride can, and is marked on the board.
 5. The scene's overall chip looks only at Delta-v, Mass, Time and Budget.
