@@ -9,7 +9,3 @@ Following your implementation, here is short checklist (`docs/hackathon/checklis
 # Human Brainstorming
 
 The document: `docs/human/brainstorming_board.md` provided a summary of our team's brainstorming session compiling all decisions we made regarding the game. 
-
-# Task
-
-Implement the game version 1.0

@@ -1,6 +1,6 @@
 import { useGameStore } from './state/gameStore'
 import { Shell } from './ui/Shell'
-import { TitleScreen, DesignScreen } from './ui/screens'
+import { TitleScreen, DesignScreen, BaseScreen } from './ui/screens'
 import { ReplayPanel } from './viz/ReplayPanel'
 import { isSimComplete } from './sim/simulate'
 import { computeBudgets } from './sim/budgets'
@@ -55,7 +55,6 @@ function EventCard() {
     </div>
   )
 }
-import { TitleScreen, DesignScreen, BaseScreen } from './ui/screens'
 
 function SimulationPlaceholder() {
   const simState = useGameStore((s) => s.simState)
