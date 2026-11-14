@@ -9,6 +9,7 @@ import {
   whatIfFromDesign,
   INSTRUMENT_COLORS,
   INSTRUMENT_SHORT_NAMES,
+  passesText,
   type StageModel,
 } from './stageModel'
 
@@ -142,6 +143,21 @@ describe('stageModel', () => {
     expect(view(m, 'inst-ir-spec').iceRatePerTurn).toBe(0)
   })
 
+  it('a link too slow for the data says so even when nothing is lost', () => {
+    const d = { ...lunahMapDesign, radio: 'radio-uhf' }
+    const b = computeBudgets(d, 'engineer')
+    expect(b.projectedLost).toBeLessThanOrEqual(0.5)
+    expect(b.downlinkPerTurn).toBeLessThan(b.dataPerTurn)
+    expect(base(d).forecast.reasons).toContain(
+      `The link is too slow: ${Math.round(b.dataPerTurn)} MB a turn is made, ${Math.round(b.downlinkPerTurn)} MB gets home, and coverage only counts once its data is home. Link: Comms Center.`
+    )
+  })
+
+  it('names a full link only once', () => {
+    const m = base({ ...flashlightDesign, instruments: ['inst-laser', 'inst-camera'] })
+    expect(m.forecast.reasons.filter((r) => r.startsWith('The link is')).length).toBe(1)
+  })
+
   it('empty bay and unknown orbit do not throw or produce NaN', () => {
     const m = stageModel({ ...flashlightDesign, instruments: [], orbit: '' }, 'engineer', { orbit: '', precise: true })
     expect(m.instruments).toEqual([])
@@ -173,5 +189,12 @@ describe('activityText', () => {
   })
   it('says out of range at strength 0', () => {
     expect(activityText({ ...v, strength: 0, outOfRange: true, heightIsCause: true }, false)).toBe('Out of range at this height')
+  })
+})
+
+describe('passesText', () => {
+  it('keeps the catalogue figure instead of rounding it', () => {
+    expect(passesText(4.5)).toBe('4.5 passes over the pole per turn')
+    expect(passesText(141)).toBe('141 passes over the pole per turn')
   })
 })

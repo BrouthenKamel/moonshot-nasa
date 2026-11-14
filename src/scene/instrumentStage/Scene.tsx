@@ -4,7 +4,7 @@ import { OrbitControls, Stars } from '@react-three/drei'
 import * as THREE from 'three'
 import { TILE_LENGTH, TILE_WIDTH, bakeGround } from './ground'
 import { Beam } from './beams'
-import { SAT_SCALE, advancePass, holdOverCrater, groundAt, lookY, makeGlowTexture, slotX, targetZ, type Pass } from './frame'
+import { FAR_PLANE_NEAR_EDGE, SAT_SCALE, TILE_COPIES, advancePass, holdOverCrater, groundAt, lookY, makeGlowTexture, slotX, targetZ, type Pass } from './frame'
 import type { InstrumentView } from './stageModel'
 
 const TAU = Math.PI * 2
@@ -81,12 +81,12 @@ function Terrain({ pass }: { pass: Pass }) {
           <meshStandardMaterial color="#99999c" roughness={1} />
         </mesh>
       ))}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, -5 * TILE_LENGTH - 1500 + 2]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, FAR_PLANE_NEAR_EDGE - 1500]}>
         <planeGeometry args={[TILE_WIDTH, 3000]} />
         <meshStandardMaterial color="#99999c" roughness={1} />
       </mesh>
       <group ref={group}>
-        {[-1, 0, 1, 2, 3, 4].map((i) => (
+        {TILE_COPIES.map((i) => (
           <mesh key={i} geometry={geo} position={[0, 0, -i * TILE_LENGTH]}>
             <meshStandardMaterial vertexColors roughness={1} metalness={0} />
           </mesh>
@@ -180,7 +180,7 @@ export function Scene({ pass, h, views, still, onShadow }: SceneProps) {
   const [startTarget] = useState<[number, number, number]>(() => [0, lookY(h), -4])
   return (
     <>
-      <color attach="background" args={['#020308']} />
+      <color attach="background" args={['#03050a']} />
       <ambientLight intensity={0.07} />
       <directionalLight position={[-34.2, 15.8, -94]} intensity={6.5} color="#fff8ec" />
       <pointLight position={[2.5, h + 2.5, 5]} intensity={45} distance={9} decay={2} color="#cbd5e1" />

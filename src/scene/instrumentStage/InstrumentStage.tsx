@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { useGameStore } from '../../state/gameStore'
 import { getOrbitById } from '../../data/orbits'
 import { Scene } from './Scene'
-import { ForecastPanel, LabDials, ReadOuts } from './Overlays'
+import { ForecastPanel, LabDials, ReadOuts, TitleLine } from './Overlays'
 import { InstrumentBar } from './InstrumentBar'
 import { DesignDeltaLine } from '../../viz/DesignDeltaLine'
 import { satHeight, type Pass } from './frame'
@@ -40,15 +40,16 @@ export default function InstrumentStage() {
 
   return (
     <div className="mb-4">
-      <div className="relative h-[66vh] min-h-[460px] overflow-hidden rounded-t-xl border border-slate-800 bg-black">
+      <TitleLine />
+      <div className="relative h-[66vh] min-h-[460px] overflow-hidden border border-slate-800 bg-[#03050a]">
         <Canvas dpr={[1, 1.75]} camera={camera}>
           <Scene pass={pass} h={h} views={model.instruments} still={still} onShadow={setOverShadow} />
         </Canvas>
         <ForecastPanel forecast={model.forecast} />
         <LabDials whatIf={whatIf} onChange={(change) => setWhatIf((w) => ({ ...w, ...change }))} />
-        <ReadOuts views={model.instruments} overShadow={overShadow} />
+        <ReadOuts views={model.instruments} overShadow={overShadow} isWhatIf={model.forecast.isWhatIf} />
         <div className="pointer-events-none absolute bottom-3 left-3 rounded bg-slate-950/70 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500">
-          Research Lab · drag to look around
+          drag to look around
         </div>
       </div>
       <InstrumentBar

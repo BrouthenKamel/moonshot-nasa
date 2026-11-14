@@ -10,6 +10,11 @@ export interface Pass {
   offset: number // how far the ground has slid, in scene units
 }
 
+/** Tile copies drawn along the track, nearest first; enough to reach the far plane at every offset. */
+export const TILE_COPIES = [-1, 0, 1, 2, 3, 4, 5]
+/** z of the near edge of the flat plane that carries the ground on to the horizon. */
+export const FAR_PLANE_NEAR_EDGE = -5 * TILE_LENGTH + 2
+
 export const SPEED = 4.2 // scene units per second: one loop of the tile is about 19 s
 export const SAT_SCALE = 1.3
 /** Scene units per unit of the catalogue's footprint, the same for every instrument. */

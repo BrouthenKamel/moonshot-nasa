@@ -1,5 +1,5 @@
 import { lunarOrbits } from '../../data/orbits'
-import { COVERAGE_TARGET, activityText, type StageForecast, type InstrumentView, type WhatIf } from './stageModel'
+import { COVERAGE_TARGET, activityText, passesText, type StageForecast, type InstrumentView, type WhatIf } from './stageModel'
 
 const panel = 'rounded-lg border border-slate-700/70 bg-slate-950/80 backdrop-blur'
 const TAU = Math.PI * 2
@@ -31,6 +31,16 @@ function Ring({ value, ok, whatIf }: { value: number; ok: boolean; whatIf: boole
   )
 }
 
+/** The building's title line, in the format every building uses. */
+export function TitleLine() {
+  return (
+    <div className="flex items-center gap-2 rounded-t-xl border border-b-0 border-slate-800 bg-[#03050a] px-4 py-2 font-mono text-xs font-semibold tracking-[0.2em] text-green-400">
+      <span className="h-2 w-2 rounded-full bg-green-400" />
+      RESEARCH LAB · LUNAR ICE MAPPER · INSTRUMENTS
+    </div>
+  )
+}
+
 export function ForecastPanel({ forecast }: { forecast: StageForecast }) {
   return (
     <div className={`pointer-events-none absolute left-3 top-3 max-w-md p-2 pr-4 ${panel}`}>
@@ -42,7 +52,7 @@ export function ForecastPanel({ forecast }: { forecast: StageForecast }) {
           <div className="mt-1">
             sunlit ground {forecast.context.toFixed(0)}% · science data {forecast.dataMB.toFixed(0)} MB
           </div>
-          <div>{Math.round(forecast.passesPerTurn)} passes over the pole per turn</div>
+          <div>{passesText(forecast.passesPerTurn)}</div>
           {forecast.outreachMB > 0.5 && <div>pictures {forecast.outreachMB.toFixed(0)} MB</div>}
           {forecast.isWhatIf && <div className="font-medium text-blue-300">What-if: not your design</div>}
         </div>
@@ -74,7 +84,7 @@ export function PassChip({ overShadow }: { overShadow: boolean }) {
 
 export function LabDials({ whatIf, onChange }: { whatIf: WhatIf; onChange: (change: Partial<WhatIf>) => void }) {
   const choice = (on: boolean) =>
-    on ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+    on ? 'bg-green-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
   return (
     <div className={`absolute right-3 top-3 w-64 space-y-2 p-3 text-xs ${panel}`}>
       <div>
@@ -121,10 +131,15 @@ function countsAsText(v: InstrumentView): string {
   return 'pictures only: adds no ice coverage'
 }
 
-export function ReadOuts({ views, overShadow }: { views: InstrumentView[]; overShadow: boolean }) {
+export function ReadOuts({ views, overShadow, isWhatIf }: { views: InstrumentView[]; overShadow: boolean; isWhatIf: boolean }) {
   return (
     <div className="pointer-events-none absolute bottom-3 right-3 w-80 space-y-1.5">
       <PassChip overShadow={overShadow} />
+      {isWhatIf && (
+        <div className="w-fit rounded-full border border-blue-400/60 bg-blue-950/80 px-3 py-0.5 text-xs font-medium text-blue-200">
+          What-if view: not your design
+        </div>
+      )}
       {views.length === 0 && (
         <div className={`px-3 py-2 text-sm text-slate-300 ${panel}`}>The instrument bay is empty. Pick one or two below.</div>
       )}

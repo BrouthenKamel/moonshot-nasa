@@ -133,6 +133,11 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
     reasons.push(
       `The link is full: ${Math.round(b.projectedLost)} MB never gets home, and its coverage is lost with it. Link: Comms Center.`
     )
+  } else if (b.downlinkPerTurn + 0.5 < b.dataPerTurn) {
+    // Coverage only counts once its data is home: a slow link cuts it even when storage loses nothing.
+    reasons.push(
+      `The link is too slow: ${Math.round(b.dataPerTurn)} MB a turn is made, ${Math.round(b.downlinkPerTurn)} MB gets home, and coverage only counts once its data is home. Link: Comms Center.`
+    )
   }
   if (!chosen.some((p) => p.kind === 'ice')) reasons.push('Nothing aboard sees into shadow: no ice is mapped.')
 
@@ -151,6 +156,11 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
       reasons,
     },
   }
+}
+
+/** The orbit's passes as the catalogue gives them (4.5 stays 4.5). */
+export function passesText(passes: number): string {
+  return `${Number.isInteger(passes) ? passes : passes.toFixed(1)} passes over the pole per turn`
 }
 
 /** What the instrument is doing at this moment of the pass, in words. */
