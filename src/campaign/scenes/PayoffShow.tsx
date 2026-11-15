@@ -11,6 +11,7 @@ import { BaseScene } from './payoffBase'
 import { MarsScene } from './payoffMars'
 import type { PayoffShowProps } from './types'
 import { preloadPayoff } from './preloadPayoff'
+import { useHideCaptions } from '../../ui/kit/Captions'
 
 /**
  * After a mission's flight: a 10–16 s cinematic of what it achieved (or how it failed).
@@ -36,6 +37,8 @@ export function PayoffShow({ kind, outcome, onDone }: PayoffShowProps) {
   // The scene is ready once everything it suspends on (textures, models) has loaded
   const [ready, setReady] = useState(false)
   useEffect(() => preloadPayoff(kind), [kind])
+  // No stale voice-loop caption (e.g. "Radiation hit…") over the show; the flight's queued lines are dropped
+  useHideCaptions()
 
   const finished = useRef(false)
   const finish = useCallback(() => {

@@ -235,11 +235,12 @@ export function EventCard() {
                 }`}
               >
                 <div className="flex items-start gap-2.5">
+                  {/* A card with one answer (it only informs) says plainly how to take it: "Press 1" */}
                   <kbd aria-hidden="true" className="mt-0.5 shrink-0 border border-rule-strong px-1.5 py-0.5 fp-data text-[10px] font-bold text-paper-dim">
-                    [{i + 1}]
+                    {decision.options.length === 1 ? 'Press 1' : `[${i + 1}]`}
                   </kbd>
                   <span className="min-w-0 flex-1 leading-snug">{o.label}</span>
-                  {i === 0 && (
+                  {i === 0 && decision.options.length > 1 && (
                     <span className="shrink-0 self-center">
                       <Tag tone="caution">Standing order</Tag>
                     </span>

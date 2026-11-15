@@ -162,7 +162,8 @@ function recordEvent(ctx: TurnContext, eventId: EventType, phase: TurnEvent['pha
 }
 
 /** The one answer of a card that only informs (no reserve to pay for the fix) */
-const UNDERSTOOD = [{ id: 'understood', label: 'Understood' }]
+/** The one answer of a card that only informs: the button names the consequence the player accepts */
+const ACCEPT = (label: string) => [{ id: 'accept', label }]
 
 /** "No signal after deployment, and there is no reserve to book emergency tracking: the craft is lost. …" */
 export function noReserveText(what: string, fix: string, result: string, cost: number): string {
@@ -310,7 +311,7 @@ function launch(ctx: TurnContext) {
       note(ctx, `No reserve left to pay for emergency tracking (${recovery.reserveCost} M needed).`)
       // Nothing to choose, but the player should see what the reserve would have bought (Jakob, 15 Nov):
       // a card with one button instead of a silent notice. The outcome is the same either way.
-      decide(ctx, 'no-signal', noReserveText('No signal after deployment', 'book emergency tracking', 'the craft is lost', recovery.reserveCost), UNDERSTOOD)
+      decide(ctx, 'no-signal', noReserveText('No signal after deployment', 'book emergency tracking', 'the craft is lost', recovery.reserveCost), ACCEPT('Accept the loss'))
     }
     if (!recovered) {
       fail(ctx, 'lost contact after deployment')
@@ -365,7 +366,7 @@ function transferTurn(ctx: TurnContext) {
       // Nothing to choose, so no choice that "failed"; but a one-button card shows what the reserve
       // would have bought (Jakob, 15 Nov). The outcome is the same either way.
       note(ctx, `No reserve left to pay for a fix (${fix.reserveCost} M needed).`)
-      decide(ctx, 'thruster', noReserveText('The thruster underperforms', 'pay for a fix', effect, fix.reserveCost), UNDERSTOOD)
+      decide(ctx, 'thruster', noReserveText('The thruster underperforms', 'pay for a fix', effect, fix.reserveCost), ACCEPT(impulsive ? 'Accept the weaker engine' : 'Accept the delay'))
     }
     if (!fixed) {
       f.thrusterOk = false
