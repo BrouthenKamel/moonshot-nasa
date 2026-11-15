@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useGameStore } from './gameStore'
 import { useWorldStore } from './worldStore'
 import { useUiStore } from './uiStore'
+import { IDLE_PAUSE_MS, autoPauseReason, clockHeld, modalOpenOnPage, noteInput } from './clockHold'
 import { flashlightDesign } from '../sim/fixtures'
 import { missionFunding } from '../game/economy'
 
@@ -132,5 +133,109 @@ describe('agency clock and the launch', () => {
     useUiStore.getState().endLaunch()
     useWorldStore.getState().tick(1)
     expect(useWorldStore.getState().day).toBeGreaterThan(launchDay)
+  })
+})
+
+describe('the clock waits while the player reads', () => {
+  beforeEach(() => {
+    useGameStore.getState().resetDemo()
+    useWorldStore.getState().resetWorld()
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    noteInput()
+  })
+
+  it('a fresh game starts paused and stays paused until the first real action', () => {
+    const start = useWorldStore.getState()
+    expect(start.speed).toBe('paused')
+    expect(start.clockStarted).toBe(false)
+    for (let i = 0; i < 10; i++) useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBe(start.day)
+    expect(useWorldStore.getState().funds).toBe(start.funds)
+  })
+
+  it('choosing the first mission starts the clock at normal speed', () => {
+    const start = useWorldStore.getState().day
+    useWorldStore.getState().openMission()
+    expect(useWorldStore.getState().speed).toBe('normal')
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBeCloseTo(start + 1, 5)
+  })
+
+  it('Play starts it too, and a later mission keeps the speed the player chose', () => {
+    useWorldStore.getState().setSpeed('paused') // an explicit choice
+    useWorldStore.getState().openMission()
+    expect(useWorldStore.getState().speed).toBe('paused')
+    useWorldStore.getState().setSpeed('fast')
+    useWorldStore.getState().openMission()
+    expect(useWorldStore.getState().speed).toBe('fast')
+  })
+
+  it('holds while a modal is open over the base, and runs again once it closes', () => {
+    useWorldStore.getState().setSpeed('normal')
+    let modal: object | null = {}
+    vi.stubGlobal('document', { querySelector: (sel: string) => (sel === '[aria-modal="true"]' ? modal : null) })
+    const start = useWorldStore.getState().day
+    for (let i = 0; i < 9; i++) useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBe(start)
+    modal = null
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBeCloseTo(start + 1, 5)
+  })
+
+  it('a hidden tab pauses the clock for real: it stays paused when the tab comes back', () => {
+    useWorldStore.getState().setSpeed('normal')
+    const page = { hidden: true, querySelector: () => null }
+    vi.stubGlobal('document', page)
+    const start = useWorldStore.getState().day
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().speed).toBe('paused')
+    page.hidden = false
+    for (let i = 0; i < 5; i++) useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBe(start) // only the player's Play resumes it
+    useWorldStore.getState().setSpeed('normal')
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBeCloseTo(start + 1, 5)
+  })
+
+  it('five minutes without input pause the clock until Play', () => {
+    useWorldStore.getState().setSpeed('fast')
+    noteInput(performance.now() - IDLE_PAUSE_MS - 1)
+    const start = useWorldStore.getState().day
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBe(start)
+    expect(useWorldStore.getState().speed).toBe('paused')
+    noteInput() // the player is back, but the clock waits for Play
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBe(start)
+  })
+
+  it('Reset demo pauses the fresh game again', () => {
+    useWorldStore.getState().setSpeed('fast')
+    useWorldStore.getState().resetWorld()
+    expect(useWorldStore.getState().speed).toBe('paused')
+    expect(useWorldStore.getState().clockStarted).toBe(false)
+  })
+})
+
+describe('clockHeld', () => {
+  it('holds for an event card, the launch, or an open modal, and only then', () => {
+    const none = { decisionWaiting: false, launching: false, modalOpen: false }
+    expect(clockHeld(none)).toBe(false)
+    expect(clockHeld({ ...none, decisionWaiting: true })).toBe(true)
+    expect(clockHeld({ ...none, launching: true })).toBe(true)
+    expect(clockHeld({ ...none, modalOpen: true })).toBe(true)
+  })
+
+  it('auto-pauses for a hidden tab or a long idle stretch, and only then', () => {
+    expect(autoPauseReason({ hidden: false, idleMs: 0 })).toBeNull()
+    expect(autoPauseReason({ hidden: false, idleMs: IDLE_PAUSE_MS - 1 })).toBeNull()
+    expect(autoPauseReason({ hidden: true, idleMs: 0 })).toBe('hidden')
+    expect(autoPauseReason({ hidden: false, idleMs: IDLE_PAUSE_MS })).toBe('idle')
+  })
+
+  it('sees no modal without a page (tests, server render)', () => {
+    expect(modalOpenOnPage()).toBe(false)
   })
 })

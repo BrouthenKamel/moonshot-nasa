@@ -7,6 +7,7 @@ import { useModel } from '../assets/models'
 import { MAP_SIZE, buildings, type BuildingId } from '../data/agency'
 import { BuildingList, MapBoundary } from './BuildingList'
 import { canUseWebGL } from './webgl'
+import { signHint, signMeaning } from './mapCues'
 import { BaseEffects, ChimneySmoke, Clouds, Truck } from './base/Life'
 import { FOREST_REACH, Forest } from './base/Forest'
 import { Blinker, Spin } from './base/Animated'
@@ -692,6 +693,8 @@ export interface BuildingLabel {
   /** 0-1 progress bar under the status */
   progress?: number
   highlight?: boolean
+  /** One line under the sign of the next building, e.g. "Next: Planning" */
+  hint?: string
   /** A gentle glow that points a new player here (the Research Lab's first lesson) */
   pulse?: boolean
   /** A red Go / No-Go bar is fixed in this building */
@@ -716,8 +719,9 @@ function Sign({
 }) {
   // A real button when it walks in, so it can be reached and pressed by keyboard
   const Tag = onClick ? 'button' : 'div'
-  const tip = [title ?? (onClick ? `Enter the ${name}` : name), label?.status].filter(Boolean).join(': ')
+  const tip = [title ?? (onClick ? `Enter the ${name}` : name), signMeaning(label), label?.status].filter(Boolean).join(': ')
   const next = !!label?.highlight && !label.alert
+  const hint = signHint(label)
   // An inventory tag: ink card, paper text, clipped corner. Kapton when it is the next stop.
   const board = next ? 'bg-kapton text-kapton-ink border-kapton' : 'bg-ink-1/95 text-paper border-rule-strong'
   return (
@@ -745,6 +749,14 @@ function Sign({
         {label?.alert && <span className="h-2 w-2 bg-nogo" />}
         {name}
       </span>
+      {hint && (
+        <span
+          data-testid="sign-hint"
+          className="relative mt-0.5 whitespace-nowrap border border-kapton/70 bg-ink-1/95 px-1.5 py-px font-sans text-[10px] font-semibold leading-tight text-kapton"
+        >
+          {hint}
+        </span>
+      )}
       <span className={`h-2.5 w-px ${next ? 'bg-kapton' : 'bg-ink-1/90'}`} />
     </Tag>
   )

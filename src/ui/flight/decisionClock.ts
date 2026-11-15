@@ -6,10 +6,26 @@ export interface DecisionClockCondition {
   reducedMotion: boolean
   blurred: boolean
   hasDecision: boolean
+  /**
+   * The player has acted since the card appeared (a click, a key, or the pointer leaving the
+   * card). Until then the clock does not start: someone reading the card and its real-mission
+   * note never runs out of time and gets the standing order by default.
+   */
+  armed?: boolean
+  /** The pointer is on the card, or the player moved keyboard focus inside it: reading */
+  reading?: boolean
 }
 
 export function shouldPauseDecisionClock(cond: DecisionClockCondition): boolean {
-  return !cond.hasDecision || cond.reducedMotion || cond.blurred
+  return !cond.hasDecision || cond.reducedMotion || cond.blurred || cond.armed === false || !!cond.reading
+}
+
+/** The words next to the seconds: why the clock is not counting, or nothing when it counts */
+export function decisionClockNote(cond: DecisionClockCondition): string | null {
+  if (!cond.hasDecision) return null
+  if (cond.armed === false) return 'Starts when you act'
+  if (cond.reducedMotion || cond.blurred || cond.reading) return 'Paused'
+  return null
 }
 
 /** 1..0 remaining fraction for the ruled decision bar (clamped). */

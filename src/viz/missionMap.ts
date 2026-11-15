@@ -4,6 +4,7 @@ import { getPartById } from '../data/parts'
 import type { BuildingLabel } from '../scene/BaseMap'
 import type { Budgets, Design, DesignStep, GoNoGoResult, SimState, TurnLog } from '../sim/types'
 import { buildReport } from '../sim/evaluate'
+import { STEP_ORDER } from '../ui/kit/stepNumbers'
 
 /**
  * What the agency map shows for the Lunar Ice Mapper: which building holds
@@ -19,8 +20,11 @@ export const BUILDING_STEPS: Record<BuildingId, DesignStep[]> = {
   'launch-site': ['rocket', 'orbit', 'ride'],
 }
 
-/** The order the steps are suggested in */
-export const STEP_ORDER: DesignStep[] = ['brief', 'planning', 'instruments', 'rocket', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']
+/**
+ * The order the steps are suggested in: the one order of the game (the rail and every step
+ * heading read it too), so the map's next-step cue follows any change to it.
+ */
+export { STEP_ORDER }
 
 export const STEP_NAMES: Record<DesignStep, string> = {
   brief: 'Brief',
@@ -46,6 +50,17 @@ export function buildingName(id: BuildingId): string {
 /** Where on the map a step is decided, e.g. "the Factory (Spacecraft)" */
 export function fixLocation(step: DesignStep): string {
   return `the ${buildingName(buildingForStep(step))} (${STEP_NAMES[step]})`
+}
+
+/** The one line under the lit sign: the step to do there next, by its name */
+export function nextStepHint(step: DesignStep): string {
+  return `Next: ${STEP_NAMES[step]}`
+}
+
+/** Where the brief sends the player: the step after it, and its building */
+export function firstStop(): { step: DesignStep; building: BuildingId } {
+  const step = suggestedStep(['brief'])
+  return { step, building: buildingForStep(step) }
 }
 
 /** The first step not yet visited; Go / No-Go once every step has been seen */
@@ -145,11 +160,13 @@ export function missionLabels(input: {
   const { design, budgets: b, checks, visited, sim } = input
   if (sim) return flightLabels(b, sim)
 
-  const next = buildingForStep(suggestedStep(visited))
+  const nextStep = suggestedStep(visited)
+  const next = buildingForStep(nextStep)
   const redSteps = new Set(checks.blockers.map((c) => c.fixStep).filter((s): s is DesignStep => !!s))
   const flags = (id: BuildingId) => ({
     alert: BUILDING_STEPS[id].some((s) => redSteps.has(s)),
     highlight: id === next,
+    ...(id === next ? { hint: nextStepHint(nextStep) } : {}),
   })
   const instrumentNames = design.instruments
     .map((id) => getPartById(id)?.name.replace(/\s*\(.*\)/, ''))
@@ -181,13 +198,13 @@ export function missionLabels(input: {
 }
 
 /**
- * The Research Lab pulses until the player has opened the instruments step for
- * this mission: the first lesson is there (the starting infrared spectrometer
- * cannot see into the shadowed craters). Only while planning; in flight the
- * buildings cannot be entered.
+ * The Research Lab glows green while the instruments step is the next one: the first lesson is
+ * there (the starting infrared spectrometer cannot see into the shadowed craters). Only then, so
+ * it never competes with the one next step; only while planning (in flight the buildings cannot
+ * be entered).
  */
 export function researchLabPulses(visited: DesignStep[], sim: SimState | null): boolean {
-  return !sim && !visited.includes('instruments')
+  return !sim && suggestedStep(visited) === 'instruments'
 }
 
 /** Where the mission is, for the stage chip in the top bar */
