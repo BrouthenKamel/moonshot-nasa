@@ -26,7 +26,6 @@ import { sanitizeSavedGame } from './saveGuard'
 /** Version of the saved game (1: no team mode; 2: every load goes through the save guard, QC #70) */
 export const GAME_SAVE_VERSION = 2
 
-/** Difficulty levels are off for now (Jakob, 14 Nov): the game plays on the Engineer values */
 export const FIXED_DIFFICULTY: Difficulty = 'engineer'
 
 /** Screen the player is on */
@@ -68,7 +67,6 @@ export interface GameState {
   // Actions
   setScreen: (screen: Screen) => void
   setDesignStep: (step: DesignStep) => void
-  setDifficulty: (difficulty: Difficulty) => void
   updateDesign: (updates: Partial<Design>) => void
   resetDesign: () => void
 
@@ -303,9 +301,6 @@ export const useGameStore = create<GameState>()(
 
       showReport: () => set({ screen: 'report' }),
 
-      // Configuration
-      // Difficulty levels are off for now: the setting stays on the Engineer values
-      setDifficulty: () => set({ difficulty: FIXED_DIFFICULTY }),
 
       // Design
       updateDesign: (updates) =>

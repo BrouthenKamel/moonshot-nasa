@@ -9,11 +9,11 @@ import { CATALOGUE_MODELS } from './catalogueModels'
  *
  * - Physical things (parts, ground stations, launch vehicles) have a `model` and a rendered
  *   `portrait` (512 px transparent WebP from `pnpm assets:portraits`).
- * - Situations (orbits, transfers, rides, ground stations, difficulty) have a painted `card`
+ * - Situations (orbits, transfers, rides, ground stations) have a painted `card`
  *   (1024 x 576 WebP). Ground stations and rides have both.
  */
 
-export type ChoiceKind = 'part' | 'orbit' | 'transfer' | 'ride' | 'ground' | 'difficulty'
+export type ChoiceKind = 'part' | 'orbit' | 'transfer' | 'ride' | 'ground'
 
 export interface ChoiceArt {
   id: string
@@ -87,14 +87,12 @@ function build(): Map<string, ChoiceArt> {
     out.set(id, { id, kind: 'ride', category: 'ride', accent: '#d98e55', model: modelFor(id), portrait: portraitFor(id), card: `card.${id}` as ImageId, pick: 'sfx.pick-ride' })
   for (const id of ['ground-small', 'ground-medium', 'ground-dsn'])
     out.set(id, { id, kind: 'ground', category: 'ground', accent: '#7c9cc9', model: modelFor(id), portrait: portraitFor(id), card: `card.${id}` as ImageId, pick: 'sfx.pick-ground' })
-  for (const d of ['cadet', 'engineer', 'flight-director'])
-    out.set(d, { id: d, kind: 'difficulty', category: 'difficulty', accent: d === 'cadet' ? '#6faf7a' : d === 'engineer' ? '#d9b23f' : '#d0533f', card: `card.difficulty-${d}` as ImageId, pick: 'sfx.select' })
   return out
 }
 
 const ART = build()
 
-/** Art for a catalogue id (part id, orbit id, ride id, transfer id, ground station id, difficulty) */
+/** Art for a catalogue id (part id, orbit id, ride id, transfer id, ground station id) */
 export function choiceArt(id: string): ChoiceArt | undefined {
   return ART.get(id)
 }
