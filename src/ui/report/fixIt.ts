@@ -1,6 +1,6 @@
 import type { BuildingId } from '../../data/agency'
 import type { DesignStep, Report } from '../../sim/types'
-import { buildingForStep, buildingName } from '../../viz/missionMap'
+import { STEP_NAMES, buildingForStep, buildingName } from '../../viz/missionMap'
 
 /**
  * The fix-it loop after a failed or partial mission: the report's why-lines
@@ -21,12 +21,23 @@ export interface FixCause {
   building: BuildingId
   /** "Research Lab" */
   buildingName: string
+  /** What to do there, when the step alone does not say it, e.g. "hold back a reserve" */
+  action?: string
 }
 
 interface Rule {
   match: RegExp
   decision: string
   step: DesignStep
+  action?: string
+}
+
+/** The one link after "Accept the loss" ended a mission for want of a reserve */
+export const RESERVE_FIX = { step: 'planning' as DesignStep, action: 'hold back a reserve' }
+
+/** "Fix at Plan: hold back a reserve" when the cause names an action, otherwise "Fix at Research Lab" */
+export function fixLabel(c: Pick<FixCause, 'step' | 'action' | 'buildingName'>): string {
+  return c.action ? `Fix at ${STEP_NAMES[c.step]}: ${c.action}` : `Fix at ${c.buildingName}`
 }
 
 /**
@@ -60,16 +71,17 @@ const RULES: Rule[] = [
   { match: /electric transfer cost/i, decision: 'Transfer', step: 'ride' },
   { match: /reached orbit too late/i, decision: 'Ride and transfer', step: 'ride' },
   // Planning
+  // Before the deployment-loss rule below: with no reserve, the reserve is what to fix (QC, 15 Nov)
+  { match: /no reserve/i, decision: 'Reserve', step: 'planning', action: RESERVE_FIX.action },
   { match: /test turn|test month|testing|more test/i, decision: 'Testing time', step: 'planning' },
   { match: /lost right after deployment/i, decision: 'Testing time', step: 'planning' },
   { match: /missing the ride|missed \d+ ride|slack in the schedule/i, decision: 'Schedule slack', step: 'planning' },
-  { match: /no reserve/i, decision: 'Reserve', step: 'planning' },
 ]
 
 /** The decision a report sentence names, or null when it names none */
 export function classifyCause(line: string): Omit<FixCause, 'why' | 'building' | 'buildingName'> | null {
   const rule = RULES.find((r) => r.match.test(line))
-  return rule ? { decision: rule.decision, step: rule.step } : null
+  return rule ? { decision: rule.decision, step: rule.step, ...(rule.action ? { action: rule.action } : {}) } : null
 }
 
 /**
