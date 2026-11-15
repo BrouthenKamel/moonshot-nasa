@@ -2,15 +2,18 @@ import { Component, lazy, Suspense, useMemo, useState, type ReactNode } from 're
 import { useGameStore } from '../../state/gameStore'
 import { canUseWebGL } from '../../scene/webgl'
 import { getPartById, type PropulsionPart } from '../../data/parts'
-import { buildBayView, type BayView, type BoardRow, type Tone } from '../../viz/spacecraft/bayView'
+import { buildBayView, type BayView } from '../../viz/spacecraft/bayView'
 import { buildCraft, type CraftSlot } from '../../viz/spacecraft/craftBuild'
 import { useDesignPreview } from '../useDesignPreview'
 import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { trayGroups, type TrayKey } from '../../viz/spacecraft/trayOptions'
 import { TONE_COLORS } from '../../viz/spacecraft/boardPainter'
 import type { ViewPreset } from '../../scene/spacecraft/SpacecraftStage'
+import { Eng, Sheet } from '../kit'
 import { PartsTray, FactStrip, type ActiveOption } from './spacecraft/PartsTray'
 import { BoardText } from './spacecraft/BoardText'
+import { FlySheet } from './spacecraft/FlySheet'
+import { SceneTitle } from './launch/SceneTitle'
 
 const SpacecraftStage = lazy(() => import('../../scene/spacecraft/SpacecraftStage').then((m) => ({ default: m.SpacecraftStage })))
 
@@ -28,39 +31,28 @@ class BayBoundary extends Component<{ children: ReactNode; onError: () => void }
   }
 }
 
-/** Live bay view, recomputed when the design or difficulty changes. */
-function useBayView(): { view: BayView; budgets: ReturnType<ReturnType<typeof useGameStore.getState>['getBudgets']> } {
+/** Live bay view, recomputed when the design or difficulty changes; plus the what-if view of a hovered part. */
+function useBayView(): {
+  view: BayView
+  preview: BayView | null
+  budgets: ReturnType<ReturnType<typeof useGameStore.getState>['getBudgets']>
+} {
   const design = useGameStore((s) => s.design)
   const difficulty = useGameStore((s) => s.difficulty)
   const getBudgets = useGameStore((s) => s.getBudgets)
   const getGoNoGo = useGameStore((s) => s.getGoNoGo)
-  return useMemo(() => {
+  const { previewBudgets, previewChecks, previewPatch } = useDesignPreview()
+  const current = useMemo(() => {
     const budgets = getBudgets()
     return { view: buildBayView(design, budgets, getGoNoGo().checks), budgets }
     // getBudgets / getGoNoGo read design and difficulty from the store
   }, [design, difficulty, getBudgets, getGoNoGo])
-}
-
-const TONE_COLOR: Record<Tone, string> = { green: '#22c55e', yellow: '#f59e0b', red: '#ef4444' }
-
-/** One row of the check panel: the same numbers and reasons as the Go / No-Go bars */
-function CheckRow({ row }: { row: BoardRow }) {
-  const share = row.limit > 0 ? Math.min(1.25, row.value / row.limit) : 1.25
-  return (
-    <li title={row.reason}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">{row.title}</span>
-        <span className="text-xs font-bold tabular-nums" style={{ color: TONE_COLOR[row.tone] }}>
-          {row.text}
-        </span>
-      </div>
-      {/* the limit sits at 80% of the width, so an overshoot shows past the mark */}
-      <div className="relative mt-1 h-1.5 rounded-full bg-white/10">
-        <div className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-500" style={{ width: `${Math.min(100, share * 80)}%`, background: TONE_COLOR[row.tone] }} />
-        <div className="absolute -top-1 h-3.5 w-0.5 bg-white/60" style={{ left: '80%' }} />
-      </div>
-    </li>
+  // The ghost needles: where the hovered part would put each margin
+  const preview = useMemo(
+    () => (previewPatch && previewBudgets && previewChecks ? buildBayView({ ...design, ...previewPatch }, previewBudgets, previewChecks.checks) : null),
+    [design, previewBudgets, previewChecks, previewPatch],
   )
+  return { ...current, preview }
 }
 
 const VIEWS: Array<{ id: ViewPreset; label: string }> = [
@@ -71,6 +63,7 @@ const VIEWS: Array<{ id: ViewPreset; label: string }> = [
   { id: 'payload', label: 'Payload' },
 ]
 
+/** Where the power goes: bus, instruments, radio and ion engine against what the panels make. The bar is the story; the numbers are Engineer view. */
 function PowerBudgetSplitBar() {
   const design = useGameStore((s) => s.design)
   const { budgets, previewBudgets, previewPatch } = useDesignPreview()
@@ -87,52 +80,49 @@ function PowerBudgetSplitBar() {
   const deficit = bus + inst > generated
 
   return (
-    <div className="hud-panel flex flex-wrap items-center gap-3 px-3 py-1.5 font-mono text-[11px] tabular-nums">
+    <div className="flex flex-wrap items-center gap-3 border border-rule bg-ink-2 px-3 py-1.5 text-[11px]">
       <div className="flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-slate-400">Power Split</span>
-        <span className={deficit ? 'font-semibold text-rose-300' : 'font-semibold text-cyan-300'}>
-          {bus + inst}W load / {generated}W solar
+        <span className="fp-label text-[0.68rem]">Power split</span>
+        <span className={`fp-data font-semibold ${deficit ? 'text-nogo' : 'text-paper'}`}>
+          <span className="story-only">{deficit ? 'short' : 'enough'}</span>
+          <Eng>
+            {bus + inst}W load / {generated}W solar
+          </Eng>
         </span>
       </div>
-      <div className="relative h-3 min-w-[160px] flex-1 overflow-hidden rounded border border-slate-700/70 bg-slate-950">
+      <div className="relative h-3 min-w-[160px] flex-1 overflow-hidden border border-rule bg-ink-1">
         <div className="flex h-full">
-          <div style={{ width: pct(bus) }} className="bg-sky-500/85" title={`Bus: ${bus} W`} />
-          <div style={{ width: pct(inst) }} className="bg-emerald-400/85" title={`Instruments: ${inst} W`} />
-          <div style={{ width: pct(tx) }} className="bg-amber-400/85" title={`Radio TX extra: ${tx} W`} />
-          {ionMin > 0 && (
-            <div
-              style={{ width: pct(ionMin) }}
-              className="border-l border-slate-950 bg-purple-400/80"
-              title={`Ion thrust minimum: ${ionMin} W`}
-            />
-          )}
+          <div style={{ width: pct(bus) }} className="bg-paper-dim" title={`Bus: ${bus} W`} />
+          <div style={{ width: pct(inst) }} className="bg-go" title={`Instruments: ${inst} W`} />
+          <div style={{ width: pct(tx) }} className="bg-caution" title={`Radio TX extra: ${tx} W`} />
+          {ionMin > 0 && <div style={{ width: pct(ionMin) }} className="border-l border-ink-1 bg-paper-faint" title={`Ion thrust minimum: ${ionMin} W`} />}
         </div>
         <div className="hud-bar-segments pointer-events-none absolute inset-0" />
-        <div
-          className="pointer-events-none absolute inset-y-0 w-0.5 bg-cyan-300 shadow-[0_0_8px_#22d3ee]"
-          style={{ left: pct(generated) }}
-          title={`Solar generated: ${generated} W`}
-        />
+        <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-kapton" style={{ left: pct(generated) }} title={`Solar generated: ${generated} W`} />
       </div>
-      <div className="flex flex-wrap items-center gap-2.5 text-[10px] text-slate-400">
+      <div className="flex flex-wrap items-center gap-2.5 fp-data text-[10px] text-paper-dim">
         <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-xs bg-sky-500" />
-          Bus {bus}W
+          <span className="inline-block h-2 w-2 bg-paper-dim" />
+          Bus<Eng> {bus}W</Eng>
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-xs bg-emerald-400" />
-          Inst {inst}W
+          <span className="inline-block h-2 w-2 bg-go" />
+          Inst<Eng> {inst}W</Eng>
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-xs bg-amber-400" />
-          TX +{tx}W
+          <span className="inline-block h-2 w-2 bg-caution" />
+          TX<Eng> +{tx}W</Eng>
         </span>
         {ionMin > 0 && (
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2 w-2 rounded-xs bg-purple-400" />
-            Ion ≥{ionMin}W
+            <span className="inline-block h-2 w-2 bg-paper-faint" />
+            Ion<Eng> ≥{ionMin}W</Eng>
           </span>
         )}
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2.5 w-0.5 bg-kapton" />
+          Solar
+        </span>
       </div>
     </div>
   )
@@ -140,14 +130,14 @@ function PowerBudgetSplitBar() {
 
 /**
  * Step 4 in the Factory: the assembly bay. The 6U craft hovers over a turntable, built from real
- * hardware models, and every choice changes it; the panel on the right shows the same Go / No-Go
- * numbers as the rest of the game.
+ * hardware models, and every choice changes it; the sheet on the right asks the one question:
+ * does it fly?
  */
 export function SpacecraftScreen() {
   const design = useGameStore((s) => s.design)
   const updateDesign = useGameStore((s) => s.updateDesign)
   const setDesignStep = useGameStore((s) => s.setDesignStep)
-  const { view, budgets } = useBayView()
+  const { view, preview, budgets } = useBayView()
   const groups = useMemo(() => trayGroups(budgets), [budgets])
   const craft = useMemo(() => buildCraft(design), [design])
   const [room, setRoom] = useState(canUseWebGL)
@@ -181,17 +171,14 @@ export function SpacecraftScreen() {
   const instruments = design.instruments.map((id) => getPartById(id)?.name ?? id)
   const radio = getPartById(design.radio)?.name ?? design.radio
 
-  const btn =
-    'rounded-lg border px-3 py-1.5 text-xs font-semibold backdrop-blur transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70'
-  const on = 'border-violet-300/60 bg-violet-500/30 text-white'
-  const off = 'border-white/10 bg-slate-950/70 text-slate-300 hover:bg-slate-800'
+  const ghost = (on: boolean) => `fp-btn-ghost justify-start ${on ? '!bg-ink-3 !text-kapton' : ''}`
 
   return (
-    <div className="flex h-full min-h-[560px] w-full flex-col bg-[#05070d]">
+    <div className="flex h-full min-h-[560px] w-full flex-col bg-ink-0">
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {room ? (
           <BayBoundary onError={() => setRoom(false)}>
-            <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-500">Opening the assembly bay…</div>}>
+            <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Opening the assembly bay…</div>}>
               <SpacecraftStage
                 craft={craft}
                 explode={explode}
@@ -215,69 +202,70 @@ export function SpacecraftScreen() {
           </div>
         )}
 
-        <div className="pointer-events-none absolute top-3 left-1/2 z-10 hidden -translate-x-1/2 md:block">
-          <div className="hud-panel px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--role-accent)]">
-            FACTORY · LUNAR ICE MAPPER · SPACECRAFT
+        {room && (
+          <div className="pointer-events-none absolute top-3 left-1/2 z-10 hidden -translate-x-1/2 md:block">
+            <SceneTitle step="spacecraft" title="Spacecraft" />
           </div>
-        </div>
+        )}
 
         <div className="absolute top-3 left-3 z-10 flex flex-col items-start gap-2">
-          <button
-            type="button"
-            onClick={() => setDesignStep('rocket')}
-            className="tactical-btn-back"
-          >
+          <button type="button" onClick={() => setDesignStep('rocket')} className="tactical-btn-back bg-ink-1">
             ← Back
           </button>
           {room && (
-            <>
-              <div className="flex flex-col gap-1 rounded-xl border border-white/10 bg-slate-950/70 p-1.5 backdrop-blur" role="group" aria-label="Camera">
+            <Sheet tone="flat" className="flex w-40 flex-col bg-ink-1/90 p-1">
+              <div role="group" aria-label="Camera" className="flex flex-col">
+                <span className="fp-label px-2 pt-1 pb-0.5 text-[0.62rem] text-paper-faint">Camera</span>
                 {VIEWS.map((v) => (
-                  <button key={v.id} onClick={() => setPreset(v.id)} aria-pressed={preset === v.id} className={`${btn} text-left ${preset === v.id ? on : 'border-transparent text-slate-300 hover:bg-slate-800'}`}>
+                  <button key={v.id} type="button" onClick={() => setPreset(v.id)} aria-pressed={preset === v.id} className={ghost(preset === v.id)}>
                     {v.label}
                   </button>
                 ))}
               </div>
-              <button onClick={() => setDeployed((v) => !v)} aria-pressed={deployed} className={`${btn} ${deployed ? on : off}`}>
-                {deployed ? 'Fold wings' : 'Deploy wings'}
-              </button>
-              <button onClick={() => setPanels((v) => !v)} aria-pressed={panels} className={`${btn} ${panels ? on : off}`}>
-                {panels ? 'Open the panels' : 'Close the panels'}
-              </button>
-              <label className="flex flex-col gap-1 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 backdrop-blur">
-                Exploded view
-                <input type="range" min={0} max={1} step={0.01} value={explode} onChange={(e) => setExplode(Number(e.target.value))} className="w-36 accent-violet-400" aria-label="Exploded view" />
-              </label>
-            </>
+              <div className="mt-1 flex flex-col border-t border-rule pt-1">
+                <button type="button" onClick={() => setDeployed((v) => !v)} aria-pressed={deployed} className={ghost(false)}>
+                  {deployed ? 'Fold wings' : 'Deploy wings'}
+                </button>
+                <button type="button" onClick={() => setPanels((v) => !v)} aria-pressed={panels} className={ghost(false)}>
+                  {panels ? 'Open the panels' : 'Close the panels'}
+                </button>
+                <label className="flex flex-col gap-1 px-2 py-1.5">
+                  <span className="fp-label text-[0.62rem] text-paper-faint">Exploded view</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={explode}
+                    onChange={(e) => setExplode(Number(e.target.value))}
+                    className="tactical-range w-full"
+                    aria-label="Exploded view"
+                  />
+                </label>
+              </div>
+            </Sheet>
           )}
         </div>
 
         <div className="absolute top-3 right-3 z-10 flex w-64 flex-col items-end gap-3">
-          <button
-            type="button"
-            onClick={() => setDesignStep('orbit')}
-            className="tactical-btn-next"
-          >
+          <button type="button" onClick={() => setDesignStep('orbit')} className="tactical-btn-next">
             Select Orbit →
           </button>
-          <div className="w-full rounded-xl border border-white/10 bg-slate-950/75 p-3 backdrop-blur">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-300">Does it fly?</div>
-            <ul className="mt-2 space-y-2.5">
-              {view.rows.map((r) => (
-                <CheckRow key={r.key} row={r} />
-              ))}
-            </ul>
-            <p className="mt-3 text-[11px] leading-snug" style={{ color: TONE_COLOR[view.status.tone] }}>
-              {view.status.lines}
-            </p>
-            <p className="mt-2 border-t border-white/10 pt-2 text-[10px] leading-snug text-slate-500">
-              Chosen elsewhere: {instruments.join(' and ')} (Research Lab), {radio} (Communications Center).
-            </p>
-          </div>
+          {room && (
+            <div className="w-full">
+              <FlySheet view={view} preview={preview} />
+              <Eng as="p" className="mt-1 border border-rule bg-ink-1 p-2 text-[10px] leading-snug text-paper-faint">
+                {view.status.lines}
+                <span className="mt-1 block border-t border-rule pt-1">
+                  Chosen elsewhere: {instruments.join(' and ')} (Research Lab), {radio} (Communications Center).
+                </span>
+              </Eng>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="space-y-1.5 border-t border-[var(--role-border)] bg-[#05070d] px-3 pt-2 pb-3">
+      <div className="space-y-1.5 border-t border-rule bg-ink-1 px-3 pt-2 pb-3">
         <PowerBudgetSplitBar />
         <SynergyStrip step="spacecraft" compact />
         <DesignDeltaLine />

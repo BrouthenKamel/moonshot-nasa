@@ -3,6 +3,8 @@ import { useGameStore } from '../../state/gameStore'
 import { canUseWebGL } from '../../scene/webgl'
 import { BODY_RADIUS_M, getRocketPart, rocketSlots, type RocketPart, type RocketSlot } from '../../data/rocket'
 import { layoutRocket, normalizeRocket, optionsFor, partStat, pick, rocketChecks, rocketStats } from '../../viz/rocket/rocketView'
+import { Btn, Eng, Sheet, StepHeader, Tag } from '../kit'
+import { SceneTitle } from './launch/SceneTitle'
 
 const RocketBay = lazy(() => import('../../scene/rocket/RocketBay').then((m) => ({ default: m.RocketBay })))
 
@@ -20,30 +22,27 @@ class HallBoundary extends Component<{ children: ReactNode; onError: () => void 
   }
 }
 
-const TONE: Record<'green' | 'yellow', string> = { green: '#22c55e', yellow: '#eab308' }
+const TONE: Record<'green' | 'yellow', 'go' | 'caution'> = { green: 'go', yellow: 'caution' }
 
 function RocketText({ rows }: { rows: Array<{ slot: string; label: string; stat: string }> }) {
   return (
-    <div className="mx-auto max-w-2xl space-y-3 p-6 pt-16 text-slate-200">
-      <header className="hud-step-header">
-        <div className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--role-accent)]">
-          LAUNCH SITE · LUNAR ICE MAPPER · ROCKET
-        </div>
-        <h1 className="mt-1 font-display text-xl font-bold text-slate-50">Your rocket</h1>
-      </header>
-      <div className="space-y-2">
+    <div className="mx-auto max-w-2xl space-y-3 p-6 pt-16 text-paper">
+      <StepHeader step="rocket" title="Rocket" kicker="Launch Site · Lunar Ice Mapper" />
+      <Sheet className="space-y-2 p-4">
+        <div className="fp-label text-kapton">Your rocket</div>
         {rows.map((r) => (
-          <div key={r.slot} className="hud-panel flex items-baseline justify-between px-4 py-2.5">
-            <span className="font-mono text-xs uppercase tracking-wider text-slate-400">{r.slot}</span>
-            <span className="font-medium text-slate-100">{r.label}</span>
-            <span className="font-mono text-xs tabular-nums text-slate-400">{r.stat}</span>
+          <div key={r.slot} className="flex items-baseline justify-between gap-3 border-b border-rule pb-1.5">
+            <span className="fp-label text-paper-faint">{r.slot}</span>
+            <span className="font-medium text-paper">{r.label}</span>
+            <span className="fp-data text-xs text-paper-dim">{r.stat}</span>
           </div>
         ))}
-      </div>
+      </Sheet>
     </div>
   )
 }
 
+/** One option in a slot's segmented column: flat, a colour rule on the left when picked */
 function OptionButton({
   part,
   selected,
@@ -71,18 +70,16 @@ function OptionButton({
       onMouseEnter={() => onActive(true)}
       onFocus={() => onActive(true)}
       style={{ ['--c' as string]: color }}
-      className={`min-w-0 rounded-lg border px-2 py-1.5 text-left text-xs leading-tight transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
+      className={`relative min-w-0 border-b border-rule px-2 py-1.5 text-left text-xs leading-tight transition-colors last:border-b-0 focus:outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-kapton ${
         selected
-          ? 'border-[var(--c)] bg-slate-900 text-white shadow-[inset_0_0_0_1px_var(--c)]'
+          ? 'bg-ink-3 font-semibold text-paper before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--c)]'
           : blocked
-            ? 'cursor-not-allowed border-slate-800 bg-slate-900/40 text-slate-600'
-            : 'border-slate-700/70 bg-slate-900/70 text-slate-300 hover:bg-slate-800'
+            ? 'cursor-not-allowed text-paper-faint'
+            : 'text-paper-dim hover:bg-ink-3 hover:text-paper'
       }`}
     >
       {part.label}
-      <span className="mt-0.5 block truncate font-mono text-[10.5px] tabular-nums text-slate-400">
-        {blocked ?? partStat(part)}
-      </span>
+      <span className="mt-0.5 block truncate fp-data text-[10.5px] font-normal text-paper-faint">{blocked ?? partStat(part)}</span>
     </button>
   )
 }
@@ -134,15 +131,12 @@ export function RocketScreen() {
     stat: partStat(p.part),
   }))
 
-  const barBtn =
-    'hud-panel px-4 py-2 font-mono text-xs font-semibold text-slate-200 backdrop-blur transition-colors hover:border-white/30 hover:bg-slate-800/90'
-
   return (
-    <div className="flex h-full min-h-[560px] w-full flex-col bg-[#05080f]">
+    <div className="flex h-full min-h-[560px] w-full flex-col bg-ink-0">
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {hall ? (
           <HallBoundary onError={() => setHall(false)}>
-            <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-500">Opening the assembly hall…</div>}>
+            <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Opening the assembly hall…</div>}>
               <RocketBay
                 config={config}
                 exploded={exploded}
@@ -162,89 +156,86 @@ export function RocketScreen() {
           </div>
         )}
 
-        <div className="pointer-events-none absolute top-3 left-1/2 hidden -translate-x-1/2 md:block">
-          <div className="hud-panel px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--role-accent)]">
-            LAUNCH SITE · LUNAR ICE MAPPER · ROCKET
+        {hall && (
+          <div className="pointer-events-none absolute top-3 left-1/2 hidden -translate-x-1/2 md:block">
+            <SceneTitle step="rocket" title="Rocket" />
           </div>
-        </div>
+        )}
 
-        <div className="absolute top-3 left-3 flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => setDesignStep('instruments')}
-            className="tactical-btn-back"
-          >
+        <div className="absolute top-3 left-3 flex flex-col items-start gap-2">
+          <button type="button" onClick={() => setDesignStep('instruments')} className="tactical-btn-back bg-ink-1">
             ← Back
           </button>
           {hall && (
             <>
-              <button type="button" onClick={testFire} disabled={firing} className={`${barBtn} disabled:opacity-50`}>
+              <Btn variant="secondary" type="button" onClick={testFire} disabled={firing} className="bg-ink-1 disabled:opacity-50">
                 Test fire
-              </button>
-              <button
+              </Btn>
+              <Btn
+                variant="secondary"
                 type="button"
                 onClick={() => setExploded((v) => !v)}
                 aria-pressed={exploded}
-                className={`${barBtn} ${exploded ? 'border-orange-400/60 text-orange-200' : ''}`}
+                className={`bg-ink-1 ${exploded ? '!border-kapton !text-kapton' : ''}`}
               >
                 Exploded view
-              </button>
+              </Btn>
             </>
           )}
         </div>
 
         <div className="absolute top-3 right-3 flex w-64 flex-col items-end gap-3">
-          <button
-            type="button"
-            onClick={() => setDesignStep('spacecraft')}
-            className="tactical-btn-next"
-          >
+          <button type="button" onClick={() => setDesignStep('spacecraft')} className="tactical-btn-next">
             Build the spacecraft →
           </button>
-          <div className="hud-panel w-full p-3.5 backdrop-blur">
-            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--role-accent)]">
-              Your rocket
+          <Sheet className="w-full p-3.5">
+            <div className="fp-label border-b border-rule pb-1.5 text-kapton">Your rocket</div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="fp-data text-2xl font-semibold text-paper">about {Math.round(stats.heightM)} m</span>
+              <span className="text-xs text-paper-dim">tall</span>
             </div>
-            <div className="mt-1 font-mono text-2xl font-bold tabular-nums text-white">
-              about {Math.round(stats.heightM)} m
-              <span className="ml-1 text-xs font-normal text-slate-400">tall</span>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Tag>
+                {stats.stages} stage{stats.stages === 1 ? '' : 's'}
+              </Tag>
+              <Tag>
+                {stats.engines} engine{stats.engines === 1 ? '' : 's'}
+              </Tag>
+              {stats.boosters > 0 && <Tag>{stats.boosters} boosters</Tag>}
             </div>
-            <div className="mt-1 font-mono text-xs tabular-nums text-slate-400">
-              {stats.stages} stage{stats.stages === 1 ? '' : 's'} · {stats.engines} engine{stats.engines === 1 ? '' : 's'}
-              {stats.boosters > 0 ? ` · ${stats.boosters} boosters` : ''}
-            </div>
-            <div className="mt-1 font-mono text-[10px] tabular-nums text-slate-500">
+            <Eng as="div" className="mt-1.5 fp-data text-[10px] text-paper-faint">
               Drawn to a Falcon 9 scale ({(BODY_RADIUS_M * 2).toFixed(1)} m wide)
-            </div>
-            <ul className="mt-3 space-y-2">
+            </Eng>
+            <ul className="mt-3 space-y-2 border-t border-rule pt-2">
               {checks.map((c) => (
-                <li key={c.id} className="flex gap-2 text-xs leading-snug text-slate-300">
-                  <span className="mt-1 h-2 w-2 flex-none rounded-full" style={{ background: TONE[c.tone], boxShadow: `0 0 8px ${TONE[c.tone]}` }} />
-                  <span>
-                    <span className="font-semibold text-slate-100">{c.title}.</span> {c.text}
-                  </span>
+                <li key={c.id} className="text-xs leading-snug text-paper-dim">
+                  <Tag tone={TONE[c.tone]}>{c.title}</Tag>
+                  <span className="mt-1 block">{c.text}</span>
                 </li>
               ))}
             </ul>
-          </div>
+          </Sheet>
         </div>
 
         {note && (
-          <div role="status" className="hud-panel pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border-yellow-300/40 bg-yellow-950/85 px-4 py-1.5 text-xs text-yellow-100 backdrop-blur">
+          <div
+            role="status"
+            className="fp-sheet pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 border-l-2 !border-l-caution px-4 py-1.5 text-xs text-paper"
+          >
             {note}
           </div>
         )}
       </div>
 
-      <div className="space-y-1.5 border-t border-[var(--role-border)] bg-[#070a12] px-3 pt-2 pb-3">
-        <div className="min-h-[2.6rem] px-1 text-xs leading-snug text-slate-400" aria-live="polite">
+      <div className="space-y-1.5 border-t border-rule bg-ink-1 px-3 pt-2 pb-3">
+        <div className="min-h-[2.6rem] px-1 text-xs leading-snug text-paper-dim" aria-live="polite">
           {shownPart ? (
             <>
-              <span className="font-semibold text-slate-200">
+              <span className="font-semibold text-paper">
                 {shownTitle}: {shownPart.label}.
               </span>{' '}
               {shownPart.what}
-              {shownPart.example && <span className="block text-slate-500">{shownPart.example}</span>}
+              {shownPart.example && <span className="block text-paper-faint">{shownPart.example}</span>}
             </>
           ) : (
             <span>
@@ -259,12 +250,13 @@ export function RocketScreen() {
               key={slot.id}
               role="radiogroup"
               aria-label={slot.title}
-              className={`hud-panel p-2 transition-colors ${activeSlot === slot.id ? 'border-white/35' : ''}`}
+              className={`border bg-ink-2 transition-colors ${activeSlot === slot.id ? 'border-rule-strong' : 'border-rule'}`}
             >
-              <h3 className="mb-1.5 font-mono text-[11px] font-semibold tracking-[0.12em] uppercase" style={{ color: slot.color }}>
+              <h3 className="flex items-center gap-1.5 border-b border-rule px-2 py-1 fp-label text-[0.68rem] text-paper">
+                <span aria-hidden className="h-2.5 w-[3px] shrink-0" style={{ background: slot.color }} />
                 {slot.title}
               </h3>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col">
                 {optionsFor(config, slot.id).map(({ part, selected, blocked }) => (
                   <OptionButton
                     key={part.id}

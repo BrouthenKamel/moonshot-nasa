@@ -4,7 +4,8 @@ import { useUiStore } from '../../state/uiStore'
 import { useDesignPreview } from '../useDesignPreview'
 import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { canUseWebGL } from '../../scene/webgl'
-import { RideOverlay, RideTimeline } from './RideOverlay'
+import { RideOverlay, RideTimeline, RideVerdict } from './RideOverlay'
+import { Eng, Sheet, StepHeader } from '../kit'
 import { getPartById, type PropulsionPart } from '../../data/parts'
 import { EngineNote, RideCardTray, TransferCardTray } from './launch/RideCards'
 import { choiceBriefing } from './launch/briefing'
@@ -26,45 +27,41 @@ class PadBoundary extends Component<{ children: ReactNode; onError: () => void }
   }
 }
 
-/** The delta-v budget in words: shown on the plain screen, read by screen readers over the 3D pad */
+/** The delta-v budget in figures: Engineer view on the plain screen, read by screen readers over the 3D pad */
 function BudgetSummary({ hidden }: { hidden: boolean }) {
   const { budgets, previewBudgets } = useDesignPreview()
   const active = previewBudgets ?? budgets
-  return (
-    <div className={hidden ? 'sr-only' : 'hud-panel border-[var(--role-border)] bg-[var(--role-surface)] p-4 text-sm'}>
-      <div className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--role-accent)]">Delta-v Budget</div>
-      <div className="mt-2.5 grid grid-cols-2 gap-4 font-mono text-xs tabular-nums text-orange-100">
+  const body = (
+    <>
+      <div className="fp-label text-kapton">Delta-v budget</div>
+      <div className="mt-2.5 grid grid-cols-2 gap-4 fp-data text-xs text-paper-dim">
         <div>
-          On board: <span className="font-bold text-orange-300">{active.deltaVAvailable.toFixed(0)} m/s</span>
-          <span className="text-orange-200/70"> ({active.propellantMass} kg propellant)</span>
+          On board: <span className="font-bold text-paper">{active.deltaVAvailable.toFixed(0)} m/s</span>
+          <span className="text-paper-faint"> ({active.propellantMass} kg propellant)</span>
         </div>
         <div>
           Capture + 12 months of upkeep:{' '}
-          <span
-            className={
-              active.captureDeltaV !== null && active.deltaVMargin >= 0
-                ? 'font-bold text-emerald-400'
-                : 'font-bold text-rose-400'
-            }
-          >
+          <span className={active.captureDeltaV !== null && active.deltaVMargin >= 0 ? 'font-bold text-go' : 'font-bold text-nogo'}>
             {active.captureDeltaV === null ? 'not possible' : `${active.deltaVTotal.toFixed(0)} m/s`}
           </span>
         </div>
         <div>
-          Climbing out from the drop-off:{' '}
-          <span className="font-bold text-orange-300">{active.deltaVTransfer.toFixed(0)} m/s</span>
+          Climbing out from the drop-off: <span className="font-bold text-paper">{active.deltaVTransfer.toFixed(0)} m/s</span>
         </div>
         <div>
-          Arrival:{' '}
-          <span className="font-bold text-orange-300">
-            {active.arrivalTurn === null ? '-' : `month ${active.arrivalTurn}`}
-          </span>
+          Arrival: <span className="font-bold text-paper">{active.arrivalTurn === null ? '-' : `month ${active.arrivalTurn}`}</span>
           {active.transferTurns !== null && active.transferTurns > 0 && (
-            <span className="text-orange-200/70"> ({active.transferTurns} months of running the team in transit)</span>
+            <span className="text-paper-faint"> ({active.transferTurns} months of running the team in transit)</span>
           )}
         </div>
       </div>
-    </div>
+    </>
+  )
+  if (hidden) return <div className="sr-only">{body}</div>
+  return (
+    <Eng as="div" className="border border-rule bg-ink-2 p-4 text-sm">
+      {body}
+    </Eng>
   )
 }
 
@@ -72,8 +69,8 @@ function Briefing({ id, className = '' }: { id: string; className?: string }) {
   const b = choiceBriefing(id)
   if (!b) return null
   return (
-    <p className={`text-[11.5px] leading-snug text-slate-300 ${className}`}>
-      <b className="font-semibold text-orange-300">{b.name}.</b> {b.text}
+    <p className={`text-[11.5px] leading-snug text-paper-dim ${className}`}>
+      <b className="font-semibold text-paper">{b.name}.</b> {b.text}
     </p>
   )
 }
@@ -104,20 +101,15 @@ function PlainRide() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <header className="hud-step-header">
-        <div className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--role-accent)]">
-          LAUNCH SITE · LUNAR ICE MAPPER · RIDE &amp; TRANSFER
-        </div>
-        <h1 className="mt-1 font-display text-2xl font-bold text-slate-50">5. Ride &amp; Transfer</h1>
-        <p className="mt-1.5 text-sm text-slate-300">
-          Choose your rideshare launch and transfer trajectory. The ride drops you off; you navigate the rest.
-        </p>
-      </header>
+      <StepHeader step="ride" title="Ride & Transfer" kicker="Launch Site · Lunar Ice Mapper" />
+      <Sheet className="p-4">
+        <RideVerdict />
+      </Sheet>
       <BudgetSummary hidden={false} />
       <SynergyStrip step="ride" />
       <DesignDeltaLine />
-      <section className="hud-panel p-4">
-        <h2 className="mb-3 font-mono text-xs uppercase tracking-[0.18em] text-slate-300">Rideshare Options</h2>
+      <Sheet as="section" className="p-4">
+        <h2 className="fp-label mb-3 text-paper">Departures</h2>
         <div
           className="pt-2 pl-2"
           onBlurCapture={(e) => {
@@ -127,12 +119,12 @@ function PlainRide() {
           <RideCardTray size="xs" onHover={onHoverRide} />
         </div>
         <Briefing id={hover && hover.startsWith('ride-') ? hover : design.ride} className="mt-3" />
-      </section>
-      <section className="hud-panel p-4">
-        <h2 className="mb-1 font-mono text-xs uppercase tracking-[0.18em] text-slate-300">Transfer Trajectory</h2>
-        <p className="mb-4 text-sm text-slate-400">
+      </Sheet>
+      <Sheet as="section" className="p-4">
+        <h2 className="fp-label mb-1 text-paper">Transfer to the Moon</h2>
+        <p className="mb-4 text-sm text-paper-dim">
           Your engine limits your transfer options:{' '}
-          <b className="font-semibold text-slate-200">{propulsion ? propulsion.name : 'none'}</b> ({propType === 'electric' ? 'ion' : propType}, chosen at
+          <b className="font-semibold text-paper">{propulsion ? propulsion.name : 'none'}</b> ({propType === 'electric' ? 'ion' : propType}, chosen at
           the Factory).
         </p>
         <div
@@ -144,7 +136,7 @@ function PlainRide() {
           <TransferCardTray size="xs" onHover={onHoverTransfer} />
         </div>
         <Briefing id={hover && hover.startsWith('transfer-') ? hover : design.transfer} className="mt-3" />
-      </section>
+      </Sheet>
     </div>
   )
 }
@@ -164,8 +156,8 @@ function useSize(el: HTMLElement | null) {
   return size
 }
 
-const DOCK = 'hud-panel pointer-events-auto absolute border-[var(--role-border)] bg-[#060a14]/92 p-2.5 shadow-[0_20px_50px_rgba(0,0,0,0.6)] backdrop-blur-md'
-const DOCK_TITLE = 'mb-1.5 flex items-baseline justify-between gap-2 px-1 font-mono text-[10.5px] font-bold tracking-[0.18em] text-[var(--role-accent)]'
+const DOCK = 'fp-sheet pointer-events-auto absolute p-2.5'
+const DOCK_TITLE = 'fp-label mb-1.5 flex items-baseline justify-between gap-2 px-1 text-[0.68rem] text-kapton'
 
 /** The title line at the top left is about 360 px wide: keep the transfer dock clear of it */
 const TITLE_RIGHT = 380
@@ -223,8 +215,8 @@ function PadDocks() {
         >
           <div className="flex gap-2">
             <div className="flex w-[88px] shrink-0 flex-col justify-between px-1 py-0.5">
-              <h2 id="transfer-dock-title" className="font-mono text-[10.5px] leading-snug font-bold tracking-[0.16em] text-[var(--role-accent)]">
-                TRANSFER TO THE MOON
+              <h2 id="transfer-dock-title" className="fp-label text-[0.68rem] leading-snug text-kapton">
+                Transfer to the Moon
               </h2>
               <EngineNote />
             </div>
@@ -245,7 +237,7 @@ function PadDocks() {
           }}
         >
           <h2 id="ride-dock-title" className={DOCK_TITLE}>
-            DEPARTURES <span className="text-[10px] font-semibold tracking-wider text-slate-400">PICK YOUR RIDE</span>
+            Departures <span className="text-paper-faint">Pick your ride</span>
           </h2>
           <div className="pt-2 pl-1.5">
             <RideCardTray size="xs" onHover={handleRideHover} />
@@ -263,7 +255,7 @@ function StepButtons({ overlay }: { overlay: boolean }) {
     <button
       type="button"
       onClick={() => setDesignStep('orbit')}
-      className="tactical-btn-back"
+      className="tactical-btn-back bg-ink-1"
     >
       ← Back
     </button>
@@ -307,9 +299,9 @@ export function RideScreen() {
     )
 
   return (
-    <div className="relative h-full min-h-[480px] w-full overflow-hidden bg-[#03050a]">
+    <div className="relative h-full min-h-[480px] w-full overflow-hidden bg-ink-0">
       <PadBoundary onError={() => setPad(false)}>
-        <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-500">Opening the launch site…</div>}>
+        <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Opening the launch site…</div>}>
           <LaunchPad focus={null} />
         </Suspense>
       </PadBoundary>
