@@ -49,16 +49,17 @@ const endedAs = (end: string, patch: Partial<SimState['flight']> = {}): SimState
   flight: { ...flown.flight, end, alive: false, ...patch },
 })
 
-describe('2. a failed mission: money points vs the money that goes back', () => {
-  it('scores 0 for money but says the unspent money still goes back, matching Budget Compliance', () => {
+describe('2. a failed mission: the money note and Budget Compliance tell the same story', () => {
+  it('both say the unspent money is not returned (Jakob, 15 Nov: a failure spends its whole budget)', () => {
     const r = buildReport(endedAs('budget ran out in orbit', { main: 3.4, reserve: 0 }))
     expect(r.outcome).toBe('failed')
     const note = r.scoreNotes.find((n) => n.startsWith('Money left'))!
     expect(note).toContain('Money left 0/')
-    expect(note).not.toContain('uses up its budget')
+    expect(note).toContain('spends its whole budget')
     const budget = r.requirements.find((x) => x.id === 'budget')!
-    expect(budget.reason).toContain('3.4 M left')
-    expect(note).toContain('The 3.4 M it did not spend still goes back to the agency')
+    expect(budget.reason).toContain('3.4 M was unspent when the mission failed')
+    expect(budget.reason).toContain('spends its whole budget')
+    expect(budget.reason).not.toContain('M left')
   })
 })
 

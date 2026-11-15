@@ -197,13 +197,13 @@ function WalletBreakdown({ detail, onClose }: { detail: 'funds' | 'popularity'; 
           ['Government funding', `+${money(fundingPerDay(popularity) * 30)} a month`],
           ['Papers still to publish', `+${money(papersLeft)}`],
           ['Your share of the next launch', `−${money(next.agencyPays)}`],
-          ['Unspent mission budget', 'comes back at the end'],
+          ['Unspent mission budget', 'comes back after a success; a failure spends it all'],
         ]
       : [
           ['Government pays per mission', `${Math.round(grantShare(popularity) * 100)}% of the budget`],
           ['Funding multiplier', `${(0.5 + popularity / 100).toFixed(2)}×`],
           ['Launch / full success', `+${popularityEffects.launch}% / +${popularityEffects.missionSuccess}%`],
-          ['Mission lost', `${popularityEffects.missionFailed}%`],
+          ['Mission failed', `${popularityEffects.missionFailed}%`],
         ]
   return (
     <Sheet tone="raised" className="absolute right-0 top-full z-40 mt-2 w-72 p-3 text-paper">

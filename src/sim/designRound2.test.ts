@@ -36,9 +36,9 @@ describe('design round 2: the report explains the score', () => {
     }
   })
 
-  it('says a failed mission earns no money points, and that the unspent money goes back', () => {
+  it('says a failed mission spends its whole budget', () => {
     const r = buildReport(runSimulation({ ...flashlightDesign, instruments: ['inst-camera'] }, 'engineer', 1))
     expect(r.outcome).toBe('failed')
-    expect(r.scoreNotes.join(' ')).toMatch(/failed mission earns no points for money left. The [0-9.]+ M it did not spend still goes back/)
+    expect(r.scoreNotes.join(' ')).toMatch(/failed mission spends its whole budget, so nothing is left to score/)
   })
 })

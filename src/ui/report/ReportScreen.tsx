@@ -167,9 +167,10 @@ export function ReportScreen() {
       audio.say('voice.end-partial')
     } else {
       audio.play('sfx.error')
-      audio.say('voice.end-failed')
+      // "We have lost the mission." only when the craft is gone (QC, 15 Nov)
+      if (report.craftLost) audio.say('voice.end-failed')
     }
-  }, [report?.outcome])
+  }, [report?.outcome, report?.craftLost])
 
   if (!report) {
     return (
