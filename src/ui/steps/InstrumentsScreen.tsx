@@ -27,6 +27,8 @@ import {
   rowFocusKey,
 } from '../../scene/instrumentStage/instrumentCards'
 
+import { LiveForecastCorner } from '../../scene/instrumentStage/LiveForecastCorner'
+
 const InstrumentStage = lazy(() => import('../../scene/instrumentStage/InstrumentStage'))
 const N = stepNumber('instruments')
 
@@ -40,7 +42,15 @@ function Fallen({ onFall }: { onFall: () => void }) {
 function Stage({ onFall, topLeft }: { onFall: () => void; topLeft?: ReactNode }) {
   return (
     <StageBoundary fallback={<Fallen onFall={onFall} />}>
-      <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-paper-faint">Finding the south pole…</div>}>
+      <Suspense
+        fallback={
+          <div className="absolute inset-0 flex items-center justify-center text-paper-faint">
+            {/* The forecast needs no 3D: it is there at once, as the stage will draw it */}
+            <LiveForecastCorner topLeft={topLeft} />
+            Finding the south pole…
+          </div>
+        }
+      >
         <InstrumentStage fill topLeft={topLeft} />
       </Suspense>
     </StageBoundary>

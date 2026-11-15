@@ -78,7 +78,7 @@ function Tile({
           {on && <span className="absolute right-1.5 top-1.5 rounded-sm bg-kapton px-1 py-px fp-label text-[0.56rem] font-bold text-ink-0">Aboard</span>}
         </div>
         <div className="px-2 pb-2 pt-1">
-          <div className="truncate text-[0.8rem] font-semibold text-paper">{instrumentShortName(inst)}</div>
+          <div className="min-h-[2.1em] text-[0.8rem] font-semibold leading-tight text-paper">{instrumentShortName(inst)}</div>
           <div className={`truncate text-[0.64rem] ${inst.seesShadow ? 'text-ice' : 'text-paper-faint'}`}>
             {inst.seesShadow ? 'Sees into shadow' : 'Sunlit ground only'}
           </div>
@@ -103,7 +103,7 @@ export function InstrumentSpec({ inst, on }: { inst: InstrumentPart; on: boolean
   return (
     <div aria-live="polite" className="text-paper">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate font-display text-base font-bold">{inst.name}</span>
+        <span className="min-w-0 font-display text-base font-bold leading-tight">{inst.name}</span>
         <span className={`shrink-0 fp-label text-[0.6rem] ${on ? 'text-kapton' : 'text-paper-faint'}`}>{on ? 'Aboard' : 'Click to add'}</span>
       </div>
       <div className="fp-label text-[0.6rem] text-paper-faint">Like {inst.flownOn}</div>

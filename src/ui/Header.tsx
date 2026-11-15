@@ -4,11 +4,14 @@ import { useGameStore } from '../state/gameStore'
 import { lunarIceMapperBrief } from '../data/brief'
 import { StepDock } from './hud/StepDock'
 import { ResourceStrip } from './hud/ResourceStrip'
+import { goToStep } from './interaction/stepLeave'
 
 export function Header() {
   const screen = useGameStore((s) => s.screen)
   const simState = useGameStore((s) => s.simState)
   const setScreen = useGameStore((s) => s.setScreen)
+  const designStep = useGameStore((s) => s.designStep)
+  const setDesignStep = useGameStore((s) => s.setDesignStep)
 
   return (
     <header className="border-b border-rule bg-ink-1 select-none">
@@ -21,6 +24,12 @@ export function Header() {
           {screen !== 'title' && (
             <button onClick={() => setScreen('base')} className="fp-btn-secondary ml-2">
               ← Agency base
+            </button>
+          )}
+          {/* The success numbers stay one click away while designing */}
+          {screen === 'design' && designStep !== 'brief' && (
+            <button type="button" onClick={() => goToStep('brief', setDesignStep)} className="fp-btn-ghost" title="Re-read the mission brief and what counts as success">
+              Brief
             </button>
           )}
         </div>
