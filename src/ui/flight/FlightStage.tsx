@@ -23,7 +23,7 @@ import { EventCard, useShowPlaying } from './EventCard'
 import { FlightControls } from './FlightControls'
 import { FirstMappingPass } from '../../minigames/iceMapper'
 import { liftoffReached } from './launchOrder'
-import { clearLaunchDayPending, markLaunchDayPending, resumeLaunchDay } from './launchDayPending'
+import { campaignCoversFlight, clearLaunchDayPending, markLaunchDayPending, resumeLaunchDay } from './launchDayPending'
 
 const FlightView = lazy(() => import('../../scene/flight/FlightView').then((m) => ({ default: m.FlightView })))
 const LaunchDayGame = lazy(() => import('../../minigames/launchDay').then((m) => ({ default: m.LaunchDayGame })))
@@ -663,6 +663,8 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   // Launch Day: the player flies the ride to orbit once, when the core reports liftoff
   // After a reload during the launch it starts open, at Launch Day's briefing (launchDayPending.ts)
   const [flyingLaunch, setFlyingLaunch] = useState(() => resumeLaunchDay(sim))
+  // Launch Day shows on the main flight screen only, never over a campaign layer (it waits underneath)
+  const campaignUp = useCampaignStore(campaignCoversFlight)
   const showPlaying = useShowPlaying()
   // When a show ends, its voice captions end with it (a stale "…Ignition." stayed up over the next card)
   const wasShowing = useRef(false)
@@ -739,7 +741,7 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
       )}
       <Countdown />
       {/* The launch itself, played. Finishing it ends the launch, which opens the space view. */}
-      {flyingLaunch && (
+      {flyingLaunch && !campaignUp && (
         <ViewBoundary fallback={<SkipLaunchDay onSkip={finishLaunchDay} />}>
           <Suspense fallback={null}>
             <LaunchDayGame

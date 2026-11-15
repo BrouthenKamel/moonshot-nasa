@@ -21,6 +21,7 @@ import { generateSeed } from '../sim/rng'
 import type { BuildingId } from '../data/agency'
 import { BUILDING_STEPS, suggestedStep } from '../viz/missionMap'
 import { useAgencyStore } from './agencyStore'
+import { clearLaunchDayPending } from '../ui/flight/launchDayPending'
 import { sanitizeSavedGame } from './saveGuard'
 
 /** Version of the saved game (1: no team mode; 2: every load goes through the save guard, QC #70) */
@@ -478,7 +479,9 @@ export const useGameStore = create<GameState>()(
       },
 
       // Full reset
-      newGame: () =>
+      newGame: () => {
+        // A new game has no ride left to fly
+        clearLaunchDayPending()
         set({
           // No difficulty levels for now (Jakob, 14 Nov): always the Engineer values
           difficulty: FIXED_DIFFICULTY,
@@ -492,10 +495,13 @@ export const useGameStore = create<GameState>()(
           replayTurn: 0,
           replayEntryId: null,
           visitedSteps: [],
-        }),
+        })
+      },
 
       startNewMission: () => {
         useAgencyStore.getState().resetMissionClock()
+        // A new mission drops the last flight's unflown Launch Day (src/ui/flight/launchDayPending.ts)
+        clearLaunchDayPending()
         // The map is the menu (DESIGN-DIRECTION section 2): a new mission stays on the base,
         // where the Comms Center is highlighted as the first building to walk into
         set({

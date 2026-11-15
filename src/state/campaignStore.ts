@@ -8,6 +8,7 @@ import type { Outcome, PayoffKind } from '../campaign/scenes/types'
 import { generateSeed } from '../sim/rng'
 import type { World } from '../game/world'
 import { useWorldStore } from './worldStore'
+import { clearLaunchDayPending } from '../ui/flight/launchDayPending'
 import { useGameStore } from './gameStore'
 
 /**
@@ -101,6 +102,8 @@ export const useCampaignStore = create<CampaignState>()(
         const mission = missionById(id)
         if (!isOpen(get().progress, mission, w.funds, w.popularity)) return
         set((s) => ({ progress: markOpened(s.progress, id), ladderOpen: false, unlockedBy: null }))
+        // Starting a mission drops any unflown Launch Day of an earlier flight (src/ui/flight/launchDayPending.ts)
+        clearLaunchDayPending()
         if (id === 'ice-mapper') {
           // Main's own flow: a finished flight goes to the history, the new mission starts at the Comms Center
           const game = useGameStore.getState()
