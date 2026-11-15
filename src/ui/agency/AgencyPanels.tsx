@@ -705,7 +705,20 @@ const signedMoney = (x: number) => `${x >= 0 ? '+' : '−'}${money(Math.abs(x))}
 const signedPoints = (x: number) => `${x >= 0 ? '+' : '−'}${Math.abs(Math.round(x))}%`
 
 /** A ruled ledger: detail rows (engineer view) over a net line (always shown) */
-function Ledger({ title, rows, net, fmt }: { title: string; rows: { label: string; amount: number }[]; net: number; fmt: (x: number) => string }) {
+function Ledger({
+  title,
+  rows,
+  net,
+  fmt,
+  total,
+}: {
+  title: string
+  rows: { label: string; amount: number }[]
+  net: number
+  fmt: (x: number) => string
+  /** Replaces the Net line when the headline is not a signed sum (money: left of the budget) */
+  total?: { label: string; text: string }
+}) {
   return (
     <div className="border border-rule bg-ink-1 p-2.5">
       <div className="fp-label text-[0.62rem]">{title}</div>
@@ -718,8 +731,8 @@ function Ledger({ title, rows, net, fmt }: { title: string; rows: { label: strin
         ))}
       </Eng>
       <div className="mt-1 flex justify-between text-sm font-semibold">
-        <span className="text-paper">Net</span>
-        <span className={`fp-data ${net >= 0 ? 'text-go' : 'text-nogo'}`}>{fmt(net)}</span>
+        <span className="text-paper">{total?.label ?? 'Net'}</span>
+        <span className={`fp-data ${total ? 'text-paper' : net >= 0 ? 'text-go' : 'text-nogo'}`}>{total?.text ?? fmt(net)}</span>
       </div>
     </div>
   )
@@ -775,7 +788,13 @@ export function MissionResultDialog({
         </div>
 
         <div className="grid grid-cols-2 gap-2 px-5 pt-4">
-          <Ledger title="Money" rows={result.money} net={result.moneyNet} fmt={signedMoney} />
+          <Ledger
+            title="Money"
+            rows={result.money}
+            net={result.moneyNet}
+            fmt={signedMoney}
+            total={{ label: 'Money left', text: `${money(result.moneyLeft)} of ${money(result.budget)}` }}
+          />
           <Ledger title="Popularity" rows={result.popularity} net={result.popularityNet} fmt={signedPoints} />
         </div>
 

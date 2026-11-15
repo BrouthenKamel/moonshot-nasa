@@ -1,170 +1,201 @@
+import { useEffect } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
-import { useDragStore } from '../interaction/dragStore'
 import { useDesignPreview } from '../useDesignPreview'
-import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
-import { difficultyPresets } from '../../data/brief'
-import { getPartById } from '../../data/parts'
-import { getGroundStationById } from '../../data/ground'
-import { useEffect, useRef, useState } from 'react'
-import { LinkConsole, LinkRibbon } from './comms/LinkConsole'
-import { RadioTray } from './comms/RadioTray'
-import { StationTray } from './comms/StationTray'
-import { hoursAfterSwitch } from './comms/hours'
-import { ContactSlider } from './comms/ContactSlider'
-import { Btn, Sheet, StepHeader, nextLabel, stepTitle } from '../kit'
+import { getPartById, radios, type AttitudePart, type RadioPart } from '../../data/parts'
+import { getGroundStationById, groundStations, type GroundStation } from '../../data/ground'
+import { computeBudgets } from '../../sim/budgets'
+import type { Budgets, Design } from '../../sim/types'
 
-function hoveredChoiceId(target: EventTarget | null): string | null {
-  return target instanceof Element ? target.closest<HTMLElement>('[data-choice-id]')?.dataset.choiceId ?? null : null
+type DesignPatch = Partial<Design>
+import { hoursAfterSwitch } from './comms/hours'
+import { PickRow, PickTile, SignalPath, type PickTone } from './comms/CommsPick'
+import { nextLabel, stepTitle } from '../kit/stepNumbers'
+import { PlanChecks, PlanHeadline, PlanMeter, PlanNav, PlanOdds, PlanPanel, PlanRow, PlanRows } from './plan/PlanPanel'
+
+/*
+ * Step 07 · Communications: how the data gets home, on one screen. On the left the signal path
+ * and two rows of choices (the radio on the craft, the dish on Earth), each saying how much data
+ * it would bring home; on the right one dashboard with the figures and the dish time booked.
+ * Hovering a choice previews it on the dashboard. Every number is from computeBudgets / goNoGo;
+ * the step writes only radio, groundStation and contactHours.
+ */
+
+const RADIO_TAG: Record<string, string> = { 'radio-uhf': 'Low orbit', 'radio-sband': 'JPL Iris', 'radio-xband': 'Iris + dish' }
+const STATION_TAG: Record<string, string> = { 'ground-small': 'University', 'ground-medium': 'Lunar IceCube', 'ground-dsn': 'NASA DSN' }
+
+const mb = (n: number) => `${Math.round(n).toLocaleString('en-US')} MB/month`
+const money = (m: number) => (m < 0.1 ? `$${Math.round(m * 1000)}k` : `$${m.toFixed(2)}M`)
+
+/** Green when everything the instruments make gets home, yellow when part of it, red when nothing */
+function homeTone(b: Budgets): PickTone {
+  if (b.downlinkPerTurn <= 0) return 'red'
+  return b.dataMarginPerTurn >= 0 ? 'green' : 'yellow'
 }
 
-/**
- * Step 7 at the Communications Center: the comms console. The link budget sits on top as a
- * signal path and a gauge (a slim copy stays on top while scrolling, so every pick shows its effect), then the radio and the
- * ground station as card trays, then the contact-time slider. Every number is from
- * computeBudgets / goNoGo; this step writes only radio, groundStation and contactHours.
- */
+/** The one thing to know about a radio in this design, if anything */
+function radioNote(radio: RadioPart, design: Design, b: Budgets): { text: string; tone: PickTone } | undefined {
+  if (!radio.reachesMoon) return { text: 'Does not reach Earth from the Moon', tone: 'red' }
+  if (b.volumeMargin < 0) return { text: `Does not fit: ${(-b.volumeMargin).toFixed(1)} U over`, tone: 'red' }
+  if (b.massMargin < 0) return { text: `Too heavy: ${(-b.massMargin).toFixed(1)} kg over`, tone: 'red' }
+  if (b.budgetMargin < 0) return { text: `Over budget by $${(-b.budgetMargin).toFixed(1)}M`, tone: 'red' }
+  if (radio.needsPrecisePointing) {
+    const attitude = getPartById(design.attitude) as AttitudePart | undefined
+    if (!attitude?.precise) return { text: 'Needs precise pointing (Factory)', tone: 'yellow' }
+  }
+  return undefined
+}
+
+function stationNote(s: GroundStation): { text: string; tone?: PickTone } {
+  const outages = s.outageChance >= 0.08 ? 'often' : s.outageChance >= 0.04 ? 'sometimes' : 'rarely'
+  return { text: `Up to ${s.contactHoursPerDay} h a day · outages ${outages}`, tone: s.outageChance >= 0.08 ? 'yellow' : undefined }
+}
+
+/** Dish time booked a day: a slider inside the dashboard */
+function ContactTime({ hours, maxHours, onChange }: { hours: number; maxHours: number; onChange: (h: number) => void }) {
+  const min = 0.25
+  return (
+    <div className="bg-ink-1 px-2.5 py-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <label htmlFor="contact-hours" className="truncate text-[0.64rem] uppercase tracking-wider text-paper-faint">
+          Dish time booked
+        </label>
+        <span className="fp-data text-[0.86rem] text-paper">{hours} h a day</span>
+      </div>
+      <input
+        id="contact-hours"
+        type="range"
+        min={min}
+        max={maxHours}
+        step={0.25}
+        value={hours}
+        disabled={maxHours <= min}
+        onChange={(e) => onChange(Number(e.target.value))}
+        aria-valuetext={`${hours} hours a day`}
+        className="mt-1 w-full accent-[var(--color-kapton)]"
+      />
+      <div className="flex justify-between fp-data text-[0.6rem] text-paper-faint">
+        <span>{min} h</span>
+        <span>more hours, more data and cost</span>
+        <span>{maxHours} h</span>
+      </div>
+    </div>
+  )
+}
+
 export function CommsScreen() {
   const design = useGameStore((s) => s.design)
   const difficulty = useGameStore((s) => s.difficulty)
   const updateDesign = useGameStore((s) => s.updateDesign)
-  const setDesignStep = useGameStore((s) => s.setDesignStep)
   const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
-  const { budgets, checks: goNoGo, previewBudgets, previewChecks, previewPatch } = useDesignPreview()
-  const activeBudgets = previewBudgets ?? budgets
-  const activeGoNoGo = previewChecks ?? goNoGo
+  const { budgets, checks, previewBudgets, previewChecks, previewPatch } = useDesignPreview()
+  const b = previewBudgets ?? budgets
+  const shownChecks = (previewChecks ?? checks).checks
 
   useEffect(() => () => setPreviewPatch(null), [setPreviewPatch])
 
-  const checks = activeGoNoGo.checks
   const radioId = previewPatch?.radio ?? design.radio
   const stationId = previewPatch?.groundStation ?? design.groundStation
-  const radio = getPartById(radioId)
+  const radio = getPartById(radioId) as RadioPart | undefined
   const station = getGroundStationById(stationId)
-  const maxHours = station?.contactHoursPerDay ?? 1
-  const commsCheck = checks.find((c) => c.resource === 'Comms')
-  const dataCheck = checks.find((c) => c.resource === 'Data Link')
-  const dataTarget = (difficultyPresets[difficulty] ?? difficultyPresets.engineer).dataTarget
+  const stationPatch = (s: GroundStation): DesignPatch => ({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })
+  const preview = (patch: DesignPatch) => (on: boolean) => setPreviewPatch(on ? patch : null)
 
-  // Show the slim link ribbon once the full console has scrolled out of view
-  const consoleRef = useRef<HTMLDivElement>(null)
-  const [consoleOut, setConsoleOut] = useState(false)
-  useEffect(() => {
-    const el = consoleRef.current
-    if (!el || typeof IntersectionObserver === 'undefined') return
-    const io = new IntersectionObserver(([e]) => setConsoleOut(!e.isIntersecting && e.boundingClientRect.top < 0), {
-      root: el.closest('main'),
-      threshold: 0,
-      rootMargin: '-120px 0px 0px 0px',
-    })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [])
+  const tone = homeTone(b)
+  const share = b.dataPerTurn > 0 ? Math.min(100, (b.downlinkPerTurn / b.dataPerTurn) * 100) : 100
+  const line =
+    b.downlinkPerTurn <= 0
+      ? 'Nothing gets home: the ice map stays on board.'
+      : b.dataMarginPerTurn >= 0
+        ? `All ${Math.round(b.dataPerTurn)} MB the instruments make each month gets home.`
+        : `The instruments make ${Math.round(b.dataPerTurn)} MB a month: ${Math.round(-b.dataMarginPerTurn)} MB stay on board.`
+  const statusOf = (resource: string) => shownChecks.find((c) => c.resource === resource)
+  const commsChecks = ['Comms', 'Data Link']
+    .map(statusOf)
+    .filter((c) => c !== undefined)
+    .map((c) => ({ label: c.resource, status: c.status, reason: c.reason }))
 
   return (
-    <div className="mx-auto max-w-5xl pb-6">
-      <LinkRibbon budgets={activeBudgets} data={dataCheck} visible={consoleOut} />
-      <div className="space-y-5">
-        <StepHeader step="comms" kicker="Comms Center" title={stepTitle('comms')} />
-        <p className="max-w-2xl px-1 text-sm text-paper-dim">
-          Only data that reaches the ground counts. The Moon is a thousand times farther than low Earth orbit, so the radio and the ground
-          station decide how much gets home.
-        </p>
+    <div className="flex h-full min-h-[560px] gap-4 overflow-hidden p-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <SignalPath
+          radioId={radioId}
+          radioName={radio?.name ?? 'No radio'}
+          stationId={stationId}
+          stationName={station?.name ?? 'No dish'}
+          kbps={b.linkKbps}
+          hours={b.contactHours}
+          tone={tone}
+        />
 
-        <div ref={consoleRef}>
-          <LinkConsole
-            budgets={activeBudgets}
-            comms={commsCheck}
-            data={dataCheck}
-            radioId={radioId}
-            radioName={radio?.name ?? 'No radio'}
-            stationId={stationId}
-            stationName={station?.name ?? 'No station'}
-            dataTarget={dataTarget}
-            onPickRadio={(id) => updateDesign({ radio: id })}
-            onPickStation={(id) => {
-              const s = getGroundStationById(id)
-              if (s) updateDesign({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })
-            }}
-            onPreviewStation={(id) => {
-              if (!id) {
-                setPreviewPatch(null)
-                return
-              }
-              const s = getGroundStationById(id)
-              if (s) setPreviewPatch({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })
-            }}
-          />
-        </div>
+        <PickRow title="Radio on the spacecraft" hint="Each card: data it would bring home">
+          {radios.map((r) => {
+            const whatIf = computeBudgets({ ...design, radio: r.id }, difficulty)
+            const note = radioNote(r, design, whatIf)
+            return (
+              <PickTile
+                key={r.id}
+                id={r.id}
+                tag={RADIO_TAG[r.id] ?? 'Radio'}
+                name={r.name}
+                figure={whatIf.downlinkPerTurn > 0 ? mb(whatIf.downlinkPerTurn) : 'No link home'}
+                figureTone={homeTone(whatIf)}
+                detail={`${r.mass} kg · ${r.volume} U · $${r.cost}M`}
+                note={note?.text}
+                noteTone={note?.tone}
+                selected={design.radio === r.id}
+                onPick={() => updateDesign({ radio: r.id })}
+                onPreview={preview({ radio: r.id })}
+              />
+            )
+          })}
+        </PickRow>
 
-        <SynergyStrip step="comms" />
-        <DesignDeltaLine />
-
-        <div
-          onMouseOver={(e) => {
-            if (useDragStore.getState().held) return
-            const id = hoveredChoiceId(e.target)
-            setPreviewPatch(id ? { radio: id } : null)
-          }}
-          onMouseLeave={() => {
-            if (!useDragStore.getState().held) setPreviewPatch(null)
-          }}
-          onFocus={(e) => {
-            const id = hoveredChoiceId(e.target)
-            if (id) setPreviewPatch({ radio: id })
-          }}
-          onBlurCapture={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !useDragStore.getState().held) setPreviewPatch(null)
-          }}
-        >
-          <RadioTray design={design} difficulty={difficulty} onPick={(id) => updateDesign({ radio: id })} />
-        </div>
-
-        <div
-          onMouseOver={(e) => {
-            if (useDragStore.getState().held) return
-            const id = hoveredChoiceId(e.target)
-            const s = id ? getGroundStationById(id) : undefined
-            setPreviewPatch(s ? { groundStation: s.id, contactHours: hoursAfterSwitch(design, s) } : null)
-          }}
-          onMouseLeave={() => {
-            if (!useDragStore.getState().held) setPreviewPatch(null)
-          }}
-          onFocus={(e) => {
-            const id = hoveredChoiceId(e.target)
-            const s = id ? getGroundStationById(id) : undefined
-            if (s) setPreviewPatch({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })
-          }}
-          onBlurCapture={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !useDragStore.getState().held) setPreviewPatch(null)
-          }}
-        >
-          <StationTray
-            design={design}
-            difficulty={difficulty}
-            onPick={(s) => updateDesign({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })}
-          />
-        </div>
-
-        <Sheet className="p-4">
-          <ContactSlider
-            hours={activeBudgets.contactHours}
-            maxHours={maxHours}
-            stationName={station?.name ?? 'The station'}
-            costPerMonth={activeBudgets.groundCostPerTurn}
-            onChange={(h) => updateDesign({ contactHours: h })}
-          />
-        </Sheet>
-
-        <div className="flex justify-between">
-          <Btn type="button" onClick={() => setDesignStep('ride')}>
-            ← Back
-          </Btn>
-          <Btn variant="primary" type="button" onClick={() => setDesignStep('go-nogo')}>
-            {nextLabel('comms')}
-          </Btn>
-        </div>
+        <PickRow title="Dish on Earth">
+          {groundStations.map((s) => {
+            const whatIf = computeBudgets({ ...design, ...stationPatch(s) }, difficulty)
+            const note = stationNote(s)
+            return (
+              <PickTile
+                key={s.id}
+                id={s.id}
+                scene
+                tag={STATION_TAG[s.id] ?? 'Dish'}
+                name={s.name}
+                figure={whatIf.downlinkPerTurn > 0 ? mb(whatIf.downlinkPerTurn) : 'No link home'}
+                figureTone={homeTone(whatIf)}
+                detail={`${s.rateKbps} kbps · ${money(whatIf.groundCostPerTurn)} a month`}
+                note={note.text}
+                noteTone={note.tone}
+                selected={design.groundStation === s.id}
+                onPick={() => updateDesign(stationPatch(s))}
+                onPreview={preview(stationPatch(s))}
+              />
+            )
+          })}
+        </PickRow>
       </div>
+
+      <PlanPanel>
+        <PlanHeadline kicker={stepTitle('comms')} value={Math.round(b.downlinkPerTurn).toLocaleString('en-US')} unit="MB/month" line={line} />
+        <PlanMeter label="Of the data made, gets home" pct={share} tone={tone} />
+        <PlanRows>
+          <PlanRow label="Link" value={b.linkKbps > 0 ? `${b.linkKbps} kbps` : 'none'} tone={b.linkKbps > 0 ? undefined : 'red'} />
+          <PlanRow label="Instruments make" value={`${Math.round(b.dataPerTurn)} MB`} sub="a month" />
+          <PlanRow label="Dish cost" value={money(b.groundCostPerTurn)} sub="a month" />
+          <PlanRow label="Stored on board" value={`${Math.round(b.storageCapacity).toLocaleString('en-US')} MB`} sub="waits for a pass" />
+          <PlanRow label="Radio power" value={radio ? `${radio.listenPower} / ${radio.transmitPower} W` : '—'} sub="listen / transmit" />
+          <PlanRow label="Radio" value={radio ? `${radio.mass} kg · ${radio.volume} U` : '—'} sub={radio ? `$${radio.cost}M` : undefined} />
+        </PlanRows>
+        <ContactTime
+          hours={design.contactHours ?? station?.defaultHours ?? 1}
+          maxHours={getGroundStationById(design.groundStation)?.contactHoursPerDay ?? 1}
+          onChange={(h) => updateDesign({ contactHours: h })}
+        />
+        <PlanChecks checks={commsChecks} />
+        <PlanOdds />
+        <PlanNav back={{ label: '← Back', to: 'ride' }} next={{ label: nextLabel('comms'), to: 'go-nogo' }} />
+      </PlanPanel>
     </div>
   )
 }

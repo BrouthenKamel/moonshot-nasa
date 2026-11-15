@@ -17,8 +17,5 @@ and ends with the shared style: painted concept-art like a modern film keyframe,
 | ground-small | 4 m dish on a university roof at dusk, students with laptops |
 | ground-medium | 21 m dish on a pedestal in green hills at golden hour, cows for scale |
 | ground-dsn | 34 m beam-waveguide dish in a desert valley under the Milky Way, tiny human for scale |
-| difficulty-cadet | Bright mission control training room, mentor and cadet |
-| difficulty-engineer | Engineer checking an open 6U CubeSat in a clean room at night |
-| difficulty-flight-director | Flight director facing a wall of screens with red alarms |
 
 Note: the Cadet card shows round blue badges that may read as an agency insignia; regenerate if that matters.
