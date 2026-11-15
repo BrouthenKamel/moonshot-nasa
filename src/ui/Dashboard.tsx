@@ -117,7 +117,7 @@ export function Dashboard() {
 
       <section className="flex flex-col items-start gap-2 border-t border-rule pt-4">
         <div className="flex w-full items-center justify-between gap-2">
-          <span className="fp-label">Go / No-Go</span>
+          <span className="fp-label whitespace-nowrap">Go / No-Go</span>
           <Stamp key={stamp.text} verdict={stamp.verdict} animate>
             {stamp.text}
           </Stamp>

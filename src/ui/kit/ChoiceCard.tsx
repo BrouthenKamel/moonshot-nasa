@@ -150,7 +150,7 @@ export function ChoiceCard({
             </span>
           )}
           {selected && (
-            <span className="absolute right-1.5 top-2">
+            <span className="absolute right-2 bottom-2">
               <Stamp verdict="selected" size="sm" animate>
                 {xs ? '✓' : 'Flight'}
               </Stamp>
