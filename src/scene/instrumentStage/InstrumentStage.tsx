@@ -48,7 +48,7 @@ export default function InstrumentStage() {
       <div className="relative h-[66vh] min-h-[460px] overflow-hidden border border-slate-800 bg-[#03050a]">
         <Canvas dpr={[1, 1.75]} camera={camera}>
           <Scene pass={pass} h={h} views={model.instruments} still={still} onShadow={setOverShadow} />
-          <Effects preset="space" />
+          <Effects preset="space" bloom={0.35} />
         </Canvas>
         <ForecastPanel forecast={model.forecast} />
         <LabDials whatIf={whatIf} onChange={(change) => setWhatIf((w) => ({ ...w, ...change }))} />
