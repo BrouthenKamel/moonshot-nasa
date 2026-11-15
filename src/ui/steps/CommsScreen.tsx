@@ -46,9 +46,25 @@ function radioNote(radio: RadioPart, design: Design, b: Budgets): { text: string
   return undefined
 }
 
+/** A dish's note, in words only: the tile's one number is its data home (the hours limit is on hover) */
 function stationNote(s: GroundStation): { text: string; tone?: PickTone } {
   const outages = s.outageChance >= 0.08 ? 'often' : s.outageChance >= 0.04 ? 'sometimes' : 'rarely'
-  return { text: `Up to ${s.contactHoursPerDay} h a day · outages ${outages}`, tone: s.outageChance >= 0.08 ? 'yellow' : undefined }
+  return { text: `Outages ${outages}`, tone: s.outageChance >= 0.08 ? 'yellow' : undefined }
+}
+
+/** What a dish tile keeps off its face, for the hover: "64 kbps · $30k a month · up to 2 h a day" */
+function stationDetail(s: GroundStation, costPerMonth: number): string {
+  return `${s.rateKbps} kbps · ${money(costPerMonth)} a month · up to ${s.contactHoursPerDay} h a day`
+}
+
+/**
+ * The dish row's heading: the dish choice is a trade, so the row says what the chosen (or hovered)
+ * dish gives, what it limits and what it costs: "Deep Space Network, 34 m: 128 kbps, 1 hour a day
+ * at most · $0.10M a month". A bigger dish carries more data but books fewer hours and costs more.
+ */
+function dishTrade(s: GroundStation, costPerMonth: number): string {
+  const hours = s.contactHoursPerDay <= 1 ? '1 hour a day at most' : `up to ${s.contactHoursPerDay} h a day`
+  return `${s.name}: ${s.rateKbps} kbps, ${hours} · ${money(costPerMonth)} a month`
 }
 
 /** Dish time booked a day: a slider inside the dashboard */
@@ -151,7 +167,7 @@ export function CommsScreen() {
           })}
         </PickRow>
 
-        <PickRow title="Dish on Earth">
+        <PickRow title="Dish on Earth" hint={station ? dishTrade(station, b.groundCostPerTurn) : undefined}>
           {groundStations.map((s) => {
             const whatIf = computeBudgets({ ...design, ...stationPatch(s) }, difficulty)
             const note = stationNote(s)
@@ -164,7 +180,7 @@ export function CommsScreen() {
                 name={s.name}
                 figure={whatIf.downlinkPerTurn > 0 ? mb(whatIf.downlinkPerTurn) : 'No link home'}
                 figureTone={homeTone(whatIf)}
-                detail={`${s.rateKbps} kbps · ${money(whatIf.groundCostPerTurn)} a month`}
+                detail={stationDetail(s, whatIf.groundCostPerTurn)}
                 note={note.text}
                 noteTone={note.tone}
                 selected={design.groundStation === s.id}

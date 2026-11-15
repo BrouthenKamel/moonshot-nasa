@@ -33,7 +33,9 @@ export function ChoicePicture({ id, scene = false, className = '' }: { id: strin
 
 /**
  * One choice: a picture, a short tag, the name, the figure that matters and a note. Hover or focus
- * previews it on the dashboard; a click picks it.
+ * previews it on the dashboard; a click picks it. The tile shows one number, its figure (screen
+ * budget, Jakob 15 Nov); `detail` (the other figures) shows on hover and is read out as the
+ * tile's description.
  */
 export function PickTile({
   id,
@@ -68,6 +70,7 @@ export function PickTile({
       role="radio"
       aria-checked={selected}
       data-choice-id={id}
+      title={detail}
       onClick={() => {
         audio.play(choiceArt(id)?.pick ?? 'sfx.select')
         onPick()
@@ -90,7 +93,6 @@ export function PickTile({
       <div className="shrink-0 px-2.5 py-2">
         <div className="truncate text-[0.82rem] font-semibold leading-tight text-paper">{name}</div>
         <div className={`fp-data mt-0.5 text-sm ${TONE_TEXT[figureTone]}`}>{figure}</div>
-        <div className="truncate fp-data text-[0.66rem] text-paper-faint">{detail}</div>
         <div className={`mt-0.5 h-4 truncate text-[0.68rem] ${noteTone ? TONE_TEXT[noteTone] : 'text-paper-faint'}`} title={note}>
           {note ?? ''}
         </div>
