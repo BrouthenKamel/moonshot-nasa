@@ -29,10 +29,6 @@ interface UiState {
   /** Auto-fly simulation speed multiplier (1x = 500ms/month, 2x = 250ms/month) */
   autoFlySpeed: 1 | 2
   setAutoFlySpeed: (speed: 1 | 2) => void
-  /** Full-screen Mission Vitality HUD dial overlay */
-  hudModalOpen: boolean
-  setHudModalOpen: (open: boolean) => void
-  toggleHudModal: () => void
   /** Transient hovered "what-if" patch across design screens */
   previewPatch: Partial<Design> | null
   setPreviewPatch: (patch: Partial<Design> | null) => void
@@ -57,9 +53,6 @@ export const useUiStore = create<UiState>()((set) => ({
   setFlightCam: (flightCam) => set({ flightCam }),
   autoFlySpeed: 1,
   setAutoFlySpeed: (autoFlySpeed) => set({ autoFlySpeed }),
-  hudModalOpen: false,
-  setHudModalOpen: (hudModalOpen) => set({ hudModalOpen }),
-  toggleHudModal: () => set((s) => ({ hudModalOpen: !s.hudModalOpen })),
   previewPatch: null,
   setPreviewPatch: (previewPatch) => set({ previewPatch }),
   launchAt: null,
