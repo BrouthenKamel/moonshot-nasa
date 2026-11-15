@@ -45,17 +45,20 @@ describe('pickBeat', () => {
     expect(pickBeat(input({ visitedSteps: ['brief'] }))).toBeNull()
   })
 
-  it('sends the player to the Research Lab from the brief when nothing sees into the craters (I5a)', () => {
-    const b = pickBeat(input({ screen: 'design', designStep: 'brief' }))
-    expect(b?.id).toBe('step-brief')
-    expect(b?.text).toMatch(/Research Lab/)
-    expect(b?.text).toMatch(/dark craters/)
+  it('names one first stop on the brief, the same as the brief box: Plan at the Communications Center', () => {
+    for (const instruments of [undefined, [LASER]]) {
+      const b = pickBeat(input({ screen: 'design', designStep: 'brief', ...(instruments ? { instruments } : {}) }))
+      expect(b?.id).toBe('step-brief')
+      expect(b?.text).toContain('First stop: Plan, at the Communications Center.')
+      expect(b?.text).not.toMatch(/Research Lab|Science/)
+    }
   })
 
-  it('drops the Research Lab hint once an instrument sees into the dark', () => {
-    const b = pickBeat(input({ screen: 'design', designStep: 'brief', instruments: [LASER] }))
-    expect(b?.id).toBe('step-brief')
-    expect(b?.text).not.toMatch(/Research Lab/)
+  it('checks the starting instrument on the Science step when nothing sees into the craters (I5a)', () => {
+    const b = pickBeat(input({ screen: 'design', designStep: 'instruments' }))
+    expect(b?.id).toBe('step-instruments')
+    expect(b?.text).toMatch(/starting design carries an IR spectrometer/)
+    expect(b?.text).toMatch(/dark craters/)
   })
 
   it('reads the budget numbers in the planning line from the budgets', () => {

@@ -9,6 +9,7 @@ import type { Budgets, DesignStep, GoNoGoResult, Report, SimState } from '../../
 import type { Screen } from '../../state/gameStore'
 import { craftWasLost } from '../../sim/evaluate'
 import { STEP_NAMES } from '../kit/stepNumbers'
+import { buildingName, firstStop } from '../../viz/missionMap'
 
 export const NARRATOR_NAME = 'Commander Rosa Vega'
 export const NARRATOR_ROLE = 'Retired astronaut, now the agency’s mission mentor'
@@ -72,13 +73,15 @@ function stepBeat(step: DesignStep, i: NarratorInput): Beat {
   const shadow = i.instruments.find((x) => x.seesShadow)
   const game = (id: BeatId, text: string): Beat => ({ id, text, scope: 'game' })
   switch (step) {
-    case 'brief':
+    case 'brief': {
+      // The brief names one first stop, the same one as its box and the map's sign: the instrument
+      // lesson waits for the Science step
+      const stop = firstStop()
       return game(
         'step-brief',
-        shadow
-          ? 'The brief is short: map the ice, get the data home, stay in budget. You already carry an instrument that can see into the dark.'
-          : `Our starting design carries an IR spectrometer, like Lunar IceCube. Before you launch, stop at ${STEP_NAMES.instruments} in the Research Lab and check whether it can see into the dark craters.`
+        `The brief is short: map the ice, get the data home, stay in budget. First stop: ${STEP_NAMES[stop.step]}, at the ${buildingName(stop.building)}.`
       )
+    }
     case 'planning':
       return game(
         'step-planning',
@@ -89,7 +92,7 @@ function stepBeat(step: DesignStep, i: NarratorInput): Beat {
         'step-instruments',
         shadow
           ? `The ${shadow.name} can see into the dark, like ${shadow.flownOn}.${shadow.maxAltitudeKm !== null ? ` It maps nothing above ${shadow.maxAltitudeKm} km, so the orbit must take it low.` : ''}`
-          : 'The IR spectrometer needs sunlight, and the ice hides where the Sun never shines. Lunar Flashlight brought its own lasers; LunaH-Map counted neutrons.'
+          : 'Our starting design carries an IR spectrometer, like Lunar IceCube. It needs sunlight, and the ice hides where the Sun never shines: check whether it can see into the dark craters. Lunar Flashlight brought its own lasers; LunaH-Map counted neutrons.'
       )
     case 'rocket':
       return game(
