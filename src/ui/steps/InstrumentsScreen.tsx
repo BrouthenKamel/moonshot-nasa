@@ -15,6 +15,7 @@ import { Btn, Eng, LineItem, Sheet, StepHeader, Tag, stepNumber } from '../kit'
 import { audio } from '../../assets/audio'
 import { assetUrl } from '../../assets/url'
 import { choiceArt } from '../../assets/catalogueArt'
+import { MAX_INSTRUMENTS } from '../../scene/instrumentStage/stageModel'
 import { InstrumentCardFoot } from '../../scene/instrumentStage/InstrumentCardFoot'
 import {
   EQUAL_HEIGHT_CARD,
@@ -262,7 +263,7 @@ export function InstrumentsScreen() {
   return (
     <>
       <StepHeader step="instruments" title="Instruments" className="mx-auto mb-4 max-w-3xl">
-        <span className="fp-data text-sm text-paper">{`${count} ${count === 1 ? 'instrument' : 'instruments'}`}</span>
+        <span className="fp-data text-sm text-paper">{`${count} of ${MAX_INSTRUMENTS} instruments`}</span>
         <Eng className="fp-data text-xs text-paper-dim">
           · {totalMass.toFixed(1)} kg · {budgets.instrumentPower} W · {budgets.dataPerTurn.toFixed(0)} MB/month
         </Eng>

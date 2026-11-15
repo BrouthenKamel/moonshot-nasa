@@ -30,6 +30,7 @@ export default function InstrumentStage() {
   const updateDesign = useGameStore((s) => s.updateDesign)
   const day = useAgencyStore((s) => s.day)
 
+  const [dragged, setDragged] = useState(false)
   const [overShadow, setOverShadow] = useState(false)
   const still = useSyncExternalStore(subscribeMotion, reducedMotion, () => false)
   const [pass] = useState<Pass>(() => ({ offset: 18 }))
@@ -63,6 +64,7 @@ export default function InstrumentStage() {
       <TitleLine />
       <div
         {...cradleDrop.handlers}
+        onPointerDownCapture={() => setDragged(true)}
         className={`relative h-[46vh] min-h-[340px] overflow-hidden border bg-[#03050a] transition-colors ${
           cradleDrop.state.over
             ? cradleDrop.state.ok
@@ -79,9 +81,12 @@ export default function InstrumentStage() {
         </Canvas>
         <ForecastPanel forecast={model.forecast} altitudeKm={model.altitudeKm} />
         <ReadOuts views={model.instruments} overShadow={overShadow} />
-        <div className="hud-fade pointer-events-none absolute right-3 bottom-3 hidden rounded bg-slate-950/70 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500 sm:block">
-          drag to look around
-        </div>
+        {/* The hint goes after the first press, so it never covers a callout once the player knows */}
+        {!dragged && (
+          <div className="hud-fade pointer-events-none absolute right-3 bottom-3 hidden rounded bg-slate-950/70 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500 sm:block">
+            drag to look around
+          </div>
+        )}
       </div>
       <InstrumentBar
         chosen={design.instruments}
