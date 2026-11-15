@@ -1,4 +1,6 @@
 import type { Difficulty } from '../data/brief'
+import { COVERAGE_TARGET } from './evaluate'
+import { firstPassRates } from './firstPass'
 import { difficultyPresets, lunarIceMapperBrief, modelConstants as C, programmeHorizonTurns } from '../data/brief'
 import { getEventById, type EventType } from '../data/events'
 import { getOrbitById } from '../data/orbits'
@@ -416,7 +418,9 @@ function scienceTurnStep(ctx: TurnContext) {
     }
   }
   const lostBefore = f.science.lost
-  const turn = scienceTurn(s.design, b, f.science, duty, link, f.scienceFactor)
+  // The first month maps as well as the player's first pass did, within the design's physics
+  const monthB = f.scienceTurns === 0 && s.firstPass ? { ...b, coverageRate: firstPassRates(b, s.firstPass.mix) } : b
+  const turn = scienceTurn(s.design, monthB, f.science, duty, link, f.scienceFactor)
   ctx.log.dataGenerated = turn.made
   ctx.log.dataSent = turn.sent
   ctx.log.dataLost = f.science.lost - lostBefore
@@ -432,7 +436,7 @@ function scienceTurnStep(ctx: TurnContext) {
   if (!f.alive) return
   const turnsNeeded = brief.missionDurationTurns
   const dataTarget = difficultyPresets[s.difficulty]?.dataTarget ?? 300
-  const coverageTarget = 70
+  const coverageTarget = COVERAGE_TARGET
   if (f.scienceTurns >= turnsNeeded) {
     if (f.coverage >= coverageTarget && f.data >= dataTarget) {
       f.done = true

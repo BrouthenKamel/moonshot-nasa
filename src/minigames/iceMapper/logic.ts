@@ -1,5 +1,6 @@
 import { getPartById, type InstrumentPart } from '../../data/parts'
 import { computeBudgets, createDefaultDesign } from '../../sim/budgets'
+import { COVERAGE_TARGET } from '../../sim/evaluate'
 import type { Design } from '../../sim/types'
 
 /**
@@ -23,7 +24,8 @@ export const VIEW_H = 640
 /** Where the craft sits on the nominal screen */
 export const CRAFT_X = VIEW_W / 2
 export const CRAFT_Y = 512
-export const TARGET_PCT = 70
+/** The pass's target is the mission's own coverage target, so the game and the report never disagree */
+export const TARGET_PCT = COVERAGE_TARGET
 
 export type AreaSize = 'L' | 'M' | 'S'
 
@@ -337,4 +339,9 @@ export function autoplay(setup: PassSetup, bot: Bot = AUTOPILOT): PassState {
     if (before !== null && mind.target === null) mind.idleUntil = Math.max(mind.idleUntil, st.t + bot.reaction)
   }
   return st
+}
+
+/** How many real hours of battery the pass stands for (the game shows them in `duration` seconds) */
+export function passHours(setup: PassSetup): number {
+  return Math.max(1, Math.round(setup.batteryWh / setup.watts))
 }
