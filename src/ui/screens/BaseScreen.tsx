@@ -172,7 +172,8 @@ export function BaseScreen() {
   const budgets = computeBudgets(design, difficulty)
   const checks = goNoGo(design, budgets)
   const labels = missionLabels({ design, budgets, checks, visited: visitedSteps, sim: simState })
-  const status = missionStatus({ budgets, visited: visitedSteps, sim: simState })
+  // A flight's progress follows the craft that is flying, not the design on the drawing board
+  const status = missionStatus({ budgets: simState ? computeBudgets(simState.design, simState.difficulty) : budgets, visited: visitedSteps, sim: simState })
   const logEntries = useMemo(() => (simState ? flightFeed(simState.turnLogs) : []), [simState])
 
   // The status opens the next building while planning, and the report once the flight is over

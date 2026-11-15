@@ -143,10 +143,9 @@ function FairingStage({ engineScale }: { engineScale: number }) {
     beat('ignition', 2.0, () => audio.play('sfx.ignition'))
     beat('staging', 6.2, () => audio.play('sfx.snap'))
     beat('sep', 7.5, () => audio.play('sfx.reveal'))
-    beat('deploy', 9.15, () => {
-      audio.play('sfx.go')
-      audio.say('voice.liftoff')
-    })
+    // The CubeSat leaves the deployer: a chime only (the liftoff call belongs to the pad, which the
+    // launch now shows first on the island)
+    beat('deploy', 9.15, () => audio.play('sfx.go'))
 
     // Fairing separation after t = 7.5s
     const easeSep = separation(t)

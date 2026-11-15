@@ -35,7 +35,11 @@ describe('polar orbit at any height over the pole', () => {
 
   it('is found by id, and the named orbits still are', () => {
     expect(getOrbitById('orbit-polar-20')?.altitude).toBe(20)
-    expect(getOrbitById('orbit-elliptical')?.passesPerTurn).toBe(141)
+    // Since 15 Nov the named elliptical orbit is the slider's 15 km orbit, worked out the same way (was a listed 141)
+    expect(getOrbitById('orbit-elliptical')?.passesPerTurn).toBe(151)
+    const { id: _a, name: _b, description: _c, flownBy: _d, ...named } = getOrbitById('orbit-elliptical')!
+    const { id: _e, name: _f, description: _g, flownBy: _h, ...polar } = getOrbitById('orbit-polar-15')!
+    expect(named).toEqual(polar)
     expect(getOrbitById('orbit-nonsense')).toBeUndefined()
   })
 })

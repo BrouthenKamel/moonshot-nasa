@@ -4,11 +4,11 @@ import { getGroundStationById } from '../../data/ground'
 import { getOrbitById } from '../../data/orbits'
 import { getPartById } from '../../data/parts'
 import { canUseWebGL } from '../../scene/webgl'
-import { computeBudgets } from '../../sim/budgets'
+import { computeBudgets, observedIce, scienceTotals, scienceTurn } from '../../sim/budgets'
 import { COVERAGE_TARGET } from '../../sim/evaluate'
 import { isSimComplete } from '../../sim/simulate'
 import { craftWasLost, failedLabel } from '../../sim/evaluate'
-import type { SimState, TurnLog } from '../../sim/types'
+import type { Budgets, SimState, TurnLog } from '../../sim/types'
 import { LAUNCH, useUiStore, type FlightCamMode } from '../../state/uiStore'
 import { useInsideStore } from '../interaction/insideStore'
 import { flightShot, type FlightShot } from '../../viz/flight/flightDirector'
@@ -158,6 +158,9 @@ export function FlightPlan({ sim }: { sim: SimState }) {
   const h = health(sim)
   const ice = sim.coveragePercent
   const dataHome = sim.totalDataReturned
+  // Seen but not yet downlinked: it only counts once it is on the ground
+  const onBoard = Math.max(0, observedIce(sim.design, f.science) - ice)
+  const forecast = useMemo(() => iceForecast(sim, budgets), [sim, budgets])
 
   return (
     <div className="text-paper">
@@ -231,6 +234,12 @@ export function FlightPlan({ sim }: { sim: SimState }) {
         <Readout label="Phase" value={sim.phase === 'failed' ? failedLabel(sim.flight.end) : (PHASE_WORD[sim.phase] ?? sim.phase)} />
         <Readout label="Health" value={h.word} className={TONE_TEXT[h.tone]} />
       </div>
+      {(onBoard >= 0.5 || forecast) && (
+        <div className="mt-1.5 space-y-0.5 fp-data text-[10px] leading-snug text-paper-dim">
+          {onBoard >= 0.5 && <div className="text-ice">+{onBoard.toFixed(1)}% seen, on board: counts once it is downlinked</div>}
+          {forecast && <div className={forecast.tone}>{forecast.text}</div>}
+        </div>
+      )}
       <Eng as="div" className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-rule pt-1.5">
         <Readout
           label="Δv left"
@@ -243,6 +252,25 @@ export function FlightPlan({ sim }: { sim: SimState }) {
       </Eng>
     </div>
   )
+}
+
+/**
+ * When the ice map should reach the brief's 70%, flying on as the design does with no bad luck:
+ * months of clean science from the craft's own state, as computeBudgets projects a whole mission.
+ * Only while the craft is mapping and below the target.
+ */
+function iceForecast(sim: SimState, b: Budgets): { text: string; tone: string } | null {
+  const f = sim.flight
+  if (!f.captured || isSimComplete(sim) || sim.coveragePercent >= COVERAGE_TARGET) return null
+  const st = structuredClone(f.science)
+  const maxMonths = 24 - f.scienceTurns
+  for (let k = 1; k <= maxMonths; k++) {
+    scienceTurn(sim.design, b, st, 1, 1, f.scienceFactor)
+    if (scienceTotals(sim.design, st)[0] >= COVERAGE_TARGET) {
+      return { text: `On course for ${COVERAGE_TARGET}% of the ice map in month ${sim.currentTurn + k}`, tone: 'text-paper-dim' }
+    }
+  }
+  return { text: `At this pace the map will not reach ${COVERAGE_TARGET}%`, tone: 'text-caution' }
 }
 
 interface FlightAlert {

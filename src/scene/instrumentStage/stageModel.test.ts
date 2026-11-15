@@ -89,7 +89,7 @@ describe('stageModel', () => {
     expect(m.forecast.coverage).toBe(b.projectedCoverage)
     expect(m.forecast.context).toBe(b.projectedContext)
     expect(m.forecast.dataMB).toBe(b.projectedData)
-    expect(m.forecast.passesPerTurn).toBe(141)
+    expect(m.forecast.passesPerTurn).toBe(151) // the 15 km orbit worked out (15 Nov; was a listed 141)
     expect(m.altitudeKm).toBe(15)
   })
 
