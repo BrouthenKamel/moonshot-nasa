@@ -11,6 +11,7 @@ import { craftWasLost, failedLabel } from '../../sim/evaluate'
 import type { Budgets, SimState, TurnLog } from '../../sim/types'
 import { LAUNCH, useUiStore, type FlightCamMode } from '../../state/uiStore'
 import { flightShot, type FlightShot } from '../../viz/flight/flightDirector'
+import { endCaption } from '../../viz/flight/endCaption'
 import type { FlightTimeline } from '../../scene/flight/FlightView'
 import { useWorldStore } from '../../state/worldStore'
 import { useCampaignStore } from '../../state/campaignStore'
@@ -591,11 +592,13 @@ function SpaceBar({ sim, shot, monthFraction }: { sim: SimState; shot: FlightSho
   const left = sim.flight.transferLeft
   const daysToGo = typeof left === 'number' ? Math.max(0, Math.round((left - monthFraction) * DAYS_PER_TURN)) : null
   const caption =
-    shot.stage === 'transfer'
+    // A flight that has ended says how, not where the camera shot would be (QC, 15 Nov)
+    endCaption(sim) ??
+    (shot.stage === 'transfer'
       ? `On the way to the Moon · ${Math.round(shot.transferT * 100)}%${daysToGo !== null ? ` · about ${daysToGo} days to go` : ''}`
       : shot.stage === 'orbit'
         ? `In lunar orbit · ice ${Math.round(shot.coverage * 100)}% mapped`
-        : ''
+        : '')
   return (
     <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-3">
       <button type="button" onClick={() => setView('island')} className="fp-btn-secondary pointer-events-auto bg-ink-1">
