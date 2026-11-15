@@ -35,18 +35,18 @@ export function animFromView(view: PlanningView, time = 0): ScreenAnim {
   }
 }
 
-const FONT = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
+const FONT = '"Archivo", "Helvetica Neue", Arial, sans-serif'
 const font = (weight: number, size: number) => `${weight} ${Math.max(MIN_FONT, size)}px ${FONT}`
 
 const BLOCK_COLORS: Record<string, string> = {
-  parts: '#2563eb',
-  team: '#4f46e5',
-  ride: '#0891b2',
-  testing: '#a78bfa',
-  flight: '#0d9488',
-  other: '#64748b',
+  parts: '#5f7fae',
+  team: '#6c7fa8',
+  ride: '#5d8f68',
+  testing: '#c99a5b',
+  flight: '#5d8f68',
+  other: '#827c70',
 }
-const STATUS_COLORS = { nominal: '#22c55e', caution: '#f59e0b', alert: '#ef4444' } as const
+const STATUS_COLORS = { nominal: '#6faf7a', caution: '#e8a33d', alert: '#d0533f' } as const
 
 type Ctx = CanvasRenderingContext2D
 
@@ -67,10 +67,10 @@ function hatch(ctx: Ctx, key: 'green' | 'gold', fallback: string): string | Canv
     const g = c.getContext('2d')
     if (!g) return fallback
     if (key === 'gold') {
-      g.fillStyle = '#b45309'
+      g.fillStyle = '#9a6b26'
       g.fillRect(0, 0, 24, 24)
     }
-    g.strokeStyle = key === 'gold' ? '#fbbf24' : 'rgba(74,222,128,.55)'
+    g.strokeStyle = key === 'gold' ? '#e8a33d' : 'rgba(74,222,128,.55)'
     g.lineWidth = key === 'gold' ? 7 : 5
     g.beginPath()
     g.moveTo(-6, 30); g.lineTo(30, -6); g.moveTo(-6, 6); g.lineTo(6, -6); g.moveTo(18, 30); g.lineTo(30, 18)
@@ -85,17 +85,17 @@ function rocket(ctx: Ctx, x: number, yBase: number, s: number, flame: number, al
   ctx.globalAlpha = alpha
   ctx.translate(x, yBase)
   if (flame > 0) {
-    ctx.fillStyle = '#fb923c'
+    ctx.fillStyle = '#e8a33d'
     ctx.beginPath(); ctx.moveTo(-9 * s, 0); ctx.lineTo(0, flame * 60 * s); ctx.lineTo(9 * s, 0); ctx.fill()
-    ctx.fillStyle = '#fde68a'
+    ctx.fillStyle = '#f2d49a'
     ctx.beginPath(); ctx.moveTo(-5 * s, 0); ctx.lineTo(0, flame * 28 * s); ctx.lineTo(5 * s, 0); ctx.fill()
   }
-  ctx.fillStyle = '#f1f5f9'
+  ctx.fillStyle = '#ede6d6'
   ctx.fillRect(-10 * s, -64 * s, 20 * s, 64 * s)
   ctx.beginPath(); ctx.moveTo(-10 * s, -64 * s); ctx.lineTo(0, -92 * s); ctx.lineTo(10 * s, -64 * s); ctx.fill()
-  ctx.fillStyle = '#f97316'
+  ctx.fillStyle = '#e8a33d'
   ctx.fillRect(-10 * s, -46 * s, 20 * s, 8 * s)
-  ctx.fillStyle = '#94a3b8'
+  ctx.fillStyle = '#a29b8c'
   ctx.beginPath(); ctx.moveTo(-10 * s, -22 * s); ctx.lineTo(-22 * s, 0); ctx.lineTo(-10 * s, 0); ctx.fill()
   ctx.beginPath(); ctx.moveTo(10 * s, -22 * s); ctx.lineTo(22 * s, 0); ctx.lineTo(10 * s, 0); ctx.fill()
   ctx.restore()
@@ -106,9 +106,9 @@ function satellite(ctx: Ctx, x: number, y: number, color: string) {
   ctx.translate(x, y)
   ctx.fillStyle = color
   ctx.fillRect(-15, -19, 30, 38)
-  ctx.fillStyle = '#1d4ed8'
+  ctx.fillStyle = '#4d6a94'
   ctx.fillRect(-58, -10, 38, 20); ctx.fillRect(20, -10, 38, 20)
-  ctx.strokeStyle = '#93c5fd'
+  ctx.strokeStyle = '#9fb5d6'
   ctx.lineWidth = 2
   ctx.strokeRect(-58, -10, 38, 20); ctx.strokeRect(20, -10, 38, 20)
   ctx.restore()
@@ -130,16 +130,16 @@ const money = (x: number) => `$${x.toFixed(1)}M`
 /* ---------------- budget tank ---------------- */
 function paintBudget(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   const X = 20, W = 680
-  frame(ctx, X, W, 'BUDGET', '#fcd34d')
+  frame(ctx, X, W, 'BUDGET', '#f0c070')
   ctx.textAlign = 'right'
   ctx.font = font(600, 34)
-  ctx.fillStyle = '#94a3b8'
+  ctx.fillStyle = '#a29b8c'
   ctx.fillText(`cap ${money(view.cap)}`, X + W - 24, 128)
 
   const TX = X + 34, TW = 150, TT = 170, TB = 664, H = TB - TT
   const cap = Math.max(view.cap, 0.001)
   const K = H / cap
-  ctx.fillStyle = '#0b1730'
+  ctx.fillStyle = '#121620'
   ctx.fillRect(TX, TT, TW, H)
 
   // Cost blocks from the bottom; the testing block uses the eased amount so it grows smoothly
@@ -158,7 +158,7 @@ function paintBudget(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   const limitY = TT + reserve * K
 
   if (reserve > 0.01) {
-    ctx.fillStyle = hatch(ctx, 'gold', '#b45309')
+    ctx.fillStyle = hatch(ctx, 'gold', '#9a6b26')
     ctx.fillRect(TX, TT, TW, limitY - TT)
   }
   if (costTop < limitY) {
@@ -166,12 +166,12 @@ function paintBudget(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
     ctx.fillStyle = total > cap ? 'rgba(239,68,68,.85)' : 'rgba(245,158,11,.75)'
     ctx.fillRect(TX, costTop, TW, limitY - costTop)
   }
-  ctx.strokeStyle = '#475569'
+  ctx.strokeStyle = '#3a4254'
   ctx.lineWidth = 3
   ctx.strokeRect(TX, TT, TW, H)
   if (reserve > 0.01 || view.budgetState !== 'free') {
     ctx.setLineDash([14, 9])
-    ctx.strokeStyle = '#fbbf24'
+    ctx.strokeStyle = '#e8a33d'
     ctx.lineWidth = 5
     ctx.beginPath(); ctx.moveTo(TX - 14, limitY); ctx.lineTo(X + W - 24, limitY); ctx.stroke()
     ctx.setLineDash([])
@@ -181,10 +181,10 @@ function paintBudget(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   const LX = TX + TW + 26
   ctx.textAlign = 'left'
   ctx.font = font(700, 34)
-  ctx.fillStyle = view.reservePercent === 0 ? '#f87171' : '#fcd34d'
+  ctx.fillStyle = view.reservePercent === 0 ? '#dc7563' : '#f0c070'
   ctx.fillText(view.reservePercent === 0 ? 'NO RESERVE' : `RESERVE ${money(view.reserve)}`, LX, Math.max(limitY - 24, TT + 14))
   ctx.font = font(600, 34)
-  ctx.fillStyle = '#94a3b8'
+  ctx.fillStyle = '#a29b8c'
   ctx.fillText(`spend up to ${money(view.spendable)}`, LX, Math.max(limitY, TT + 30) + 30)
 
   const legendRows = blocks.filter((b) => b.amount > 0.0001 || b.key === 'testing')
@@ -192,14 +192,14 @@ function paintBudget(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   const stateY = Math.min(Math.max(limitY + 92, TT + 130), legendTop - 46)
   ctx.font = font(800, 40)
   if (view.budgetState === 'free') {
-    ctx.fillStyle = '#4ade80'
+    ctx.fillStyle = '#8cc196'
     ctx.fillText(`${money(view.budgetGap)} free`, LX, stateY)
   } else if (view.budgetState === 'eating') {
     // The reserve is locked: reaching into it blocks the launch
-    ctx.fillStyle = '#f87171'
+    ctx.fillStyle = '#dc7563'
     ctx.fillText(`${money(view.budgetGap)} into reserve`, LX, stateY)
   } else {
-    ctx.fillStyle = '#f87171'
+    ctx.fillStyle = '#dc7563'
     ctx.fillText(`${money(view.budgetGap)} OVER`, LX, stateY)
   }
 
@@ -208,7 +208,7 @@ function paintBudget(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   for (const b of legendRows) {
     ctx.fillStyle = BLOCK_COLORS[b.key]
     ctx.fillRect(LX, ly - 12, 22, 22)
-    ctx.fillStyle = b.key === 'testing' ? '#ddd6fe' : '#cbd5e1'
+    ctx.fillStyle = b.key === 'testing' ? '#e6d3b3' : '#c4bcac'
     const amount = b.key === 'testing' ? view.testCost : b.amount
     ctx.fillText(`${b.label} ${money(amount)}`, LX + 32, ly)
     ly -= 42
@@ -218,11 +218,11 @@ function paintBudget(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
 /* ---------------- road to launch ---------------- */
 function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   const X = 720, W = 1020
-  frame(ctx, X, W, 'ROAD TO LAUNCH', '#93c5fd')
+  frame(ctx, X, W, 'ROAD TO LAUNCH', '#9fb5d6')
   const missed = view.marginMonths < 0
   ctx.textAlign = 'left'
   ctx.font = font(800, 58)
-  ctx.fillStyle = missed ? '#f87171' : view.marginMonths === 0 ? '#fbbf24' : '#4ade80'
+  ctx.fillStyle = missed ? '#dc7563' : view.marginMonths === 0 ? '#e8a33d' : '#8cc196'
   ctx.fillText(view.headline, X + 26, 196)
   if (missed) {
     ctx.font = font(600, 34)
@@ -234,7 +234,7 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   const MW = (X1 - X0) / n
   const mx = (m: number) => X0 + m * MW
 
-  ctx.fillStyle = '#0b1730'
+  ctx.fillStyle = '#121620'
   ctx.fillRect(X0, BY, X1 - X0, BH)
   ctx.textAlign = 'center'
   for (let m = 0; m <= n; m++) {
@@ -243,14 +243,14 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
     ctx.beginPath(); ctx.moveTo(mx(m), BY - 12); ctx.lineTo(mx(m), BY + BH + 12); ctx.stroke()
     if (m < n && (MW >= 48 || m % 2 === 0)) {
       ctx.font = font(700, 34)
-      ctx.fillStyle = m < view.rideMonth ? '#94a3b8' : '#475569'
+      ctx.fillStyle = m < view.rideMonth ? '#a29b8c' : '#3a4254'
       ctx.fillText(String(m + 1), mx(m) + MW / 2, BY + BH + 44)
     }
   }
 
   // Blocks with eased lengths for build and test
   const lengths: Record<string, number> = { build: Math.max(0, anim.build), test: Math.max(0, anim.test) }
-  const colors: Record<string, string> = { design: '#475569', build: '#2563eb', test: '#7c3aed', fit: '#0d9488' }
+  const colors: Record<string, string> = { design: '#3a4254', build: '#5f7fae', test: '#9a6b26', fit: '#5d8f68' }
   let at = 0
   for (const block of [...view.timeline, ...(view.timeline.some((b) => b.key === 'test') ? [] : [{ key: 'test' as const, label: 'TEST', start: 0, length: 0 }])].sort(
     (a, b) => ['design', 'build', 'test', 'fit'].indexOf(a.key) - ['design', 'build', 'test', 'fit'].indexOf(b.key)
@@ -264,7 +264,7 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
     const label = block.key === 'build' ? `BUILD ${view.buildTurns}` : block.key === 'test' ? `TEST ${view.testTurns}` : block.label
     ctx.font = font(800, 34)
     if (ctx.measureText(label).width < w - 16) {
-      ctx.fillStyle = '#f8fafc'
+      ctx.fillStyle = '#ede6d6'
       ctx.fillText(label, x + w / 2, BY + BH / 2 + 2)
     }
     at += len
@@ -275,12 +275,12 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
     ctx.fillStyle = hatch(ctx, 'green', 'rgba(74,222,128,.35)')
     roundRect(ctx, x + 3, BY + 3, w - 6, BH - 6, 12)
     ctx.fill()
-    ctx.strokeStyle = '#4ade80'
+    ctx.strokeStyle = '#8cc196'
     ctx.lineWidth = 3
     ctx.stroke()
     ctx.font = font(800, 34)
     if (ctx.measureText('SPARE').width < w - 16) {
-      ctx.fillStyle = '#bbf7d0'
+      ctx.fillStyle = '#c6dfc9'
       ctx.fillText('SPARE', x + w / 2, BY + BH / 2 + 2)
     }
   } else if (ready > view.rideMonth + 0.02) {
@@ -290,11 +290,11 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
 
   // Ride marker and rocket
   const xr = mx(view.rideMonth)
-  ctx.strokeStyle = '#fbbf24'
+  ctx.strokeStyle = '#e8a33d'
   ctx.lineWidth = 6
   ctx.beginPath(); ctx.moveTo(xr, 300); ctx.lineTo(xr, BY + BH + 14); ctx.stroke()
   ctx.font = font(800, 34)
-  ctx.fillStyle = '#fbbf24'
+  ctx.fillStyle = '#e8a33d'
   const rideLabel = `RIDE · END OF MONTH ${view.rideMonth}`
   const half = ctx.measureText(rideLabel).width / 2
   ctx.fillText(rideLabel, Math.min(Math.max(xr, X + 26 + half), X + W - 26 - half), missed ? 290 : 262)
@@ -312,7 +312,7 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
 
   // Satellite at the ready point; its label moves left when it would hit the rocket
   const xs = mx(Math.min(ready, n + 0.3))
-  const satColor = missed ? '#fca5a5' : '#e2e8f0'
+  const satColor = missed ? '#e6a597' : '#ddd5c4'
   satellite(ctx, xs, BY - 46, satColor)
   if (!missed) {
     // When late, the red overlay and the headline say it; a label here would collide with the ride label
@@ -326,12 +326,12 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
 
   ctx.textAlign = 'left'
   ctx.font = font(600, 34)
-  ctx.fillStyle = '#94a3b8'
+  ctx.fillStyle = '#a29b8c'
   ctx.fillText('Build: from your parts  ·  Test: your knob', X0, 650)
 }
 
 /* ---------------- Go / No-Go strip ---------------- */
-const CHECK_COLORS = { green: '#22c55e', yellow: '#f59e0b', red: '#ef4444' } as const
+const CHECK_COLORS = { green: '#6faf7a', yellow: '#e8a33d', red: '#d0533f' } as const
 
 /** Shorten text with an ellipsis until it fits the width. */
 function fit(ctx: Ctx, text: string, width: number): string {
@@ -359,7 +359,7 @@ const CHECK_WORD = { green: 'GO', yellow: 'CAUTION', red: 'NO-GO' } as const
 
 function paintChecks(ctx: Ctx, view: PlanningView) {
   const top = 700
-  ctx.fillStyle = '#071226'
+  ctx.fillStyle = '#0b0e14'
   ctx.fillRect(0, top, SCREEN_W, SCREEN_H - top)
   ctx.font = font(800, 34)
   const labels = view.checks.map((c) => `${CHECK_WORD[c.status]} · ${c.resource.toUpperCase()}`)
@@ -372,7 +372,7 @@ function paintChecks(ctx: Ctx, view: PlanningView) {
     ctx.font = font(800, 34)
     ctx.fillText(labels[i], 66, y + 1)
     ctx.font = font(600, 34)
-    ctx.fillStyle = '#cbd5e1'
+    ctx.fillStyle = '#c4bcac'
     ctx.fillText(checkLine(ctx, c.reason, SCREEN_W - x - 30), x, y + 1)
   })
 }
@@ -381,36 +381,36 @@ function paintChecks(ctx: Ctx, view: PlanningView) {
 const RISK_MARKS = [2.0, 1.4, 1.0, 0.7]
 function paintRisk(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   const X = 1760, W = 620
-  frame(ctx, X, W, 'FLIGHT RISK', '#c4b5fd')
+  frame(ctx, X, W, 'FLIGHT RISK', '#d9b98a')
   const GX = X + W / 2, GY = 410, GR = 165
   const fa = (f: number) => Math.PI + ((2.0 - Math.min(2.0, Math.max(0.7, f))) / 1.3) * Math.PI
-  for (const [a, b, c] of [[2.0, 1.4, '#ef4444'], [1.4, 1.0, '#f59e0b'], [1.0, 0.7, '#22c55e']] as const) {
+  for (const [a, b, c] of [[2.0, 1.4, '#d0533f'], [1.4, 1.0, '#e8a33d'], [1.0, 0.7, '#6faf7a']] as const) {
     ctx.strokeStyle = c
     ctx.lineWidth = 34
     ctx.beginPath(); ctx.arc(GX, GY, GR, fa(a) + 0.012, fa(b) - 0.012); ctx.stroke()
   }
   ctx.textAlign = 'center'
   ctx.font = font(700, 34)
-  ctx.fillStyle = '#cbd5e1'
+  ctx.fillStyle = '#c4bcac'
   for (const f of RISK_MARKS) {
     const a = fa(f)
     ctx.fillText(`×${f.toFixed(1)}`, GX + Math.cos(a) * (GR + 62), GY + Math.sin(a) * (GR + 44))
   }
   const an = fa(anim.risk)
-  ctx.strokeStyle = '#f8fafc'
+  ctx.strokeStyle = '#ede6d6'
   ctx.lineWidth = 9
   ctx.lineCap = 'round'
   ctx.beginPath(); ctx.moveTo(GX, GY); ctx.lineTo(GX + Math.cos(an) * (GR - 34), GY + Math.sin(an) * (GR - 34)); ctx.stroke()
   ctx.lineCap = 'butt'
-  ctx.fillStyle = '#f8fafc'
+  ctx.fillStyle = '#ede6d6'
   ctx.beginPath(); ctx.arc(GX, GY, 16, 0, Math.PI * 2); ctx.fill()
 
   const f = view.riskFactor
   ctx.font = font(800, 84)
-  ctx.fillStyle = f > 1.4 ? '#f87171' : f > 1.0 ? '#fbbf24' : '#4ade80'
+  ctx.fillStyle = f > 1.4 ? '#dc7563' : f > 1.0 ? '#e8a33d' : '#8cc196'
   ctx.fillText(`×${f.toFixed(1)}`, GX, 500)
   ctx.font = font(600, 34)
-  ctx.fillStyle = '#94a3b8'
+  ctx.fillStyle = '#a29b8c'
   ctx.fillText(view.riskCaption, GX, 562)
 
   for (let i = 0; i < 3; i++) {
@@ -418,23 +418,23 @@ function paintRisk(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
     const on = i < view.testTurns
     ctx.beginPath(); ctx.arc(cx + 14, 632, 14, 0, Math.PI * 2)
     if (on) {
-      ctx.fillStyle = '#a78bfa'
+      ctx.fillStyle = '#c99a5b'
       ctx.fill()
     } else {
-      ctx.strokeStyle = '#475569'
+      ctx.strokeStyle = '#3a4254'
       ctx.lineWidth = 3
       ctx.stroke()
     }
     ctx.textAlign = 'left'
     ctx.font = font(700, 34)
-    ctx.fillStyle = on ? '#ddd6fe' : '#475569'
+    ctx.fillStyle = on ? '#e6d3b3' : '#3a4254'
     ctx.fillText(`TEST ${i + 1}`, cx + 38, 634)
   }
 }
 
 export function paintScreen(ctx: Ctx, view: PlanningView, anim: ScreenAnim): void {
   ctx.save()
-  ctx.fillStyle = '#020a1a'
+  ctx.fillStyle = '#07090d'
   ctx.fillRect(0, 0, SCREEN_W, SCREEN_H)
   ctx.strokeStyle = 'rgba(56,189,248,.06)'
   ctx.lineWidth = 1
@@ -443,11 +443,11 @@ export function paintScreen(ctx: Ctx, view: PlanningView, anim: ScreenAnim): voi
   ctx.textBaseline = 'middle'
 
   // Header
-  ctx.fillStyle = '#071226'
+  ctx.fillStyle = '#0b0e14'
   ctx.fillRect(0, 0, SCREEN_W, 70)
   ctx.textAlign = 'left'
   ctx.font = font(700, 36)
-  ctx.fillStyle = '#7dd3fc'
+  ctx.fillStyle = '#9fb5d6'
   ctx.fillText('COMMS CENTER  ·  LUNAR ICE MAPPER  ·  MISSION PLANNING', 30, 37)
   const level = view.status.level
   const blink = level === 'alert' && !anim.reducedMotion ? (Math.sin(anim.time * 8) > 0 ? 1 : 0.35) : 1
@@ -459,7 +459,7 @@ export function paintScreen(ctx: Ctx, view: PlanningView, anim: ScreenAnim): voi
   ctx.fill()
   ctx.globalAlpha = 1
   ctx.textAlign = 'center'
-  ctx.fillStyle = '#020617'
+  ctx.fillStyle = '#07090d'
   ctx.fillText(view.status.chip, SCREEN_W - 30 - chipW / 2, 37)
 
   paintBudget(ctx, view, anim)
