@@ -14,7 +14,7 @@ import { runSimulation } from '../../sim/simulate'
 import { buildReport } from '../../sim/evaluate'
 import { flashlightDesign, iceCubeDesign } from '../../sim/fixtures'
 import type { Design, Report, RequirementResult } from '../../sim/types'
-import { classifyCause, fixLabel, topCauses } from './fixIt'
+import { autoFix, causeStreak, classifyCause, fixLabel, topCauses } from './fixIt'
 import { FixItPanel } from './FixItPanel'
 
 const reportOf = (design: Design, seed = 1) => buildReport(runSimulation(design, 'engineer', seed))
@@ -148,5 +148,30 @@ describe('the report shows the fix-it loop', () => {
     const s = useGameStore.getState()
     expect(s).toMatchObject({ screen: 'design', designStep: 'spacecraft', simState: null, currentReport: null })
     expect(s.design).toEqual(design)
+  })
+})
+
+describe('the hint ladder', () => {
+  const instrumentFail = () => fakeReport('failed', [['The IR spectrometer cannot see into the shadowed craters.']])
+  const cause = topCauses(instrumentFail())[0]
+
+  it('counts the runs in a row that failed for the same cause, newest first', () => {
+    expect(causeStreak([{ report: instrumentFail() }], cause)).toBe(1)
+    expect(causeStreak([{ report: instrumentFail() }, { report: instrumentFail() }], cause)).toBe(2)
+    expect(causeStreak([{ report: instrumentFail() }, { report: instrumentFail() }, { report: instrumentFail() }], cause)).toBe(3)
+  })
+  it('a success or another cause ends the streak', () => {
+    const other = fakeReport('failed', [['The link carried too little: the data never got home.']])
+    expect(causeStreak([{ report: instrumentFail() }, { report: other }, { report: instrumentFail() }], cause)).toBe(1)
+    expect(causeStreak([{ report: instrumentFail() }, { report: reportOf(flashlightDesign) }], cause)).toBe(1)
+  })
+  it('"Let me set it for you" swaps the blind instrument for one that sees into shadow, and says so', () => {
+    const fix = autoFix({ ...iceCubeDesign, instruments: ['inst-ir-spec'] }, cause)
+    expect(fix?.patch.instruments).toEqual(['inst-laser'])
+    expect(fix?.changes.join(' ')).toMatch(/removed IR/)
+    expect(fix?.changes.join(' ')).toMatch(/added Laser/)
+  })
+  it('offers nothing when the instruments already see into shadow', () => {
+    expect(autoFix({ ...flashlightDesign, instruments: ['inst-laser'] }, cause)).toBeNull()
   })
 })

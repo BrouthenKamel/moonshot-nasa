@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Design } from '../sim/types'
+import type { Design, DesignStep } from '../sim/types'
 
 /** Space-view cameras: the base shows overview, moon and earth; the others stay for other views */
 export type FlightCamMode = 'director' | 'chase' | 'pole' | 'overview' | 'moon' | 'earth'
@@ -39,6 +39,9 @@ interface UiState {
   launchAt: number | null
   startLaunch: () => void
   endLaunch: () => void
+  /** The hint ladder: after the same failure twice, the step the Fix button opens highlights its control */
+  fixHint: { step: DesignStep; decision: string; why: string } | null
+  setFixHint: (hint: { step: DesignStep; decision: string; why: string } | null) => void
 }
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -63,6 +66,8 @@ export const useUiStore = create<UiState>()((set) => ({
   launchAt: null,
   startLaunch: () => set({ launchAt: performance.now(), flightView: 'island' }),
   endLaunch: () => set({ launchAt: null, flightView: 'space' }),
+  fixHint: null,
+  setFixHint: (fixHint) => set({ fixHint }),
 }))
 
 /**

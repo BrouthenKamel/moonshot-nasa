@@ -23,6 +23,7 @@ import {
   instrumentColor,
   instrumentShortName,
   lessonText,
+  overMassHint,
   playToggle,
   rowFocusKey,
 } from '../../scene/instrumentStage/instrumentCards'
@@ -196,6 +197,11 @@ export function InstrumentsScreen() {
   const difficulty = useGameStore((s) => s.difficulty)
   const budgets = useMemo(() => computeBudgets(design, difficulty), [design, difficulty])
   const count = design.instruments.length
+  const overMass = overMassHint(
+    instruments.filter((i) => design.instruments.includes(i.id)),
+    budgets.totalMass,
+    budgets.massLimit,
+  )
 
   // One screen: the stage fills it, the picks sit along its foot and nothing scrolls
   if (!picksHere)
@@ -211,6 +217,7 @@ export function InstrumentsScreen() {
             handlePreview(id)
           }}
           next={{ label: nextLabel('instruments'), onClick: () => setDesignStep('spacecraft') }}
+          overMass={overMass}
         />
       </div>
     )

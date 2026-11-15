@@ -4,6 +4,8 @@ import { buildReport, lostForWantOfReserve } from '../../sim/evaluate'
 import { topCauses } from '../report/fixIt'
 import { decisionTiming } from '../../viz/decisionTiming'
 import { RESERVE_FIX, fixLabel } from '../report/fixIt'
+import { LaunchCostLine } from './LaunchCostLine'
+import { FixAction } from '../report/FixAction'
 import { useWorldStore, type Speed } from '../../state/worldStore'
 import { fundingPerDay, grantShare, missionFunding, popularityEffects } from '../../game/economy'
 import { lunarPapers } from '../../game/research'
@@ -660,21 +662,9 @@ export function MissionResultDialog({
                 {cause}
               </p>
             )}
-            {top && (
-              // The report's own fix-it link: lands on that step with the design kept
-              <button
-                type="button"
-                data-testid="result-cause-fix"
-                onClick={() => {
-                  close()
-                  reviseAt(top.step)
-                }}
-                className="fp-btn-primary mt-2"
-                aria-label={`Fix ${top.decision} at the ${top.buildingName}`}
-              >
-                {fixLabel(top)}
-              </button>
-            )}
+            {/* The report's own fix-it link, with the hint ladder: lands on that step with the design kept */}
+            {top && <FixAction cause={top} onBefore={close} />}
+            {top && <LaunchCostLine className="mt-1" />}
           </div>
           <Stamp verdict={look.verdict} animate className="mt-2 shrink-0 text-xl">
             {look.stamp}

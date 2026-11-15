@@ -2,7 +2,9 @@ import { useGameStore } from '../../state/gameStore'
 import type { Report } from '../../sim/types'
 import { STEP_NAMES } from '../../viz/missionMap'
 import { Sheet, Tag } from '../kit'
-import { fixLabel, topCauses } from './fixIt'
+import { FixAction } from './FixAction'
+import { LaunchCostLine } from '../agency/LaunchCostLine'
+import { topCauses } from './fixIt'
 
 /**
  * "What to fix": the one or two decisions behind a failed or partial mission,
@@ -11,7 +13,6 @@ import { fixLabel, topCauses } from './fixIt'
  * Nothing shows after a full success.
  */
 export function FixItPanel({ report }: { report: Report }) {
-  const reviseAt = useGameStore((s) => s.reviseAt)
   const causes = topCauses(report)
   if (causes.length === 0) return null
 
@@ -32,6 +33,7 @@ export function FixItPanel({ report }: { report: Report }) {
         {causes.length === 1 ? 'This decision' : 'These decisions'} cost the mission most. Your design is kept: change{' '}
         {causes.length === 1 ? 'it' : 'them'} and launch again.
       </p>
+      <LaunchCostLine className="mt-1" />
       <ol className="mt-3 space-y-3">
         {causes.map((c, i) => (
           <li key={c.step} className="border-b border-rule pb-3 last:border-b-0">
@@ -48,14 +50,7 @@ export function FixItPanel({ report }: { report: Report }) {
                 </div>
                 <div className="mt-1.5 text-sm text-paper-dim">{c.why}</div>
               </div>
-              <button
-                type="button"
-                onClick={() => reviseAt(c.step)}
-                className="fp-btn-primary shrink-0"
-                aria-label={`Fix ${c.decision} at the ${c.buildingName}, ${STEP_NAMES[c.step]} step`}
-              >
-                {fixLabel(c)}
-              </button>
+              <FixAction cause={c} />
             </div>
           </li>
         ))}

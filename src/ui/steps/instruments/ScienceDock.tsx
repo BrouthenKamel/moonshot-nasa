@@ -5,6 +5,7 @@ import { assetUrl } from '../../../assets/url'
 import { choiceArt } from '../../../assets/catalogueArt'
 import { instrumentLock } from '../../../scene/instrumentStage/labLocks'
 import { MAX_INSTRUMENTS } from '../../../scene/instrumentStage/stageModel'
+import { useUiStore } from '../../../state/uiStore'
 import {
   altitudeText,
   blockedThud,
@@ -45,6 +46,9 @@ function Tile({
   const view = instrumentCardView(inst, on, instrumentLock(inst.id, day))
   const portrait = choiceArt(inst.id)?.portrait
   const color = instrumentColor(inst.id)
+  // The hint ladder: after the same instrument failure twice, the cards that see into shadow stand out
+  const hint = useUiStore((s) => s.fixHint)
+  const hinted = hint?.decision === 'Instrument choice' && inst.seesShadow && !on
   return (
     <div {...blockedThud(view.blocked)}>
       <button
@@ -70,7 +74,7 @@ function Tile({
           playToggle(inst.id, on)
           onToggle(inst.id)
         }}
-        className={`relative flex w-32 flex-col overflow-hidden rounded-lg border text-left transition-colors disabled:opacity-40 ${
+        className={`relative flex w-32 flex-col overflow-hidden rounded-lg border text-left transition-colors disabled:opacity-40 ${hinted ? 'animate-pulse ring-2 ring-kapton ' : ''}${
           on ? 'border-kapton bg-ink-2 shadow-[0_0_0_1px_var(--color-kapton)]' : 'border-rule bg-ink-1/80 hover:border-rule-strong hover:bg-ink-2'
         }`}
       >
@@ -128,6 +132,7 @@ export function ScienceDock({
   onToggle,
   onHover,
   next,
+  overMass = null,
 }: {
   chosen: string[]
   day: number
@@ -135,6 +140,8 @@ export function ScienceDock({
   /** The instrument under the pointer or focus (null when none): the step previews it and shows its details */
   onHover: (id: string | null) => void
   next: { label: string; onClick: () => void }
+  /** One line under the tray when adding an ice instrument pushed the design over mass (see overMassHint) */
+  overMass?: string | null
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   const hover = onHover
@@ -170,6 +177,11 @@ export function ScienceDock({
             />
           ))}
         </div>
+        {overMass && (
+          <p role="status" data-testid="over-mass" className="mt-2 text-xs font-semibold text-nogo">
+            {overMass}
+          </p>
+        )}
       </div>
 
       <div className="pointer-events-auto ml-auto flex flex-col items-end gap-2">
