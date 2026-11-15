@@ -16,10 +16,11 @@ const VERY_WEAK = 0.2
 const FALLBACK_ALTITUDE_KM = 15
 
 export const INSTRUMENT_COLORS: Record<string, string> = {
-  'inst-laser': '#22c55e',
-  'inst-ir-spec': '#f59e0b',
-  'inst-neutron': '#a855f7',
-  'inst-camera': '#3b82f6',
+  // FLIGHT PLAN: cyan only for what sees ice (laser, neutron); the rest Kapton and paper
+  'inst-laser': '#5ee6f0',
+  'inst-ir-spec': '#e8a33d',
+  'inst-neutron': '#a9e4e8',
+  'inst-camera': '#d8cfbc',
 }
 
 export const INSTRUMENT_SHORT_NAMES: Record<string, string> = {
@@ -105,7 +106,7 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
     return {
       id: p.id,
       name: INSTRUMENT_SHORT_NAMES[p.id] ?? p.name,
-      color: INSTRUMENT_COLORS[p.id] ?? '#94a3b8',
+      color: INSTRUMENT_COLORS[p.id] ?? '#b9b2a3',
       strength,
       outOfRange: strength === 0,
       veryWeak: strength > 0 && strength < VERY_WEAK,

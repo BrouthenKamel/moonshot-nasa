@@ -31,14 +31,15 @@ export interface ChoiceArt {
 
 /** Part category colours, as on the Factory's tray (cyan is reserved for ice) */
 export const CATEGORY_ACCENT: Record<string, string> = {
-  structure: '#94a3b8',
-  solar: '#3b82f6',
-  battery: '#22c55e',
-  computer: '#a855f7',
-  attitude: '#f472b6',
-  propulsion: '#f59e0b',
-  instrument: '#facc15',
-  radio: '#38bdf8',
+  // Muted family swatches, kin to the role colours (ground/science/space/launch)
+  structure: '#948d7f',
+  solar: '#7c9cc9',
+  battery: '#a3b865',
+  computer: '#a394cc',
+  attitude: '#c48a7c',
+  propulsion: '#d98e55',
+  instrument: '#c9b27a',
+  radio: '#8aa39b',
 }
 
 const PICK_BY_CATEGORY: Record<string, AudioId> = {
@@ -72,7 +73,7 @@ function build(): Map<string, ChoiceArt> {
       id: p.id,
       kind: 'part',
       category: p.category,
-      accent: CATEGORY_ACCENT[p.category] ?? '#94a3b8',
+      accent: CATEGORY_ACCENT[p.category] ?? '#948d7f',
       model: modelFor(p.id),
       portrait: portraitFor(p.id),
       pick: PICK_BY_CATEGORY[p.category] ?? 'sfx.select',
@@ -81,13 +82,13 @@ function build(): Map<string, ChoiceArt> {
   for (const id of ['orbit-halo', 'orbit-elliptical', 'orbit-100km'])
     out.set(id, { id, kind: 'orbit', category: 'orbit', accent: ORBIT_ACCENT[id], card: `card.${id}` as ImageId, pick: 'sfx.pick-orbit' })
   for (const id of ['transfer-direct', 'transfer-low-energy'])
-    out.set(id, { id, kind: 'transfer', category: 'transfer', accent: id === 'transfer-direct' ? '#fbbf24' : '#e2e8f0', card: `card.${id}` as ImageId, pick: 'sfx.pick-orbit' })
+    out.set(id, { id, kind: 'transfer', category: 'transfer', accent: id === 'transfer-direct' ? '#e8a33d' : '#b9b2a3', card: `card.${id}` as ImageId, pick: 'sfx.pick-orbit' })
   for (const id of ['ride-gto', 'ride-lunar', 'ride-commercial'])
-    out.set(id, { id, kind: 'ride', category: 'ride', accent: '#f97316', model: modelFor(id), portrait: portraitFor(id), card: `card.${id}` as ImageId, pick: 'sfx.pick-ride' })
+    out.set(id, { id, kind: 'ride', category: 'ride', accent: '#d98e55', model: modelFor(id), portrait: portraitFor(id), card: `card.${id}` as ImageId, pick: 'sfx.pick-ride' })
   for (const id of ['ground-small', 'ground-medium', 'ground-dsn'])
-    out.set(id, { id, kind: 'ground', category: 'ground', accent: '#3b82f6', model: modelFor(id), portrait: portraitFor(id), card: `card.${id}` as ImageId, pick: 'sfx.pick-ground' })
+    out.set(id, { id, kind: 'ground', category: 'ground', accent: '#7c9cc9', model: modelFor(id), portrait: portraitFor(id), card: `card.${id}` as ImageId, pick: 'sfx.pick-ground' })
   for (const d of ['cadet', 'engineer', 'flight-director'])
-    out.set(d, { id: d, kind: 'difficulty', category: 'difficulty', accent: d === 'cadet' ? '#22c55e' : d === 'engineer' ? '#f59e0b' : '#ef4444', card: `card.difficulty-${d}` as ImageId, pick: 'sfx.select' })
+    out.set(d, { id: d, kind: 'difficulty', category: 'difficulty', accent: d === 'cadet' ? '#6faf7a' : d === 'engineer' ? '#d9b23f' : '#d0533f', card: `card.difficulty-${d}` as ImageId, pick: 'sfx.select' })
   return out
 }
 

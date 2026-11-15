@@ -49,7 +49,7 @@ describe('catalogue labels', () => {
       expect(INSTRUMENT_COLORS[id]).toMatch(/^#[0-9a-f]{6}$/)
       expect(INSTRUMENT_SHORT_NAMES[id]).toBeTruthy()
     }
-    expect(INSTRUMENT_COLORS['inst-laser']).toBe('#22c55e')
+    expect(INSTRUMENT_COLORS['inst-laser']).toBe('#5ee6f0')
   })
 })
 

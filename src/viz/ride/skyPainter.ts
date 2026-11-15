@@ -13,7 +13,7 @@ import {
   pointAlong,
   turnDots,
 } from './skyPath'
-import { AMBER, DIM, INK, ORANGE, PATH, RED, SELECTED_FILL, circle, polyline, roundRect, seeded, text } from './canvasKit'
+import { AMBER, DIM, FAINT, INK, ORANGE, PATH, RED, RULE_STRONG, SELECTED_FILL, circle, polyline, roundRect, seeded, text } from './canvasKit'
 
 /**
  * The night sky over the launch pad: stars, the Moon, the transfer signs and the
@@ -40,28 +40,29 @@ const STARS = (() => {
 
 function background(ctx: Ctx) {
   const g = ctx.createLinearGradient(0, 0, 0, GROUND_Y)
-  g.addColorStop(0, '#03050a')
-  g.addColorStop(0.7, '#071022')
-  g.addColorStop(1, '#16233f')
+  // Night sky over a lit pad: ink overhead, a warm sodium haze near the horizon
+  g.addColorStop(0, '#07090d')
+  g.addColorStop(0.68, '#0d1017')
+  g.addColorStop(1, '#2a2218')
   ctx.fillStyle = g
   ctx.fillRect(0, 0, SKY_W, GROUND_Y + 2)
   for (const s of STARS) {
-    ctx.fillStyle = `rgba(226,232,240,${s.a.toFixed(2)})`
+    ctx.fillStyle = `rgba(237,230,214,${s.a.toFixed(2)})`
     ctx.fillRect(s.x, s.y, s.s, s.s)
   }
 }
 
 function moon(ctx: Ctx, orbitColour: string) {
   const glow = ctx.createRadialGradient(MOON.x, MOON.y, MOON.r * 0.3, MOON.x, MOON.y, MOON.r * 2.4)
-  glow.addColorStop(0, 'rgba(226,232,240,.22)')
-  glow.addColorStop(1, 'rgba(226,232,240,0)')
+  glow.addColorStop(0, 'rgba(237,230,214,.16)')
+  glow.addColorStop(1, 'rgba(237,230,214,0)')
   ctx.fillStyle = glow
   circle(ctx, MOON.x, MOON.y, MOON.r * 2.4)
   ctx.fill()
-  ctx.fillStyle = '#e5e7eb'
+  ctx.fillStyle = '#ddd5c4'
   circle(ctx, MOON.x, MOON.y, MOON.r)
   ctx.fill()
-  ctx.fillStyle = 'rgba(100,116,139,.35)'
+  ctx.fillStyle = 'rgba(90,86,80,.4)'
   for (const [dx, dy, r] of [
     [-18, -14, 13],
     [20, 8, 9],
@@ -89,14 +90,14 @@ function signs(ctx: Ctx, view: RideView, hover: Hover) {
     const hovered = s.selectable && hover?.kind === 'transfer' && hover.id === s.id
     ctx.save()
     ctx.globalAlpha = s.selectable ? 1 : 0.45
-    roundRect(ctx, r.x, r.y, r.w, r.h, 10)
-    ctx.fillStyle = s.selected ? SELECTED_FILL : 'rgba(15,23,42,.85)'
+    roundRect(ctx, r.x, r.y, r.w, r.h, 3)
+    ctx.fillStyle = s.selected ? SELECTED_FILL : 'rgba(11,14,20,.9)'
     ctx.fill()
-    ctx.strokeStyle = s.selected ? ORANGE : hovered ? '#cbd5e1' : '#334155'
+    ctx.strokeStyle = s.selected ? ORANGE : hovered ? DIM : RULE_STRONG
     ctx.lineWidth = s.selected || hovered ? 3 : 1.5
     ctx.stroke()
-    text(ctx, `${s.selected ? '●' : '○'} ${s.title}`, r.x + 16, r.y + 27, 20, s.selected ? '#fff' : INK, 'left', 700)
-    text(ctx, s.sub, r.x + 16, r.y + 52, 18, s.selected ? '#fed7aa' : DIM, 'left', 500)
+    text(ctx, `${s.selected ? '●' : '○'} ${s.title}`, r.x + 16, r.y + 27, 20, s.selected ? AMBER : INK, 'left', 700)
+    text(ctx, s.sub, r.x + 16, r.y + 52, 18, s.selected ? INK : DIM, 'left', 500)
     ctx.restore()
   }
 }
@@ -114,7 +115,7 @@ function cross(ctx: Ctx, x: number, y: number) {
 
 function dots(ctx: Ctx, pts: { x: number; y: number }[]) {
   for (const p of pts) {
-    ctx.fillStyle = '#03050a'
+    ctx.fillStyle = '#07090d'
     circle(ctx, p.x, p.y, 7)
     ctx.fill()
     ctx.strokeStyle = PATH
@@ -128,10 +129,10 @@ function path(ctx: Ctx, view: RideView) {
   const colour = view.orbit.colour
   // The transfer not chosen, as a faint ghost
   const other = transferType === 'direct' ? 'low_energy' : 'direct'
-  polyline(ctx, craftLeg(drop, other), 'rgba(148,163,184,.22)', 3, [4, 10])
+  polyline(ctx, craftLeg(drop, other), 'rgba(185,178,163,.2)', 3, [4, 10])
 
   // The rocket's part
-  polyline(ctx, rideLeg(drop), 'rgba(248,250,252,.75)', 4, [14, 10])
+  polyline(ctx, rideLeg(drop), 'rgba(237,230,214,.7)', 4, [14, 10])
 
   const leg = craftLeg(drop, transferType)
   const reach = view.reach
@@ -145,15 +146,15 @@ function path(ctx: Ctx, view: RideView) {
   } else {
     const cut = 1 - CAPTURE_SHARE
     ctx.save()
-    ctx.shadowColor = PATH
-    ctx.shadowBlur = 14
+    ctx.shadowColor = 'rgba(237,230,214,.35)'
+    ctx.shadowBlur = 8
     polyline(ctx, slice(leg, 0, cut), PATH, 4.5)
     ctx.restore()
     dots(ctx, turnDots(leg, view.path.dots))
     if (reach === 'ok') {
       ctx.save()
       ctx.shadowColor = colour
-      ctx.shadowBlur = 14
+      ctx.shadowBlur = 8
       polyline(ctx, slice(leg, cut, 1), colour, 5)
       ctx.restore()
       ctx.fillStyle = colour
@@ -161,7 +162,7 @@ function path(ctx: Ctx, view: RideView) {
       ctx.fill()
       text(ctx, 'CAPTURE BURN', CAPTURE.x - 30, CAPTURE.y - 16, 22, colour, 'right', 700, true)
       text(ctx, view.path.captureLabel, CAPTURE.x - 30, CAPTURE.y + 10, 20, INK, 'right', 600, true)
-      text(ctx, 'orbit decided in the Orbit step', CAPTURE.x - 30, CAPTURE.y + 34, 18, DIM, 'right', 500, true)
+      text(ctx, 'orbit decided in the Orbit step', CAPTURE.x - 30, CAPTURE.y + 34, 18, FAINT, 'right', 500, true)
     } else {
       // flyPast: reaches the Moon but cannot brake, so it sails on
       const tail = slice(leg, cut, 1)
@@ -173,17 +174,17 @@ function path(ctx: Ctx, view: RideView) {
 
   // Drop-off
   const d = DROP[drop]
-  ctx.fillStyle = '#f8fafc'
+  ctx.fillStyle = INK
   circle(ctx, d.x, d.y, 8)
   ctx.fill()
   if (drop === 'gto') {
     // Right-aligned under the spiral, clear of the gantry and the departures board
-    text(ctx, view.path.dropLabel, d.x + 140, d.y + 92, 20, '#f8fafc', 'right', 700, true)
+    text(ctx, view.path.dropLabel, d.x + 140, d.y + 92, 20, INK, 'right', 700, true)
     if (reach !== 'noWay' && reach !== 'noPower') text(ctx, view.path.spiralLabel, d.x + 140, d.y + 118, 20, AMBER, 'right', 700, true)
   } else if (drop === 'lunar-vicinity') {
-    text(ctx, view.path.dropLabel, d.x - 16, d.y + 38, 20, '#f8fafc', 'right', 700, true)
+    text(ctx, view.path.dropLabel, d.x - 16, d.y + 38, 20, INK, 'right', 700, true)
   } else {
-    text(ctx, view.path.dropLabel, d.x - 16, d.y + 38, 20, '#f8fafc', 'left', 700, true)
+    text(ctx, view.path.dropLabel, d.x - 16, d.y + 38, 20, INK, 'left', 700, true)
   }
 }
 

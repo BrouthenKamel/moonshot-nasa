@@ -1,7 +1,7 @@
 import type { BoardRow, RideView } from './rideView'
 import type { Rect } from './skyPath'
 import type { Hover } from './skyPainter'
-import { AMBER, DIM, GREEN, ORANGE, RED, SELECTED_FILL, fitText, fmtM, roundRect, text } from './canvasKit'
+import { AMBER, DIM, FAINT, GREEN, INK, INK_0, INK_1, INK_3, ORANGE, RED, RULE, RULE_STRONG, SELECTED_FILL, fitText, flapText, fmtM, roundRect, text } from './canvasKit'
 
 /**
  * The departures board: one row per ride, each showing what that ride would do
@@ -20,7 +20,8 @@ const MIN = 41
 const HEAD_H = 132
 const PAD = 22
 const ROW_H = (BOARD_H - HEAD_H - PAD) / 3
-const YELLOW = '#fde68a'
+/** Split-flap characters: warm paper on ink cells */
+const FLAP = INK
 
 /** Columns (x of the left edge, or the centre for centred columns) */
 const COL = {
@@ -38,48 +39,54 @@ export function rowRect(index: number): Rect {
 }
 
 function row(ctx: Ctx, r: BoardRow, rect: Rect, hovered: boolean) {
-  roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 12)
-  ctx.fillStyle = r.selected ? SELECTED_FILL : hovered ? '#16213a' : '#0b1220'
+  roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 3)
+  ctx.fillStyle = r.selected ? SELECTED_FILL : hovered ? INK_3 : INK_1
   ctx.fill()
-  if (r.selected || hovered) {
-    ctx.strokeStyle = r.selected ? ORANGE : '#cbd5e1'
-    ctx.lineWidth = r.selected ? 5 : 4
-    ctx.stroke()
+  ctx.strokeStyle = r.selected ? ORANGE : hovered ? RULE_STRONG : RULE
+  ctx.lineWidth = r.selected ? 5 : hovered ? 4 : 2
+  ctx.stroke()
+  if (r.selected) {
+    // Kapton tab on the left edge of the chosen ride
+    ctx.fillStyle = ORANGE
+    ctx.fillRect(rect.x, rect.y, 10, rect.h)
   }
   const y1 = rect.y + 60
   const y2 = rect.y + 116
-  fitText(ctx, r.name, COL.name, y1, 46, MIN, NAME_MAX, YELLOW, 'left', 800)
+  fitText(ctx, r.name.toUpperCase(), COL.name, y1, 46, MIN, NAME_MAX, r.selected ? AMBER : FLAP, 'left', 800)
   text(ctx, r.dropWords, COL.name, y2, MIN, DIM, 'left', 500)
-  text(ctx, String(r.turn), COL.leaves, y1, 46, r.status === 'tooEarly' ? RED : YELLOW, 'center', 800)
-  text(ctx, fmtM(r.planCost), COL.cost, y1, 44, r.overBudget ? RED : YELLOW, 'center', 800)
-  text(ctx, `fee ${fmtM(r.fee)}`, COL.cost, y2, MIN, DIM, 'center', 500)
-  text(ctx, `${r.limitKg} kg`, COL.takes, y1, 44, r.status === 'tooHeavy' ? RED : YELLOW, 'center', 800)
-  text(ctx, r.burn === null ? '—' : r.burn.toLocaleString('en-US'), COL.burn, y1, 44, r.burn === null ? RED : YELLOW, 'center', 800)
-  text(ctx, r.arrivalTurn === null ? '—' : String(r.arrivalTurn), COL.arrives, y1, 44, YELLOW, 'center', 800)
-  // Status chip under the right-hand columns
+  flapText(ctx, String(r.turn), COL.leaves, y1, 46, r.status === 'tooEarly' ? RED : FLAP, 'center', 600)
+  flapText(ctx, fmtM(r.planCost), COL.cost, y1, 42, r.overBudget ? RED : FLAP, 'center', 600)
+  text(ctx, `fee ${fmtM(r.fee)}`, COL.cost, y2, MIN, FAINT, 'center', 500)
+  flapText(ctx, `${r.limitKg}`, COL.takes, y1, 42, r.status === 'tooHeavy' ? RED : FLAP, 'center', 600)
+  flapText(ctx, r.burn === null ? '—' : r.burn.toLocaleString('en-US'), COL.burn, y1, 42, r.burn === null ? RED : FLAP, 'center', 600)
+  flapText(ctx, r.arrivalTurn === null ? '—' : String(r.arrivalTurn), COL.arrives, y1, 42, FLAP, 'center', 600)
+  // Status flaps under the right-hand columns
   const ok = r.status === 'onTime'
-  text(ctx, r.statusLabel, BOARD_W - 40, y2, 42, ok ? GREEN : RED, 'right', 800)
+  flapText(ctx, r.statusLabel, BOARD_W - 40, y2, 42, ok ? GREEN : RED, 'right', 600)
 }
 
 export function paintBoard(ctx: Ctx, view: RideView, hover: Hover): void {
   ctx.clearRect(0, 0, BOARD_W, BOARD_H)
-  roundRect(ctx, 4, 4, BOARD_W - 8, BOARD_H - 8, 20)
-  ctx.fillStyle = '#05080f'
+  roundRect(ctx, 4, 4, BOARD_W - 8, BOARD_H - 8, 4)
+  ctx.fillStyle = INK_0
   ctx.fill()
-  ctx.strokeStyle = '#475569'
+  ctx.strokeStyle = RULE_STRONG
   ctx.lineWidth = 6
   ctx.stroke()
 
   text(ctx, 'DEPARTURES', COL.name, 82, 56, AMBER, 'left', 800)
   const head = (s: string, unit: string, x: number) => {
     text(ctx, s, x, 62, MIN, DIM, 'center', 700)
-    if (unit) text(ctx, unit, x, 110, MIN, '#64748b', 'center', 500)
+    if (unit) text(ctx, unit, x, 110, MIN, FAINT, 'center', 500)
   }
   head('LEAVES', 'month', COL.leaves)
   head('COST', 'whole plan', COL.cost)
   head('TAKES', 'kg', COL.takes)
   head('BURN', 'm/s', COL.burn)
   head('ARRIVES', 'month', COL.arrives)
+  // Hairline under the header
+  ctx.fillStyle = RULE
+  ctx.fillRect(PAD, HEAD_H - 8, BOARD_W - PAD * 2, 2)
 
   view.rows.forEach((r, i) => row(ctx, r, rowRect(i), hover?.kind === 'ride' && hover.id === r.id))
 }
