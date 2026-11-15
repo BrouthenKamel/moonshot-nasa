@@ -21,8 +21,6 @@ export interface RoomDef {
   component: LazyExoticComponent<ComponentType<MinigameProps>>
 }
 
-const Placeholder = lazy(() => import('./PlaceholderRoom'))
-
 export const ROOMS: Record<RoomId, RoomDef> = {
   briefing: {
     id: 'briefing',
@@ -102,7 +100,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     steps: ['go-nogo'],
     requires: ['thermal-vac', 'ground-station', 'launch-hangar'],
     lockedReason: 'Every team must sign off before launch',
-    component: Placeholder,
+    component: lazy(() => import('../../minigames/launchDirector')),
   },
 }
 
