@@ -636,7 +636,7 @@ export function MissionResultDialog({
   const close = () => markSeen(mission.seed)
   // A failed mission names its top cause, from the report's first action: "…cannot see into shadowed craters. Fix at the Research Lab."
   const top = result.outcome === 'failed' ? topCauses(buildReport(sim))[0] : undefined
-  const cause = top ? `${top.why.replace(/\.$/, '')}. Fix at the ${top.buildingName}.` : null
+  const cause = top ? `${top.why.replace(/\.$/, '')}.` : null
   // Lost for want of a reserve ("Accept the loss"): one link to where the reserve is set (QC, 15 Nov)
   const reserveFix = result.outcome === 'failed' && lostForWantOfReserve(sim)
   return (
@@ -659,6 +659,21 @@ export function MissionResultDialog({
                 <span className="fp-label mr-1 text-[0.62rem] text-nogo">Cause</span>
                 {cause}
               </p>
+            )}
+            {top && (
+              // The report's own fix-it link: lands on that step with the design kept
+              <button
+                type="button"
+                data-testid="result-cause-fix"
+                onClick={() => {
+                  close()
+                  reviseAt(top.step)
+                }}
+                className="fp-btn-primary mt-2"
+                aria-label={`Fix ${top.decision} at the ${top.buildingName}`}
+              >
+                {fixLabel(top)}
+              </button>
             )}
           </div>
           <Stamp verdict={look.verdict} animate className="mt-2 shrink-0 text-xl">
