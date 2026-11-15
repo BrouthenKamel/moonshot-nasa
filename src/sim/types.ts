@@ -123,6 +123,9 @@ export interface Budgets {
   instrumentPower: number // W with every instrument on
   transmitExtraPower: number // W the radio adds while transmitting
   scienceDuty: number // 0-1 share of the time the instruments can run
+  sunlitShare: number // 0-1 share of each orbit in sunlight (the power sentences name it)
+  observingShare: number // 0-1 share of each orbit spent over the pole
+  averagePowerLeft: number // W left for the instruments averaged over the orbit's shadow and radio time
   transmitShare: number // 0-1 share of the contact time the radio can transmit
   batteryUsableWh: number
   batteryNeedWh: number // Wh to get through one eclipse
