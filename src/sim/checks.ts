@@ -10,6 +10,32 @@ import type { Design, Budgets, CheckResult, GoNoGoResult, BarStatus, DesignStep 
 /** Where the reserve is set: the Planning step's building (viz/missionMap BUILDING_STEPS; numberTruth.test checks they agree) */
 export const PLANNING_BUILDING = buildings.find((x) => x.id === 'comms-center')?.name ?? 'Communications Center'
 
+/**
+ * Why the instruments get no power, naming the real cause (QC, 15 Nov). budgets.ts takes the lower of
+ * two limits: the array in full sun minus the bus, and the power left averaged over the orbit (shadow
+ * and radio time). The sentence names whichever one stops the instruments, with at most three numbers.
+ */
+export function powerShortReason(b: Budgets): string {
+  const pct = Math.round(b.scienceDuty * 100)
+  const leftInSun = b.powerGenerated - b.busPower
+  // The same two limits budgets.ts takes the lower of: full sun, or averaged over the orbit
+  if (b.instrumentPower > 0 && leftInSun / b.instrumentPower <= b.scienceDuty + 1e-9)
+    return `Even in full sun the array leaves ${leftInSun} W after the bus, and the instruments need ${b.instrumentPower} W: they can run only ${pct}% of the time they could.`
+  return `Averaged over the orbit’s shadow and radio time, power only lets the instruments run ${pct}% of the time they could.`
+}
+
+export function powerZeroReason(b: Budgets): string {
+  if (b.powerGenerated <= b.busPower)
+    return `In full sun the array makes ${b.powerGenerated} W and the bus alone takes ${b.busPower} W: nothing is left for the instruments. Fit a larger solar array.`
+  if (b.observingShare <= 0) return 'This orbit never passes over the pole, so the instruments have nothing to observe. Choose another orbit.'
+  return (
+    `In full sun the array makes ${b.powerGenerated} W, but this orbit is sunlit only ${Math.round(b.sunlitShare * 100)}% of the time` +
+    (b.contactHours > 0 ? ` and the radio transmits ${b.contactHours} h a day` : '') +
+    `: averaged over the orbit, the bus${b.contactHours > 0 ? ' and the radio' : ''} use it all, so nothing is left for the instruments. ` +
+    `Fit a larger solar array${b.contactHours > 0 ? ', choose an orbit with more sunlight, or book fewer contact hours' : ' or choose an orbit with more sunlight'}.`
+  )
+}
+
 export type { GoNoGoResult }
 
 /** Green with 15% to spare (or the given share), yellow when it just fits, red when it does not. */
@@ -134,7 +160,7 @@ export function goNoGo(
     fix = 'orbit'
   } else if (b.thrustLevel === 0) {
     status = 'red'
-    reason = `The ion engine needs ${propulsion.minThrustPower} W. While thrusting, the array leaves it only ${b.thrustPower.toFixed(0)} W after the bus. Fit the large solar array.`
+    reason = `The ion engine needs ${propulsion.minThrustPower} W. While thrusting it may use three quarters of the ${b.powerGenerated} W array, and the bus takes its share of that first: ${Math.max(0, b.thrustPower).toFixed(0)} W are left for the engine. Fit the large solar array.`
   } else if (b.deltaVAvailable < b.captureDeltaV) {
     status = 'red'
     reason = `The tank gives ${b.deltaVAvailable.toFixed(0)} m/s; capturing into this orbit needs ${b.captureDeltaV.toFixed(0)}. Carry more propellant, save mass, or change the orbit or transfer.`
@@ -154,13 +180,13 @@ export function goNoGo(
   // Power
   if (b.scienceDuty <= 0) {
     status = 'red'
-    reason = `The array makes ${b.powerGenerated} W and the bus alone takes ${b.busPower} W: nothing is left for the instruments. Fit a larger solar array.`
+    reason = powerZeroReason(b)
   } else if (!b.batteryOk) {
     status = 'red'
     reason = `Each orbit has an eclipse that needs ${b.batteryNeedWh.toFixed(0)} Wh; the battery gives ${b.batteryUsableWh.toFixed(0)} Wh. Fit a larger battery or choose an orbit with less shadow.`
   } else if (b.scienceDuty < 1) {
     status = 'yellow'
-    reason = `Power only lets the instruments run ${Math.round(b.scienceDuty * 100)}% of the time they could.`
+    reason = powerShortReason(b)
   } else if (!b.batteryLongOk) {
     status = 'yellow'
     reason = `The battery cannot carry the bus through a long eclipse: ${C.longEclipseHours} hours of shadow need ${b.batteryLongNeedWh.toFixed(0)} Wh, the battery gives ${b.batteryUsableWh.toFixed(0)} Wh. Science stops in those months.`
