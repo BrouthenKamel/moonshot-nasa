@@ -73,13 +73,17 @@ function play(cue: Cue) {
 export function useAudioDirector() {
   useEffect(() => {
     let prev = snapshot(useGameStore.getState(), useGameStore.getState().simState?.turnLogs.length ?? 0)
+    let prevPhase = useGameStore.getState().simState?.phase
     // Start the music of the current moment once sound is allowed
     play({ kind: 'music', id: 'music.theme' })
     return useGameStore.subscribe((state) => {
       const next = snapshot(state, prev.flight?.logCount ?? 0)
       // A new flight starts from zero logs
       if (state.simState && !prev.flight) next.flight!.newLogs = state.simState.turnLogs
-      if ((!state.simState && prev.flight) || state.screen !== prev.screen) audio.hush()
+      // A new flight phase (launch → transfer → capture …) or screen takes old lines and their captions down
+      const phase = state.simState?.phase
+      if ((!state.simState && prev.flight) || state.screen !== prev.screen || phase !== prevPhase) audio.hush()
+      prevPhase = phase
       for (const cue of cuesFor(prev, next)) play(cue)
       prev = next
     })
