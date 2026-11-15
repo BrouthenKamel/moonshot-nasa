@@ -43,6 +43,8 @@ function* designs(): Generator<Design> {
 const STACK_PAIRS = new Set(['eps x obc', 'obc x transceiver', 'backplane x eps', 'backplane x battery', 'backplane x instrument:inst-camera', 'obc_b x transceiver'])
 const MAX_STACK_OVERLAP = 0.0155
 const TOLERANCE = 0.0015
+/** The checks over every combination (5,940 designs) take a few seconds: past vitest's 5 s default on a busy machine */
+const EXHAUSTIVE_TIMEOUT_MS = 30_000
 
 describe('buildCraft', () => {
   it('uses only parts that exist in the kit, with unique keys', () => {
@@ -52,7 +54,7 @@ describe('buildCraft', () => {
       expect(new Set(list.map((i) => i.key)).size).toBe(list.length)
       for (const i of list) expect(known.has(i.part), i.part).toBe(true)
     }
-  })
+  }, EXHAUSTIVE_TIMEOUT_MS)
 
   it('has exactly one engine and one instrument per chosen instrument', () => {
     for (const d of designs()) {
@@ -60,12 +62,12 @@ describe('buildCraft', () => {
       expect(list.filter((i) => i.slot === 'propulsion')).toHaveLength(1)
       expect(list.filter((i) => i.slot === 'instrument')).toHaveLength(d.instruments.length)
     }
-  })
+  }, EXHAUSTIVE_TIMEOUT_MS)
 
   it('keeps every internal module inside the 6U box, for every combination of choices', () => {
     for (const d of designs())
       for (const i of buildCraft(d)) if (INTERNAL_PARTS.has(i.part)) expect(envelopeBreach(i), `${i.key} in ${JSON.stringify(d)}`).toBeLessThanOrEqual(TOLERANCE)
-  })
+  }, EXHAUSTIVE_TIMEOUT_MS)
 
   it('never lets two modules collide, apart from the boards that stack', () => {
     for (const d of designs()) {
@@ -79,7 +81,7 @@ describe('buildCraft', () => {
           expect(depth).toBeLessThanOrEqual(MAX_STACK_OVERLAP)
         }
     }
-  })
+  }, EXHAUSTIVE_TIMEOUT_MS)
 
   it('shows what each choice means', () => {
     const base = createDefaultDesign()
@@ -119,5 +121,5 @@ describe('buildCraft', () => {
   it('preloads every part that any combination of choices can put on the craft', () => {
     const preload = new Set<string>(allCraftParts())
     for (const d of designs()) for (const i of buildCraft(d)) expect(preload.has(i.part), i.part).toBe(true)
-  })
+  }, EXHAUSTIVE_TIMEOUT_MS)
 })

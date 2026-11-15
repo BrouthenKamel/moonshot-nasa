@@ -1,9 +1,20 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useGameStore } from '../state/gameStore'
 import { archetypes } from '../sim/fixtures'
 import { missionFunding } from './economy'
 import { MISSION_NAME, answerDecision, currentSim, missionBudget, snapshotOf, stepMission } from './missionLink'
 import { DAYS_PER_TURN, advanceDays, approveMission, initialWorld, missionTurned, type World } from './world'
+
+// Every run flies the same flights: the store seeds a new flight from the clock (generateSeed),
+// which made each run a different flight and its length (and so its time) vary from run to run
+const SEED = 20261115
+vi.mock('../sim/rng', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../sim/rng')>()),
+  generateSeed: () => SEED,
+}))
+
+/** A whole flight can take a couple of seconds on a busy machine: well past vitest's 5 s default under load */
+const FLIGHT_TIMEOUT_MS = 30_000
 
 /**
  * The agency rules booked against the real mission model: the flight is flown
@@ -37,6 +48,7 @@ describe('agency rules on the real mission', () => {
       const world = flyAndBook()
       const m = world.mission!
 
+      expect(m.seed).toBe(SEED) // the flight really is the seeded one
       expect(m.last.ended).toBe(true)
       expect(m.settled).toBe(true)
       expect(m.agencyPaid).toBeCloseTo(missionFunding(25, start.popularity).agencyPays, 5)
@@ -44,6 +56,6 @@ describe('agency rules on the real mission', () => {
       expect(world.popularity).toBeGreaterThanOrEqual(0)
       expect(world.popularity).toBeLessThanOrEqual(100)
       if (m.last.launched) expect(world.feed.some((f) => f.title.includes('launched'))).toBe(true)
-    })
+    }, FLIGHT_TIMEOUT_MS)
   }
 })
