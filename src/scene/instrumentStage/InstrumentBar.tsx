@@ -32,12 +32,10 @@ export function InstrumentBar({
   chosen,
   day,
   onToggle,
-  onLookThrough,
 }: {
   chosen: string[]
   day: number
   onToggle: (id: string) => void
-  onLookThrough?: () => void
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   const aboard = chosen.map((id) => catalogue.find((i) => i.id === id)).filter((i) => i !== undefined)
@@ -63,7 +61,7 @@ export function InstrumentBar({
           <div className="@2xl:flex-1 @3xl:flex-none">
             <LineItem n={`${N}.1`} label="Payload bay" />
             <div className="mt-2 fp-display text-lg leading-tight text-paper">Pick up to two</div>
-            <div className="mt-1 text-[11px] leading-snug text-paper-dim">A third pick swaps out the oldest. Double-click an aboard bay slot to look through.</div>
+            <div className="mt-1 text-[11px] leading-snug text-paper-dim">A third pick swaps out the oldest.</div>
           </div>
           <div
             {...bayDrop.handlers}
@@ -85,12 +83,8 @@ export function InstrumentBar({
               return (
                 <div
                   key={slot}
-                  onDoubleClick={() => {
-                    if (inst) onLookThrough?.()
-                  }}
-                  title={inst ? 'Double-click to look through optics' : undefined}
                   className={`flex items-center gap-2 border px-2.5 py-1.5 text-xs ${
-                    inst ? 'cursor-pointer border-rule-strong bg-ink-2 text-paper hover:border-kapton' : 'border-dashed border-rule text-paper-faint'
+                    inst ? 'border-rule-strong bg-ink-2 text-paper' : 'border-dashed border-rule text-paper-faint'
                   }`}
                 >
                   <span className="fp-data text-[10px] text-paper-faint">{slot + 1}</span>
