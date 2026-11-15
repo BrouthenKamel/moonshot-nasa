@@ -3,7 +3,7 @@ import { difficultyPresets } from '../data/brief'
 import { getPartById } from '../data/parts'
 import type { BuildingLabel } from '../scene/BaseMap'
 import type { Budgets, Design, DesignStep, GoNoGoResult, SimState, TurnLog } from '../sim/types'
-import { buildReport } from '../sim/evaluate'
+import { buildReport, craftWasLost } from '../sim/evaluate'
 import { STEP_ORDER } from '../ui/kit/stepNumbers'
 
 /**
@@ -105,7 +105,7 @@ function flightLabels(budgets: Budgets, sim: SimState): Record<BuildingId, Build
   let launchSite: BuildingLabel
   if (over) {
     launchSite = {
-      status: `${sim.phase === 'failed' ? 'Mission lost' : 'Mission over'}: ${f.end}`,
+      status: `${sim.phase === 'failed' ? (craftWasLost(f.end) ? 'Mission lost' : 'Mission failed') : 'Mission over'}: ${f.end}`,
       alert: sim.phase === 'failed',
     }
   } else if (!launched) {
@@ -252,11 +252,12 @@ export function missionStatus(input: { budgets: Budgets; visited: DesignStep[]; 
 
   const f = sim.flight
   if (sim.phase === 'complete' || sim.phase === 'failed') {
-    // A failed mission reads as failed, never as a green success; its budget is used up
+    // A failed mission reads as failed, never as a green success; it spends its whole budget.
+    // "lost" only when the craft is gone, not when the money ran out (QC, 15 Nov)
     const outcome = buildReport(sim).outcome
     if (outcome === 'failed') {
-      const why = sim.phase === 'failed' ? `lost: ${f.end}` : 'the brief was not met'
-      return { stage: 'failed', progress: 1, next: `Mission failed, ${why}. Its budget is used up. See the report.`, opens: 'report' }
+      const why = sim.phase !== 'failed' ? 'the brief was not met' : craftWasLost(f.end) ? `the craft was lost: ${f.end}` : f.end
+      return { stage: 'failed', progress: 1, next: `Mission failed: ${why}. Its whole budget is spent. See the report.`, opens: 'report' }
     }
     return { stage: outcome, progress: 1, next: `Mission over: ${f.end}. See the report.`, opens: 'report' }
   }

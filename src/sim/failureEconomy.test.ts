@@ -6,6 +6,7 @@ import { archetypes } from './fixtures'
 import { gradeFor } from '../ui/report/grade'
 import { approveMission, initialWorld, missionTurned, type MissionSnapshot } from '../game/world'
 import { missionResult } from '../game/result'
+import { missionStatus } from '../viz/missionMap'
 import type { SimState } from './types'
 
 /**
@@ -92,5 +93,17 @@ describe('a failed mission spends its whole budget', () => {
     // Same days passed, same budget: the only money difference is the 3.4 M refund (plus papers, equal in both)
     expect(ok.funds - failed.funds).toBeCloseTo(3.4, 5)
     expect(missionResult(ok)!.money.find((m) => m.label === 'Unspent budget returned')!.amount).toBe(3.4)
+  })
+})
+
+describe('the base mission panel says "lost" only for a lost craft', () => {
+  const status = (sim: SimState) => missionStatus({ budgets: computeBudgets(sim.design, sim.difficulty), visited: [], sim })
+  it('budget ran out in orbit: failed, not lost', () => {
+    const next = status(strong).next
+    expect(next).toBe('Mission failed: budget ran out in orbit. Its whole budget is spent. See the report.')
+    expect(next).not.toMatch(/lost/)
+  })
+  it('lost contact: the craft was lost', () => {
+    expect(status(endedAs('lost contact after deployment')).next).toContain('the craft was lost: lost contact after deployment')
   })
 })
