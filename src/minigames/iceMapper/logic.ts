@@ -290,6 +290,9 @@ export interface BotMind {
   idleUntil: number
 }
 
+/** How soon a shadowed crater must be coming for the autopilot to hold off on a sunlit one, in seconds */
+const DARK_LOOKAHEAD_S = 6
+
 /** Choose where to aim: the crater worth the most per second of its time left in view */
 export function botAim(st: PassState, mind: BotMind): { target: Reticle | null; scanning: boolean } {
   const { setup } = st
@@ -298,8 +301,23 @@ export function botAim(st: PassState, mind: BotMind): { target: Reticle | null; 
   if (mind.target === null) {
     let best = -1
     let bestScore = 0
+    // A payload that sees into shadow goes for the shadowed craters first (the lesson of the pass); a sunlit
+    // one waits at the start of the pass while the first shadowed crater is about to appear, and is taken after it if still in reach.
+    // IR and camera cannot read the dark ones, so they fly the sunlit.
+    const seesDark = setup.scanners.some((sc) => sc.mapsIce && sc.seesDark)
+    const readableDark = setup.areas.filter((a) => a.dark && !scanAbility(setup, a).blocked)
+    // Only at the start: once a shadowed crater has been in view or scanned, the scores below decide
+    const darkSeen = readableDark.some((a) => isVisible(a, s) || st.progress[setup.areas.indexOf(a)] > 0)
+    const darkSoon =
+      seesDark &&
+      !darkSeen &&
+      readableDark.some((a) => {
+        const untilSeen = (-a.r - areaScreen(a, s).y) / setup.speed
+        return untilSeen >= 0 && untilSeen <= DARK_LOOKAHEAD_S
+      })
     setup.areas.forEach((area, i) => {
       if (st.progress[i] >= 1 || !isVisible(area, s) || scanAbility(setup, area).blocked) return
+      if (darkSoon && !area.dark) return
       const left = (VIEW_H + area.r - areaScreen(area, s).y) / setup.speed // seconds until it has gone by
       const need = ((1 - st.progress[i]) * SCAN_SECONDS[area.size]) / scanAbility(setup, area).rate
       if (left < need * 0.6) return // would not finish in time: skip it

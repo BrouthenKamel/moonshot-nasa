@@ -4,6 +4,8 @@ import { audio } from '../../assets/audio'
 import { getEventById, type EventType } from '../../data/events'
 import { prefersReducedMotion } from '../../scene/space/quality'
 import { useGameStore } from '../../state/gameStore'
+import { useUiStore } from '../../state/uiStore'
+import { useInsidePlaying } from '../interaction/insideStore'
 import { missionClockLabel } from '../../viz/missionMap'
 import { Tag } from '../kit'
 import { DECISION_CLOCK_MS, decisionClockFraction, decisionClockNote, shouldPauseDecisionClock, standingOrderOptionId } from './decisionClock'
@@ -46,9 +48,22 @@ function optionProbability(key: EventType, optionId: string, label: string): Opt
   return null
 }
 
+/**
+ * True while a show plays over the flight (the launch broadcast on the pad, the ride inside the fairing).
+ * An event that comes due meanwhile waits for the show to end: its card and its 30 s clock start only
+ * when it appears (Ideas round 25). The shows' own Skip buttons are untouched.
+ */
+export function useShowPlaying(): boolean {
+  const launching = useUiStore((s) => s.launchAt !== null)
+  const inside = useInsidePlaying()
+  return launching || inside
+}
+
 /** The flight note that waits for the player's decision during the flight */
 export function EventCard() {
-  const decision = useGameStore((s) => s.simState?.pendingDecision)
+  const waiting = useGameStore((s) => s.simState?.pendingDecision)
+  const showPlaying = useShowPlaying()
+  const decision = showPlaying ? undefined : waiting
   const answerEvent = useGameStore((s) => s.answerEvent)
   const flight = useGameStore((s) => s.simState?.flight)
   const titleId = useId()
@@ -78,6 +93,31 @@ export function EventCard() {
 
   useEffect(() => {
     if (cardKey) firstOption.current?.focus()
+  }, [cardKey])
+
+  // A card taking the screen clears the voice captions of what came before (a stale "…Ignition." stayed up
+  // over the month-12 card)
+  useEffect(() => {
+    if (cardKey) audio.hush()
+  }, [cardKey])
+
+  // The number keys answer whenever the page has focus, not only while focus is inside the card
+  const latest = useRef({ decision, answerEvent })
+  latest.current = { decision, answerEvent }
+  useEffect(() => {
+    if (!cardKey) return
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return
+      if (e.key !== '1' && e.key !== '2') return
+      const el = e.target as HTMLElement | null
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
+      const opt = latest.current.decision?.options[Number(e.key) - 1]
+      if (!opt) return
+      e.preventDefault()
+      latest.current.answerEvent(opt.id)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [cardKey])
 
   useEffect(() => {
@@ -143,14 +183,6 @@ export function EventCard() {
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     // Moving through the options by keyboard is reading too
     if (e.key === 'Tab' || e.key.startsWith('Arrow')) setKeyboardInside(true)
-    if (e.key === '1' || e.key === '2') {
-      const idx = Number(e.key) - 1
-      const opt = decision.options[idx]
-      if (opt) {
-        e.preventDefault()
-        answerEvent(opt.id)
-      }
-    }
   }
 
   return (
@@ -234,7 +266,7 @@ export function EventCard() {
                   i === 0 ? 'border-kapton' : 'border-rule-strong'
                 }`}
               >
-                <div className="flex items-start gap-2.5">
+                <div className="pointer-events-none flex items-start gap-2.5">
                   {/* A card with one answer (it only informs) says plainly how to take it: "Press 1" */}
                   <kbd aria-hidden="true" className="mt-0.5 shrink-0 border border-rule-strong px-1.5 py-0.5 fp-data text-[10px] font-bold text-paper-dim">
                     {decision.options.length === 1 ? 'Press 1' : `[${i + 1}]`}
@@ -247,7 +279,7 @@ export function EventCard() {
                   )}
                 </div>
                 {prob && (
-                  <div className="mt-2 pl-8">
+                  <div className="pointer-events-none mt-2 pl-8">
                     <div className="flex items-center justify-between fp-data text-[10px] text-paper-dim">
                       <span className="fp-label text-[10px]">{prob.caption}</span>
                       {prob.pct !== null && <span className="font-bold text-paper">{prob.pct}%</span>}
