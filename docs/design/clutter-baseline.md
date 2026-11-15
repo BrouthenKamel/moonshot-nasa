@@ -1,6 +1,6 @@
 # Clutter baseline
 
-Measured by `pnpm audit:clutter` (scripts/e2e/clutter-audit.mjs) on `fix/clutter-audit-screens` @ `7027bf3`, 2026-11-15, at 1440×900.
+Measured by `pnpm audit:clutter` (scripts/e2e/clutter-audit.mjs) on `fix/audit-scene-and-launch-game` @ `b1cf3ee`, 2026-11-15, at 1440×900.
 
 **Score** = numbers×2 + buttons + panels×3 + words/40. Higher is more cluttered. Numbers weigh most because the
 screen budget allows three; panels weigh three because each one is a separate place the eye has to visit.
@@ -19,27 +19,29 @@ screen budget allows three; panels weigh three because each one is a separate pl
 
 | # | Screen | Score | Numbers | Buttons | Panels | Words | Scene items | Screens tall | Numbers over budget |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | Step 6: Comms | **122** | 32 | 20 | 11 | 198 | 0 | 1 | +29 |
-| 2 | Step 3: Craft | **97.6** | 23 | 25 | 8 | 104 | 10 | 1 | +20 |
-| 3 | Step 4: Orbit | **80.3** | 20 | 18 | 6 | 173 | 0 | 1 | +17 |
-| 4 | Step 5b: Ride, transfer stage | **79.1** | 18 | 19 | 7 | 125 | 0 | 1 | +15 |
-| 5 | Step 0: Brief | **71.7** | 17 | 14 | 6 | 226 | 0 | 1.4 | +14 |
-| 6 | Step 2: Science | **58** | 6 | 21 | 7 | 158 | 2 | 1.5 | +3 |
-| 7 | Step 7: Launch | **46.6** | 5 | 16 | 6 | 103 | 0 | 1 | +2 |
+| 1 | Step 6: Comms | **124.1** | 32 | 22 | 11 | 202 | 0 | 1 | +29 |
+| 2 | Step 3: Craft | **105.6** | 23 | 29 | 9 | 145 | 7 | 1 | +20 |
+| 3 | Step 0: Brief | **90.1** | 17 | 15 | 12 | 202 | 0 | 1 | +14 |
+| 4 | Step 5b: Trip (Ride's second view) | **81.2** | 18 | 21 | 7 | 129 | 0 | 1 | +15 |
+| 5 | Step 4: Orbit | **72.9** | 16 | 20 | 6 | 115 | 0 | 1 | +13 |
+| 6 | Step 7: Launch | **47.4** | 5 | 17 | 6 | 95 | 0 | 1 | +2 |
+| 7 | Liftoff (countdown on the island) | **45.1** | 9 | 19 | 2 | 82 | 5 | 1 | +6 |
 | 8 | Flight with an event card | **43.6** | 11 | 10 | 3 | 102 | 0 | 1 | +8 |
-| 9 | Step 5: Ride | **38.2** | 7 | 16 | 2 | 88 | 0 | 1 | +4 |
-| 10 | Step 1: Plan | **37.9** | 6 | 15 | 3 | 77 | 0 | 1 | +3 |
-| 11 | Flight HUD (space view) | **37.1** | 7 | 16 | 2 | 44 | 0 | 1 | +4 |
+| 9 | Step 2: Science | **43.3** | 5 | 19 | 4 | 90 | 0 | 1 | +2 |
+| 10 | Step 5: Ride | **40.3** | 7 | 18 | 2 | 91 | 0 | 1 | +4 |
+| 11 | Step 1: Plan | **36.6** | 6 | 17 | 2 | 65 | 0 | 1 | +3 |
 | 12 | Report | **33.7** | 2 | 9 | 6 | 107 | 0 | 1 | ok |
 | 13 | Agency panel: Popularity | **32.7** | 8 | 10 | 2 | 27 | 5 | 1 | +5 |
-| 14 | Mission result pop-up | **31.8** | 6 | 3 | 5 | 73 | 0 | 1 | +3 |
-| 15 | Base map (mission chosen) | **29.2** | 6 | 10 | 2 | 46 | 5 | 1 | +3 |
-| 16 | Agency panel: Funds | **29.1** | 6 | 10 | 2 | 44 | 5 | 1 | +3 |
-| 17 | Agency panel: Sound & graphics settings | **27.5** | 3 | 15 | 2 | 20 | 5 | 1 | ok |
-| 18 | Flight: build months on the base | **26.1** | 5 | 9 | 2 | 45 | 6 | 1 | +2 |
-| 19 | Base map (no mission) | **18.3** | 3 | 9 | 1 | 10 | 5 | 1 | ok |
-| 20 | Agency panel: Headquarters (campaign) | **11.6** | 0 | 7 | 1 | 64 | 0 | 1 | ok |
-| 21 | Liftoff (ride inside the fairing) | **7.1** | 0 | 1 | 2 | 5 | 0 | 1 | ok |
-| 22 | Title (opening curtain) | **4.6** | 1 | 1 | 0 | 64 | 0 | 1 | ok |
+| 14 | Flight: build months on the base | **32.6** | 7 | 11 | 2 | 65 | 5 | 1 | +4 |
+| 15 | Mission result pop-up | **31.8** | 6 | 3 | 5 | 73 | 0 | 1 | +3 |
+| 16 | Flight HUD (space view) | **31.1** | 5 | 14 | 2 | 44 | 0 | 1 | +2 |
+| 17 | Base map (mission chosen) | **29.2** | 6 | 10 | 2 | 46 | 5 | 1 | +3 |
+| 18 | Agency panel: Funds | **29.1** | 6 | 10 | 2 | 44 | 5 | 1 | +3 |
+| 19 | Agency panel: Sound & graphics settings | **27.5** | 3 | 15 | 2 | 20 | 5 | 1 | ok |
+| 20 | Base map (no mission) | **18.3** | 3 | 9 | 1 | 10 | 5 | 1 | ok |
+| 21 | Agency panel: Headquarters (campaign) | **11.6** | 0 | 7 | 1 | 64 | 0 | 1 | ok |
+| 22 | Launch Day: flying | **11.5** | 2 | 1 | 2 | 18 | 0 | 1 | ok |
+| 23 | Launch Day: briefing | **5.9** | 0 | 1 | 1 | 74 | 0 | 1 | ok |
+| 24 | Title (opening curtain) | **4.6** | 1 | 1 | 0 | 64 | 0 | 1 | ok |
 
 Screenshots: `shots/clutter-audit/<id>.png` (git-ignored; re-run the audit to make them).

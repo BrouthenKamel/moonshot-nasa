@@ -355,13 +355,16 @@ Measured as the fairing shot on main 3a78f09. **Main 7961bfa replaced it with a 
 5. **Run history and share code**: run history supports "simulate multiple times"; share code is an optional
    *Additional feature*.
 
-## Known audit gaps (main after 3a78f09)
+## Audit gaps (fixed in the follow-up audit PR)
 
-- **Over-the-map HUDs counted as scene.** The flight-plan sheet and the Advance bar on the flight screens are
-  filed as scene labels and not scored, so Flight build and Liftoff are undercounted. Fix ready: a scene label
-  must be placed by script (an inline transform or position), as BaseMap's labels and drei `<Html>` are.
-- **Launch mini-game.** Main 7961bfa turned liftoff into a mini-game ("Fly the ride to orbit"). The audit
-  stops at it, loudly, as designed; it needs a step to reach and measure it.
+Both gaps noted here are fixed in the audit itself; its new baseline (main b1cf3ee, 24 screens) is in
+clutter-baseline.md, and this doc's per-screen counts are still the 22-screen ones until the next re-baseline:
+
+- HUDs laid over the 3D map (the flight-plan sheet, the Advance bar) now count as interface: a scene label
+  must be placed by script. Flight build and Liftoff were undercounted before.
+- Launch Day (the launch mini-game) is reached, measured at its briefing and in flight, and flown to the end,
+  so the audit continues past liftoff. The Ride step's second view ("Trip") is reached through the dock's
+  view state.
 
 ## Redesign first
 
