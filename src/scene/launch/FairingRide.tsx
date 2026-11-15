@@ -7,7 +7,8 @@ import { useModel } from '../../assets/models'
 import { useGameStore } from '../../state/gameStore'
 import { normalizeRocket, rocketStats } from '../../viz/rocket/rocketView'
 import { useInsidePlaying } from '../../ui/interaction/insideStore'
-import { useInsidePath, type CamKey } from '../interaction/InsideCam'
+import { useInsidePath } from '../interaction/InsideCam'
+import { fairingHalfPose, fairingKeys, separation, SEP_START } from './fairingShot'
 import { useJuice } from '../interaction/snap'
 import { CubeSat, Earth, Effects, prefersReducedMotion, Starfield, Sun } from '../space'
 
@@ -30,17 +31,44 @@ function SafeModel({ id, position, rotation }: { id: Parameters<typeof useModel>
   )
 }
 
-function fairingKeys(engineScale: number): CamKey[] {
-  return [
-    { t: 0, pos: [0.32, 0.42, 0.38], target: [0, 0.14, 0], fov: 44, caption: 'T-minus 5… inside the payload fairing beside your 6U deployer.', shake: 0 },
-    { t: 2.0, pos: [0.3, 0.4, 0.36], target: [0, 0.14, 0], fov: 45, caption: 'Ignition and liftoff — vibrations climb through the adapter ring.', shake: 0.012 * engineScale },
-    { t: 4.5, pos: [0.28, 0.38, 0.34], target: [0, 0.14, 0], fov: 47, caption: 'Max-Q — maximum aerodynamic pressure on the fairing.', shake: 0.024 * engineScale },
-    { t: 6.2, pos: [0.32, 0.42, 0.38], target: [0, 0.14, 0], fov: 45, caption: 'MECO and stage separation.', shake: 0.004 },
-    { t: 7.5, pos: [0.46, 0.56, 0.54], target: [0, 0.14, 0], fov: 50, caption: 'Fairing separation — Earth and sunlight flood the bay.', shake: 0.002 },
-    { t: 9.2, pos: [0.58, 0.64, 0.72], target: [0, 0.38, 0.32], fov: 46, caption: 'Deployer door opens — CubeSat free, panels deploying.', shake: 0 },
-    { t: 11.0, pos: [0.64, 0.7, 0.85], target: [0, 0.48, 0.45], fov: 44, caption: 'Orbital separation complete.', shake: 0 },
-  ]
+/**
+ * The fairing's inside is white paint and pale acoustic foam, lit from a hand's width away: on the
+ * broadcast it read as a white-out (Integration review, 15 Nov). The shell keeps its own materials, so
+ * the Craft screen's fairing stays as it is, and takes them down to a readable grey.
+ */
+export const FAIRING_SHELL_TONE = 0.42
+
+function FairingShell() {
+  const source = useModel('model.sc-fairing_half')
+  const root = useMemo(() => {
+    const shell = source.clone(true)
+    shell.traverse((o) => {
+      if (!(o instanceof THREE.Mesh)) return
+      const dim = (m: THREE.Material) => {
+        const c = m.clone()
+        if (c instanceof THREE.MeshStandardMaterial) {
+          c.color.multiplyScalar(FAIRING_SHELL_TONE)
+          c.envMapIntensity = 0.35
+          c.roughness = Math.max(c.roughness, 0.85)
+        }
+        return c
+      }
+      o.material = Array.isArray(o.material) ? o.material.map(dim) : dim(o.material)
+    })
+    return shell
+  }, [source])
+  useEffect(
+    () => () =>
+      root.traverse((o) => {
+        if (o instanceof THREE.Mesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose())
+      }),
+    [root],
+  )
+  return <primitive object={root} />
 }
+
+const BAY_LIGHT = 0.9
+const SUN_FLOOD = 1.6
 
 /** Motes shaken loose inside the fairing during ignition and Max-Q */
 function FairingDust({ elapsed }: { elapsed: React.RefObject<number> }) {
@@ -128,22 +156,25 @@ function FairingStage({ engineScale }: { engineScale: number }) {
     }
 
     // Fairing separation after t = 7.5s
-    const sep = Math.max(0, Math.min(1, (t - 7.5) / 1.8))
-    const easeSep = sep * sep * (3 - 2 * sep)
+    const easeSep = separation(t)
+    const sep = easeSep
     if (leftHalf.current) {
-      leftHalf.current.position.set(-easeSep * 0.9, -0.7 - easeSep * 0.4, -easeSep * 0.3)
-      leftHalf.current.rotation.set(0, 0, easeSep * 0.55)
+      const p = fairingHalfPose(easeSep, -1)
+      leftHalf.current.position.set(...p.position)
+      leftHalf.current.rotation.set(0, 0, -p.rotationZ)
       leftHalf.current.visible = sep < 0.99
     }
     if (rightHalf.current) {
-      rightHalf.current.position.set(easeSep * 0.9, -0.7 - easeSep * 0.4, easeSep * 0.3)
-      rightHalf.current.rotation.set(0, Math.PI, -easeSep * 0.55)
+      const p = fairingHalfPose(easeSep, 1)
+      rightHalf.current.position.set(...p.position)
+      rightHalf.current.rotation.set(0, Math.PI, -p.rotationZ)
       rightHalf.current.visible = sep < 0.99
     }
 
     // Sunlight sweeps across the bay once the halves peel away
-    if (bayLight.current) bayLight.current.intensity = t >= 7.5 ? 0.5 : 2.6
-    if (sunFlood.current) sunFlood.current.intensity = t >= 7.5 ? 4.2 * Math.min(1, (t - 7.4) / 0.8) : 0.05
+    // Capped so the white shell and the craft stay readable: the flood was 4.2 and the bay light 2.6
+    if (bayLight.current) bayLight.current.intensity = t >= SEP_START ? 0.35 : BAY_LIGHT
+    if (sunFlood.current) sunFlood.current.intensity = t >= 7.5 ? SUN_FLOOD * Math.min(1, (t - 7.4) / 0.8) : 0.05
 
     // Deployer door opens at t = 9.1s, CubeSat springs out tumbling and unfolds wings
     const deployed = t >= 9.1
@@ -164,7 +195,7 @@ function FairingStage({ engineScale }: { engineScale: number }) {
       <Starfield brightness={1.15} />
       <Sun intensity={3.4} />
       <ambientLight intensity={0.22} color="#c5d2e0" />
-      <pointLight ref={bayLight} position={[0.15, 0.55, 0.25]} intensity={2.6} distance={4} color="#e8a33d" />
+      <pointLight ref={bayLight} position={[0.15, 0.55, 0.25]} intensity={BAY_LIGHT} distance={4} color="#e8a33d" />
       <directionalLight ref={sunFlood} position={[4, 2, 3]} intensity={0.05} color="#fff7e8" />
 
       {/* Earth positioned below/behind the payload bay so opening the fairing reveals the blue planet */}
@@ -183,10 +214,10 @@ function FairingStage({ engineScale }: { engineScale: number }) {
             <SafeModel id="model.sc-deployer_6u_open" position={[0, 0.12, 0]} />
           </group>
           <group ref={leftHalf} position={[0, -0.7, 0]}>
-            <SafeModel id="model.sc-fairing_half" />
+            <FairingShell />
           </group>
           <group ref={rightHalf} position={[0, -0.7, 0]} rotation={[0, Math.PI, 0]}>
-            <SafeModel id="model.sc-fairing_half" />
+            <FairingShell />
           </group>
         </Suspense>
       </ModelBoundary>
@@ -228,7 +259,7 @@ export function FairingRide() {
           scene.background = new THREE.Color('#07090d')
           const pmrem = new THREE.PMREMGenerator(gl)
           scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-          scene.environmentIntensity = 0.45
+          scene.environmentIntensity = 0.2
           pmrem.dispose()
         }}
       >

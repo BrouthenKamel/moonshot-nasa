@@ -98,6 +98,13 @@ const voiceBuffers = new Map<AudioId, Promise<AudioBuffer | null>>()
 /** A queued line: a recorded voice clip, or a caption-only line (`text`) when no clip says the right thing */
 const voiceQueue: ({ id: AudioId; at: number } | { text: string; at: number })[] = []
 const STALE_MS = 7000
+/**
+ * Longest a caption may stay up, whatever happens to the sound (Integration review, 15 Nov: "Liftoff.
+ * Lunar Ice Mapper is on its way." was still on screen 12 to 18 months later). The longest line runs
+ * about five seconds; a suspended audio context or a voice file that never loads used to keep the
+ * caption up for good, because only the end of playback took it down.
+ */
+export const MAX_CAPTION_MS = 8000
 let speaking = false
 /** Most lines a burst of turns may queue; older ones are dropped */
 const MAX_QUEUE = 4
@@ -167,20 +174,30 @@ async function speakNext() {
   while (next && performance.now() - next.at > STALE_MS) next = voiceQueue.shift()
   if (!next) return
   speaking = true
+  let caption: string | null = null
+  let finished = false
   const done = () => {
+    if (finished) return
+    finished = true
+    window.clearTimeout(watchdog)
     speaking = false
-    useAudioSettings.setState({ caption: null })
+    // Only take down our own caption: hush() may already have cleared it, and a newer line put up its own
+    if (useAudioSettings.getState().caption === caption) useAudioSettings.setState({ caption: null })
     void speakNext()
   }
+  // Every caption, spoken or caption-only, comes down after MAX_CAPTION_MS whatever the sound does
+  const watchdog = window.setTimeout(done, MAX_CAPTION_MS)
   if ('text' in next) {
     // Caption only: up for about as long as a spoken line of that length would take
-    useAudioSettings.setState({ caption: next.text })
+    caption = next.text
+    useAudioSettings.setState({ caption })
     window.setTimeout(done, Math.max(1800, next.text.length * 70))
     return
   }
   const id = next.id
   const a = getAsset(id) as AudioAsset
-  useAudioSettings.setState({ caption: a.caption ?? a.prompt ?? null })
+  caption = a.caption ?? a.prompt ?? null
+  useAudioSettings.setState({ caption })
   const ctx = audioContext()
   const buffer = await loadVoice(id)
   if (!ctx || !buffer || useAudioSettings.getState().muted) {
@@ -266,9 +283,10 @@ export const audio = {
     void speakNext()
   },
 
-  /** Drop lines not yet spoken (e.g. when the player leaves the flight) */
+  /** Drop lines not yet spoken and take the caption down (e.g. when the flight phase changes) */
   hush() {
     voiceQueue.length = 0
+    useAudioSettings.setState({ caption: null })
   },
 
   /** Download a set of sounds ahead of time (e.g. at the title screen) */

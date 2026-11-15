@@ -368,10 +368,41 @@ export function checkLine(ctx: Ctx, reason: string, width: number): string {
 
 const CHECK_WORD = { green: 'GO', yellow: 'CAUTION', red: 'NO-GO' } as const
 
-function paintChecks(ctx: Ctx, view: PlanningView, detail: boolean) {
-  const top = 700
+/** Where the status tag sits: the right end of the Go/No-Go strip (see paintStatusChip) */
+export function statusChipBox(ctx: Ctx, view: PlanningView) {
+  ctx.font = font(800, 34)
+  const w = ctx.measureText(view.status.chip).width + 60
+  return { x: SCREEN_W - 30 - w, y: STRIP_TOP + 20, w, h: 50 }
+}
+
+/**
+ * The status tag ("CAUTION: NO RESERVE"). It used to sit at the right of the header row, where the
+ * step's "Select …" button and title card cover it (Integration review, 15 Nov; at 800 × 600 the whole
+ * header row is under the overlay). The bottom strip is clear of every overlay at every size.
+ */
+function paintStatusChip(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
+  const level = view.status.level
+  const blink = level === 'alert' && !anim.reducedMotion ? (Math.sin(anim.time * 8) > 0 ? 1 : 0.35) : 1
+  const box = statusChipBox(ctx, view)
+  ctx.globalAlpha = blink
+  ctx.fillStyle = STATUS_COLORS[level]
+  roundRect(ctx, box.x, box.y, box.w, box.h, 10)
+  ctx.fill()
+  ctx.globalAlpha = 1
+  ctx.textAlign = 'center'
+  ctx.fillStyle = '#07090d'
+  ctx.fillText(view.status.chip, box.x + box.w / 2, box.y + box.h / 2 + 2)
+}
+
+const STRIP_TOP = 700
+
+function paintChecks(ctx: Ctx, view: PlanningView, detail: boolean, anim: ScreenAnim) {
+  const top = STRIP_TOP
   ctx.fillStyle = '#0b0e14'
   ctx.fillRect(0, top, SCREEN_W, SCREEN_H - top)
+  paintStatusChip(ctx, view, anim)
+  // The check lines end before the tag
+  const lineEnd = statusChipBox(ctx, view).x - 30
   ctx.font = font(800, 34)
   // Without details only the checks that need the player are listed; a GO says nothing new
   const checks = detail ? view.checks : view.checks.filter((c) => c.status !== 'green')
@@ -386,7 +417,7 @@ function paintChecks(ctx: Ctx, view: PlanningView, detail: boolean) {
     ctx.fillText(labels[i], 66, y + 1)
     ctx.font = font(600, 34)
     ctx.fillStyle = '#c4bcac'
-    ctx.fillText(checkLine(ctx, c.reason, SCREEN_W - x - 30), x, y + 1)
+    ctx.fillText(checkLine(ctx, c.reason, lineEnd - x), x, y + 1)
   })
 }
 
@@ -473,22 +504,10 @@ export function paintScreen(
   // Only the room's name: the step's title card floats over the middle of this header (it named the
   // mission and the step too, and ran under the card)
   ctx.fillText('COMMS CENTER', 30, 37)
-  const level = view.status.level
-  const blink = level === 'alert' && !anim.reducedMotion ? (Math.sin(anim.time * 8) > 0 ? 1 : 0.35) : 1
-  ctx.font = font(800, 34)
-  const chipW = ctx.measureText(view.status.chip).width + 60
-  ctx.globalAlpha = blink
-  ctx.fillStyle = STATUS_COLORS[level]
-  roundRect(ctx, SCREEN_W - 30 - chipW, 10, chipW, 50, 10)
-  ctx.fill()
-  ctx.globalAlpha = 1
-  ctx.textAlign = 'center'
-  ctx.fillStyle = '#07090d'
-  ctx.fillText(view.status.chip, SCREEN_W - 30 - chipW / 2, 37)
 
   paintBudget(ctx, view, anim, detail)
   paintRoad(ctx, view, anim, detail)
   paintRisk(ctx, view, anim, detail)
-  paintChecks(ctx, view, detail)
+  paintChecks(ctx, view, detail, anim)
   ctx.restore()
 }
