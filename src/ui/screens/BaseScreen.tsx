@@ -22,6 +22,7 @@ import {
   AgencyWallet,
   CampaignDialog,
   MissionPanel,
+  MissionResultDialog,
   NewMissionDialog,
   Notifications,
   useAgencyClock,
@@ -251,9 +252,11 @@ export function BaseScreen() {
           ) : (
             <BaseMap labels={labels} onBuildingClick={onBuildingClick} hq={hq} />
           )}
-          <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-black/30 px-2 py-1 text-[11px] text-white lg:left-1/2 lg:-translate-x-1/2">
-            {onBuildingClick ? 'Click a building to walk in · drag to move · scroll to zoom' : 'Drag to move · scroll to zoom'}
-          </div>
+          {!spaceShowing && (
+            <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-black/30 px-2 py-1 text-[11px] text-white lg:left-1/2 lg:-translate-x-1/2">
+              {onBuildingClick ? 'Click a building to walk in · drag to move · scroll to zoom' : 'Drag to move · scroll to zoom'}
+            </div>
+          )}
         </div>
         {/* The space view has the whole map: no side panels, only its own Back to agency */}
         {!spaceShowing && (
@@ -282,6 +285,7 @@ export function BaseScreen() {
       </div>
       {dialog === 'new-mission' && <NewMissionDialog onClose={() => setDialog(null)} onStart={startMission} />}
       {dialog === 'campaign' && <CampaignDialog onClose={() => setDialog(null)} />}
+      <MissionResultDialog sim={simState} onReport={currentReport ? () => showReport() : undefined} onNewMission={() => setDialog('new-mission')} />
     </div>
   )
 }

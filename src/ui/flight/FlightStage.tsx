@@ -435,7 +435,7 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
       )}
       <div className={`pointer-events-none absolute inset-x-3 ${showSpace ? '' : between} bottom-10 z-10 flex flex-col items-center gap-2`}>
         <div className="pointer-events-auto w-[min(100%,540px)]">
-          <FlightControls compact />
+          <FlightControls compact monthPlan={false} />
         </div>
       </div>
     </>

@@ -3,11 +3,13 @@ import { useGameStore } from '../../state/gameStore'
 import { useWorldStore, type Speed } from '../../state/worldStore'
 import { fundingPerDay, grantShare, missionFunding, popularityEffects } from '../../game/economy'
 import { lunarPapers } from '../../game/research'
+import { missionResult, type MissionResult } from '../../game/result'
 import { useUiStore } from '../../state/uiStore'
 import { campaign, phaseProgress, type CampaignPhase } from '../../game/campaign'
 import { backgroundNews } from '../../game/news'
 import type { FeedItem } from '../../game/world'
 import { difficultyPresets } from '../../data/brief'
+import { computeBudgets } from '../../sim/budgets'
 import { isSimComplete } from '../../sim/simulate'
 import type { SimState } from '../../sim/types'
 import { FlightViewToggle } from '../flight/FlightStage'
@@ -332,6 +334,8 @@ export function MissionPanel({
 }) {
   const popularity = useWorldStore((s) => s.popularity)
   const difficulty = useGameStore((s) => s.difficulty)
+  const design = useGameStore((s) => s.design)
+  const visitedSteps = useGameStore((s) => s.visitedSteps)
   const budget = difficultyPresets[difficulty].budgetCap
   const over = !!sim && isSimComplete(sim)
   const pct = Math.round(status.progress * 100)
@@ -355,6 +359,11 @@ export function MissionPanel({
 
   const f = missionFunding(budget, popularity)
   const action = status.opens === 'report' ? 'See the report' : status.opens ? 'Continue' : null
+  // The core's projection for the design being planned or flown: 0% means it can never map ice
+  const flownDesign = sim?.design ?? design
+  const projectedIce = computeBudgets(flownDesign, difficulty).projectedCoverage
+  const instrumentsChosen = !!sim || visitedSteps.includes('instruments')
+  const cannotMapIce = instrumentsChosen && projectedIce < 0.5 && !(sim && sim.coveragePercent > 0)
 
   return (
     <section aria-label="Current mission" className={`${glass} flex min-h-0 flex-col p-4`}>
@@ -381,6 +390,17 @@ export function MissionPanel({
           <div className="h-full rounded-full bg-orange-400 transition-[width] duration-700" style={{ width: `${pct}%` }} />
         </div>
       </div>
+
+      {cannotMapIce && (
+        <div role="note" className="mt-3 flex gap-2 rounded-xl border border-amber-400/40 bg-amber-400/10 p-2.5 text-xs text-amber-100">
+          <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+          <span>
+            <span className="font-semibold">This craft cannot map ice.</span> The ice hides in craters that never see the
+            Sun; only a laser reflectometer or a neutron spectrometer sees there, and only in a low enough orbit.
+            {sim && !over ? ' Ice mapped will stay at 0%.' : ' Change the instruments at the Research Lab.'}
+          </span>
+        </div>
+      )}
 
       {sim && (
         <div className="mt-3">
@@ -656,5 +676,170 @@ export function Notifications() {
         })}
       </ul>
     </section>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Mission result                                                      */
+/* ------------------------------------------------------------------ */
+
+const OUTCOME_LOOK: Record<MissionResult['outcome'], { title: string; line: string; accent: string; badge: string; icon: keyof typeof PATHS }> = {
+  success: {
+    title: 'Mission complete',
+    line: 'Full success: the ice map is done and its data is home.',
+    accent: 'from-emerald-500/30',
+    badge: 'bg-emerald-400 text-[#0b1226]',
+    icon: 'check',
+  },
+  partial: {
+    title: 'Mission over',
+    line: 'Partial success: some of the ice map made it home.',
+    accent: 'from-amber-500/30',
+    badge: 'bg-amber-400 text-[#0b1226]',
+    icon: 'flask',
+  },
+  failed: {
+    title: 'Mission failed',
+    line: 'The mission missed its goals. The report shows what went wrong.',
+    accent: 'from-red-500/30',
+    badge: 'bg-red-500 text-white',
+    icon: 'alert',
+  },
+}
+
+const signedMoney = (x: number) => `${x >= 0 ? '+' : '−'}${money(Math.abs(x))}`
+const signedPoints = (x: number) => `${x >= 0 ? '+' : '−'}${Math.abs(Math.round(x))}%`
+
+/** Pops up once when a mission ends, success or failure: results and what the agency gained or lost */
+export function MissionResultDialog({
+  sim,
+  onReport,
+  onNewMission,
+}: {
+  sim: SimState | null
+  onReport?: () => void
+  onNewMission: () => void
+}) {
+  const mission = useWorldStore((s) => s.mission)
+  const research = useWorldStore((s) => s.research)
+  const seen = useWorldStore((s) => s.resultSeenSeed)
+  const markSeen = useWorldStore((s) => s.markResultSeen)
+  const result = useMemo(() => missionResult({ mission, research }), [mission, research])
+  if (!result || !mission || seen === mission.seed || !sim || sim.seed !== mission.seed) return null
+
+  const look = OUTCOME_LOOK[result.outcome]
+  // Say what actually happened: the craft lost, or a craft that flew but could not reach the goals
+  const line =
+    result.outcome !== 'failed'
+      ? look.line
+      : sim.phase === 'failed'
+        ? 'The spacecraft was lost. The report shows what went wrong.'
+        : result.coverage < 1
+          ? 'The spacecraft flew, but mapped no ice. The report shows why.'
+          : 'The spacecraft flew, but the ice map fell short. The report shows why.'
+  const close = () => markSeen(mission.seed)
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={close}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={look.title}
+        onClick={(e) => e.stopPropagation()}
+        className={`w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b ${look.accent} to-[#0b1226] to-40% bg-[#0b1226] text-white shadow-2xl`}
+      >
+        <div className="p-5 pb-3 text-center">
+          <span className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${look.badge}`}>
+            <Icon name={look.icon} className="h-6 w-6" />
+          </span>
+          <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">{result.name}</div>
+          <h2 className="font-display text-2xl font-bold">{look.title}</h2>
+          <p className="mt-1 text-sm text-slate-300">{line}</p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 px-5">
+          <Stat label="Ice mapped" value={`${result.coverage.toFixed(0)}%`} />
+          <Stat label="Data home" value={`${Math.round(result.dataMb)} MB`} />
+          <Stat label="Months" value={`${sim.currentTurn}`} />
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 px-5">
+          <div className="rounded-2xl bg-white/5 p-3">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+              <Icon name="coins" className="h-3.5 w-3.5" /> Money
+            </div>
+            <ul className="mt-1.5 space-y-1 text-xs">
+              {result.money.map((r) => (
+                <li key={r.label} className="flex justify-between gap-2">
+                  <span className="text-slate-300">{r.label}</span>
+                  <span className={`font-semibold tabular-nums ${r.amount >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{signedMoney(r.amount)}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 flex justify-between border-t border-white/10 pt-1.5 text-sm font-bold">
+              <span>Net</span>
+              <span className={`tabular-nums ${result.moneyNet >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{signedMoney(result.moneyNet)}</span>
+            </div>
+          </div>
+          <div className="rounded-2xl bg-white/5 p-3">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-pink-300">
+              <Icon name="heart" className="h-3.5 w-3.5" /> Popularity
+            </div>
+            <ul className="mt-1.5 space-y-1 text-xs">
+              {result.popularity.map((r) => (
+                <li key={r.label} className="flex justify-between gap-2">
+                  <span className="text-slate-300">{r.label}</span>
+                  <span className={`font-semibold tabular-nums ${r.amount >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{signedPoints(r.amount)}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 flex justify-between border-t border-white/10 pt-1.5 text-sm font-bold">
+              <span>Net</span>
+              <span className={`tabular-nums ${result.popularityNet >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{signedPoints(result.popularityNet)}</span>
+            </div>
+          </div>
+        </div>
+
+        {result.papers.length > 0 && (
+          <div className="mx-5 mt-3 rounded-2xl bg-white/5 p-3">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+              <Icon name="flask" className="h-3.5 w-3.5" /> Papers published
+            </div>
+            <ul className="mt-1 space-y-0.5 text-xs text-slate-200">
+              {result.papers.map((p) => (
+                <li key={p.title} className="truncate">· {p.title}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="mt-4 flex gap-2 border-t border-white/10 p-4">
+          {onReport && (
+            <button
+              type="button"
+              onClick={() => {
+                close()
+                onReport()
+              }}
+              className="flex-1 rounded-xl border border-white/15 py-2 text-sm font-semibold hover:bg-white/10"
+            >
+              See the report
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              close()
+              onNewMission()
+            }}
+            className="flex-1 rounded-xl bg-orange-500 py-2 font-display font-bold hover:bg-orange-400"
+          >
+            New mission
+          </button>
+          <button type="button" onClick={close} aria-label="Close" className="rounded-xl px-3 text-slate-300 hover:bg-white/10">
+            <Icon name="close" />
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
