@@ -19,6 +19,7 @@ import { FlightControls } from './ui/flight/FlightControls'
 import { Narrator } from './ui/narrator/Narrator'
 import { Eng, Flap, Sheet } from './ui/kit'
 import { IceMapperRoute, wantsIceMapper } from './minigames/iceMapper'
+import { LaunchDayRoute, wantsLaunchDay } from './minigames/launchDay'
 
 const PHASE_TEXT: Record<string, string> = {
   build: 'Building',
@@ -162,9 +163,12 @@ function ReplayScreen() {
   )
 }
 
-/** The game; `?minigame=ice` opens the Ice Mapper on its own (see minigames/iceMapper) */
+/** The game; `?minigame=ice` and `?minigame=launch` open a mini-game on its own (see minigames/) */
 export default function App() {
-  if (typeof window !== 'undefined' && wantsIceMapper(window.location.search)) return <IceMapperRoute />
+  if (typeof window !== 'undefined') {
+    if (wantsIceMapper(window.location.search)) return <IceMapperRoute />
+    if (wantsLaunchDay(window.location.search)) return <LaunchDayRoute />
+  }
   return <MainApp />
 }
 

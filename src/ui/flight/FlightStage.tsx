@@ -8,7 +8,6 @@ import { computeBudgets } from '../../sim/budgets'
 import { isSimComplete } from '../../sim/simulate'
 import type { SimState, TurnLog } from '../../sim/types'
 import { LAUNCH, useUiStore, type FlightCamMode } from '../../state/uiStore'
-import { useInsideStore } from '../interaction/insideStore'
 import { flightShot, type FlightShot } from '../../viz/flight/flightDirector'
 import type { FlightTimeline } from '../../scene/flight/FlightView'
 import { useWorldStore } from '../../state/worldStore'
@@ -20,7 +19,7 @@ import { EventCard } from './EventCard'
 import { FlightControls } from './FlightControls'
 
 const FlightView = lazy(() => import('../../scene/flight/FlightView').then((m) => ({ default: m.FlightView })))
-const FairingRide = lazy(() => import('../../scene/launch/FairingRide').then((m) => ({ default: m.FairingRide })))
+const LaunchDayGame = lazy(() => import('../../minigames/launchDay').then((m) => ({ default: m.LaunchDayGame })))
 
 class ViewBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -621,28 +620,23 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   const startLaunch = useUiStore((s) => s.startLaunch)
   const endLaunch = useUiStore((s) => s.endLaunch)
   const launched = sim.flight.launchedTurn !== null
+  // Launch Day: the player flies the ride to orbit once, when the core reports liftoff
+  const [flyingLaunch, setFlyingLaunch] = useState(false)
 
-  // The launch plays once, when the core reports liftoff: WebGL rides inside the fairing; non-WebGL falls back to the island countdown
   const wasLaunched = useRef(launched)
   useEffect(() => {
     if (launched && !wasLaunched.current) {
       startLaunch()
-      if (canUseWebGL()) {
-        useInsideStore.getState().play({
-          id: 'fairing-ride',
-          caption: 'T-minus 5… inside the payload fairing beside your 6U deployer.',
-          durationS: LAUNCH.durationS,
-          onEnd: () => useUiStore.getState().endLaunch(),
-        })
-      }
+      setFlyingLaunch(true)
     }
     wasLaunched.current = launched
   }, [launched, startLaunch])
+  // Nothing should strand the flight on the pad: if the game is not up, the countdown still ends on its own
   useEffect(() => {
-    if (launchAt === null) return
+    if (launchAt === null || flyingLaunch) return
     const id = window.setTimeout(endLaunch, Math.max(0, LAUNCH.durationS * 1000 - (performance.now() - launchAt)))
     return () => window.clearTimeout(id)
-  }, [launchAt, endLaunch])
+  }, [launchAt, endLaunch, flyingLaunch])
 
   const terminal = isSimComplete(sim) ? (sim.phase === 'failed' ? 'failed' : 'complete') : undefined
   const monthFraction = useMonthFraction(sim)
@@ -679,10 +673,17 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
         </div>
       )}
       <Countdown />
-      {launchAt !== null && canUseWebGL() && (
+      {/* The launch itself, played. Finishing it ends the launch, which opens the space view. */}
+      {flyingLaunch && (
         <ViewBoundary fallback={null}>
           <Suspense fallback={null}>
-            <FairingRide />
+            <LaunchDayGame
+              design={sim.design}
+              onDone={() => {
+                setFlyingLaunch(false)
+                endLaunch()
+              }}
+            />
           </Suspense>
         </ViewBoundary>
       )}
