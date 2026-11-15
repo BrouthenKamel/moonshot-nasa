@@ -164,6 +164,8 @@ function ReplayScreen() {
 }
 
 const CampaignLab = import.meta.env.DEV ? lazy(() => import('./campaign/scenes/Lab').then((m) => ({ default: m.CampaignLab }))) : () => null
+// Dev builds only: Launch Day on its own (`?minigame=launch`); in the game it plays inside the flight at liftoff
+const LaunchDayRoute = import.meta.env.DEV ? lazy(() => import('./minigames/launchDay').then((m) => ({ default: m.LaunchDayRoute }))) : () => null
 
 export default function App() {
   // Dev builds only: the scene lab for the campaign's shows (src/campaign/scenes/Lab.tsx), never in the shipped bundle
@@ -171,6 +173,12 @@ export default function App() {
     return (
       <Suspense fallback={null}>
         <CampaignLab />
+      </Suspense>
+    )
+  if (import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('minigame') === 'launch')
+    return (
+      <Suspense fallback={null}>
+        <LaunchDayRoute />
       </Suspense>
     )
   return <MainApp />
