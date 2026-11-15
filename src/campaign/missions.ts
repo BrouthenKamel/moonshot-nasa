@@ -35,6 +35,8 @@ export interface ChoiceOption {
 
 export interface DesignChoice {
   id: string
+  /** One word for chips and breakdowns ("Engine", "Site") */
+  short: string
   /** The one decision on this screen */
   question: string
   options: ChoiceOption[]
@@ -121,6 +123,7 @@ export const CAMPAIGN: CampaignMission[] = [
     choices: [
       {
         id: 'engine',
+        short: 'Engine',
         question: 'Which engine brings the lander down?',
         options: [
           {
@@ -156,6 +159,7 @@ export const CAMPAIGN: CampaignMission[] = [
       },
       {
         id: 'site',
+        short: 'Site',
         question: 'Where do you land?',
         options: [
           {
@@ -194,6 +198,7 @@ export const CAMPAIGN: CampaignMission[] = [
       },
       {
         id: 'payload',
+        short: 'Payload',
         question: 'What does the lander carry?',
         options: [
           {
@@ -251,6 +256,7 @@ export const CAMPAIGN: CampaignMission[] = [
     choices: [
       {
         id: 'habitat',
+        short: 'Habitat',
         question: 'What kind of habitat?',
         options: [
           {
@@ -285,6 +291,7 @@ export const CAMPAIGN: CampaignMission[] = [
       },
       {
         id: 'power',
+        short: 'Power',
         question: 'How does the base survive the lunar night?',
         options: [
           {
@@ -323,6 +330,7 @@ export const CAMPAIGN: CampaignMission[] = [
       },
       {
         id: 'crew',
+        short: 'Crew',
         question: 'Who goes first?',
         options: [
           {
@@ -367,6 +375,7 @@ export const CAMPAIGN: CampaignMission[] = [
     choices: [
       {
         id: 'window',
+        short: 'Transfer',
         question: 'Which transfer to Mars?',
         options: [
           {
@@ -404,6 +413,7 @@ export const CAMPAIGN: CampaignMission[] = [
       },
       {
         id: 'landing',
+        short: 'Landing',
         question: 'How do you land a heavy base?',
         options: [
           {
@@ -442,6 +452,7 @@ export const CAMPAIGN: CampaignMission[] = [
       },
       {
         id: 'site',
+        short: 'Site',
         question: 'Where does the base go?',
         options: [
           {
