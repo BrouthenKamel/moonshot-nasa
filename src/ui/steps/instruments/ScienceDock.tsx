@@ -80,7 +80,7 @@ function Tile({
         </div>
         <div className="px-2 pb-2 pt-1">
           <div className="min-h-[2.1em] text-[0.8rem] font-semibold leading-tight text-paper">{instrumentShortName(inst)}</div>
-          <div className={`truncate text-[0.64rem] ${inst.seesShadow ? 'text-ice' : 'text-paper-faint'}`}>
+          <div className={`min-h-[2.4em] text-[0.64rem] leading-tight ${inst.seesShadow ? 'text-ice' : 'text-paper-faint'}`}>
             {readsLabel(inst)}
           </div>
         </div>

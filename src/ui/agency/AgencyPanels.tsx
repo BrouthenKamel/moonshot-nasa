@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
-import { lostForWantOfReserve } from '../../sim/evaluate'
+import { buildReport, lostForWantOfReserve } from '../../sim/evaluate'
+import { topCauses } from '../report/fixIt'
 import { decisionTiming } from '../../viz/decisionTiming'
 import { RESERVE_FIX, fixLabel } from '../report/fixIt'
 import { useWorldStore, type Speed } from '../../state/worldStore'
@@ -633,6 +634,9 @@ export function MissionResultDialog({
   // (the same end reason the report gives: failedLine)
   const line = result.outcome !== 'failed' ? look.line : failedLine(sim.flight.end, sim.phase === 'failed', result.coverage)
   const close = () => markSeen(mission.seed)
+  // A failed mission names its top cause, from the report's first action: "…cannot see into shadowed craters. Fix at the Research Lab."
+  const top = result.outcome === 'failed' ? topCauses(buildReport(sim))[0] : undefined
+  const cause = top ? `${top.why.replace(/\.$/, '')}. Fix at the ${top.buildingName}.` : null
   // Lost for want of a reserve ("Accept the loss"): one link to where the reserve is set (QC, 15 Nov)
   const reserveFix = result.outcome === 'failed' && lostForWantOfReserve(sim)
   return (
@@ -650,6 +654,12 @@ export function MissionResultDialog({
             <div className="fp-label text-[0.62rem] text-paper-faint">{result.name}</div>
             <h2 className="fp-display mt-0.5 text-xl text-paper">{look.title}</h2>
             <p className="mt-1 text-sm text-paper-dim">{line}</p>
+            {cause && (
+              <p data-testid="result-cause" className="mt-1.5 text-sm text-paper">
+                <span className="fp-label mr-1 text-[0.62rem] text-nogo">Cause</span>
+                {cause}
+              </p>
+            )}
           </div>
           <Stamp verdict={look.verdict} animate className="mt-2 shrink-0 text-xl">
             {look.stamp}

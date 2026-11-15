@@ -60,6 +60,8 @@ export interface StageForecast {
   outreachMB: number
   passesPerTurn: number
   meetsTarget: boolean
+  /** Something aboard can read ice at all (it sees into shadow): only then can the orbit be the problem */
+  canMapIce: boolean
   reasons: string[]
 }
 
@@ -129,7 +131,16 @@ export function stageModel(design: Design, difficulty: Difficulty): StageModel {
   // The Synergy strip on this step already says it, and names the fix, when it shows the 'shadow-blind'
   // conflict card: that card is the one source, so the panel repeats the cause only when no card covers it.
   const shadowCardShown = computeSynergies(design, b).some((c) => c.id === 'shadow-blind' && c.steps.includes('instruments'))
-  if (!chosen.some((p) => p.kind === 'ice') && !shadowCardShown) reasons.push('Nothing aboard sees into shadow: no ice is mapped.')
+  // The instrument cause comes first, and the orbit is only mentioned when something aboard can map ice
+  const canMapIce = chosen.some((p) => p.seesShadow)
+  if (!canMapIce) {
+    if (chosen.length > 0) {
+      const what = chosen
+        .map((p) => (p.kind === 'context' ? `${INSTRUMENT_SHORT_NAMES[p.id] === 'IR spectrometer' ? 'IR' : (INSTRUMENT_SHORT_NAMES[p.id] ?? p.name)} maps sunlit ground, not ice` : `The ${INSTRUMENT_SHORT_NAMES[p.id] ?? p.name} takes pictures, maps no ice`))
+        .join('; ')
+      reasons.unshift(`${what}: pick the laser or the neutron spectrometer.`)
+    } else if (!shadowCardShown) reasons.push('Nothing aboard sees into shadow: no ice is mapped.')
+  }
 
   return {
     altitudeKm,
@@ -141,6 +152,7 @@ export function stageModel(design: Design, difficulty: Difficulty): StageModel {
       outreachMB: b.projectedOutreach,
       passesPerTurn: orbit?.passesPerTurn ?? 0,
       meetsTarget: b.projectedCoverage >= COVERAGE_TARGET,
+      canMapIce,
       reasons,
     },
   }

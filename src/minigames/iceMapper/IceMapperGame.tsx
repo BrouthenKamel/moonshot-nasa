@@ -18,6 +18,7 @@ import {
   mapped,
   newPass,
   reach,
+  noSignalReason,
   scanAbility,
   setupFromDesign,
   step,
@@ -266,7 +267,7 @@ function drawArea(ctx: CanvasRenderingContext2D, f: Frame, i: number) {
     ctx.font = '700 16px ui-monospace, monospace'
     ctx.fillText('NO SIGNAL', at.x, at.y - 2)
     ctx.font = '600 12px ui-sans-serif, system-ui'
-    ctx.fillText(ability.blocked === 'dark' ? "can't see into shadow" : 'reads no ice', at.x, at.y + 16)
+    ctx.fillText(noSignalReason(st.setup), at.x, at.y + 16)
     ctx.globalAlpha = 1
   } else if (p >= 1) {
     ctx.textAlign = 'center'
@@ -761,6 +762,11 @@ export function IceMapperGame({
                 {toBeat && (
                   <p className="mt-2 fp-data text-sm text-paper" data-testid="ice-pass-to-beat">
                     {toBeat}
+                  </p>
+                )}
+                {!setup.scanners.some((sc) => sc.mapsIce) && (
+                  <p role="note" data-testid="ice-pass-cannot-map" className="mt-2 border-l-[3px] border-caution bg-caution/10 px-2.5 py-1.5 text-xs font-semibold text-caution">
+                    {setup.scanners.length > 1 ? 'These instruments cannot map ice' : 'This instrument cannot map ice'}: you can still fly it and see why.
                   </p>
                 )}
                 {intro}
