@@ -12,7 +12,7 @@ import { SynergyStrip } from '../../viz/DesignDeltaLine'
 import { POLL_ORDER, ROLE_INFO, stations, type Role, type Station } from '../../viz/gonogo/stations'
 import { fixLocation } from '../../viz/missionMap'
 import { checkHeadline } from '../../viz/gonogo/checkHeadline'
-import { Eng, Stamp, StepHeader, Tag, type StampVerdict, type TagTone } from '../kit'
+import { Details, Eng, Stamp, StepHeader, Tag, type StampVerdict, type TagTone } from '../kit'
 import { Tooltip } from '../Tooltip'
 import { goCall } from './gonogo/headline'
 import { useSuccessEstimate } from '../useOdds'
@@ -494,13 +494,8 @@ export function GoNoGoScreen() {
         </div>
       )}
 
-      {/* Everything else stays reachable behind one Details control (checklist: every resource check).
-          A plain disclosure until the shared Details control (PR 70) is on main; swap for <Details id="gonogo">. */}
-      <details className="group" data-testid="gonogo-details">
-        <summary className="fp-label cursor-pointer select-none text-paper-dim hover:text-paper">
-          <span className="group-open:hidden">Details: every check in full ({result.checks.length})</span>
-          <span className="hidden group-open:inline">Hide details</span>
-        </summary>
+      {/* Everything else stays reachable behind the shared Details control (checklist: every resource check) */}
+      <Details id="gonogo" label="Details: every check in full">
         <div className="mt-4 space-y-6">
           <OddsBreakdown />
           <SynergyStrip step="go-nogo" />
@@ -521,7 +516,7 @@ export function GoNoGoScreen() {
               </div>
             ))}
         </div>
-      </details>
+      </Details>
     </div>
   )
 }
