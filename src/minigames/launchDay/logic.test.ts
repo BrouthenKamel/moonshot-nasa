@@ -298,6 +298,8 @@ describe('the result slip', () => {
     const r = summarize(s)
     expect(r.stars).toBe(1)
     expect(r.stable).toBe(false)
-    expect(r.verdict).toMatch(/re-enter|not the one we planned/)
+    expect(r.verdict).toMatch(/too early for a real orbit|not the planned one/)
+    // Scored, not simulated: the verdict never claims the CubeSat or its mission changed
+    expect(r.verdict).not.toMatch(/CubeSat|mission|re-enter/i)
   })
 })
