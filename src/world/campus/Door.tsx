@@ -1,10 +1,13 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import type { Mesh, MeshBasicMaterial, Vector3 } from 'three'
 import type { RoomId } from '../rooms/ids'
 import { ROOMS } from '../rooms/registry'
 import { DOOR_ARRIVE_RADIUS, doorPoint } from './layout'
+
+/** How close the astronaut must be before a locked door shows why */
+const REASON_RADIUS = 5
 
 export type DoorState = 'locked' | 'open' | 'next'
 
@@ -33,6 +36,9 @@ export function Door({ id, state, done, getTarget, onWalk, onEnter }: DoorProps)
   const inside = useRef<boolean | null>(null)
   const room = ROOMS[id]
   const locked = state === 'locked'
+  // Quiet screen: a locked door explains itself only when the astronaut walks up to it
+  const [nearby, setNearby] = useState(false)
+  const nearbyRef = useRef(false)
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime
@@ -46,6 +52,11 @@ export function Door({ id, state, done, getTarget, onWalk, onEnter }: DoorProps)
     // Arrival: only fires on walking in, never because the walker already stood here
     const p = getTarget()
     const near = Math.hypot(p.x - x, p.z - z) < DOOR_ARRIVE_RADIUS
+    const close = Math.hypot(p.x - x, p.z - z) < REASON_RADIUS
+    if (close !== nearbyRef.current) {
+      nearbyRef.current = close
+      setNearby(close)
+    }
     if (inside.current === null) inside.current = near
     else if (near && !inside.current && !locked) onEnter(id)
     inside.current = near
@@ -72,7 +83,7 @@ export function Door({ id, state, done, getTarget, onWalk, onEnter }: DoorProps)
         <torusGeometry args={[DOOR_ARRIVE_RADIUS * 0.82, 0.07, 8, 40]} />
         <meshBasicMaterial color={color} transparent toneMapped={false} />
       </mesh>
-      {locked && (
+      {locked && nearby && (
         <Html position={[0, 1.3, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
           <div className="w-36 rounded bg-ink-0/80 px-2 py-1 text-center text-[10px] leading-tight text-paper-dim" data-testid={`locked-${id}`}>
             {room.lockedReason}

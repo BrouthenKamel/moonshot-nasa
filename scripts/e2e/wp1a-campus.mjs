@@ -30,7 +30,7 @@ const stats = await page.evaluate(() => {
 })
 console.log('render stats over 2 frames', stats)
 console.log('objective:', await page.textContent('[data-testid="objective"]'))
-console.log('locked label:', await page.textContent('[data-testid="locked-science-lab"]'))
+
 console.log('hq:', await page.evaluate(() => document.body.innerText.includes('budget left') + ' ' + document.querySelectorAll('[data-testid=hq-board]').length))
 await page.screenshot({ path: 'docs/design/shots/wp1a-campus.png' })
 await page.click('[data-testid="door-briefing"]')

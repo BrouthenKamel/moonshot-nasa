@@ -55,7 +55,7 @@ export function springStep(pos: Vector3, vel: Vector3, goal: Vector3, dt: number
 
 /** 3/4 top-down: ~35 degrees of pitch looking at the target */
 export const CAMERA_PITCH = (35 * Math.PI) / 180
-export const CAMERA_DISTANCE = 64
+export const CAMERA_DISTANCE = 44
 export const CAMERA_FOV = 28
 export const CAMERA_OFFSET = new Vector3(0, Math.sin(CAMERA_PITCH), Math.cos(CAMERA_PITCH)).multiplyScalar(
   CAMERA_DISTANCE,
