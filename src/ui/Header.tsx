@@ -3,6 +3,7 @@ import { EngineerSwitch } from './kit/EngineerSwitch'
 import { useGameStore } from '../state/gameStore'
 import { lunarIceMapperBrief } from '../data/brief'
 import { StepDock } from './hud/StepDock'
+import { ResourceStrip } from './hud/ResourceStrip'
 
 export function Header() {
   const screen = useGameStore((s) => s.screen)
@@ -22,10 +23,13 @@ export function Header() {
         )}
       </div>
 
-      {/* Center: the mission sequencer */}
+      {/* Center: the mission sequencer and the resource strip */}
       {screen === 'design' && (
-        <div className="hidden md:flex">
-          <StepDock />
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex">
+            <StepDock />
+          </div>
+          <ResourceStrip />
         </div>
       )}
 
