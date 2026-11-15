@@ -1,6 +1,6 @@
 {
   "branch": "chore/clutter-audit",
-  "commit": "89de90e",
+  "commit": "7cd7435",
   "date": "2026-11-15",
   "viewport": {
     "width": 1440,
@@ -57,12 +57,12 @@
     },
     {
       "id": "design-go-nogo",
-      "name": "Step 9: Go/No-Go",
-      "score": 168.2,
-      "buttons": 20,
-      "numbers": 33,
-      "bareNumbers": 60,
-      "words": 409,
+      "name": "Step 08: Go/No-Go",
+      "score": 171.3,
+      "buttons": 19,
+      "numbers": 35,
+      "bareNumbers": 62,
+      "words": 410,
       "panels": 24,
       "scene": {
         "items": 0,
@@ -85,7 +85,6 @@
         "ENGINEER VIEW E",
         "Mute sound",
         "Sound and graphics settings",
-        "☰ Sequence",
         "← BACK TO DESIGN",
         "RUN THE POLL",
         "Turn launch key",
@@ -98,7 +97,7 @@
       "topPanels": [
         "MOONSHOT",
         "INST RADI PROP 4.4 / 6 U SOLAR: UNFOLDED EARTH MOO",
-        "COMMS CENTER · LUNAR ICE MAPPER · GO / NO-GO",
+        "COMMS CENTER · GO / NO-GO",
         "POLL SLIP",
         "BLIND IN CRATER SHADOWS",
         "SCIENCE",
@@ -115,17 +114,17 @@
     },
     {
       "id": "design-spacecraft",
-      "name": "Step 4: Spacecraft",
-      "score": 136.3,
-      "buttons": 28,
+      "name": "Step 04: Spacecraft",
+      "score": 135.3,
+      "buttons": 27,
       "numbers": 39,
       "bareNumbers": 48,
-      "words": 133,
+      "words": 132,
       "panels": 9,
       "scene": {
         "items": 10,
-        "buttons": 17,
-        "words": 50,
+        "buttons": 18,
+        "words": 51,
         "numbers": 0,
         "canvases": 1
       },
@@ -143,7 +142,6 @@
         "ENGINEER VIEW E",
         "Mute sound",
         "Sound and graphics settings",
-        "☰ Sequence",
         "Large array: 2 kg · $1M · 120 W",
         "Small: 0.2 kg · 0.1 U · $0.05M · 20 Wh",
         "Medium: 0.3 kg · 0.15 U · $0.1M · 40 Wh",
@@ -173,12 +171,12 @@
     },
     {
       "id": "design-comms",
-      "name": "Step 8: Comms",
-      "score": 122.5,
-      "buttons": 26,
+      "name": "Step 07: Comms",
+      "score": 121.5,
+      "buttons": 25,
       "numbers": 30,
       "bareNumbers": 44,
-      "words": 380,
+      "words": 379,
       "panels": 9,
       "scene": {
         "items": 0,
@@ -201,7 +199,6 @@
         "ENGINEER VIEW E",
         "Mute sound",
         "Sound and graphics settings",
-        "☰ Sequence",
         "Aim dish toward ground network (currently Partner 21 m Dish)",
         "UHF Transceiver. Moon No reach, Pointing Any, Link none, Mas",
         "Deep-Space Radio, Patch Antenna. Moon Reaches, Pointing Any,",
@@ -219,7 +216,7 @@
       "sceneLabels": [],
       "topPanels": [
         "MOONSHOT",
-        "COMMS CENTER · LUNAR ICE MAPPER",
+        "COMMS CENTER",
         "7.1 DATA LINK",
         "FITTED RADIO",
         "BOOKED STATION",
@@ -229,17 +226,17 @@
     },
     {
       "id": "design-rocket",
-      "name": "Step 7: Rocket",
-      "score": 106.3,
-      "buttons": 37,
+      "name": "Step 03: Rocket",
+      "score": 105.3,
+      "buttons": 36,
       "numbers": 19,
       "bareNumbers": 34,
-      "words": 171,
+      "words": 170,
       "panels": 9,
       "scene": {
         "items": 8,
-        "buttons": 9,
-        "words": 77,
+        "buttons": 10,
+        "words": 78,
         "numbers": 1,
         "canvases": 1
       },
@@ -257,7 +254,6 @@
         "ENGINEER VIEW E",
         "Mute sound",
         "Sound and graphics settings",
-        "☰ Sequence",
         "Single bell 1 engine · 4 m",
         "Triple cluster 3 engines · 2 m",
         "Nine-engine cluster 9 engines · 2 m",
@@ -300,14 +296,14 @@
       ]
     },
     {
-      "id": "design-ride",
-      "name": "Step 6: Ride",
-      "score": 98.8,
-      "buttons": 22,
-      "numbers": 25,
-      "bareNumbers": 36,
-      "words": 230,
-      "panels": 7,
+      "id": "design-orbit",
+      "name": "Step 05: Orbit",
+      "score": 94.7,
+      "buttons": 17,
+      "numbers": 23,
+      "bareNumbers": 35,
+      "words": 188,
+      "panels": 9,
       "scene": {
         "items": 0,
         "buttons": 0,
@@ -329,99 +325,24 @@
         "ENGINEER VIEW E",
         "Mute sound",
         "Sound and graphics settings",
-        "☰ Sequence",
-        "Boarding pass for 12.0 kg spacecraft. Drag onto a departure ",
-        "Low-Energy Transfer. Capture burn 1,000 m/s. Takes 10 months",
-        "Direct Transfer. About 5 days, one big braking burn",
-        "GTO Rideshare. Earth orbit (GTO) · 14 kg max. Leaves Month 7",
-        "Lunar Rideshare. Path to the Moon · 14 kg max. Leaves Month ",
-        "Commercial Lunar Express. Close to the Moon · 14 kg max. Lea",
-        "SETUP COMMUNICATIONS →",
+        "Orbit height over the south pole",
+        "← BACK",
+        "CHOOSE RIDE →",
         "Narrator options",
         "Close tip"
       ],
       "sceneLabels": [],
       "topPanels": [
         "MOONSHOT",
-        "RIDE & TRANSFER",
-        "DELTA-V",
-        "BOARDING PASS · DRAG TO GATE",
-        "TRANSFER TO THE MOON",
-        "DEPARTURES PICK YOUR RIDE",
-        "CAPCOM · ROSA VEGA COMMANDER ROSA VEGA: RETIRED AS"
-      ]
-    },
-    {
-      "id": "design-instruments",
-      "name": "Step 3: Instruments",
-      "score": 97.8,
-      "buttons": 32,
-      "numbers": 12,
-      "bareNumbers": 25,
-      "words": 232,
-      "panels": 12,
-      "scene": {
-        "items": 2,
-        "buttons": 0,
-        "words": 12,
-        "numbers": 0,
-        "canvases": 1
-      },
-      "screensTall": 1.6,
-      "controls": [
-        "1. Plan Communications Center",
-        "2. Science Research Laboratory",
-        "3. Craft Integration Cleanroom",
-        "4. Rocket Launch Bay Hall",
-        "5. Orbit Trajectory Navigation",
-        "6. Launch Flight Control Center",
-        "1 RISK",
-        "📊 HUD",
-        "← AGENCY BASE",
-        "ENGINEER VIEW E",
-        "Mute sound",
-        "Sound and graphics settings",
-        "☰ Sequence",
-        "Halo Loop (15 km over the pole)",
-        "Elliptical Polar (15 x 3,150 km)",
-        "Low Circular Polar (100 km)",
-        "Basic",
-        "Precise",
-        "ALTITUDE 15 km / 100 km",
-        "LOOK THROUGH",
-        "IR Spectrometer (BIRCHES-type). 2.4 kg, 12 W, $2.2M, 400 MB ",
-        "Laser Reflectometer. 2 kg, 25 W, $2.5M, 100 MB per month, 2 ",
-        "Narrow-Angle Camera. 0.5 kg, 3 W, $0.2M, 1500 MB per month, ",
-        "Neutron Spectrometer. 2.5 kg, 5 W, $2M, 30 MB per month, 1.8",
-        "IR spectrometer aboard",
-        "Laser",
-        "Camera",
-        "Neutron spectrometer",
-        "← BACK",
-        "CHOOSE THE ROCKET →",
-        "Narrator options",
-        "Close tip"
-      ],
-      "sceneLabels": [
-        "OVER SUNLIT GROUND IR spectrometer Readi",
-        "DRAG TO LOOK AROUND"
-      ],
-      "topPanels": [
-        "MOONSHOT",
-        "02 INSTRUMENTS",
-        "ICE COVERAGE FORECAST",
-        "PAYLOAD BAY",
-        "FORECAST",
-        "BLIND IN CRATER SHADOWS",
-        "IR SPECTROMETER (BIRCHES-TYPE)",
+        "ORBIT · HEIGHT OVER THE SOUTH POLE",
         "CAPCOM · ROSA VEGA COMMANDER ROSA VEGA: RETIRED AS"
       ]
     },
     {
       "id": "design-brief",
-      "name": "Step 1: Brief",
-      "score": 92.1,
-      "buttons": 16,
+      "name": "Step 00: Brief",
+      "score": 91.1,
+      "buttons": 15,
       "numbers": 17,
       "bareNumbers": 50,
       "words": 244,
@@ -447,7 +368,6 @@
         "ENGINEER VIEW E",
         "Mute sound",
         "Sound and graphics settings",
-        "☰ Sequence",
         "COMMENCE MISSION PLANNING →",
         "Narrator options",
         "Close tip"
@@ -456,14 +376,57 @@
       "topPanels": [
         "MOONSHOT",
         "EARTH MOON TRANSFER 10 MONTHS DOWNLINK Build 3 · T",
-        "COMMS CENTER · LUNAR ICE MAPPER",
+        "COMMS CENTER",
         "REQUIREMENTS",
         "CAPCOM · ROSA VEGA COMMANDER ROSA VEGA: RETIRED AS"
       ]
     },
     {
+      "id": "design-ride-transfer",
+      "name": "Step 06b: Ride, transfer stage",
+      "score": 85.1,
+      "buttons": 17,
+      "numbers": 19,
+      "bareNumbers": 29,
+      "words": 122,
+      "panels": 9,
+      "scene": {
+        "items": 0,
+        "buttons": 0,
+        "words": 0,
+        "numbers": 0,
+        "canvases": 0
+      },
+      "screensTall": 1,
+      "controls": [
+        "1. Plan Communications Center",
+        "2. Science Research Laboratory",
+        "3. Craft Integration Cleanroom",
+        "4. Rocket Launch Bay Hall",
+        "5. Orbit Trajectory Navigation",
+        "6. Launch Flight Control Center",
+        "1 RISK",
+        "📊 HUD",
+        "← AGENCY BASE",
+        "ENGINEER VIEW E",
+        "Mute sound",
+        "Sound and graphics settings",
+        "Flight time to the Moon",
+        "← LAUNCH",
+        "COMMS →",
+        "Narrator options",
+        "Close tip"
+      ],
+      "sceneLabels": [],
+      "topPanels": [
+        "MOONSHOT",
+        "TRANSFER · DROP-OFF TO THE MOON",
+        "CAPCOM · ROSA VEGA COMMANDER ROSA VEGA: RETIRED AS"
+      ]
+    },
+    {
       "id": "design-planning",
-      "name": "Step 2: Planning",
+      "name": "Step 01: Planning",
       "score": 79.6,
       "buttons": 25,
       "numbers": 17,
@@ -491,7 +454,6 @@
         "ENGINEER VIEW E",
         "Mute sound",
         "Sound and graphics settings",
-        "☰ Sequence",
         "0 mo",
         "1 mo",
         "2 mo",
@@ -501,6 +463,7 @@
         "10%★",
         "15%",
         "20%",
+        "← BACK",
         "SELECT INSTRUMENTS →",
         "Narrator options",
         "Close tip"
@@ -513,143 +476,6 @@
         "1.4 TEST BLOCKS (DRAG ONTO SCHEDULE)",
         "01 MISSION PLANNING How much time to test, and how",
         "CAPCOM · ROSA VEGA COMMANDER ROSA VEGA: RETIRED AS"
-      ]
-    },
-    {
-      "id": "panel-popularity",
-      "name": "Agency panel: Popularity",
-      "score": 74.3,
-      "buttons": 11,
-      "numbers": 22,
-      "bareNumbers": 23,
-      "words": 170,
-      "panels": 5,
-      "scene": {
-        "items": 6,
-        "buttons": 5,
-        "words": 20,
-        "numbers": 0,
-        "canvases": 1
-      },
-      "screensTall": 1,
-      "controls": [
-        "Pause time",
-        "Play: 1 day a second",
-        "Fast: 10 days a second",
-        "FUNDS $18.4M",
-        "POPULARITY 68%",
-        "Close",
-        "START OVER",
-        "ENGINEER VIEW E",
-        "Mute sound",
-        "Sound and graphics settings",
-        "NEW MISSION"
-      ],
-      "sceneLabels": [
-        "RESEARCH LAB",
-        "FACTORY",
-        "COMMUNICATIONS CENTER",
-        "LAUNCH SITE",
-        "HEADQUARTERS",
-        "CLICK A BUILDING TO WALK IN · DRAG TO MO"
-      ],
-      "topPanels": [
-        "AGENCY BASE · FLIGHT PLAN",
-        "Notifications",
-        "Current mission"
-      ]
-    },
-    {
-      "id": "design-orbit",
-      "name": "Step 5: Orbit",
-      "score": 71.5,
-      "buttons": 21,
-      "numbers": 16,
-      "bareNumbers": 28,
-      "words": 141,
-      "panels": 5,
-      "scene": {
-        "items": 0,
-        "buttons": 0,
-        "words": 0,
-        "numbers": 0,
-        "canvases": 0
-      },
-      "screensTall": 1,
-      "controls": [
-        "1. Plan Communications Center",
-        "2. Science Research Laboratory",
-        "3. Craft Integration Cleanroom",
-        "4. Rocket Launch Bay Hall",
-        "5. Orbit Trajectory Navigation",
-        "6. Launch Flight Control Center",
-        "1 RISK",
-        "📊 HUD",
-        "← AGENCY BASE",
-        "ENGINEER VIEW E",
-        "Mute sound",
-        "Sound and graphics settings",
-        "☰ Sequence",
-        "Pause time-lapse",
-        "Time-lapse month scrubber",
-        "Halo Loop. Lunar Flashlight. Ice mapped 0%. Height 15 km. Pa",
-        "Elliptical Polar. LunaH-Map. Ice mapped 0%. Height 15 km. Pa",
-        "Low Circular. Lunar Prospector. Ice mapped 0%. Height 100 km",
-        "CHOOSE RIDE →",
-        "Narrator options",
-        "Close tip"
-      ],
-      "sceneLabels": [],
-      "topPanels": [
-        "MOONSHOT",
-        "ORBIT",
-        "GO / NO-GO",
-        "THE POLE PASS, SEEN FROM THE SIDE",
-        "CAPCOM · ROSA VEGA COMMANDER ROSA VEGA: RETIRED AS"
-      ]
-    },
-    {
-      "id": "panel-funds",
-      "name": "Agency panel: Funds",
-      "score": 70.6,
-      "buttons": 11,
-      "numbers": 20,
-      "bareNumbers": 21,
-      "words": 182,
-      "panels": 5,
-      "scene": {
-        "items": 6,
-        "buttons": 5,
-        "words": 20,
-        "numbers": 0,
-        "canvases": 1
-      },
-      "screensTall": 1,
-      "controls": [
-        "Pause time",
-        "Play: 1 day a second",
-        "Fast: 10 days a second",
-        "FUNDS $18.4M",
-        "POPULARITY 68%",
-        "Close",
-        "START OVER",
-        "ENGINEER VIEW E",
-        "Mute sound",
-        "Sound and graphics settings",
-        "NEW MISSION"
-      ],
-      "sceneLabels": [
-        "RESEARCH LAB",
-        "FACTORY",
-        "COMMUNICATIONS CENTER",
-        "LAUNCH SITE",
-        "HEADQUARTERS",
-        "CLICK A BUILDING TO WALK IN · DRAG TO MO"
-      ],
-      "topPanels": [
-        "AGENCY BASE · FLIGHT PLAN",
-        "Notifications",
-        "Current mission"
       ]
     },
     {
@@ -696,53 +522,6 @@
       ]
     },
     {
-      "id": "panel-settings",
-      "name": "Agency panel: Sound & graphics settings",
-      "score": 66.7,
-      "buttons": 14,
-      "numbers": 17,
-      "bareNumbers": 21,
-      "words": 148,
-      "panels": 5,
-      "scene": {
-        "items": 6,
-        "buttons": 5,
-        "words": 20,
-        "numbers": 0,
-        "canvases": 1
-      },
-      "screensTall": 1,
-      "controls": [
-        "Pause time",
-        "Play: 1 day a second",
-        "Fast: 10 days a second",
-        "FUNDS $18.4M",
-        "POPULARITY 68%",
-        "START OVER",
-        "ENGINEER VIEW E",
-        "Mute sound",
-        "Sound and graphics settings",
-        "0.5",
-        "0.8",
-        "1",
-        "CINEMATIC",
-        "FAST"
-      ],
-      "sceneLabels": [
-        "RESEARCH LAB",
-        "FACTORY",
-        "COMMUNICATIONS CENTER",
-        "LAUNCH SITE",
-        "HEADQUARTERS",
-        "CLICK A BUILDING TO WALK IN · DRAG TO MO"
-      ],
-      "topPanels": [
-        "AGENCY BASE · FLIGHT PLAN",
-        "Notifications",
-        "Current mission"
-      ]
-    },
-    {
       "id": "base-mission",
       "name": "Base map (mission chosen)",
       "score": 66.3,
@@ -754,7 +533,7 @@
       "scene": {
         "items": 6,
         "buttons": 5,
-        "words": 20,
+        "words": 22,
         "numbers": 0,
         "canvases": 1
       },
@@ -774,7 +553,7 @@
       "sceneLabels": [
         "RESEARCH LAB",
         "FACTORY",
-        "COMMUNICATIONS CENTER",
+        "COMMUNICATIONS CENTER Next: Brief",
         "LAUNCH SITE",
         "HEADQUARTERS",
         "CLICK A BUILDING TO WALK IN · DRAG TO MO"
@@ -786,56 +565,106 @@
       ]
     },
     {
-      "id": "base",
-      "name": "Base map (no mission)",
-      "score": 59.8,
-      "buttons": 10,
-      "numbers": 17,
+      "id": "design-instruments",
+      "name": "Step 02: Instruments",
+      "score": 64.5,
+      "buttons": 24,
+      "numbers": 6,
       "bareNumbers": 18,
-      "words": 153,
-      "panels": 4,
+      "words": 178,
+      "panels": 8,
       "scene": {
-        "items": 6,
-        "buttons": 5,
-        "words": 20,
+        "items": 2,
+        "buttons": 0,
+        "words": 12,
         "numbers": 0,
         "canvases": 1
       },
-      "screensTall": 1,
+      "screensTall": 1.5,
       "controls": [
-        "Pause time",
-        "Play: 1 day a second",
-        "Fast: 10 days a second",
-        "FUNDS $18.4M",
-        "POPULARITY 68%",
-        "START OVER",
+        "1. Plan Communications Center",
+        "2. Science Research Laboratory",
+        "3. Craft Integration Cleanroom",
+        "4. Rocket Launch Bay Hall",
+        "5. Orbit Trajectory Navigation",
+        "6. Launch Flight Control Center",
+        "1 RISK",
+        "📊 HUD",
+        "← AGENCY BASE",
         "ENGINEER VIEW E",
         "Mute sound",
         "Sound and graphics settings",
-        "NEW MISSION"
+        "IR Spectrometer (BIRCHES-type). 2.4 kg, 12 W, $2.2M, 400 MB ",
+        "Laser Reflectometer. 2 kg, 25 W, $2.5M, 100 MB per month, 2 ",
+        "Narrow-Angle Camera. 0.5 kg, 3 W, $0.2M, 1500 MB per month, ",
+        "Neutron Spectrometer. 2.5 kg, 5 W, $2M, 30 MB per month, 1.8",
+        "IR spectrometer aboard",
+        "Laser",
+        "Camera",
+        "Neutron spectrometer",
+        "← BACK",
+        "CHOOSE THE ROCKET →",
+        "Narrator options",
+        "Close tip"
       ],
       "sceneLabels": [
-        "RESEARCH LAB",
-        "FACTORY",
-        "COMMUNICATIONS CENTER",
-        "LAUNCH SITE",
-        "HEADQUARTERS",
-        "CLICK A BUILDING TO WALK IN · DRAG TO MO"
+        "OVER SUNLIT GROUND IR spectrometer Readi",
+        "DRAG TO LOOK AROUND"
       ],
       "topPanels": [
-        "AGENCY BASE · FLIGHT PLAN",
-        "Notifications",
-        "Current mission"
+        "MOONSHOT",
+        "02 INSTRUMENTS",
+        "ICE COVERAGE FORECAST",
+        "PAYLOAD BAY",
+        "BLIND IN CRATER SHADOWS",
+        "IR SPECTROMETER (BIRCHES-TYPE)",
+        "CAPCOM · ROSA VEGA COMMANDER ROSA VEGA: RETIRED AS"
       ]
     },
     {
       "id": "flight-event",
       "name": "Flight with an event card",
-      "score": 46.8,
+      "score": 49.1,
       "buttons": 11,
-      "numbers": 12,
+      "numbers": 13,
       "bareNumbers": 14,
-      "words": 113,
+      "words": 123,
+      "panels": 3,
+      "scene": {
+        "items": 0,
+        "buttons": 0,
+        "words": 0,
+        "numbers": 0,
+        "canvases": 1
+      },
+      "screensTall": 1.1,
+      "controls": [
+        "Pause time",
+        "Play: 1 day a second",
+        "Fast: 10 days a second",
+        "FUNDS $48.9M",
+        "POPULARITY 66%",
+        "START OVER",
+        "ENGINEER VIEW E",
+        "Mute sound",
+        "Sound and graphics settings",
+        "[1] Book emergency tracking on the big dishes: 60% chance to",
+        "[2] Give up the search. The mission is lost. MISSION ENDS 0%"
+      ],
+      "sceneLabels": [],
+      "topPanels": [
+        "AGENCY BASE · FLIGHT PLAN",
+        "FLIGHT NOTE · EVENT, MONTH 8"
+      ]
+    },
+    {
+      "id": "design-ride",
+      "name": "Step 06: Ride",
+      "score": 48.4,
+      "buttons": 19,
+      "numbers": 9,
+      "bareNumbers": 24,
+      "words": 94,
       "panels": 3,
       "scene": {
         "items": 0,
@@ -846,32 +675,41 @@
       },
       "screensTall": 1,
       "controls": [
-        "Pause time",
-        "Play: 1 day a second",
-        "Fast: 10 days a second",
-        "FUNDS $52.7M",
-        "POPULARITY 66%",
-        "START OVER",
+        "1. Plan Communications Center",
+        "2. Science Research Laboratory",
+        "3. Craft Integration Cleanroom",
+        "4. Rocket Launch Bay Hall",
+        "5. Orbit Trajectory Navigation",
+        "6. Launch Flight Control Center",
+        "1 RISK",
+        "📊 HUD",
+        "← AGENCY BASE",
         "ENGINEER VIEW E",
         "Mute sound",
         "Sound and graphics settings",
-        "[1] Have the team work on a fix: 50% chance; if it works it ",
-        "[2] Fly on as it is: the delta-v on board is halved. NO FIX "
+        "GTO Rideshare to Earth orbit (GTO) · 14 kg max Leaves M7 · a",
+        "Lunar Rideshare to a path to the Moon · 14 kg max Leaves M8 ",
+        "Commercial Lunar Express close to the Moon · 14 kg max Leave",
+        "← BACK",
+        "PLAN THE TRANSFER →",
+        "Narrator options",
+        "Close tip"
       ],
       "sceneLabels": [],
       "topPanels": [
-        "AGENCY BASE · FLIGHT PLAN",
-        "FLIGHT NOTE · EVENT, MONTH 12"
+        "MOONSHOT",
+        "RIDE · PICK A LAUNCH",
+        "CAPCOM · ROSA VEGA COMMANDER ROSA VEGA: RETIRED AS"
       ]
     },
     {
       "id": "flight-space",
       "name": "Flight HUD (space view)",
-      "score": 38.4,
+      "score": 40.3,
       "buttons": 17,
-      "numbers": 7,
-      "bareNumbers": 10,
-      "words": 56,
+      "numbers": 8,
+      "bareNumbers": 11,
+      "words": 52,
       "panels": 2,
       "scene": {
         "items": 0,
@@ -885,8 +723,8 @@
         "Pause time",
         "Play: 1 day a second",
         "Fast: 10 days a second",
-        "FUNDS $53.7M",
-        "POPULARITY 65%",
+        "FUNDS $49.9M",
+        "POPULARITY 68%",
         "START OVER",
         "ENGINEER VIEW E",
         "Mute sound",
@@ -907,13 +745,97 @@
       ]
     },
     {
+      "id": "panel-popularity",
+      "name": "Agency panel: Popularity",
+      "score": 36,
+      "buttons": 11,
+      "numbers": 9,
+      "bareNumbers": 9,
+      "words": 41,
+      "panels": 2,
+      "scene": {
+        "items": 6,
+        "buttons": 5,
+        "words": 14,
+        "numbers": 0,
+        "canvases": 1
+      },
+      "screensTall": 1,
+      "controls": [
+        "Pause time",
+        "Play: 1 day a second",
+        "Fast: 10 days a second",
+        "FUNDS $18.4M",
+        "POPULARITY 68%",
+        "Close",
+        "START OVER",
+        "ENGINEER VIEW E",
+        "Mute sound",
+        "Sound and graphics settings",
+        "NOTIFICATIONS ▸"
+      ],
+      "sceneLabels": [
+        "RESEARCH LAB",
+        "FACTORY",
+        "COMMUNICATIONS CENTER",
+        "LAUNCH SITE",
+        "HEADQUARTERS",
+        "DRAG TO MOVE · SCROLL TO ZOOM"
+      ],
+      "topPanels": [
+        "AGENCY BASE · FLIGHT PLAN"
+      ]
+    },
+    {
+      "id": "panel-funds",
+      "name": "Agency panel: Funds",
+      "score": 32.5,
+      "buttons": 11,
+      "numbers": 7,
+      "bareNumbers": 7,
+      "words": 58,
+      "panels": 2,
+      "scene": {
+        "items": 6,
+        "buttons": 5,
+        "words": 14,
+        "numbers": 0,
+        "canvases": 1
+      },
+      "screensTall": 1,
+      "controls": [
+        "Pause time",
+        "Play: 1 day a second",
+        "Fast: 10 days a second",
+        "FUNDS $18.4M",
+        "POPULARITY 68%",
+        "Close",
+        "START OVER",
+        "ENGINEER VIEW E",
+        "Mute sound",
+        "Sound and graphics settings",
+        "NOTIFICATIONS ▸"
+      ],
+      "sceneLabels": [
+        "RESEARCH LAB",
+        "FACTORY",
+        "COMMUNICATIONS CENTER",
+        "LAUNCH SITE",
+        "HEADQUARTERS",
+        "DRAG TO MOVE · SCROLL TO ZOOM"
+      ],
+      "topPanels": [
+        "AGENCY BASE · FLIGHT PLAN"
+      ]
+    },
+    {
       "id": "mission-result",
       "name": "Mission result pop-up",
-      "score": 30.1,
+      "score": 30,
       "buttons": 3,
       "numbers": 5,
       "bareNumbers": 6,
-      "words": 83,
+      "words": 81,
       "panels": 5,
       "scene": {
         "items": 0,
@@ -931,6 +853,52 @@
       "sceneLabels": [],
       "topPanels": [
         "Mission complete"
+      ]
+    },
+    {
+      "id": "panel-settings",
+      "name": "Agency panel: Sound & graphics settings",
+      "score": 29.7,
+      "buttons": 15,
+      "numbers": 4,
+      "bareNumbers": 7,
+      "words": 26,
+      "panels": 2,
+      "scene": {
+        "items": 6,
+        "buttons": 5,
+        "words": 14,
+        "numbers": 0,
+        "canvases": 1
+      },
+      "screensTall": 1,
+      "controls": [
+        "Pause time",
+        "Play: 1 day a second",
+        "Fast: 10 days a second",
+        "FUNDS $18.4M",
+        "POPULARITY 68%",
+        "START OVER",
+        "ENGINEER VIEW E",
+        "Mute sound",
+        "Sound and graphics settings",
+        "0.5",
+        "0.8",
+        "1",
+        "CINEMATIC",
+        "FAST",
+        "NOTIFICATIONS ▸"
+      ],
+      "sceneLabels": [
+        "RESEARCH LAB",
+        "FACTORY",
+        "COMMUNICATIONS CENTER",
+        "LAUNCH SITE",
+        "HEADQUARTERS",
+        "DRAG TO MOVE · SCROLL TO ZOOM"
+      ],
+      "topPanels": [
+        "AGENCY BASE · FLIGHT PLAN"
       ]
     },
     {
@@ -956,6 +924,47 @@
       "sceneLabels": [],
       "topPanels": [
         "Headquarters: the campaign"
+      ]
+    },
+    {
+      "id": "base",
+      "name": "Base map (no mission)",
+      "score": 21.6,
+      "buttons": 10,
+      "numbers": 4,
+      "bareNumbers": 4,
+      "words": 24,
+      "panels": 1,
+      "scene": {
+        "items": 6,
+        "buttons": 5,
+        "words": 14,
+        "numbers": 0,
+        "canvases": 1
+      },
+      "screensTall": 1,
+      "controls": [
+        "Pause time",
+        "Play: 1 day a second",
+        "Fast: 10 days a second",
+        "FUNDS $18.4M",
+        "POPULARITY 68%",
+        "START OVER",
+        "ENGINEER VIEW E",
+        "Mute sound",
+        "Sound and graphics settings",
+        "NOTIFICATIONS ▸"
+      ],
+      "sceneLabels": [
+        "RESEARCH LAB",
+        "FACTORY",
+        "COMMUNICATIONS CENTER",
+        "LAUNCH SITE",
+        "HEADQUARTERS",
+        "DRAG TO MOVE · SCROLL TO ZOOM"
+      ],
+      "topPanels": [
+        "AGENCY BASE · FLIGHT PLAN"
       ]
     },
     {

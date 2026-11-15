@@ -414,14 +414,15 @@ const SKIP_LAUNCH = `
 const pause = (page) => stores(page, `s.world.getState().setSpeed('paused')`)
 const settle = (page, ms = SETTLE_MS) => page.waitForTimeout(ms)
 
+/** The nine steps in play order, numbered as their own headers number them (00 Brief … 08 Go/No-Go) */
 const STEPS = [
   ['brief', 'Brief'],
   ['planning', 'Planning'],
   ['instruments', 'Instruments'],
+  ['rocket', 'Rocket'],
   ['spacecraft', 'Spacecraft'],
   ['orbit', 'Orbit'],
   ['ride', 'Ride'],
-  ['rocket', 'Rocket'],
   ['comms', 'Comms'],
   ['go-nogo', 'Go/No-Go'],
 ]
@@ -482,11 +483,23 @@ const SCREENS = [
     name: 'Base map (mission chosen)',
     go: (page) => stores(page, `s.world.getState().openMission()`),
   },
-  ...STEPS.map(([step, label], i) => ({
-    id: `design-${step}`,
-    name: `Step ${i + 1}: ${label}`,
-    go: (page) => stores(page, `s.game.getState().setDesignStep(a); s.game.getState().setScreen('design')`, step),
-  })),
+  ...STEPS.flatMap(([step, label], i) => [
+    {
+      id: `design-${step}`,
+      name: `Step ${String(i).padStart(2, '0')}: ${label}`,
+      go: (page) => stores(page, `s.game.getState().setDesignStep(a); s.game.getState().setScreen('design')`, step),
+    },
+    // The Ride step has a second stage, reached only by its own button
+    ...(step === 'ride'
+      ? [
+          {
+            id: 'design-ride-transfer',
+            name: `Step ${String(i).padStart(2, '0')}b: Ride, transfer stage`,
+            go: (page) => page.getByRole('button', { name: /plan the transfer/i }).first().click(),
+          },
+        ]
+      : []),
+  ]),
   {
     id: 'flight-build',
     name: 'Flight: build months on the base',

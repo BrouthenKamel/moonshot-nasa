@@ -1,6 +1,6 @@
 # Clutter baseline
 
-Measured by `pnpm audit:clutter` (scripts/e2e/clutter-audit.mjs) on `chore/clutter-audit` @ `89de90e`, 2026-11-15, at 1440×900.
+Measured by `pnpm audit:clutter` (scripts/e2e/clutter-audit.mjs) on `chore/clutter-audit` @ `7cd7435`, 2026-11-15, at 1440×900.
 
 **Score** = numbers×2 + buttons + panels×3 + words/40. Higher is more cluttered. Numbers weigh most because the
 screen budget allows three; panels weigh three because each one is a separate place the eye has to visit.
@@ -20,27 +20,28 @@ screen budget allows three; panels weigh three because each one is a separate pl
 | # | Screen | Score | Numbers | Buttons | Panels | Words | Scene items | Screens tall | Numbers over budget |
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | Report | **188.3** | 47 | 12 | 24 | 413 | 0 | 2.9 | +44 |
-| 2 | Step 9: Go/No-Go | **168.2** | 33 | 20 | 24 | 409 | 0 | 2 | +30 |
-| 3 | Step 4: Spacecraft | **136.3** | 39 | 28 | 9 | 133 | 10 | 1 | +36 |
-| 4 | Step 8: Comms | **122.5** | 30 | 26 | 9 | 380 | 0 | 2.3 | +27 |
-| 5 | Step 7: Rocket | **106.3** | 19 | 37 | 9 | 171 | 8 | 1 | +16 |
-| 6 | Step 6: Ride | **98.8** | 25 | 22 | 7 | 230 | 0 | 1 | +22 |
-| 7 | Step 3: Instruments | **97.8** | 12 | 32 | 12 | 232 | 2 | 1.6 | +9 |
-| 8 | Step 1: Brief | **92.1** | 17 | 16 | 12 | 244 | 0 | 1.7 | +14 |
-| 9 | Step 2: Planning | **79.6** | 17 | 25 | 6 | 104 | 0 | 1 | +14 |
-| 10 | Agency panel: Popularity | **74.3** | 22 | 11 | 5 | 170 | 6 | 1 | +19 |
-| 11 | Step 5: Orbit | **71.5** | 16 | 21 | 5 | 141 | 0 | 1 | +13 |
-| 12 | Agency panel: Funds | **70.6** | 20 | 11 | 5 | 182 | 6 | 1 | +17 |
-| 13 | Flight: build months on the base | **67.6** | 21 | 9 | 4 | 183 | 7 | 1 | +18 |
-| 14 | Agency panel: Sound & graphics settings | **66.7** | 17 | 14 | 5 | 148 | 6 | 1 | +14 |
-| 15 | Base map (mission chosen) | **66.3** | 20 | 10 | 4 | 171 | 6 | 1 | +17 |
-| 16 | Base map (no mission) | **59.8** | 17 | 10 | 4 | 153 | 6 | 1 | +14 |
-| 17 | Flight with an event card | **46.8** | 12 | 11 | 3 | 113 | 0 | 1 | +9 |
-| 18 | Flight HUD (space view) | **38.4** | 7 | 17 | 2 | 56 | 0 | 1 | +4 |
-| 19 | Mission result pop-up | **30.1** | 5 | 3 | 5 | 83 | 0 | 1.1 | +2 |
+| 2 | Step 08: Go/No-Go | **171.3** | 35 | 19 | 24 | 410 | 0 | 2 | +32 |
+| 3 | Step 04: Spacecraft | **135.3** | 39 | 27 | 9 | 132 | 10 | 1 | +36 |
+| 4 | Step 07: Comms | **121.5** | 30 | 25 | 9 | 379 | 0 | 2.3 | +27 |
+| 5 | Step 03: Rocket | **105.3** | 19 | 36 | 9 | 170 | 8 | 1 | +16 |
+| 6 | Step 05: Orbit | **94.7** | 23 | 17 | 9 | 188 | 0 | 1 | +20 |
+| 7 | Step 00: Brief | **91.1** | 17 | 15 | 12 | 244 | 0 | 1.7 | +14 |
+| 8 | Step 06b: Ride, transfer stage | **85.1** | 19 | 17 | 9 | 122 | 0 | 1 | +16 |
+| 9 | Step 01: Planning | **79.6** | 17 | 25 | 6 | 104 | 0 | 1 | +14 |
+| 10 | Flight: build months on the base | **67.6** | 21 | 9 | 4 | 183 | 7 | 1 | +18 |
+| 11 | Base map (mission chosen) | **66.3** | 20 | 10 | 4 | 171 | 6 | 1 | +17 |
+| 12 | Step 02: Instruments | **64.5** | 6 | 24 | 8 | 178 | 2 | 1.5 | +3 |
+| 13 | Flight with an event card | **49.1** | 13 | 11 | 3 | 123 | 0 | 1.1 | +10 |
+| 14 | Step 06: Ride | **48.4** | 9 | 19 | 3 | 94 | 0 | 1 | +6 |
+| 15 | Flight HUD (space view) | **40.3** | 8 | 17 | 2 | 52 | 0 | 1 | +5 |
+| 16 | Agency panel: Popularity | **36** | 9 | 11 | 2 | 41 | 6 | 1 | +6 |
+| 17 | Agency panel: Funds | **32.5** | 7 | 11 | 2 | 58 | 6 | 1 | +4 |
+| 18 | Mission result pop-up | **30** | 5 | 3 | 5 | 81 | 0 | 1.1 | +2 |
+| 19 | Agency panel: Sound & graphics settings | **29.7** | 4 | 15 | 2 | 26 | 6 | 1 | +1 |
 | 20 | Agency panel: Headquarters (campaign) | **22.4** | 4 | 1 | 4 | 54 | 0 | 1 | +1 |
-| 21 | Agency panel: New mission | **14.3** | 4 | 2 | 1 | 52 | 0 | 1 | +1 |
-| 22 | Title (opening curtain) | **4.6** | 1 | 1 | 0 | 64 | 0 | 1 | ok |
-| 23 | Launch (ride inside the fairing) | **3.3** | 1 | 1 | 0 | 11 | 0 | 1.1 | ok |
+| 21 | Base map (no mission) | **21.6** | 4 | 10 | 1 | 24 | 6 | 1 | +1 |
+| 22 | Agency panel: New mission | **14.3** | 4 | 2 | 1 | 52 | 0 | 1 | +1 |
+| 23 | Title (opening curtain) | **4.6** | 1 | 1 | 0 | 64 | 0 | 1 | ok |
+| 24 | Launch (ride inside the fairing) | **3.3** | 1 | 1 | 0 | 11 | 0 | 1.1 | ok |
 
 Screenshots: `shots/clutter-audit/<id>.png` (git-ignored; re-run the audit to make them).
