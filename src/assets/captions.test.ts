@@ -46,6 +46,14 @@ describe('voice-loop captions', () => {
     expect(useAudioSettings.getState().caption).toBeNull()
   })
 
+  it('caps a caption-only note too, however long its text', async () => {
+    audio.note('Go with a caution on Science. '.repeat(10))
+    await vi.advanceTimersByTimeAsync(10)
+    expect(useAudioSettings.getState().caption).toMatch(/^Go with a caution/)
+    await vi.advanceTimersByTimeAsync(MAX_CAPTION_MS)
+    expect(useAudioSettings.getState().caption).toBeNull()
+  })
+
   it('keeps every caption short-lived: no line is longer than the cap', () => {
     expect(MAX_CAPTION_MS).toBeGreaterThanOrEqual(6000)
     expect(MAX_CAPTION_MS).toBeLessThanOrEqual(10000)
