@@ -11,7 +11,6 @@ import { lunarOrbits as orbits } from '../../data/orbits'
 import { rides } from '../../data/rides'
 import { transfers } from '../../data/transfers'
 import { groundStations } from '../../data/ground'
-import { difficultyPresets } from '../../data/brief'
 import { ChoiceCard, type ChoiceStat } from '../../ui/kit/ChoiceCard'
 
 const CATEGORY_TITLE: Record<string, string> = {
@@ -96,11 +95,6 @@ function Lab() {
         ))}
         {groundStations.map((g) => (
           <ChoiceCard key={`${g.id}-p`} id={g.id} look="portrait" title={g.name} tag="Portrait" onPick={() => pick('ground', g.id)} />
-        ))}
-      </Row>
-      <Row title="Difficulty">
-        {(Object.keys(difficultyPresets) as (keyof typeof difficultyPresets)[]).map((d) => (
-          <ChoiceCard key={d} id={d} size="lg" title={difficultyPresets[d].name} subtitle={difficultyPresets[d].description} selected={picked.difficulty === d} onPick={() => pick('difficulty', d)} />
         ))}
       </Row>
     </div>
