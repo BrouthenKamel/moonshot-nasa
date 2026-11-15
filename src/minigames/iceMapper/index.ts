@@ -1,3 +1,4 @@
+export { FirstMappingPass } from './FirstMappingPass'
 export { IceMapperGame } from './IceMapperGame'
-export { IceMapperRoute, wantsIceMapper } from './IceMapperRoute'
+export { passDue, useIcePassStore } from './passStore'
 export * from './logic'

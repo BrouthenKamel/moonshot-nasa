@@ -5,6 +5,7 @@ import { getOrbitById } from '../../data/orbits'
 import { getPartById } from '../../data/parts'
 import { canUseWebGL } from '../../scene/webgl'
 import { computeBudgets } from '../../sim/budgets'
+import { COVERAGE_TARGET } from '../../sim/evaluate'
 import { isSimComplete } from '../../sim/simulate'
 import type { SimState, TurnLog } from '../../sim/types'
 import { LAUNCH, useUiStore, type FlightCamMode } from '../../state/uiStore'
@@ -18,6 +19,7 @@ import { prefersReducedMotion, useGraphics } from '../../scene/space/quality'
 import { Eng, Flap, Sheet } from '../kit'
 import { EventCard } from './EventCard'
 import { FlightControls } from './FlightControls'
+import { FirstMappingPass } from '../../minigames/iceMapper'
 
 const FlightView = lazy(() => import('../../scene/flight/FlightView').then((m) => ({ default: m.FlightView })))
 const FairingRide = lazy(() => import('../../scene/launch/FairingRide').then((m) => ({ default: m.FairingRide })))
@@ -542,7 +544,7 @@ function IceStrikeWatch({ coverage }: { coverage: number }) {
     if (prev.current === 0 && coverage > 0) {
       audio.say('voice.ice-first')
       audio.play('sfx.capture')
-    } else if (prev.current < 70 && coverage >= 70) {
+    } else if (prev.current < COVERAGE_TARGET && coverage >= COVERAGE_TARGET) {
       audio.say('voice.ice-70')
       audio.play('sfx.go')
     }
@@ -670,6 +672,7 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
       )}
       <CaptureBurnWatch phase={sim.phase} />
       <IceStrikeWatch coverage={sim.coveragePercent} />
+      <FirstMappingPass sim={sim} />
       {showSpace ? (
         <SpaceBar sim={sim} shot={shot} monthFraction={monthFraction} />
       ) : (

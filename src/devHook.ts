@@ -1,4 +1,5 @@
 import { useGameStore } from './state/gameStore'
+import { useIcePassStore } from './minigames/iceMapper'
 import { useUiStore } from './state/uiStore'
 import { useDragStore } from './ui/interaction/dragStore'
 import { useInsideStore } from './ui/interaction/insideStore'
@@ -8,5 +9,5 @@ import { useInsideStore } from './ui/interaction/insideStore'
  * can jump straight to a step and read the design after a drag. Never shipped in production.
  */
 export function installDevHook() {
-  ;(window as unknown as { __moonshot: unknown }).__moonshot = { game: useGameStore, ui: useUiStore, drag: useDragStore, inside: useInsideStore }
+  ;(window as unknown as { __moonshot: unknown }).__moonshot = { game: useGameStore, ui: useUiStore, drag: useDragStore, inside: useInsideStore, icePass: useIcePassStore }
 }
