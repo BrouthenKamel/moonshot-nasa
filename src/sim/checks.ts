@@ -4,6 +4,7 @@ import { getPartById, type InstrumentPart, type PropulsionPart, type RadioPart }
 import { lunarIceMapperBrief, modelConstants as C } from '../data/brief'
 import { buildings, instrumentLabLevel, researchLabLevel } from '../data/agency'
 import { fillWhen, linkLoss } from './budgets'
+import { COVERAGE_TARGET } from './evaluate'
 import type { Design, Budgets, CheckResult, GoNoGoResult, BarStatus, DesignStep } from './types'
 
 /** Where the reserve is set: the Planning step's building (viz/missionMap BUILDING_STEPS; numberTruth.test checks they agree) */
@@ -222,7 +223,7 @@ export function goNoGo(
 
   // Science: never red. A design that cannot meet the brief may still fly.
   // More coverage is better here, so the margin counts up from the target (check() counts down to a limit).
-  const coverageTarget = 70
+  const coverageTarget = COVERAGE_TARGET
   const enough = b.projectedCoverage >= coverageTarget && b.projectedData >= dataTarget
   const science = check(
       'Science',
