@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { useGameStore } from '../../state/gameStore'
+import { useUiStore } from '../../state/uiStore'
 import { DesignDiagramPanel } from '../../viz/DesignDiagramPanel'
 import type { DesignStep } from '../../sim/types'
 import {
@@ -40,11 +42,28 @@ function StepScreen({ designStep }: { designStep: string }) {
 /** Steps that draw their own full view instead of the shared diagram panel. */
 const STEPS_WITHOUT_DIAGRAM: DesignStep[] = ['brief', 'planning', 'instruments', 'rocket', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']
 
+/** The hint ladder's note on the step the Fix button opened; it goes when the player leaves that step */
+function FixHintBanner({ designStep }: { designStep: DesignStep }) {
+  const hint = useUiStore((s) => s.fixHint)
+  const setFixHint = useUiStore((s) => s.setFixHint)
+  useEffect(() => {
+    if (hint && hint.step !== designStep) setFixHint(null)
+  }, [hint, designStep, setFixHint])
+  if (!hint || hint.step !== designStep) return null
+  return (
+    <div role="note" data-testid="fix-hint" className="border-b border-kapton/40 bg-kapton/10 px-4 py-1.5 text-xs text-paper">
+      <span className="fp-label mr-2 text-kapton">Fix this here</span>
+      {hint.why}
+    </div>
+  )
+}
+
 export function DesignScreen() {
   const designStep = useGameStore((s) => s.designStep)
 
   return (
     <>
+      <FixHintBanner designStep={designStep} />
       {!STEPS_WITHOUT_DIAGRAM.includes(designStep) && <DesignDiagramPanel step={designStep} />}
       <StepScreen designStep={designStep} />
     </>

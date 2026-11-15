@@ -1,5 +1,7 @@
 import type { BuildingId } from '../../data/agency'
-import type { DesignStep, Report } from '../../sim/types'
+import { getPartById, type InstrumentPart } from '../../data/parts'
+import { polarOrbitId } from '../../data/orbits'
+import type { Design, DesignStep, Report } from '../../sim/types'
 import { STEP_NAMES, buildingForStep, buildingName } from '../../viz/missionMap'
 
 /**
@@ -112,4 +114,59 @@ function pick(lines: string[], max: number): FixCause[] {
     out.push({ ...found, why: line, building, buildingName: buildingName(building) })
   }
   return out
+}
+
+/**
+ * How many runs in a row, newest first, failed or fell short for the same top cause (the decision it names).
+ * 1 = this is the first time; 2 = the second time (the hint ladder pulses the Fix button); 3 = the third.
+ * History is newest first, and the run just finished is its first entry.
+ */
+export function causeStreak(history: ReadonlyArray<{ report: Report }>, cause: FixCause | undefined): number {
+  if (!cause) return 0
+  let n = 0
+  for (const entry of history) {
+    if (entry.report.outcome === 'success') break
+    if (topCauses(entry.report)[0]?.decision !== cause.decision) break
+    n++
+  }
+  return Math.max(1, n)
+}
+
+/** What "Let me set it for you" can apply: the change to the design, and each change in words */
+export interface AutoFix {
+  patch: Partial<Design>
+  changes: string[]
+}
+
+const shortName = (id: string) => getPartById(id)?.name.replace(/\s*\(.*\)/, '') ?? id
+
+/**
+ * The report's top fix applied for the player, where it is a plain swap: an instrument that sees into shadow
+ * instead of the blind ones, or an orbit low enough for the instruments aboard. Other causes have no
+ * automatic fix (null): their button stays "Fix at ...".
+ */
+export function autoFix(design: Design, cause: FixCause): AutoFix | null {
+  if (cause.decision === 'Instrument choice') {
+    const aboard = design.instruments.map((id) => getPartById(id) as InstrumentPart | undefined).filter((p): p is InstrumentPart => !!p)
+    const seers = aboard.filter((p) => p.seesShadow)
+    if (seers.length > 0 && aboard.every((p) => p.seesShadow)) return null
+    const keep = seers.map((p) => p.id)
+    const next = keep.length ? keep : ['inst-laser']
+    const dropped = aboard.filter((p) => !p.seesShadow).map((p) => shortName(p.id))
+    const added = next.filter((id) => !design.instruments.includes(id)).map(shortName)
+    const changes = [
+      ...(dropped.length ? [`Instruments: removed ${dropped.join(' and ')}`] : []),
+      ...(added.length ? [`Instruments: added ${added.join(' and ')}`] : []),
+    ]
+    return changes.length ? { patch: { instruments: next }, changes } : null
+  }
+  if (cause.decision === 'Orbit height') {
+    const limits = design.instruments
+      .map((id) => (getPartById(id) as InstrumentPart | undefined)?.maxAltitudeKm)
+      .filter((v): v is number => typeof v === 'number')
+    if (!limits.length) return null
+    const km = Math.max(10, Math.min(...limits) - 5)
+    return { patch: { orbit: polarOrbitId(km) }, changes: [`Orbit: lowered to ${km} km over the pole`] }
+  }
+  return null
 }

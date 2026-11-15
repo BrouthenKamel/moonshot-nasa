@@ -18,6 +18,16 @@ export function readsLabel(inst: InstrumentPart): string {
   return inst.kind === 'context' ? 'Maps sunlit ground, not ice' : 'Pictures only, maps no ice'
 }
 
+/**
+ * The one line under the tray when the design is over mass with an ice-seeing instrument aboard beside one
+ * that maps no ice: names that instrument so the player can click it off. Never swaps for them.
+ */
+export function overMassHint(chosen: InstrumentPart[], totalMass: number, massLimit: number): string | null {
+  if (totalMass <= massLimit || !chosen.some((p) => p.seesShadow)) return null
+  const blind = chosen.find((p) => !p.seesShadow)
+  return blind ? `Over mass: remove the ${instrumentShortName(blind)} (click it)` : null
+}
+
 /** The key lesson, in a few words: does it see into the shadowed craters, and from how high */
 export function lessonText(inst: InstrumentPart): string {
   if (!inst.seesShadow)

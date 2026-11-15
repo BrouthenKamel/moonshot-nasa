@@ -4,7 +4,7 @@ const played = vi.hoisted(() => [] as string[])
 vi.mock('../../assets/audio', () => ({ audio: { play: (id: string) => played.push(id) } }))
 
 import { instruments } from '../../data/parts'
-import { blockedThud, instrumentCardView, instrumentStats, lessonText, rowFocusKey } from './instrumentCards'
+import { blockedThud, instrumentCardView, instrumentStats, lessonText, overMassHint, rowFocusKey } from './instrumentCards'
 
 const byId = (id: string) => instruments.find((i) => i.id === id)!
 const open = { id: '', neededLevel: 1, labLevel: 1, locked: false, text: '' }
@@ -44,5 +44,18 @@ describe('instrument cards', () => {
     played.length = 0
     blockedThud(false).onKeyDownCapture({ key: 'Enter' })
     expect(played).toEqual([])
+  })
+})
+
+describe('overMassHint', () => {
+  const laser = byId('inst-laser')
+  const ir = byId('inst-ir-spec')
+  it('names the instrument that maps no ice when an ice instrument pushed the design over mass', () => {
+    expect(overMassHint([ir, laser], 12, 10)).toBe('Over mass: remove the IR spectrometer (click it)')
+  })
+  it('says nothing under the limit, or with no blind instrument to remove', () => {
+    expect(overMassHint([ir, laser], 9, 10)).toBeNull()
+    expect(overMassHint([laser, byId('inst-neutron')], 12, 10)).toBeNull()
+    expect(overMassHint([ir], 12, 10)).toBeNull()
   })
 })

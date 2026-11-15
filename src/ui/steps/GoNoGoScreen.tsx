@@ -12,6 +12,7 @@ import { SynergyStrip } from '../../viz/DesignDeltaLine'
 import { POLL_ORDER, ROLE_INFO, stations, type Role, type Station } from '../../viz/gonogo/stations'
 import { POLL_TIMING, pollEnd } from '../../viz/gonogo/pollEnd'
 import { InlineCaptions } from '../kit/Captions'
+import { LaunchCostLine } from '../agency/LaunchCostLine'
 import { fixLocation } from '../../viz/missionMap'
 import { checkHeadline } from '../../viz/gonogo/checkHeadline'
 import { Details, Eng, Stamp, Tag, stepTitle, type StampVerdict, type TagTone } from '../kit'
@@ -362,6 +363,7 @@ export function GoNoGoScreen() {
   const design = useGameStore((s) => s.design)
   const difficulty = useGameStore((s) => s.difficulty)
   const startSimulation = useGameStore((s) => s.startSimulation)
+  const hasFlown = useGameStore((s) => s.runHistory.length > 0)
 
   const budgets = getBudgets()
   // getGoNoGo reads the design and difficulty from the store
@@ -397,6 +399,8 @@ export function GoNoGoScreen() {
       audio.play(end.kind === 'nogo' ? 'sfx.alarm' : 'sfx.go')
       audio.play('sfx.snap')
     }
+    // A caption left from an earlier poll or step (a stale "Go, Flight.") never sits over the new tiles
+    audio.hush()
     setRun((r) => r + 1)
     setStep(POLL_OPEN)
     if (full) {
@@ -488,6 +492,7 @@ export function GoNoGoScreen() {
           </div>
           <SuccessOdds />
           <div className="mt-auto flex flex-col gap-2">
+            <LaunchCostLine verb={hasFlown ? 'Relaunch' : 'Launch'} className="text-center" />
             <LaunchKey canGo={result.canGo} onLaunch={startSimulation} />
             <div className="flex gap-2">
               <button
