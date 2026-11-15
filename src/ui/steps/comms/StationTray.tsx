@@ -9,6 +9,7 @@ import type { Design } from '../../../sim/types'
 import type { Difficulty } from '../../../data/brief'
 import { Inspector, type InspectorNote } from './Inspector'
 import { hoverSound, useCardRadioGroup } from './useCardRadioGroup'
+import { cardStat, hoverStats } from './cardStats'
 import { hoursAfterSwitch } from './hours'
 import { Eng, stepNumber } from '../../kit'
 
@@ -84,6 +85,7 @@ export function StationTray({
         {rows.map(({ station, whatIf }, i) => {
           // The radio's reach is shown on the radio cards; under a dish, only what this dish changes
           const overBudget = whatIf.budgetMargin < 0 ? `Over budget by $${(-whatIf.budgetMargin).toFixed(1)}M.` : null
+          // One number on the card (hours a day); the rest shows on hover and is read out in full
           const stats: ChoiceStat[] = [
             { label: 'Up to', value: `${station.contactHoursPerDay} h/day` },
             { label: 'Outages', value: station.outageChance <= 0.03 ? 'Rare' : station.outageChance <= 0.07 ? 'Some' : 'Often' },
@@ -92,13 +94,13 @@ export function StationTray({
             { label: 'Outage', value: `${Math.round(station.outageChance * 100)}% a month` },
           ]
           return (
-            <div key={station.id} className="group/station relative flex min-w-0 flex-col gap-2 [&>button]:w-full">
+            <div key={station.id} title={hoverStats(stats)} className="group/station relative flex min-w-0 flex-col gap-2 [&>button]:w-full">
               <ChoiceCard
                 id={station.id}
                 title={station.name}
                 subtitle={station.description}
                 tag={TAG[station.id]}
-                stats={stats}
+                stats={cardStat(stats)}
                 selected={design.groundStation === station.id}
                 look="scene"
                 size="lg"

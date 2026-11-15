@@ -7,6 +7,7 @@ import type { Budgets, Design } from '../../../sim/types'
 import type { Difficulty } from '../../../data/brief'
 import { Inspector, type InspectorNote } from './Inspector'
 import { hoverSound, useCardRadioGroup } from './useCardRadioGroup'
+import { cardStat, hoverStats } from './cardStats'
 import { stepNumber } from '../../kit'
 
 const N = stepNumber('comms')
@@ -67,7 +68,6 @@ export function RadioTray({
           <span className="fp-data text-[11px] text-paper-faint">{`${N}.2`}</span>
           <span className="fp-label text-paper">Spacecraft radio</span>
         </h2>
-        <span className="text-xs text-paper-faint">Arrow keys to switch</span>
       </div>
       <div
         role="radiogroup"
@@ -77,10 +77,11 @@ export function RadioTray({
       >
         {rows.map(({ radio, whatIf, notes }, i) => {
           const selected = design.radio === radio.id
+          // One number on the card (the link rate); the rest shows on hover and is read out in full
           const stats: ChoiceStat[] = [
+            { label: 'Link', value: whatIf.linkKbps > 0 ? `${whatIf.linkKbps} kbps` : 'none', tone: whatIf.linkKbps > 0 ? undefined : 'bad' },
             { label: 'Moon', value: radio.reachesMoon ? 'Reaches' : 'No reach', tone: radio.reachesMoon ? 'good' : 'bad' },
             { label: 'Pointing', value: radio.needsPrecisePointing ? 'Precise' : 'Any' },
-            { label: 'Link', value: whatIf.linkKbps > 0 ? `${whatIf.linkKbps} kbps` : 'none', tone: whatIf.linkKbps > 0 ? undefined : 'bad' },
             { label: 'Mass', value: `${radio.mass} kg` },
             { label: 'Power', value: `${radio.listenPower} / ${radio.transmitPower} W` },
             { label: 'Cost', value: `$${radio.cost}M` },
@@ -88,13 +89,13 @@ export function RadioTray({
           ]
           const worst = notes.find((n) => n.tone === 'bad') ?? notes.find((n) => n.tone === 'warn')
           return (
-            <div key={radio.id} className="flex min-w-0 flex-col gap-2 [&>button]:w-full">
+            <div key={radio.id} title={hoverStats(stats)} className="flex min-w-0 flex-col gap-2 [&>button]:w-full">
               <ChoiceCard
                 id={radio.id}
                 title={radio.name}
                 subtitle={radio.description}
                 tag={TAG[radio.id]}
-                stats={stats}
+                stats={cardStat(stats)}
                 selected={selected}
                 look="portrait"
                 size="lg"
