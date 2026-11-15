@@ -1,5 +1,5 @@
 /**
- * The outcome model for campaign missions 2-4 (PROTOTYPE): far simpler than mission 1's
+ * The outcome model for campaign missions 2-4: far simpler than mission 1's
  * month-by-month flight. One seeded roll for the launch, one for the landing, and the science that
  * follows. Pure and deterministic for a seed. All probabilities are game values (missions.ts).
  */

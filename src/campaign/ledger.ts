@@ -1,5 +1,5 @@
 /**
- * How campaign missions move the agency's money and popularity (PROTOTYPE). Pure functions on the
+ * How campaign missions move the agency's money and popularity. Pure functions on the
  * agency World (src/game/world.ts), so the campaign uses the same wallet, clock and news feed as
  * mission 1. Same rules as the agency: the government pays a share of each budget that grows with
  * popularity, the agency pays the rest at Go, and a failed mission burns its whole budget.

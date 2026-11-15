@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react'
 import { useGameStore } from './state/gameStore'
 import { useViewMode } from './ui/useViewMode'
 import { Shell } from './ui/Shell'
@@ -19,7 +20,6 @@ import { EventCard } from './ui/flight/EventCard'
 import { FlightControls } from './ui/flight/FlightControls'
 import { Narrator } from './ui/narrator/Narrator'
 import { Eng, Flap, Sheet } from './ui/kit'
-import { CampaignLab, wantsCampaignLab } from './campaign/scenes/Lab'
 
 const PHASE_TEXT: Record<string, string> = {
   build: 'Building',
@@ -163,9 +163,16 @@ function ReplayScreen() {
   )
 }
 
+const CampaignLab = import.meta.env.DEV ? lazy(() => import('./campaign/scenes/Lab').then((m) => ({ default: m.CampaignLab }))) : () => null
+
 export default function App() {
-  // Prototype (proto/campaign): the dev-only scene lab for the campaign's shows
-  if (typeof window !== 'undefined' && import.meta.env.DEV && wantsCampaignLab(window.location.search)) return <CampaignLab />
+  // Dev builds only: the scene lab for the campaign's shows (src/campaign/scenes/Lab.tsx), never in the shipped bundle
+  if (import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('campaignlab'))
+    return (
+      <Suspense fallback={null}>
+        <CampaignLab />
+      </Suspense>
+    )
   return <MainApp />
 }
 

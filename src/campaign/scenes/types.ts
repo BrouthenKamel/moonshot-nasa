@@ -1,5 +1,5 @@
 /**
- * The contract between the campaign screens and its cinematic shows (prototype, proto/campaign).
+ * The contract between the campaign screens and its cinematic shows.
  * Every show is a full-screen overlay that plays once and calls onDone at its end (or on Skip).
  */
 export type RocketClass = 'small' | 'medium' | 'heavy' | 'super'

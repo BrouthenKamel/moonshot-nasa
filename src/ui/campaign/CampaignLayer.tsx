@@ -4,7 +4,7 @@ import { CampaignLadder } from './CampaignLadder'
 import { CampaignMissionFlow } from './CampaignMissionFlow'
 
 /**
- * Everything the campaign prototype draws over the agency base: the ladder, a campaign mission in
+ * Everything the campaign draws over the agency base: the ladder, a campaign mission in
  * progress, and mission 1's ice-map payoff when the Ice Mapper settles. Mounted once by BaseScreen.
  */
 export function CampaignLayer() {

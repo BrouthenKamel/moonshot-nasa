@@ -14,7 +14,7 @@ import { clampPopularity, popularityEffects } from './game/economy'
  * Dev builds only: the stores on `window.__moonshot`, so the Playwright checks in `scripts/e2e`
  * can jump straight to a step and read the design after a drag. Never shipped in production.
  *
- * Campaign prototype shortcuts on `window.__moonshot.campaign`:
+ * Campaign shortcuts on `window.__moonshot.campaign`:
  * - `money(funds, popularity)`: set the agency wallet
  * - `iceMapper('success')`: book mission 1 as flown (award + ice-map payoff), without the 14-month flight
  * - `unlock('mars-base')`: mark every mission before it flown and open it

@@ -1,5 +1,5 @@
 /**
- * Where the player stands on the campaign ladder (PROTOTYPE). Pure: the store keeps the records,
+ * Where the player stands on the campaign ladder. Pure: the store keeps the records,
  * this file reads them with the agency's funds and popularity.
  *
  * Rules
@@ -161,4 +161,10 @@ export function markOpened(progress: CampaignProgress, id: CampaignMissionId): C
 /** Is this the mission's first success (for the milestone award)? */
 export function firstSuccess(progress: CampaignProgress, id: CampaignMissionId): boolean {
   return !progress.flights.some((f) => f.missionId === id && f.outcome === 'success')
+}
+
+/** Progress per phase for the Headquarters label: the ice map, the Moon (landing and base), Mars */
+export function hqProgress(progress: CampaignProgress): { satellites: number; moon: number; mars: number } {
+  const f = (id: CampaignMissionId) => (isFlown(progress, id) ? 1 : 0)
+  return { satellites: f('ice-mapper'), moon: (f('moon-landing') + f('moon-base')) / 2, mars: f('mars-base') }
 }

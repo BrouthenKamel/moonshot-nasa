@@ -10,9 +10,10 @@ import type { Outcome } from '../../campaign/scenes/types'
 import { audio } from '../../assets/audio'
 import { Stamp } from '../kit'
 import { MissionArt } from './MissionArt'
+import { DetailsPanel, DetailsToggle } from './CampaignDetails'
 
 /*
- * One campaign mission (missions 2-4, PROTOTYPE), full screen: brief, one screen per design
+ * One campaign mission (missions 2-4), full screen: brief, one screen per design
  * choice, Go, then the liftoff show, the cruise, the payoff and the result.
  * Screen budget on every screen: one decision, at most three numbers, one main action,
  * the rest behind "Details".
@@ -51,7 +52,6 @@ function Frame({
   back?: () => void
   details?: ReactNode
 }) {
-  const [open, setOpen] = useState(false)
   const abandon = useCampaignStore((s) => s.abandon)
   return (
     <div className={`campaign-backdrop ${THEME[mission.id]} fixed inset-0 z-40 overflow-y-auto text-paper`} role="dialog" aria-modal="true" aria-label={title}>
@@ -88,11 +88,7 @@ function Frame({
                 ← Back
               </button>
             )}
-            {details && (
-              <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="fp-label px-2 text-[0.65rem] text-paper-faint hover:text-paper">
-                Details {open ? '▴' : '▾'}
-              </button>
-            )}
+            {details && <DetailsToggle id={`campaign-${mission.id}-${step}`} />}
             <button
               type="button"
               disabled={!action.onClick}
@@ -102,7 +98,11 @@ function Frame({
               {action.label}
             </button>
           </div>
-          {open && details && <div className="mt-3 max-h-60 overflow-y-auto border-t border-rule pt-3 text-xs text-paper-dim">{details}</div>}
+          {details && (
+            <DetailsPanel id={`campaign-${mission.id}-${step}`} className="mt-3 max-h-60 overflow-y-auto border-t border-rule pt-3 text-xs text-paper-dim">
+              {details}
+            </DetailsPanel>
+          )}
         </footer>
       </div>
     </div>
@@ -186,6 +186,15 @@ function Choice({ a, mission, index }: { a: ActiveMission; mission: CampaignMiss
                 All costs, chances and points are game values.
               </td>
             </tr>
+            {choice.options
+              .filter((o) => o.fact)
+              .map((o) => (
+                <tr key={`fact-${o.id}`}>
+                  <td colSpan={5} className="pt-1">
+                    Real: {o.fact!.text} <span className="text-paper-faint">({o.fact!.source})</span>
+                  </td>
+                </tr>
+              ))}
           </tfoot>
         </table>
       }
@@ -209,7 +218,8 @@ function Choice({ a, mission, index }: { a: ActiveMission; mission: CampaignMiss
               <span className={`fp-label text-[0.6rem] ${on ? 'text-kapton' : 'text-paper-faint'}`}>{on ? 'Selected' : 'Option'}</span>
               <span className="fp-display mt-1 text-lg text-paper">{o.name}</span>
               <span className="mt-1 text-sm text-paper-dim">{o.line}</span>
-              {o.fact && (
+              {/* The real-world anchor shows on pick, not as a standing paragraph (screen budget) */}
+              {on && o.fact && (
                 <span className="mt-auto border-l-2 border-ice/50 pl-2 pt-3 text-[0.72rem] leading-snug text-paper-faint">
                   Real: {o.fact.text}
                 </span>

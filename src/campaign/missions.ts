@@ -1,5 +1,5 @@
 /**
- * The campaign ladder (PROTOTYPE, branch proto/campaign): four missions in order, each unlocked by
+ * The campaign ladder: four missions in order, each unlocked by
  * money and popularity. Mission 1 is main's Lunar Ice Mapper, untouched; missions 2-4 are lighter:
  * three design choices each (one per screen) and a simple outcome model (./flight.ts).
  *

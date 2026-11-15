@@ -4,13 +4,10 @@ import { PayoffShow } from './PayoffShow'
 import type { Outcome, PayoffKind, RocketClass } from './types'
 
 /**
- * Dev lab for the campaign shows: `?campaignlab=liftoff&rocket=heavy[&fail=1]` or
- * `?campaignlab=payoff&kind=mars-base&outcome=partial`. Replays on click when a show ends.
+ * Dev lab for the campaign shows (dev builds only, loaded lazily by App):
+ * `?campaignlab=liftoff&rocket=heavy[&fail=1]` or `?campaignlab=payoff&kind=mars-base&outcome=partial`.
+ * Replays on click when a show ends.
  */
-export function wantsCampaignLab(search: string): boolean {
-  return new URLSearchParams(search).has('campaignlab')
-}
-
 export function CampaignLab() {
   const q = new URLSearchParams(window.location.search)
   const [run, setRun] = useState(0)

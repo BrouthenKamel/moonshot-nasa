@@ -11,7 +11,7 @@ import { useWorldStore } from './worldStore'
 import { useGameStore } from './gameStore'
 
 /**
- * The campaign layer (PROTOTYPE, branch proto/campaign) over the agency: the ladder's records,
+ * The campaign layer over the agency: the ladder's records,
  * and the flow of one campaign mission (missions 2-4). Money and popularity live in the agency
  * (worldStore); every change goes through the pure rules in src/campaign/ledger.ts.
  *
@@ -91,7 +91,7 @@ export const useCampaignStore = create<CampaignState>()(
         if (!isOpen(get().progress, mission, w.funds, w.popularity)) return
         set((s) => ({ progress: markOpened(s.progress, id), ladderOpen: false }))
         if (id === 'ice-mapper') {
-          // Main's flow, exactly as the New mission dialog starts it
+          // Main's own flow: a finished flight goes to the history, the new mission starts at the Comms Center
           const game = useGameStore.getState()
           if (game.simState) game.startNewMission()
           useWorldStore.getState().openMission()

@@ -6,9 +6,10 @@ import { useWorldStore } from '../../state/worldStore'
 import { useGameStore } from '../../state/gameStore'
 import { isSimComplete } from '../../sim/simulate'
 import { Stamp } from '../kit'
+import { DetailsPanel, DetailsToggle } from './CampaignDetails'
 
 /*
- * The campaign view (PROTOTYPE): the ladder from the ice map to a base on Mars, over the agency
+ * The campaign view: the ladder from the ice map to a base on Mars, over the agency
  * base. Screen budget: one decision (what to fly next), the gate as two bars, one main action,
  * every other number behind "Details".
  */
@@ -131,15 +132,13 @@ function Trajectory({ rungs, selected, onSelect }: { rungs: Rung[]; selected: nu
   )
 }
 
-function Bar({ label, value, target, share, fmt }: { label: string; value: number; target: number; share: number; fmt: (x: number) => string }) {
-  const met = value >= target
+function Bar({ label, short, share, fmt }: { label: string; short: number; share: number; fmt: (x: number) => string }) {
+  const met = short <= 0
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
         <span className="fp-label text-[0.62rem] text-paper-dim">{label}</span>
-        <span className={`fp-data text-sm font-semibold ${met ? 'text-go' : 'text-paper'}`}>
-          {fmt(value)} <span className="text-paper-faint">/ {fmt(target)}</span>
-        </span>
+        <span className={`fp-data text-sm font-semibold ${met ? 'text-go' : 'text-paper'}`}>{met ? 'Reached' : `${fmt(short)} to go`}</span>
       </div>
       <div className="mt-1 h-2.5 border border-rule bg-ink-0">
         <div className={`hud-bar-segments h-full transition-[width] duration-700 ${met ? 'bg-go' : 'bg-kapton'}`} style={{ width: `${Math.round(share * 100)}%` }} />
@@ -164,7 +163,6 @@ export function CampaignLadder() {
   // The card follows the highlighted next step unless the player clicked another rung since it moved
   const selected = picked && picked.forNext === nextIdx ? picked.idx : nextIdx
   const setSelected = (idx: number) => setPicked({ idx, forNext: nextIdx })
-  const [details, setDetails] = useState(false)
   const gate = gateProgress(progress, funds, popularity)
   const iceFlying = !!simState && !isSimComplete(simState)
 
@@ -232,16 +230,14 @@ export function CampaignLadder() {
           {isNext && gate && (
             <div className="mt-4 space-y-3">
               <div className="fp-label text-[0.62rem] text-paper-faint">
-                {gate.previousFlown ? `Unlocks at ${money(gate.gate.funds)} and ${gate.gate.popularity}% popularity` : `Opens after the ${CAMPAIGN[m.n - 2].name}, at`}
+                {gate.previousFlown ? 'Unlocks with enough funds and popularity' : `Opens after the ${CAMPAIGN[m.n - 2].name}, with`}
               </div>
-              <Bar label="Funds" value={funds} target={gate.gate.funds} share={gate.fundsShare} fmt={money} />
-              <Bar label="Popularity" value={popularity} target={gate.gate.popularity} share={gate.popularityShare} fmt={(x) => `${Math.round(x)}%`} />
+              <Bar label="Funds" short={gate.gate.funds - funds} share={gate.fundsShare} fmt={money} />
+              <Bar label="Popularity" short={gate.gate.popularity - popularity} share={gate.popularityShare} fmt={(x) => `${Math.ceil(x)} points`} />
             </div>
           )}
           {isNext && !gate && CAMPAIGN[m.n] && (
-            <p className="mt-3 text-xs text-paper-faint">
-              Then: the {CAMPAIGN[m.n].name} unlocks at {money(CAMPAIGN[m.n].gate!.funds)} and {CAMPAIGN[m.n].gate!.popularity}% popularity.
-            </p>
+            <p className="mt-3 text-xs text-paper-faint">Then the {CAMPAIGN[m.n].name} opens, once the agency has the money and popularity for it.</p>
           )}
           {!next && <p className="mt-3 text-sm text-go">Campaign complete: your agency has a base on Mars.</p>}
 
@@ -255,10 +251,8 @@ export function CampaignLadder() {
             {action.label}
           </button>
 
-          <button type="button" onClick={() => setDetails(!details)} aria-expanded={details} className="fp-label mt-4 text-[0.65rem] text-paper-faint hover:text-paper">
-            Details {details ? '▴' : '▾'}
-          </button>
-          {details && (
+          <DetailsToggle id="campaign" className="mt-4" />
+          <DetailsPanel id="campaign">
             <div className="mt-2 space-y-3 text-xs">
               <table className="w-full border-collapse">
                 <thead>
@@ -292,7 +286,7 @@ export function CampaignLadder() {
                 </p>
               ))}
             </div>
-          )}
+          </DetailsPanel>
         </section>
       </div>
     </div>

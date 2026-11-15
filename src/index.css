@@ -505,7 +505,7 @@ body { margin: 0; font-family: var(--font-sans); background: var(--color-ink-1);
 }
 
 /* ------------------------------------------------------------------ */
-/* Campaign prototype (proto/campaign): ladder and mission overlays    */
+/* The campaign: ladder and mission overlays (src/ui/campaign)         */
 /* ------------------------------------------------------------------ */
 .campaign-backdrop {
   background:

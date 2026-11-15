@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { CAMPAIGN, defaultPicks, missionById, planOf, type CampaignMission, type Picks } from './missions'
 import { flyMission, outcomeOdds } from './flight'
 import { agencyShare, approveCampaignMission, awardIceMapper, canAfford, settleCampaignFlight } from './ledger'
-import { buildUpMission, minimumShare, repeatValue, emptyProgress, gateProgress, ladder, markOpened, nextMission, recordFlight, type CampaignProgress } from './progress'
+import { buildUpMission, hqProgress, minimumShare, repeatValue, emptyProgress, gateProgress, ladder, markOpened, nextMission, recordFlight, type CampaignProgress } from './progress'
 import { advanceDays, approveMission, initialWorld, missionTurned, type MissionSnapshot, type World } from '../game/world'
 
 /** The picks with the best landing chance: what a careful player does */
@@ -169,6 +169,20 @@ describe('ladder and gates', () => {
   it('makes a careful repeat flight of missions 2 and 3 worth money on average', () => {
     // Mars is the last rung: it never builds up for a later gate
     for (const m of CAMPAIGN.slice(1, 3)) expect(repeatValue(m, m.gate!.popularity), m.id).toBeGreaterThan(0)
+  })
+})
+
+describe('hqProgress', () => {
+  it('fills the Headquarters phases as the ladder is flown', () => {
+    expect(hqProgress(emptyProgress())).toEqual({ satellites: 0, moon: 0, mars: 0 })
+    const p = recordFlight(recordFlight(emptyProgress(), { missionId: 'ice-mapper', outcome: 'success', science: 0, day: 0, seed: 1 }), {
+      missionId: 'moon-landing',
+      outcome: 'partial',
+      science: 0,
+      day: 0,
+      seed: 2,
+    })
+    expect(hqProgress(p)).toEqual({ satellites: 1, moon: 0.5, mars: 0 })
   })
 })
 
