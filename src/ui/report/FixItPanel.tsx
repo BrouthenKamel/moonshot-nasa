@@ -1,6 +1,7 @@
 import { useGameStore } from '../../state/gameStore'
 import type { Report } from '../../sim/types'
 import { STEP_NAMES } from '../../viz/missionMap'
+import { Sheet, Tag } from '../kit'
 import { topCauses } from './fixIt'
 
 /**
@@ -15,46 +16,42 @@ export function FixItPanel({ report }: { report: Report }) {
   if (causes.length === 0) return null
 
   return (
-    <section aria-labelledby="fixit-title" className="hud-panel rounded-2xl border-l-4 border-l-orange-500 p-5">
+    <Sheet as="section" aria-labelledby="fixit-title" className="border-t-2 border-t-kapton p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-orange-400">
-            Engineering Action Order
-          </div>
-          <h2 id="fixit-title" className="mt-0.5 font-display text-lg font-bold text-orange-200">
+          <div className="fp-label text-kapton">Engineering Action Order</div>
+          <h2 id="fixit-title" className="mt-0.5 fp-display text-lg text-paper">
             What to fix
           </h2>
         </div>
-        <span className="rounded-md border border-orange-400/30 bg-orange-500/10 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-orange-300">
+        <Tag tone="kapton">
           {causes.length} {causes.length === 1 ? 'priority change' : 'priority changes'}
-        </span>
+        </Tag>
       </div>
-      <p className="mt-1.5 text-sm text-slate-300">
+      <p className="mt-1.5 text-sm text-paper-dim">
         {causes.length === 1 ? 'This decision' : 'These decisions'} cost the mission most. Your design is kept: change{' '}
         {causes.length === 1 ? 'it' : 'them'} and launch again.
       </p>
       <ol className="mt-3 space-y-3">
         {causes.map((c, i) => (
-          <li key={c.step} className="rounded-xl border border-white/10 bg-slate-900/75 p-3.5">
+          <li key={c.step} className="border-b border-rule pb-3 last:border-b-0">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded bg-orange-500/20 px-1.5 py-0.5 font-mono text-[10px] font-bold text-orange-300">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <span className="font-medium text-slate-100">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="fp-data text-[11px] text-kapton">{String(i + 1).padStart(2, '0')}</span>
+                  <span className="font-medium text-paper">
                     {i + 1}. {c.decision}
                   </span>
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
+                  <span className="fp-label text-[10px] text-paper-faint">
                     {c.buildingName} · {STEP_NAMES[c.step]}
                   </span>
                 </div>
-                <div className="mt-1.5 text-sm text-slate-300">{c.why}</div>
+                <div className="mt-1.5 text-sm text-paper-dim">{c.why}</div>
               </div>
               <button
                 type="button"
                 onClick={() => reviseAt(c.step)}
-                className="shrink-0 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-orange-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-300"
+                className="fp-btn-primary shrink-0"
                 aria-label={`Fix ${c.decision} at the ${c.buildingName}, ${STEP_NAMES[c.step]} step`}
               >
                 {`Fix at ${c.buildingName}`}
@@ -63,7 +60,7 @@ export function FixItPanel({ report }: { report: Report }) {
           </li>
         ))}
       </ol>
-    </section>
+    </Sheet>
   )
 }
 
@@ -75,7 +72,7 @@ export function RelaunchButton({ report }: { report: Report }) {
     <button
       type="button"
       onClick={() => reviseAt(first?.step ?? 'brief')}
-      className="tactical-btn-back flex-1 justify-center py-3 text-sm"
+      className="fp-btn-secondary flex-1 justify-center py-3 text-sm"
       title={first ? `Keeps your design and opens the ${first.buildingName} (${STEP_NAMES[first.step]})` : 'Keeps your design'}
     >
       Relaunch with changes
