@@ -14,7 +14,7 @@ describe('instrument cards', () => {
   it('keep the key lesson: shadow and altitude limit', () => {
     expect(lessonText(byId('inst-laser'))).toContain('below 20 km')
     expect(lessonText(byId('inst-neutron'))).toContain('below 25 km')
-    expect(lessonText(byId('inst-ir-spec'))).toContain('Needs sunlight')
+    expect(lessonText(byId('inst-ir-spec'))).toContain('sunlit ground only')
     expect(instrumentStats(byId('inst-camera')).find((s) => s.label === 'Shadow')).toMatchObject({ tone: 'bad' })
   })
 

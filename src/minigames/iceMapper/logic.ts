@@ -1,5 +1,6 @@
 import { getPartById, type InstrumentPart } from '../../data/parts'
-import { computeBudgets, createDefaultDesign } from '../../sim/budgets'
+import { getOrbitById } from '../../data/orbits'
+import { computeBudgets, createDefaultDesign, iceSignal } from '../../sim/budgets'
 import { COVERAGE_TARGET } from '../../sim/evaluate'
 import type { Design } from '../../sim/types'
 
@@ -81,26 +82,37 @@ export interface Scanner {
   /** Radius of the scanner's reach, in nominal pixels */
   beam: number
   seesDark: boolean
-  /** The camera takes pictures, not ice readings */
+  /**
+   * Reads ice at all, by the sim's own model (sim/firstPass.ts, budgets.ts): only an instrument that sees into
+   * shadow does, and only from within reach of its altitude limit. The IR spectrometer and the camera map no ice.
+   */
   mapsIce: boolean
+  /** It sees into shadow but the orbit is too high for it to read anything */
+  tooHigh: boolean
   watts: number
   /** One line for the briefing */
   blurb: string
 }
 
 /** The game's version of an instrument, read from the same numbers the simulation uses */
-export function scannerFor(p: InstrumentPart): Scanner {
+export function scannerFor(p: InstrumentPart, altitudeKm = 0): Scanner {
   // data rate 30 MB (neutron) .. 1500 MB (camera) a month maps to 0.7 .. 1.15
-  const rate = 0.7 + (0.45 * Math.log10(Math.max(p.dataPerTurn, 30) / 30)) / Math.log10(50)
+  const baseRate = 0.7 + (0.45 * Math.log10(Math.max(p.dataPerTurn, 30) / 30)) / Math.log10(50)
+  // Orbit height counts as in the sim: above the instrument's limit its signal fades
+  const signal = iceSignal(p.maxAltitudeKm, altitudeKm)
+  const rate = baseRate * signal
   const beam = BEAM_AT_REFERENCE * Math.sqrt(p.footprint / 0.02)
-  const mapsIce = p.kind !== 'outreach'
+  const tooHigh = p.seesShadow && signal === 0
+  const mapsIce = p.seesShadow && signal > 0
   const speed = rate >= 1 ? 'Fast' : rate >= 0.8 ? 'Medium speed' : 'Slow'
-  const blurb = !mapsIce
-    ? 'Takes pictures, but cannot read ice.'
-    : p.seesShadow
+  const blurb = tooHigh
+    ? `Too high at ${Math.round(altitudeKm)} km: it reads no ice from here.`
+    : mapsIce
       ? `${speed}. Sees into the dark craters.`
-      : `${speed}. Blind in permanent shadow.`
-  return { id: p.id, name: p.name.replace(/\s*\(.*\)$/, ''), rate: Math.round(rate * 100) / 100, beam: Math.round(beam), seesDark: p.seesShadow, mapsIce, watts: Math.abs(p.power), blurb }
+      : p.kind === 'outreach'
+        ? 'Takes pictures, maps no ice.'
+        : 'Maps no ice: it cannot see into permanent shadow.'
+  return { id: p.id, name: p.name.replace(/\s*\(.*\)$/, ''), rate: Math.round(rate * 100) / 100, beam: Math.round(beam), seesDark: p.seesShadow && signal > 0, mapsIce, tooHigh, watts: Math.abs(p.power), blurb }
 }
 
 export interface PassSetup {
@@ -117,8 +129,8 @@ export interface PassSetup {
 }
 
 /** Battery and instruments in, the pass out. A bigger battery or a lighter instrument gives a longer, calmer pass. */
-export function makeSetup(instruments: InstrumentPart[], batteryUsableWh: number): PassSetup {
-  const scanners = instruments.map(scannerFor)
+export function makeSetup(instruments: InstrumentPart[], batteryUsableWh: number, altitudeKm = 0): PassSetup {
+  const scanners = instruments.map((p) => scannerFor(p, altitudeKm))
   const watts = scanners.reduce((sum, s) => sum + s.watts, 0) + BUS_WATTS
   const hours = batteryUsableWh / watts
   const duration = Math.round(Math.min(MAX_DURATION, Math.max(MIN_DURATION, hours * GAME_SECONDS_PER_HOUR)))
@@ -128,7 +140,7 @@ export function makeSetup(instruments: InstrumentPart[], batteryUsableWh: number
 /** The pass for a design: its instruments and its battery */
 export function setupFromDesign(design: Design = createDefaultDesign()): PassSetup {
   const instruments = design.instruments.map((id) => getPartById(id)).filter((p): p is InstrumentPart => p?.category === 'instrument')
-  return makeSetup(instruments, computeBudgets(design, 'engineer').batteryUsableWh)
+  return makeSetup(instruments, computeBudgets(design, 'engineer').batteryUsableWh, getOrbitById(design.orbit)?.altitude ?? 0)
 }
 
 /** What the scanners can do to one area: the best rate among those that can read it, or why none can */
@@ -263,7 +275,11 @@ export function summarize(st: PassState): PassResult {
   const names = setup.scanners.map((s) => s.name).join(' and ') || 'No instrument'
   let insight: string
   if (unreachable >= 100 - setup.target + 0.001) {
-    const cause = setup.scanners.some((s) => s.mapsIce) ? 'cannot see into permanently shadowed craters' : 'takes pictures, not ice readings'
+    const cause = setup.scanners.some((s) => s.tooHigh)
+      ? 'is too high at this orbit to read any ice'
+      : setup.scanners.some((s) => s.mapsIce)
+        ? 'cannot see into permanently shadowed craters'
+        : 'maps no ice: only an instrument that sees into shadow does'
     insight = `The ${names} ${cause}: ${Math.round(unreachable)}% of the ice was out of its reach, so ${setup.target}% was never possible. A laser or a neutron instrument can read it.`
   } else if (total >= setup.target) {
     insight = `Mapped ${Math.round(total)}% with the ${names}, with ${Math.max(0, Math.round(setup.duration - st.t))} s of battery to spare.`
@@ -387,7 +403,12 @@ export function passWhy(setup: PassSetup, r: PassResult): string {
   const readers = setup.scanners.filter((s) => s.mapsIce)
   const names = (setup.scanners.length ? setup.scanners : readers).map((s) => s.name).join(' and ') || 'craft'
   if (locked.length) {
-    const why = readers.length === 0 ? `the ${names} reads no ice` : `the ${readers.map((s) => s.name).join(' and ')} cannot see into permanent shadow`
+    const why =
+      readers.length === 0
+        ? setup.scanners.some((s) => s.tooHigh)
+          ? `the orbit is too high for the ${names}`
+          : `the ${names} maps no ice: only an instrument that sees into shadow does`
+        : `the ${readers.map((s) => s.name).join(' and ')} cannot see into permanent shadow`
     return `Locked out of ${listNames(locked.map((a) => a.name))}: ${why}.`
   }
   if (!missed.length) return 'Every crater mapped.'

@@ -19,9 +19,9 @@ import { useHideCaptions } from '../../ui/kit/Captions'
  *
  * Dev only: `&payoffAt=7.5` freezes the show at that second (for screenshots).
  */
-export function PayoffShow({ kind, outcome, onDone }: PayoffShowProps) {
+export function PayoffShow({ kind, outcome, cause, onDone }: PayoffShowProps) {
   const end = payoffDuration(kind, outcome)
-  const beats = useMemo(() => payoffBeats(kind, outcome), [kind, outcome])
+  const beats = useMemo(() => payoffBeats(kind, outcome, cause), [kind, outcome, cause])
   const cues = useMemo(() => payoffCues(kind, outcome), [kind, outcome])
   const reduced = useMemo(() => prefersReducedMotion(), [])
   const frozenAt = useMemo(() => {

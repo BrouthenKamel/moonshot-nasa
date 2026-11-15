@@ -12,6 +12,7 @@ import {
   instrumentColor,
   instrumentShortName,
   lessonText,
+  readsLabel,
   playToggle,
   rowFocusKey,
 } from '../../../scene/instrumentStage/instrumentCards'
@@ -80,7 +81,7 @@ function Tile({
         <div className="px-2 pb-2 pt-1">
           <div className="min-h-[2.1em] text-[0.8rem] font-semibold leading-tight text-paper">{instrumentShortName(inst)}</div>
           <div className={`truncate text-[0.64rem] ${inst.seesShadow ? 'text-ice' : 'text-paper-faint'}`}>
-            {inst.seesShadow ? 'Sees into shadow' : 'Sunlit ground only'}
+            {readsLabel(inst)}
           </div>
         </div>
         {/* Its beam colour, lit when aboard: the same colour as its beam and read-out on the stage */}

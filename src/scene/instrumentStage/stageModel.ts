@@ -156,7 +156,8 @@ export function activityText(view: InstrumentView, overShadow: boolean): string 
   if (view.outOfRange) return 'Out of range at this height'
   if (view.veryWeak) return view.heightIsCause ? 'Very weak at this height' : 'Very weak'
   if (overShadow && !view.seesShadow) return 'Blind right now: no sunlight down there'
-  return overShadow ? 'Reading the dark crater floor' : 'Reading sunlit ground'
+  if (overShadow) return 'Reading the dark crater floor'
+  return view.countsAs === 'outreach' ? 'Taking pictures' : view.countsAs === 'context' ? 'Mapping sunlit ground' : 'Reading sunlit ground'
 }
 
 /** 0..1 visibility of cyan ice glints inside shadowed craters over the shadowed craters. */

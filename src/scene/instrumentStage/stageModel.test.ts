@@ -171,7 +171,7 @@ describe('activityText', () => {
   })
   it('is blind over shadow when it needs sunlight', () => {
     expect(activityText(ir, true)).toBe('Blind right now: no sunlight down there')
-    expect(activityText(ir, false)).toBe('Reading sunlit ground')
+    expect(activityText(ir, false)).toBe('Mapping sunlit ground')
   })
   it('says very weak without height when pointing is the cause', () => {
     expect(activityText({ ...v, strength: 0.1, veryWeak: true, heightIsCause: false }, true)).toBe('Very weak')

@@ -63,3 +63,16 @@ describe('transferBlocker', () => {
     expect(transferBlocker({ ...ok, ionEngine: true, days: 4, minDays: 90 })).toBe('Fix the transfer first'))
   it('blocks when the Moon is never reached', () => expect(transferBlocker({ ...ok, cruiseMonths: null })).toBe('Fix the transfer first'))
 })
+
+describe('flight-time slider arrow keys', () => {
+  it('a day per press below 30 days reaches the 4-day minimum', () => {
+    let pos = positionOfDays(7)
+    for (let i = 0; i < 10; i++) {
+      // the same rule as RideScreen's daysKeyStep: one day while under 30
+      const d = daysAt(pos)
+      if (d <= 4) break
+      pos = positionOfDays(d - 1)
+    }
+    expect(daysAt(pos)).toBe(4)
+  })
+})

@@ -56,7 +56,7 @@ describe('passWhy: one sentence on the result', () => {
   it('names the locked craters for a design that cannot see into shadow', () => {
     const su = setupFromDesign(blind)
     const why = passWhy(su, summarize(autoplay(su)))
-    expect(why).toMatch(/^Locked out of Shackleton, Faustini and \d+ more: the IR Spectrometer cannot see into permanent shadow\.$/)
+    expect(why).toMatch(/^Locked out of Shackleton, Faustini and \d+ more: the IR Spectrometer maps no ice: only an instrument that sees into shadow does\.$/)
   })
 
   it('names the missed craters and the footprint when a narrow beam misses some', () => {
@@ -100,7 +100,14 @@ describe('the autopilot goes to the craters the payload can read', () => {
   it('a laser (sees into shadow) starts on a shadowed crater, not sunlit Amundsen', () => {
     expect(firstTarget(seeing)?.dark).toBe(true)
   })
-  it('an IR spectrometer (sunlit only) starts on a sunlit crater', () => {
-    expect(firstTarget(blind)?.dark).toBe(false)
+  it('an IR spectrometer maps no ice (the sim says 0%), so there is nothing to aim at', () => {
+    expect(firstTarget(blind)).toBeNull()
+  })
+  it('orbit height counts as in the sim: a laser at 100 km reads no ice', () => {
+    const high = design({ instruments: ['inst-laser'], battery: 'battery-large', orbit: 'orbit-polar-100' })
+    expect(computeBudgets(high, 'engineer').projectedCoverage).toBe(0)
+    const r = summarize(autoplay(setupFromDesign(high)))
+    expect(r.mapped).toBe(0)
+    expect(r.perArea.every((a) => a.blocked !== null)).toBe(true)
   })
 })

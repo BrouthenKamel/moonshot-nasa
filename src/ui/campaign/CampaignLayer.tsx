@@ -37,7 +37,7 @@ export function CampaignLayer() {
       {active ? <CampaignMissionFlow /> : ladderOpen && <CampaignLadder />}
       {payoff && (
         <div className="relative z-[60]">
-          <PayoffShow kind={payoff.kind} outcome={payoff.outcome} onDone={clearPayoff} />
+          <PayoffShow kind={payoff.kind} outcome={payoff.outcome} cause={payoff.cause} onDone={clearPayoff} />
         </div>
       )}
     </>

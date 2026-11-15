@@ -18,5 +18,7 @@ export interface LiftoffShowProps {
 export interface PayoffShowProps {
   kind: PayoffKind
   outcome: Outcome
+  /** Why a failed flight ended (the flight's own ending); the ice map's last line names it */
+  cause?: string
   onDone: () => void
 }

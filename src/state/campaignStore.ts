@@ -49,7 +49,7 @@ interface CampaignState {
   lastPicks: Partial<Record<CampaignMissionId, Picks>>
   active: ActiveMission | null
   /** A payoff to play over the base (mission 1's ice map) */
-  pendingPayoff: { kind: PayoffKind; outcome: Outcome } | null
+  pendingPayoff: { kind: PayoffKind; outcome: Outcome; cause?: string } | null
   /** Agency mission seeds already booked on the ladder */
   bookedSeeds: number[]
 
@@ -184,13 +184,16 @@ export function bookIceMapper(world: Pick<World, 'mission'>) {
   const store = useCampaignStore.getState()
   if (store.bookedSeeds.includes(m.seed)) return
   const outcome: Outcome = m.last.outcome ?? 'failed'
+  // Why a failed flight ended, from the flight itself, so the show's last line names the real cause
+  const sim = useGameStore.getState().simState
+  const cause = outcome === 'failed' && sim && sim.seed === m.seed ? sim.flight.end || undefined : undefined
   const mission = CAMPAIGN[0]
   const first = firstSuccess(store.progress, mission.id)
   useWorldStore.setState(awardIceMapper(worldOf(), mission, outcome, first))
   useCampaignStore.setState((s) => ({
     bookedSeeds: [...s.bookedSeeds, m.seed],
     progress: recordFlight(s.progress, { missionId: mission.id, outcome, science: Math.round(m.last.coverage), day: useWorldStore.getState().day, seed: m.seed }),
-    pendingPayoff: { kind: 'ice-map', outcome },
+    pendingPayoff: { kind: 'ice-map', outcome, cause },
   }))
 }
 

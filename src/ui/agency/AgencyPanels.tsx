@@ -14,7 +14,9 @@ import type { FeedItem } from '../../game/world'
 import { difficultyPresets } from '../../data/brief'
 import { computeBudgets } from '../../sim/budgets'
 import { isSimComplete } from '../../sim/simulate'
-import type { SimState } from '../../sim/types'
+import type { Design, SimState } from '../../sim/types'
+import { getPartById, type InstrumentPart } from '../../data/parts'
+import { getOrbitById } from '../../data/orbits'
 import { FlightPlan, FlightViewToggle } from '../flight/FlightStage'
 import { STAGE_NAMES, missionClockLabel, type MissionLogEntry, type MissionStage, type MissionStatusView } from '../../viz/missionMap'
 import { Eng, Sheet, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
@@ -347,6 +349,8 @@ export function MissionPanel({
   const projectedIce = computeBudgets(flownDesign, difficulty).projectedCoverage
   const instrumentsChosen = !!sim || visitedSteps.includes('instruments')
   const cannotMapIce = instrumentsChosen && projectedIce < 0.5 && !(sim && sim.coveragePercent > 0)
+  // The real cause: nothing aboard sees into shadow, or what does is too high in this orbit
+  const iceBlock = iceBlockCause(flownDesign)
 
   return (
     <Sheet as="section" tone="raised" aria-label="Current mission" className="flex min-h-0 flex-col p-4 text-paper">
@@ -378,8 +382,7 @@ export function MissionPanel({
       {cannotMapIce && (
         <div role="note" className="mt-3 border-l-[3px] border-caution bg-caution/10 px-2.5 py-2 text-xs text-paper">
           <span className="fp-label mr-1 text-caution">Caution</span>
-          <span className="font-semibold">This craft cannot map ice.</span> The ice hides in craters that never see the
-          Sun; only a laser reflectometer or a neutron spectrometer sees there, and only in a low enough orbit.
+          <span className="font-semibold">This craft cannot map ice.</span> {iceBlock.text}
           {sim && !over ? ' Ice mapped will stay at 0%.' : ' Change the instruments at the Research Lab.'}
         </div>
       )}
@@ -726,4 +729,22 @@ export function MissionResultDialog({
       </Sheet>
     </div>
   )
+}
+
+/** Why a craft cannot map ice, in one sentence: its instruments, or the height of its orbit */
+export function iceBlockCause(design: Design): { cause: 'instruments' | 'orbit-height'; text: string } {
+  const shadowSeers = design.instruments
+    .map((id) => getPartById(id) as InstrumentPart | undefined)
+    .filter((p): p is InstrumentPart => !!p && p.seesShadow)
+  if (shadowSeers.length === 0)
+    return {
+      cause: 'instruments',
+      text: 'The ice hides in craters that never see the Sun, and nothing aboard sees there: only a laser reflectometer or a neutron spectrometer does.',
+    }
+  const altitude = getOrbitById(design.orbit)?.altitude
+  const limits = shadowSeers.map((p) => `${p.name.replace(/\s*\(.*\)/, '')} works below ${p.maxAltitudeKm ?? 'any'} km`).join('; ')
+  return {
+    cause: 'orbit-height',
+    text: `The orbit is too high: ${altitude ?? '?'} km over the pole, and ${limits}. Lower the orbit at the Orbit step.`,
+  }
 }

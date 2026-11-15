@@ -170,7 +170,26 @@ const CUES: Record<PayoffKind, Record<Outcome, Cue[]>> = {
   },
 }
 
-export function payoffBeats(kind: PayoffKind, outcome: Outcome): Beat[] {
+/**
+ * The closing beat of a failed ice map: the real cause, not always "went silent before its first scan"
+ * (QC batch 4). `cause` is the flight's own ending ("budget ran out in orbit", "lost contact after deployment", …).
+ */
+export function iceFailureBeat(cause?: string): Beat {
+  const c = (cause ?? '').toLowerCase()
+  const at = 2.9
+  if (c.startsWith('lost contact')) return { at, kicker: 'Signal lost', text: 'The orbiter went silent and never sent its first map.', sfx: 'sfx.static' }
+  if (c.startsWith('budget ran out')) return { at, kicker: 'Out of money', text: 'The money ran out before the map was finished.', sfx: 'sfx.error' }
+  if (c.includes('capture') || c.includes('orbit lost') || c.includes('propellant'))
+    return { at, kicker: 'Lost at the Moon', text: 'It could not brake into lunar orbit, so the map never began.', sfx: 'sfx.static' }
+  if (c.includes('time ran out') || c.includes('programme was closed'))
+    return { at, kicker: 'Programme closed', text: 'The programme closed before the map was finished.', sfx: 'sfx.error' }
+  if (c.includes('coverage') || c.includes('requirements'))
+    return { at, kicker: 'Too little mapped', text: 'It flew, but mapped too little of the ice.', sfx: 'sfx.error' }
+  return { at, kicker: 'Mission ended', text: cause ? `${cause.charAt(0).toUpperCase()}${cause.slice(1)}.` : 'The mission ended before the map was finished.', sfx: 'sfx.error' }
+}
+
+export function payoffBeats(kind: PayoffKind, outcome: Outcome, cause?: string): Beat[] {
+  if (kind === 'ice-map' && outcome === 'failed' && cause !== undefined) return [ICE_OPEN, iceFailureBeat(cause)]
   return BEATS[kind][outcome]
 }
 
