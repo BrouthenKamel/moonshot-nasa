@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { difficultyPresets } from '../../data/brief'
 import { getGroundStationById } from '../../data/ground'
 import { getOrbitById } from '../../data/orbits'
@@ -23,6 +23,7 @@ import { EventCard, useShowPlaying } from './EventCard'
 import { FlightControls } from './FlightControls'
 import { FirstMappingPass } from '../../minigames/iceMapper'
 import { liftoffReached } from './launchOrder'
+import { clearLaunchDayPending, markLaunchDayPending, resumeLaunchDay } from './launchDayPending'
 
 const FlightView = lazy(() => import('../../scene/flight/FlightView').then((m) => ({ default: m.FlightView })))
 const LaunchDayGame = lazy(() => import('../../minigames/launchDay').then((m) => ({ default: m.LaunchDayGame })))
@@ -646,6 +647,12 @@ function SpaceBar({ sim, shot, monthFraction }: { sim: SimState; shot: FlightSho
  * Agency view: the island, with the latest telemetry alert between the side panels (the flight plan is in
  * the mission panel on the right).
  */
+/** If Launch Day cannot run, the launch still ends (and its reload marker clears) instead of hanging */
+function SkipLaunchDay({ onSkip }: { onSkip: () => void }) {
+  useEffect(() => onSkip(), [onSkip])
+  return null
+}
+
 export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode }) {
   const launchAt = useUiStore((s) => s.launchAt)
   const startLaunch = useUiStore((s) => s.startLaunch)
@@ -654,7 +661,8 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   // the launch and Launch Day play first, the event's card after them (launchOrder.ts)
   const launched = liftoffReached(sim)
   // Launch Day: the player flies the ride to orbit once, when the core reports liftoff
-  const [flyingLaunch, setFlyingLaunch] = useState(false)
+  // After a reload during the launch it starts open, at Launch Day's briefing (launchDayPending.ts)
+  const [flyingLaunch, setFlyingLaunch] = useState(() => resumeLaunchDay(sim))
   const showPlaying = useShowPlaying()
   // When a show ends, its voice captions end with it (a stale "…Ignition." stayed up over the next card)
   const wasShowing = useRef(false)
@@ -668,9 +676,26 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   // the ride to orbit. Finishing it ends the launch, which opens the space view.
   const wasLaunched = useRef(launched)
   useEffect(() => {
-    if (launched && !wasLaunched.current) startLaunch()
+    if (launched && !wasLaunched.current) {
+      // Kept until Launch Day ends, so a reload in between comes back to it (launchDayPending.ts)
+      markLaunchDayPending(sim.seed)
+      startLaunch()
+    }
     wasLaunched.current = launched
-  }, [launched, startLaunch])
+  }, [launched, startLaunch, sim.seed])
+  // After a reload during the launch: the saved flight has lifted off, but the ride is still to be flown.
+  // Resume at Launch Day's briefing (the island countdown already played) instead of skipping on.
+  const resuming = useRef(flyingLaunch)
+  useEffect(() => {
+    // The launch holds the clock and the cards while the ride is flown again
+    if (resuming.current) startLaunch()
+    resuming.current = false
+  }, [startLaunch])
+  const finishLaunchDay = useCallback(() => {
+    clearLaunchDayPending()
+    setFlyingLaunch(false)
+    endLaunch()
+  }, [endLaunch])
   // Nothing should strand the flight on the pad: if the game is not up, the countdown still ends on its own
   useEffect(() => {
     if (launchAt === null) return
@@ -715,14 +740,11 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
       <Countdown />
       {/* The launch itself, played. Finishing it ends the launch, which opens the space view. */}
       {flyingLaunch && (
-        <ViewBoundary fallback={null}>
+        <ViewBoundary fallback={<SkipLaunchDay onSkip={finishLaunchDay} />}>
           <Suspense fallback={null}>
             <LaunchDayGame
               design={sim.design}
-              onDone={() => {
-                setFlyingLaunch(false)
-                endLaunch()
-              }}
+              onDone={finishLaunchDay}
             />
           </Suspense>
         </ViewBoundary>
