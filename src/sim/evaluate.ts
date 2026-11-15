@@ -211,6 +211,22 @@ function whyDataShort(state: SimState, b: Budgets, need: number): string[] {
   return out.length ? out : [BAD_LUCK]
 }
 
+/** The word for a failed flight: "Lost" only for a lost craft; a budget failure says so (QC, 15 Nov) */
+export function failedLabel(end: string): string {
+  if (craftWasLost(end)) return 'Lost'
+  if (end.startsWith('budget ran out')) return 'Failed: budget ran out'
+  return 'Failed'
+}
+
+/** The same word for a failed month in the replay: fail() writes the end as that month's note */
+export function failedLabelOfNotes(notes: string[]): string {
+  const ends = notes.map((n) => n.replace(/\.$/, '').toLowerCase())
+  return failedLabel(ends.find((e) => craftWasLost(e) || e.startsWith('budget ran out')) ?? '')
+}
+
+/** The most a failed mission can score: the top of a C (ui/report/grade.ts), so a failure never reads as praise (Jakob, 15 Nov) */
+export const FAILED_SCORE_CAP = 599
+
 /**
  * How the flight ended, as one sentence ("Budget ran out in orbit."). The report's verdict and
  * the base's mission-result dialog both say this, so they always name the same reason.
@@ -282,6 +298,15 @@ export function buildReport(state: SimState): Report {
   else if (coverageMet && f.alive) outcome = 'partial'
   else outcome = 'failed'
 
+  // A failed mission burns its whole budget (Jakob, 15 Nov): what was left is not returned (game/world.ts)
+  if (outcome === 'failed' && f.reserve >= 0) {
+    const budget = requirements.find((r) => r.id === 'budget')!
+    budget.reason =
+      moneyLeft > 0
+        ? `${moneyLeft.toFixed(1)} M was unspent when the mission failed. A failed mission spends its whole budget: none of it comes back.`
+        : 'The whole budget was spent.'
+  }
+
   const missed = requirements.filter((r) => !r.met).map((r) => r.name)
   const outcomeReason =
     outcome === 'success' ? 'All mission requirements met.' : `${endingSentence(f.end)} Missed: ${missed.join(', ')}.`
@@ -297,7 +322,7 @@ export function buildReport(state: SimState): Report {
         data: w.data * Math.min(1, f.data / dataTarget) * iceShare,
         lifetime: w.lifetime * Math.min(1, f.scienceTurns / turnsNeeded) * iceShare,
         context: w.context * Math.min(1, f.context / COVERAGE_TARGET),
-        // A failed mission earns no points for money left (Jakob, 14 Nov); the unspent money still goes back to the agency (game/world.ts)
+        // A failed mission spends its whole budget: no points for money left (Jakob, 14 and 15 Nov)
         money: outcome === 'failed' ? 0 : (w.money * Math.max(0, moneyLeft)) / b.budgetCap,
       }
     : { coverage: 0, data: 0, lifetime: 0, context: 0, money: 0 }
@@ -309,6 +334,9 @@ export function buildReport(state: SimState): Report {
     money: Math.round(parts.money),
     total: Math.round(parts.coverage + parts.data + parts.lifetime + parts.context + parts.money),
   }
+  // A failure never gets a praising grade (Jakob, 15 Nov): its total stops at a C
+  const uncapped = score.total
+  if (outcome === 'failed') score.total = Math.min(score.total, FAILED_SCORE_CAP)
 
   // What cost the missing points: one plain line per score part below its maximum (Jakob, 14 Nov)
   const scoreNotes: string[] = []
@@ -342,11 +370,15 @@ export function buildReport(state: SimState): Report {
     if (score.money < w.money)
       scoreNotes.push(
         outcome === 'failed'
-          ? `Money left 0/${w.money}: a failed mission earns no points for money left.` +
-              (moneyLeft > 0 ? ` The ${moneyLeft.toFixed(1)} M it did not spend still goes back to the agency.` : '')
+          ? `Money left 0/${w.money}: a failed mission spends its whole budget, so nothing is left to score.`
           : `Money left ${score.money}/${w.money}: ${Math.max(0, moneyLeft).toFixed(1)} M of the ${b.budgetCap} M budget was left. A cheaper plan, or fewer fixes paid in flight, keeps more.`
       )
   }
+
+  if (score.total < uncapped)
+    scoreNotes.unshift(
+      `Capped at ${FAILED_SCORE_CAP} (grade C): the parts add up to ${uncapped}, but a failed mission never scores higher.`
+    )
 
   // One hint per missed requirement: the first link of its chain
   const hints: ChangeHint[] = requirements
@@ -356,12 +388,13 @@ export function buildReport(state: SimState): Report {
   return {
     outcome,
     outcomeReason,
+    craftLost: craftWasLost(f.end),
     requirements,
     requirementsMet: requirements.filter((r) => r.met).length,
     requirementsTotal: requirements.length,
     score,
     scoreNotes,
-    totalCost: b.budgetCap - moneyLeft,
+    totalCost: outcome === 'failed' ? b.budgetCap : b.budgetCap - moneyLeft,
     dataReturned: f.data,
     outreachReturned: f.outreach,
     coverageAchieved: f.coverage,

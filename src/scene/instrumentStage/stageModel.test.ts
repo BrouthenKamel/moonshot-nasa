@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { computeBudgets } from '../../sim/budgets'
 import { flashlightDesign, lunahMapDesign, iceCubeDesign } from '../../sim/fixtures'
 import type { Design } from '../../sim/types'
+import { computeSynergies } from '../../viz/synergies'
 import {
   activityText,
   stageModel,
@@ -54,12 +55,13 @@ describe('catalogue labels', () => {
 })
 
 describe('stageModel', () => {
-  it('IR spectrometer alone maps no ice and says why', () => {
+  it('IR spectrometer alone maps no ice; the conflict card says why, so the panel does not repeat it', () => {
     const m = base(iceCubeDesign)
     expect(view(m, 'inst-ir-spec').countsAs).toBe('context')
     expect(m.forecast.coverage).toBe(0)
     expect(m.forecast.meetsTarget).toBe(false)
-    expect(m.forecast.reasons).toContain('Nothing aboard sees into shadow: no ice is mapped.')
+    expect(computeSynergies(iceCubeDesign, computeBudgets(iceCubeDesign, 'engineer')).some((c) => c.id === 'shadow-blind')).toBe(true)
+    expect(m.forecast.reasons).not.toContain('Nothing aboard sees into shadow: no ice is mapped.')
   })
 
   it('neutron spectrometer low down is at full strength', () => {

@@ -7,6 +7,7 @@ import { canUseWebGL } from '../../scene/webgl'
 import { computeBudgets } from '../../sim/budgets'
 import { COVERAGE_TARGET } from '../../sim/evaluate'
 import { isSimComplete } from '../../sim/simulate'
+import { craftWasLost, failedLabel } from '../../sim/evaluate'
 import type { SimState, TurnLog } from '../../sim/types'
 import { LAUNCH, useUiStore, type FlightCamMode } from '../../state/uiStore'
 import { useInsideStore } from '../interaction/insideStore'
@@ -57,7 +58,7 @@ const PHASE_WORD: Record<SimState['phase'], string> = {
   capture: 'Capture',
   orbit: 'Mapping',
   complete: 'Mission over',
-  failed: 'Lost',
+  failed: 'Failed',
 }
 
 type SegState = 'done' | 'active' | 'upcoming'
@@ -72,7 +73,7 @@ interface Segment {
 /** One word for how the craft is doing */
 function health(sim: SimState): { word: string; tone: 'go' | 'caution' | 'nogo' } {
   const f = sim.flight
-  if (sim.phase === 'failed' || !f.alive) return { word: 'Lost', tone: 'nogo' }
+  if (sim.phase === 'failed' || !f.alive) return { word: craftWasLost(f.end) ? 'Lost' : 'Stopped', tone: 'nogo' }
   const last = sim.turnLogs[sim.turnLogs.length - 1]
   if (f.reserve < 0 || (f.launchedTurn !== null && f.dvLeft <= 0)) return { word: 'Strained', tone: 'nogo' }
   if ((last && last.events.length > 0) || f.scienceFactor < 1) return { word: 'Watch', tone: 'caution' }
@@ -225,7 +226,7 @@ function MissionPhaseTimeline({ sim }: { sim: SimState }) {
       </div>
 
       <div className="mt-1.5 grid grid-cols-4 gap-x-4">
-        <Readout label="Phase" value={PHASE_WORD[sim.phase] ?? sim.phase} />
+        <Readout label="Phase" value={sim.phase === 'failed' ? failedLabel(sim.flight.end) : (PHASE_WORD[sim.phase] ?? sim.phase)} />
         <Readout
           label="Ice mapped"
           value={`${ice.toFixed(1)}%`}
