@@ -12,7 +12,7 @@
  * wrong thing): a dev server, not a preview build, because it reaches each screen by importing the game's
  * stores through Vite's module URLs (/src/state/*.ts), which are the same instances the page uses.
  *
- * Per screen it counts, on the page as drawn (the 3D scene's own labels counted apart):
+ * Per screen it counts, on the page as drawn (the 3D scene's own labels, placed by script, counted apart):
  *   buttons  visible buttons and other controls (button, link, input, select, role=button/tab/radio/...)
  * Before measuring, each screen checks it is really there (game state plus a marker on top, `expect`);
  * if not, the run stops with the screen's id and a <id>.WRONG.png screenshot, and writes no baseline.
@@ -233,7 +233,11 @@ function measureInPage() {
         if (isPanel(child)) continue
         const cs = getComputedStyle(child)
         const r = child.getBoundingClientRect()
-        const placed = cs.position === 'absolute' || cs.position === 'fixed'
+        // A scene label is placed by script, frame by frame (an inline transform or left/top: BaseMap's
+        // labels, drei <Html>); a HUD laid over the canvas by CSS classes is interface, not scene
+        const placed =
+          (cs.position === 'absolute' || cs.position === 'fixed') &&
+          !!(child.style.transform || child.style.left || child.style.top)
         const small = r.width * r.height < cr.width * cr.height * 0.5
         if (placed && small && ((child.innerText || '').trim() || child.matches(CONTROL) || child.querySelector(CONTROL))) {
           // Labels are often moved by a transform outside their wrapper's box: test the parts too
@@ -575,22 +579,21 @@ const SCREENS = [
     {
       id: `design-${step}`,
       name: `Step ${i}: ${label}`,
-      go: (page) => stores(page, `s.game.getState().setDesignStep(a); s.game.getState().setScreen('design')`, step),
+      go: (page) =>
+        stores(page, `s.ui.getState().setRideView?.('launch'); s.game.getState().setDesignStep(a); s.game.getState().setScreen('design')`, step),
       expect: `const g = s.game.getState(); return g.screen === 'design' && g.designStep === ${JSON.stringify(step)} && h.onTop('[data-role]') ? '' : \`screen \${g.screen}, step \${g.designStep}\``,
     },
-    // The Ride step has a second stage, reached only by its own button
+    // The Ride step has two views: the launch, and the trip (the dock's "Trip" tab), kept in uiStore.rideView
     ...(step === 'ride'
       ? [
           {
             id: 'design-ride-transfer',
-            name: `Step ${i}b: ${label}, transfer stage`,
+            name: `Step ${i}b: Trip (Ride's second view)`,
             go: async (page) => {
-              const next = page.getByRole('button', { name: /plan the transfer/i }).first()
-              if (!(await next.isVisible().catch(() => false)))
-                throw new Error('Ride has no "Plan the transfer" button: the Ride step changed, update this screen in the audit')
-              await click(next)
+              const ok = await stores(page, `if (!('rideView' in s.ui.getState())) return false; s.ui.getState().setRideView('transfer'); return true`)
+              if (!ok) throw new Error('uiStore has no rideView: the Ride step changed, update this screen in the audit')
             },
-            expect: `const g = s.game.getState(); return g.screen === 'design' && g.designStep === 'ride' && !/plan the transfer/i.test(document.body.innerText) ? '' : 'still on the first Ride stage'`,
+            expect: `const g = s.game.getState(); return g.screen === 'design' && g.designStep === 'ride' && s.ui.getState().rideView === 'transfer' && h.onTop('[data-role]') ? '' : \`step \${g.designStep}, ride view \${s.ui.getState().rideView}\``,
           },
         ]
       : []),
@@ -611,24 +614,14 @@ const SCREENS = [
   },
   {
     id: 'launch',
-    expect: `const g = s.game.getState(); const i = await h.inside(); return g.simState?.flight.launchedTurn != null && (i.shot || s.ui.getState().launchAt !== null) ? '' : \`no launch is playing (launched in month \${g.simState?.flight.launchedTurn}, month \${g.simState?.currentTurn}, phase \${g.simState?.phase}, card \${g.simState?.pendingDecision?.key ?? 'none'})\``,
-    name: 'Liftoff (ride inside the fairing)',
+    expect: `const g = s.game.getState(); return g.simState?.flight.launchedTurn != null && s.ui.getState().launchAt !== null && !/fly the ride to orbit/i.test(document.body.innerText) ? '' : \`no countdown is playing (launched in month \${g.simState?.flight.launchedTurn}, launchAt \${s.ui.getState().launchAt})\``,
+    name: 'Liftoff (countdown on the island)',
     go: async (page) => {
-      // Fly the build and test months one by one (React must see liftoff happen to start the launch);
-      // liftoff plays the fairing shot, or the island countdown without WebGL
+      // Fly the build and test months one by one (React must see liftoff happen to start the launch)
       await stores(
         page,
         `
         const g = s.game.getState
-        const inside = s.inside
-        // A headless browser plays the shot out in a blink (the camera path ends it, and two wall-clock
-        // timers back that up). Hold it: until leave() runs, ending a shot does nothing, and the camera
-        // stays 2 s in, inside the fairing
-        window.__clutterEnd = inside.getState().end
-        inside.setState({ end: () => {} })
-        window.__clutterHold = setInterval(() => {
-          if (inside.getState().shot) inside.setState({ startedAt: performance.now() - 2000 })
-        }, 20)
         for (let i = 0; i < 40 && g().simState.flight.launchedTurn === null; i++) {
           // An event card (a build delay) holds the clock until it is answered
           const card = g().simState.pendingDecision
@@ -636,17 +629,43 @@ const SCREENS = [
           else g().advanceTurn()
           await new Promise((r) => setTimeout(r, 80))
         }
-        for (let i = 0; i < 40 && !inside.getState().shot && s.ui.getState().launchAt === null; i++) await new Promise((r) => setTimeout(r, 50))
+        for (let i = 0; i < 40 && s.ui.getState().launchAt === null; i++) await new Promise((r) => setTimeout(r, 50))
         `,
       )
       await pause(page)
     },
     wait: 1500,
-    leave: (page) =>
-      stores(
-        page,
-        `clearInterval(window.__clutterHold); s.inside.setState({ end: window.__clutterEnd }); s.inside.getState().end(true); s.ui.getState().endLaunch()`,
-      ),
+  },
+  {
+    // After the island countdown, Launch Day: the player flies the ride to orbit (a mini-game)
+    id: 'launch-game',
+    expect: `return h.buttonOnTop(/start countdown/i) ? '' : 'the Launch Day briefing is not on top'`,
+    name: 'Launch Day: briefing',
+    go: (page) => page.getByRole('button', { name: /start countdown/i }).first().waitFor({ timeout: 180_000 }),
+  },
+  {
+    id: 'launch-game-flying',
+    expect: `return h.onTop('button[aria-label$=" now"], button[aria-label="Nothing to do yet"]') ? '' : 'the Launch Day flight is not on top'`,
+    name: 'Launch Day: flying',
+    go: (page) => click(page.getByRole('button', { name: /start countdown/i }).first()),
+    wait: 4000,
+    // The ride flies itself through (a missed mark counts as a late tap); then its result slip
+    // hands back to the flight, which opens the space view
+    leave: async (page) => {
+      // The ride runs on the page's frame rate, which the 3D map underneath starves in a software-
+      // rendered browser: hide the WebGL canvases (those whose 2D context is unavailable) until it lands
+      await page.evaluate(() => {
+        for (const c of document.querySelectorAll('canvas')) if (c.getContext('2d') === null) c.dataset.clutter3d = ''
+        const style = document.createElement('style')
+        style.id = 'clutter-no-3d'
+        style.textContent = 'canvas[data-clutter3d] { display: none !important; }'
+        document.head.appendChild(style)
+      })
+      const done = page.getByRole('button', { name: /watch it fly to the moon/i }).first()
+      await done.waitFor({ timeout: 600_000 })
+      await page.evaluate(() => document.getElementById('clutter-no-3d')?.remove())
+      await click(done)
+    },
   },
   {
     id: 'flight-space',
