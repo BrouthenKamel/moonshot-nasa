@@ -12,7 +12,7 @@ import { RadioTray } from './comms/RadioTray'
 import { StationTray } from './comms/StationTray'
 import { hoursAfterSwitch } from './comms/hours'
 import { ContactSlider } from './comms/ContactSlider'
-import { Btn, Sheet, StepHeader } from '../kit'
+import { Btn, StepHeader } from '../kit'
 
 function hoveredChoiceId(target: EventTarget | null): string | null {
   return target instanceof Element ? target.closest<HTMLElement>('[data-choice-id]')?.dataset.choiceId ?? null : null
@@ -21,7 +21,7 @@ function hoveredChoiceId(target: EventTarget | null): string | null {
 /**
  * Step 7 at the Communications Center: the comms console. The link budget sits on top as a
  * signal path and a gauge (a slim copy stays on top while scrolling, so every pick shows its effect), then the radio and the
- * ground station as card trays, then the contact-time slider. Every number is from
+ * ground station as card trays. The console holds the controls: the radio slot, the dish aim and the contact hours. Every number is from
  * computeBudgets / goNoGo; this step writes only radio, groundStation and contactHours.
  */
 export function CommsScreen() {
@@ -86,6 +86,15 @@ export function CommsScreen() {
               const s = getGroundStationById(id)
               if (s) updateDesign({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })
             }}
+            contact={
+              <ContactSlider
+                hours={activeBudgets.contactHours}
+                maxHours={maxHours}
+                stationName={station?.name ?? 'The station'}
+                costPerMonth={activeBudgets.groundCostPerTurn}
+                onChange={(h) => updateDesign({ contactHours: h })}
+              />
+            }
             onPreviewStation={(id) => {
               if (!id) {
                 setPreviewPatch(null)
@@ -145,16 +154,6 @@ export function CommsScreen() {
             onPick={(s) => updateDesign({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })}
           />
         </div>
-
-        <Sheet className="p-4">
-          <ContactSlider
-            hours={activeBudgets.contactHours}
-            maxHours={maxHours}
-            stationName={station?.name ?? 'The station'}
-            costPerMonth={activeBudgets.groundCostPerTurn}
-            onChange={(h) => updateDesign({ contactHours: h })}
-          />
-        </Sheet>
 
         <div className="flex justify-end">
           <Btn variant="primary" type="button" onClick={() => setDesignStep('go-nogo')}>

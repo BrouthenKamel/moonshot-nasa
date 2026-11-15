@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { assetUrl } from '../../../assets/url'
 import { audio } from '../../../assets/audio'
 import { choiceArt } from '../../../assets/catalogueArt'
@@ -9,6 +9,7 @@ import { fillWhen } from '../../../sim/budgets'
 import { useDropTarget } from '../../interaction/drag'
 import type { Budgets, CheckResult, BarStatus } from '../../../sim/types'
 import { Eng, LineItem, Stamp, stepNumber, type StampVerdict } from '../../kit'
+import { aimIndexForKey } from './consoleControls'
 
 const N = stepNumber('comms')
 
@@ -145,6 +146,8 @@ interface LinkConsoleProps {
   onPickRadio?: (id: string) => void
   onPickStation?: (id: string) => void
   onPreviewStation?: (id: string | null) => void
+  /** The contact-time control, shown as a console row under the dish aim */
+  contact?: ReactNode
 }
 
 /**
@@ -164,6 +167,7 @@ export function LinkConsole({
   onPickRadio,
   onPickStation,
   onPreviewStation,
+  contact,
 }: LinkConsoleProps) {
   const commsStatus = comms?.status ?? 'green'
   const dataStatus = data?.status ?? 'green'
@@ -244,6 +248,17 @@ export function LinkConsole({
     [currentIdx, onPickStation, onPreviewStation],
   )
 
+  // The keyboard's way to aim: arrows step one station, Home / End jump to the ends
+  const handleAimKey = (e: KeyboardEvent<HTMLButtonElement>) => {
+    const next = aimIndexForKey(e.key, currentIdx, groundStations.length)
+    if (next === null) return
+    e.preventDefault()
+    const s = groundStations[next]
+    if (!s || next === currentIdx) return
+    audio.play('sfx.pick-ground')
+    onPickStation?.(s.id)
+  }
+
   return (
     <section aria-labelledby="link-console-title" className="fp-sheet p-4">
       <style>{`@keyframes comms-flow { to { stroke-dashoffset: -24 } } @keyframes comms-packet { 0% { opacity: 0.2 } 50% { opacity: 1 } 100% { opacity: 0.2 } } @keyframes comms-spill { 0% { transform: translateY(0); opacity: 1 } 100% { transform: translateY(14px); opacity: 0 } }`}</style>
@@ -285,8 +300,9 @@ export function LinkConsole({
           <button
             type="button"
             data-testid="dish-aim-handle"
-            aria-label={`Aim dish toward ground network (currently ${stationName})`}
+            aria-label={`Aim dish toward ground network (currently ${stationName}). Arrow keys to change.`}
             onPointerDown={handleAimDown}
+            onKeyDown={handleAimKey}
             style={{ left: `calc(12px + (100% - 24px) * ${dishPct / 100})`, touchAction: 'none' }}
             className="absolute top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 cursor-grab border border-kapton bg-ink-2 px-2 py-0.5 fp-data text-[10px] font-semibold text-kapton hover:bg-kapton hover:text-kapton-ink active:cursor-grabbing"
           >
@@ -294,6 +310,8 @@ export function LinkConsole({
           </button>
         </div>
       </div>
+
+      {contact}
 
       {/* Gauge: made vs carried + onboard storage tray fill & overflow spill */}
       <div className="mt-4 space-y-2" role="group" aria-label="Data made against data sent home each month">
