@@ -11,13 +11,14 @@ import { RadioTray } from './comms/RadioTray'
 import { StationTray } from './comms/StationTray'
 import { hoursAfterSwitch } from './comms/hours'
 import { ContactSlider } from './comms/ContactSlider'
+import { Btn, Sheet, StepHeader } from '../kit'
 
 function hoveredChoiceId(target: EventTarget | null): string | null {
   return target instanceof Element ? target.closest<HTMLElement>('[data-choice-id]')?.dataset.choiceId ?? null : null
 }
 
 /**
- * Step 6 at the Communications Center: the comms console. The link budget sits on top as a
+ * Step 7 at the Communications Center: the comms console. The link budget sits on top as a
  * signal path and a gauge (a slim copy stays on top while scrolling, so every pick shows its effect), then the radio and the
  * ground station as card trays, then the contact-time slider. Every number is from
  * computeBudgets / goNoGo; this step writes only radio, groundStation and contactHours.
@@ -63,16 +64,11 @@ export function CommsScreen() {
     <div className="mx-auto max-w-5xl pb-6">
       <LinkRibbon budgets={activeBudgets} data={dataCheck} visible={consoleOut} />
       <div className="space-y-5">
-        <header className="hud-step-header">
-          <div className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--role-accent)]">
-            COMMS CENTER · LUNAR ICE MAPPER · COMMUNICATIONS
-          </div>
-          <h1 className="mt-1 font-display text-2xl font-bold text-slate-50">6. Communications</h1>
-          <p className="mt-1.5 max-w-2xl text-sm text-slate-300">
-            Only data that reaches the ground counts. The Moon is a thousand times farther than low Earth orbit, so the radio and the
-            ground station decide how much gets home.
-          </p>
-        </header>
+        <StepHeader step="comms" kicker="Comms Center · Lunar Ice Mapper" title="Communications" />
+        <p className="max-w-2xl px-1 text-sm text-paper-dim">
+          Only data that reaches the ground counts. The Moon is a thousand times farther than low Earth orbit, so the radio and the ground
+          station decide how much gets home.
+        </p>
 
         <div ref={consoleRef}>
           <LinkConsole
@@ -130,7 +126,7 @@ export function CommsScreen() {
           />
         </div>
 
-        <div className="hud-panel p-4">
+        <Sheet className="p-4">
           <ContactSlider
             hours={activeBudgets.contactHours}
             maxHours={maxHours}
@@ -138,23 +134,15 @@ export function CommsScreen() {
             costPerMonth={activeBudgets.groundCostPerTurn}
             onChange={(h) => updateDesign({ contactHours: h })}
           />
-        </div>
+        </Sheet>
 
         <div className="flex justify-between">
-          <button
-            type="button"
-            onClick={() => setDesignStep('ride')}
-            className="tactical-btn-back"
-          >
+          <Btn type="button" onClick={() => setDesignStep('ride')}>
             ← Back
-          </button>
-          <button
-            type="button"
-            onClick={() => setDesignStep('go-nogo')}
-            className="tactical-btn-next"
-          >
-            Go/No-Go Review →
-          </button>
+          </Btn>
+          <Btn variant="primary" type="button" onClick={() => setDesignStep('go-nogo')}>
+            Go/No-Go review →
+          </Btn>
         </div>
       </div>
     </div>

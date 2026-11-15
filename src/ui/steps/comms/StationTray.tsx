@@ -10,6 +10,9 @@ import type { Difficulty } from '../../../data/brief'
 import { Inspector, type InspectorNote } from './Inspector'
 import { hoverSound, useCardRadioGroup } from './useCardRadioGroup'
 import { hoursAfterSwitch } from './hours'
+import { Eng, stepNumber } from '../../kit'
+
+const N = stepNumber('comms')
 
 const TAG: Record<string, string> = {
   'ground-small': 'University',
@@ -24,7 +27,7 @@ function DishInset({ id }: { id: string }) {
   if (!portrait || failed) return null
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 aspect-[16/10] transition-transform duration-200 ease-out group-hover/station:-translate-y-1 motion-reduce:transition-none" aria-hidden="true">
-      <div className="absolute bottom-2 right-2 h-[46%] aspect-square rounded-xl border border-white/20 bg-[#0a0f1e]/80 shadow-lg backdrop-blur-sm">
+      <div className="absolute bottom-2 right-2 h-[46%] aspect-square border border-rule bg-ink-1/90">
         <img src={assetUrl(portrait)} alt="" draggable={false} onError={() => setFailed(true)} className="h-full w-full object-contain p-1" />
       </div>
     </div>
@@ -66,10 +69,11 @@ export function StationTray({
   return (
     <section aria-labelledby="station-tray-title">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 id="station-tray-title" className="font-display text-xl font-bold text-white">
-          Ground station
+        <h2 id="station-tray-title" className="flex items-baseline gap-2">
+          <span className="fp-data text-[11px] text-paper-faint">{`${N}.3`}</span>
+          <span className="fp-label text-paper">Ground station</span>
         </h2>
-        <span className="text-xs text-slate-500">Rates are with the patch antenna from the Moon</span>
+        <Eng className="text-xs text-paper-faint">Rates are with the patch antenna from the Moon</Eng>
       </div>
       <div
         role="radiogroup"
@@ -81,8 +85,9 @@ export function StationTray({
           // The radio's reach is shown on the radio cards; under a dish, only what this dish changes
           const overBudget = whatIf.budgetMargin < 0 ? `Over budget by $${(-whatIf.budgetMargin).toFixed(1)}M.` : null
           const stats: ChoiceStat[] = [
-            { label: 'Rate', value: `${station.rateKbps} kbps` },
             { label: 'Up to', value: `${station.contactHoursPerDay} h/day` },
+            { label: 'Outages', value: station.outageChance <= 0.03 ? 'Rare' : station.outageChance <= 0.07 ? 'Some' : 'Often' },
+            { label: 'Rate', value: `${station.rateKbps} kbps` },
             { label: 'Price', value: `$${station.pricePerHour}M per h/day` },
             { label: 'Outage', value: `${Math.round(station.outageChance * 100)}% a month` },
           ]
@@ -107,7 +112,7 @@ export function StationTray({
               />
               <DishInset id={station.id} />
               {overBudget && (
-                <div aria-hidden="true" className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-[11px] leading-snug text-rose-200">
+                <div aria-hidden="true" className="border-l-2 border-nogo pl-2 text-[11px] leading-snug text-paper">
                   ✕ {overBudget}
                 </div>
               )}
@@ -116,7 +121,7 @@ export function StationTray({
         })}
       </div>
       <Inspector
-        accent={choiceArt(shown.station.id)?.accent ?? '#3b82f6'}
+        accent={choiceArt(shown.station.id)?.accent ?? 'var(--color-paper-faint)'}
         kicker={shown.station.id === design.groundStation ? 'Booked station' : 'If you book this station'}
         title={shown.station.name}
         description={shown.station.description}
