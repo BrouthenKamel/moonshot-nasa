@@ -480,3 +480,26 @@ body { margin: 0; font-family: var(--font-sans); background: var(--color-ink-1);
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 3rem), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 3rem), transparent);
 }
+
+/* Hands on Hardware: drag and drop */
+:root[data-dragging] { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+:root[data-dragging] * { cursor: grabbing !important; }
+[data-draggable="true"] { cursor: grab; }
+/* DOM drop targets: a dashed hairline in paper while idle, kapton when a part it takes is held, no glow */
+[data-drop-slot] { outline: 1px dashed transparent; outline-offset: 2px; transition: outline-color 120ms ease-out; }
+[data-drop-slot][data-drop-state="ready"] { outline-color: var(--color-paper-faint); }
+[data-drop-slot][data-drop-state="over"] { outline: 1px solid var(--color-kapton); }
+[data-drop-slot][data-drop-state="refuse"] { outline: 1px solid var(--color-nogo); }
+@keyframes bounce-back {
+  0% { transform: translateY(-6px); }
+  40% { transform: translateY(2px); }
+  70% { transform: translateY(-1px); }
+  100% { transform: none; }
+}
+.bounce-back { animation: bounce-back 320ms ease-out; }
+/* A look-inside shot: the HUD fades to just the caption */
+.hud-fade { transition: opacity 400ms ease-out; }
+:root[data-inside] .hud-fade { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .bounce-back { animation: none; }
+}

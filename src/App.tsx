@@ -9,6 +9,7 @@ import { canUseWebGL } from './scene/webgl'
 import { useAudioDirector } from './assets/director'
 import { audio } from './assets/audio'
 import { Captions } from './ui/kit/Captions'
+import { InteractionLayer } from './ui/interaction/InteractionLayer'
 import { ReplayPanel } from './viz/ReplayPanel'
 import { isSimComplete } from './sim/simulate'
 import { computeBudgets } from './sim/budgets'
@@ -175,6 +176,7 @@ export default function App() {
         {/* No mentor over the base: the mission panel says what comes next */}
         <BaseScreen />
         <Captions />
+        <InteractionLayer />
       </main>
     )
   }
@@ -205,6 +207,7 @@ export default function App() {
       {/* The mission mentor, over every screen; it never blocks play */}
       <Narrator />
       <Captions />
+      <InteractionLayer />
     </>
   )
 }

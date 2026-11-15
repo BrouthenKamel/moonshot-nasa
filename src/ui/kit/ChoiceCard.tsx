@@ -3,6 +3,8 @@ import { audio } from '../../assets/audio'
 import { choiceArt } from '../../assets/catalogueArt'
 import { assetUrl } from '../../assets/url'
 import { Stamp } from './Stamp'
+import { useDragPart } from '../interaction/drag'
+import type { DragPayload } from '../interaction/dragStore'
 
 export interface ChoiceStat {
   label: string
@@ -42,6 +44,8 @@ export interface ChoiceCardProps {
   ariaLabel?: string
   /** Play sounds on hover and pick (default true) */
   sounds?: boolean
+  /** Hands on Hardware: the card can be lifted and dropped on a slot in the scene (a click still picks it) */
+  drag?: DragPayload
 }
 
 const WIDTH = { xs: 'w-full', sm: 'w-40', md: 'w-56', lg: 'w-72' } as const
@@ -72,7 +76,9 @@ export function ChoiceCard({
   onHover,
   ariaLabel,
   sounds = true,
+  drag,
 }: ChoiceCardProps) {
+  const dragProps = useDragPart(drag ?? null, { disabled: disabled || !drag })
   const xs = size === 'xs'
   const art = choiceArt(id)
   const accent = art?.accent ?? '#94a3b8'
@@ -111,6 +117,9 @@ export function ChoiceCard({
       aria-describedby={disabled && reason ? `${id}-reason` : undefined}
       onClick={pick}
       onKeyDown={onKey}
+      onPointerDown={drag ? dragProps.onPointerDown : undefined}
+      style={drag ? dragProps.style : undefined}
+      data-draggable={drag && !disabled ? 'true' : undefined}
       onPointerEnter={() => {
         if (!disabled && sounds) audio.play('sfx.hover')
         onHover?.()
