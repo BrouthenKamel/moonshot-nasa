@@ -1,5 +1,6 @@
 import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
+import { useUiStore } from '../../state/uiStore'
 import { getOrbitById, polarOrbitId, polarOrbitKm } from '../../data/orbits'
 import { canUseWebGL } from '../../scene/webgl'
 import { Details } from '../kit'
@@ -113,7 +114,15 @@ function OrbitDashboard({ plan }: { plan: OrbitPlan }) {
       </Details>
       <PlanChecks checks={plan.checks} />
       <PlanOdds />
-      <PlanNav next={{ label: nextLabel('orbit'), to: 'ride' }} />
+      <PlanNav
+        next={{
+          label: nextLabel('orbit'),
+          to: () => {
+            useUiStore.getState().setRideView('launch')
+            useGameStore.getState().setDesignStep('ride')
+          },
+        }}
+      />
     </PlanPanel>
   )
 }

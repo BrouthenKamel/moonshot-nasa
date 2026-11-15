@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { buildOrbitView, coverageAt, stripCount, upkeepLine, COVERAGE_GOAL } from './orbitView'
-import { computeBudgets, createDefaultDesign } from '../../sim/budgets'
+import { computeBudgets } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
-import { flashlightDesign, lunahMapDesign } from '../../sim/fixtures'
+import { flashlightDesign, lunahMapDesign, iceCubeStart } from '../../sim/fixtures'
 
 const opt = (v: ReturnType<typeof buildOrbitView>, id: string) => v.options.find((o) => o.id === id)!
 
@@ -15,7 +15,7 @@ describe('buildOrbitView', () => {
   })
 
   it('shows the same numbers and checks as the game rules, for every design and orbit', () => {
-    for (const d of [flashlightDesign, lunahMapDesign, createDefaultDesign()]) {
+    for (const d of [flashlightDesign, lunahMapDesign, iceCubeStart()]) {
       const v = buildOrbitView(d, 'engineer')
       for (const o of v.options) {
         const trial = { ...d, orbit: o.id }
@@ -87,7 +87,7 @@ describe('buildOrbitView', () => {
   })
 
   it('says so when no ice instrument is on board, and still draws grey passes', () => {
-    const v = buildOrbitView(createDefaultDesign(), 'engineer')
+    const v = buildOrbitView(iceCubeStart(), 'engineer')
     for (const o of v.options) {
       expect(o.iceInstruments).toEqual([])
       expect(o.stripTone).toBe('none')
@@ -145,7 +145,7 @@ describe('buildOrbitView', () => {
   })
 
   it('agrees with the game when the ion engine has no power to thrust (Important 1)', () => {
-    const d = { ...createDefaultDesign(), solar: 'solar-1wing', instruments: ['inst-laser'], orbit: 'orbit-elliptical' }
+    const d = { ...iceCubeStart(), solar: 'solar-1wing', instruments: ['inst-laser'], orbit: 'orbit-elliptical' }
     const b = computeBudgets(d, 'engineer')
     expect(b.thrustLevel).toBe(0)
     const o = buildOrbitView(d, 'engineer').selected

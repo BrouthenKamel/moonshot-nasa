@@ -32,6 +32,9 @@ interface UiState {
   /** Transient hovered "what-if" patch across design screens */
   previewPatch: Partial<Design> | null
   setPreviewPatch: (patch: Partial<Design> | null) => void
+  /** The Ride step's two views, each a stage in the top bar: the launch (Ride) and the flight time (Transfer) */
+  rideView: 'launch' | 'transfer'
+  setRideView: (view: 'launch' | 'transfer') => void
   /** performance.now() when the rocket's countdown started on the island; null when no launch is playing */
   launchAt: number | null
   startLaunch: () => void
@@ -55,10 +58,27 @@ export const useUiStore = create<UiState>()((set) => ({
   setAutoFlySpeed: (autoFlySpeed) => set({ autoFlySpeed }),
   previewPatch: null,
   setPreviewPatch: (previewPatch) => set({ previewPatch }),
+  rideView: 'launch',
+  setRideView: (rideView) => set({ rideView }),
   launchAt: null,
   startLaunch: () => set({ launchAt: performance.now(), flightView: 'island' }),
   endLaunch: () => set({ launchAt: null, flightView: 'space' }),
 }))
 
-/** The island launch: countdown, then the rocket climbs out of sight; then the view cuts to space */
-export const LAUNCH = { ignitionS: 5.2, durationS: 11 }
+/**
+ * The launch, in two parts. On the island: the countdown, ignition at `ignitionS`, and the rocket
+ * climbing out of sight by `islandS`. Then (with WebGL) the ride inside the fairing joins its own
+ * sequence at `fairingFromS`, just before staging, so its countdown and ignition do not play twice,
+ * and runs to its end at `fairingS`: staging, the fairing opening, the CubeSat leaving. Then space.
+ */
+const ISLAND_S = 10.5
+const FAIRING_FROM_S = 5.6
+const FAIRING_S = 11
+export const LAUNCH = {
+  ignitionS: 5.2,
+  islandS: ISLAND_S,
+  fairingFromS: FAIRING_FROM_S,
+  fairingS: FAIRING_S,
+  /** The whole launch, island and fairing */
+  durationS: ISLAND_S + FAIRING_S - FAIRING_FROM_S,
+}

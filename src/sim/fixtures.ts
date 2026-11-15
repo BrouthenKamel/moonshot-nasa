@@ -36,8 +36,15 @@ export const lunahMapDesign: Design = {
   orbit: 'orbit-elliptical',
 }
 
-/** Lunar IceCube-like (the starting design): flies well, but the IR spectrometer cannot see into shadow. */
-export const iceCubeDesign: Design = createDefaultDesign()
+/**
+ * Lunar IceCube-like: the starting craft with the IR spectrometer, which flies well but cannot see
+ * into shadow (the starting design until 15 Nov, when the laser became the default). Tests that teach
+ * "a craft that cannot meet the brief" use this.
+ */
+export function iceCubeStart(): Design {
+  return { ...createDefaultDesign(), instruments: ['inst-ir-spec'] }
+}
+export const iceCubeDesign: Design = iceCubeStart()
 
 /**
  * One winning design per architecture the balance aims for

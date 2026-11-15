@@ -625,26 +625,34 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   const endLaunch = useUiStore((s) => s.endLaunch)
   const launched = sim.flight.launchedTurn !== null
 
-  // The launch plays once, when the core reports liftoff: WebGL rides inside the fairing; non-WebGL falls back to the island countdown
+  // The launch plays once, when the core reports liftoff: first the countdown and the liftoff from the
+  // island's pad; once the rocket is out of sight, (with WebGL) the ride inside the fairing, already
+  // above the atmosphere: staging, the fairing opening, the CubeSat leaving. Then the space view.
   const wasLaunched = useRef(launched)
   useEffect(() => {
-    if (launched && !wasLaunched.current) {
-      startLaunch()
-      if (canUseWebGL()) {
-        useInsideStore.getState().play({
-          id: 'fairing-ride',
-          caption: 'T-minus 5… inside the payload fairing beside your 6U deployer.',
-          durationS: LAUNCH.durationS,
-          onEnd: () => useUiStore.getState().endLaunch(),
-        })
-      }
-    }
+    if (launched && !wasLaunched.current) startLaunch()
     wasLaunched.current = launched
   }, [launched, startLaunch])
   useEffect(() => {
     if (launchAt === null) return
-    const id = window.setTimeout(endLaunch, Math.max(0, LAUNCH.durationS * 1000 - (performance.now() - launchAt)))
-    return () => window.clearTimeout(id)
+    const since = performance.now() - launchAt
+    const webgl = canUseWebGL()
+    const toFairing = window.setTimeout(() => {
+      if (!webgl) return endLaunch()
+      useInsideStore.getState().play({
+        id: 'fairing-ride',
+        caption: 'Above the atmosphere, inside the payload fairing beside your 6U deployer.',
+        startAtS: LAUNCH.fairingFromS,
+        durationS: LAUNCH.fairingS - LAUNCH.fairingFromS,
+        onEnd: () => useUiStore.getState().endLaunch(),
+      })
+    }, Math.max(0, LAUNCH.islandS * 1000 - since))
+    // The safety net, should the fairing ride never end itself
+    const done = window.setTimeout(endLaunch, Math.max(0, (LAUNCH.durationS + 2) * 1000 - since))
+    return () => {
+      window.clearTimeout(toFairing)
+      window.clearTimeout(done)
+    }
   }, [launchAt, endLaunch])
 
   const terminal = isSimComplete(sim) ? (sim.phase === 'failed' ? 'failed' : 'complete') : undefined

@@ -453,7 +453,9 @@ export function createDefaultDesign(): Design {
       // (it costs 21.3 M of the 25 M since the balance redesign; 24.9 M before)
       reservePercent: 0,
     },
-    instruments: ['inst-ir-spec'],
+    // The laser sees into the shadowed craters: left as it is, the starting craft can fly the mission
+    // (all checks go, about 92% full success). It was the IR spectrometer, a trap, before 15 Nov.
+    instruments: ['inst-laser'],
     structure: 'bus-6u',
     solar: 'solar-2wing',
     battery: 'battery-large',

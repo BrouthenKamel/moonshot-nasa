@@ -295,3 +295,28 @@ describe('gameStore without team mode', () => {
     for (const key of ['mode', 'players', 'signOffs', 'setMode', 'setPlayers', 'toggleSignOff']) expect(key in state).toBe(false)
   })
 })
+
+// The flight's skip button: one press jumps to the end of the phase the flight is in
+describe('skipPhase', () => {
+  beforeEach(reset)
+
+  it('jumps to the next phase in one press, unless an event card stops it first', () => {
+    useGameStore.getState().startSimulation()
+    for (let press = 0; press < 12; press++) {
+      const before = useGameStore.getState().simState!
+      if (isSimComplete(before)) break
+      if (before.pendingDecision) {
+        useGameStore.getState().answerEvent(before.pendingDecision.options[0].id)
+        continue
+      }
+      useGameStore.getState().skipPhase()
+      const after = useGameStore.getState().simState!
+      expect(after.currentTurn).toBeGreaterThan(before.currentTurn)
+      // Stopped where it should: a new phase, a card for the player, or the end
+      expect(after.phase !== before.phase || !!after.pendingDecision || isSimComplete(after)).toBe(true)
+      // ...and never before: every month it skipped stayed in the starting phase
+      const skipped = after.turnLogs.slice(before.turnLogs.length, -1)
+      for (const log of skipped) expect(log.phase ?? before.phase).toBe(before.phase)
+    }
+  })
+})

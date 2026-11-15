@@ -159,6 +159,26 @@ function ThisMonth({ simState, compact }: { simState: SimState; compact: boolean
   )
 }
 
+/** The skip button names where it jumps to: the end of the phase the flight is in */
+function skipLabel(phase: string): string {
+  switch (phase) {
+    case 'build':
+      return 'Skip to end of building'
+    case 'test':
+      return 'Skip to end of testing'
+    case 'wait':
+      return 'Skip to launch'
+    case 'transfer':
+      return 'Skip to arrival at the Moon'
+    case 'capture':
+      return 'Skip to the science orbit'
+    case 'orbit':
+      return 'Skip to the end of the mission'
+    default:
+      return 'Skip to end of this phase'
+  }
+}
+
 /**
  * Month buttons during the flight; "See report" once it is over. Hidden while an event card waits.
  * `monthPlan` shows the in-orbit "This month" science chooser above the buttons (off on the base map:
@@ -168,11 +188,9 @@ export function FlightControls({ compact = false, monthPlan = true }: { compact?
   const simState = useGameStore((s) => s.simState)
   const advanceTurn = useGameStore((s) => s.advanceTurn)
   const autoFly = useGameStore((s) => s.autoFly)
-  const startAutoFly = useGameStore((s) => s.startAutoFly)
-  const stopAutoFly = useGameStore((s) => s.stopAutoFly)
+  const skipPhase = useGameStore((s) => s.skipPhase)
   const showReport = useGameStore((s) => s.showReport)
   const autoFlySpeed = useUiStore((s) => s.autoFlySpeed)
-  const setAutoFlySpeed = useUiStore((s) => s.setAutoFlySpeed)
 
   // Play the flight month by month; the store switches it off at the next milestone
   const intervalMs = autoFlySpeed === 2 ? AUTO_FLY_MS / 2 : AUTO_FLY_MS
@@ -193,7 +211,6 @@ export function FlightControls({ compact = false, monthPlan = true }: { compact?
     )
   }
   if (simState.pendingDecision) return null
-  const seg = 'fp-btn-ghost justify-center rounded-none border-b-2'
   return (
     <div>
       {monthPlan && simState.phase === 'orbit' && <ThisMonth simState={simState} compact={compact} />}
@@ -206,32 +223,15 @@ export function FlightControls({ compact = false, monthPlan = true }: { compact?
         >
           Advance one month
         </button>
-        <div className="flex flex-1 items-stretch border border-rule-strong bg-ink-1">
-          <button
-            type="button"
-            onClick={() => (autoFly ? stopAutoFly() : startAutoFly())}
-            aria-pressed={autoFly}
-            className={`${seg} flex-1 whitespace-nowrap px-3 ${autoFly ? 'border-b-kapton text-paper' : 'border-b-transparent'}`}
-          >
-            {autoFly ? 'Pause' : 'Fly until something happens'}
-          </button>
-          <div className="flex border-l border-rule" aria-label="Auto-fly speed" role="group">
-            {([1, 2] as const).map((spd) => (
-              <button
-                key={spd}
-                type="button"
-                aria-pressed={autoFlySpeed === spd}
-                aria-label={`Auto-fly speed ${spd}x`}
-                onClick={() => setAutoFlySpeed(spd)}
-                className={`${seg} fp-data px-2.5 ${spd === 2 ? 'border-l border-l-rule' : ''} ${
-                  autoFlySpeed === spd ? 'border-b-kapton text-paper' : 'border-b-transparent'
-                }`}
-              >
-                {spd}x
-              </button>
-            ))}
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={() => skipPhase()}
+          disabled={autoFly}
+          title="Jump to the end of this phase. An event card still stops the flight for your answer."
+          className={`fp-btn-secondary flex-1 justify-center whitespace-nowrap ${pad}`}
+        >
+          {skipLabel(simState.phase)}
+        </button>
       </div>
     </div>
   )

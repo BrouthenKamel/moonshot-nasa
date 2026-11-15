@@ -1,4 +1,4 @@
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
@@ -22,8 +22,13 @@ const subscribeMotion = (onChange: () => void) => {
 }
 const reducedMotion = () => window.matchMedia(REDUCE_MOTION).matches
 
-/** The Research Lab simulator: a chase view of the satellite measuring the south pole. */
-export default function InstrumentStage() {
+/**
+ * The Research Lab simulator: a chase view of the satellite measuring the south pole.
+ * `fill` makes it fill its parent (absolute) with only the scene and its read-outs: the Science
+ * step then lays the instrument picks over its foot, and floats `topLeft` under the forecast. Without it, the stage keeps its own title,
+ * card bar and change line under it.
+ */
+export default function InstrumentStage({ fill = false, topLeft }: { fill?: boolean; topLeft?: ReactNode }) {
   const design = useGameStore((s) => s.design)
   const previewPatch = useUiStore((s) => s.previewPatch)
   const difficulty = useGameStore((s) => s.difficulty)
@@ -58,6 +63,27 @@ export default function InstrumentStage() {
       }
     },
   })
+
+  if (fill)
+    return (
+      <div {...cradleDrop.handlers} onPointerDownCapture={() => setDragged(true)} className="absolute inset-0 overflow-hidden bg-[#03050a]">
+        <Canvas dpr={[1, 1.75]} camera={camera}>
+          <Scene pass={pass} h={h} views={model.instruments} still={still} onShadow={setOverShadow} />
+          <Effects preset="space" bloom={0.35} />
+        </Canvas>
+        {/* One dashboard in the top-left corner: the forecast, and under it the hovered instrument's details */}
+        <div className="hud-panel pointer-events-none absolute left-3 top-3 flex w-[23rem] max-w-[40%] flex-col gap-2.5 rounded-xl p-3.5">
+          <ForecastPanel forecast={model.forecast} altitudeKm={model.altitudeKm} inline />
+          {topLeft && <div className="border-t border-rule pt-2.5">{topLeft}</div>}
+        </div>
+        <ReadOuts views={model.instruments} overShadow={overShadow} top />
+        {!dragged && (
+          <div className="hud-fade pointer-events-none absolute left-1/2 top-3 hidden -translate-x-1/2 rounded bg-slate-950/70 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500 sm:block">
+            drag to look around
+          </div>
+        )}
+      </div>
+    )
 
   return (
     <div className="mb-4">
