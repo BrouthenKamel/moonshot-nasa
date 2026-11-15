@@ -6,7 +6,7 @@ import { useWorldStore } from '../../state/worldStore'
 import { useGameStore } from '../../state/gameStore'
 import { isSimComplete } from '../../sim/simulate'
 import { Stamp } from '../kit'
-import { DetailsPanel, DetailsToggle } from './CampaignDetails'
+import { DetailsPanel, DetailsToggle } from '../kit'
 
 /*
  * The campaign view: the ladder from the ice map to a base on Mars, over the agency

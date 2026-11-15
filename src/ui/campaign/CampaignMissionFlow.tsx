@@ -10,7 +10,7 @@ import type { Outcome } from '../../campaign/scenes/types'
 import { audio } from '../../assets/audio'
 import { Stamp } from '../kit'
 import { MissionArt } from './MissionArt'
-import { DetailsPanel, DetailsToggle } from './CampaignDetails'
+import { DetailsPanel, DetailsToggle } from '../kit'
 
 /*
  * One campaign mission (missions 2-4), full screen: brief, one screen per design
@@ -99,8 +99,8 @@ function Frame({
             </button>
           </div>
           {details && (
-            <DetailsPanel id={`campaign-${mission.id}-${step}`} className="mt-3 max-h-60 overflow-y-auto border-t border-rule pt-3 text-xs text-paper-dim">
-              {details}
+            <DetailsPanel id={`campaign-${mission.id}-${step}`}>
+              <div className="mt-3 max-h-60 overflow-y-auto border-t border-rule pt-3 text-xs text-paper-dim">{details}</div>
             </DetailsPanel>
           )}
         </footer>
