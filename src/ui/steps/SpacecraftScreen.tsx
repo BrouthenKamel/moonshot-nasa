@@ -2,6 +2,7 @@ import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type R
 import { useGameStore } from '../../state/gameStore'
 import { canUseWebGL } from '../../scene/webgl'
 import { getPartById, type PropulsionPart } from '../../data/parts'
+import { createDefaultDesign } from '../../sim/budgets'
 import { buildBayView, type BayView } from '../../viz/spacecraft/bayView'
 import { buildCraft, type CraftSlot } from '../../viz/spacecraft/craftBuild'
 import { useDesignPreview } from '../useDesignPreview'
@@ -20,6 +21,12 @@ import { PartsTray, FactStrip, type ActiveOption } from './spacecraft/PartsTray'
 import { BoardText } from './spacecraft/BoardText'
 import { FlySheet } from './spacecraft/FlySheet'
 import { SceneTitle } from './launch/SceneTitle'
+
+/** The Factory's parts on a new mission's craft, which "Reset to starter" puts back */
+const STARTER: Record<TrayKey, string> = (() => {
+  const d = createDefaultDesign()
+  return { solar: d.solar, battery: d.battery, computer: d.computer, attitude: d.attitude, propulsion: d.propulsion }
+})()
 
 const SpacecraftStage = lazy(() => import('../../scene/spacecraft/SpacecraftStage').then((m) => ({ default: m.SpacecraftStage })))
 const RocketBay = lazy(() => import('../../scene/rocket/RocketBay').then((m) => ({ default: m.RocketBay })))
@@ -289,6 +296,15 @@ export function SpacecraftScreen() {
     attitude: design.attitude,
     propulsion: design.propulsion,
   }
+  // The starter craft: the Factory's five parts as a new mission has them (instruments, radio,
+  // orbit and plan are chosen elsewhere and stay as they are)
+  const atStarter = (Object.keys(STARTER) as TrayKey[]).every((k) => selected[k] === STARTER[k])
+  const resetToStarter = () => {
+    audio.play('sfx.snap')
+    setLast(null)
+    setPickedSlot(null)
+    updateDesign(STARTER)
+  }
   const pick = (key: TrayKey, id: string) => {
     setLast({ key, id })
     setPickedSlot(key)
@@ -419,7 +435,7 @@ export function SpacecraftScreen() {
           </button>
           {room && (
             <div className="w-full">
-              <FlySheet view={view} preview={preview} />
+              <FlySheet view={view} preview={preview} onReset={atStarter ? undefined : resetToStarter} />
               <Eng as="p" className="mt-1 border border-rule bg-ink-1 p-2 text-[10px] leading-snug text-paper-faint">
                 Scale: {activeBudgets.totalMass.toFixed(1)} / {activeBudgets.massLimit.toFixed(1)} kg · Bus:{' '}
                 {activeBudgets.powerGenerated}W solar vs {activeBudgets.powerConsumed}W load · Propellant:{' '}
