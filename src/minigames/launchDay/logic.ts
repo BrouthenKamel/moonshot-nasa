@@ -40,6 +40,11 @@ const Q_LIMIT = 70e3
 /** Within this many seconds of the mark is a perfect tap; within the second, a good one */
 const PERFECT_WINDOW = 0.55
 const GOOD_WINDOW = 1.4 // earlier than this is TOO EARLY: a false start, not a miss
+/**
+ * How long a grade pop ("PERFECT", "TOO EARLY · 1.8 s early", "OFF · 0.8 s late · +100") stays on screen,
+ * at least (Integration review, 15 Nov: a TOO EARLY flashed for 1.1 s and went unseen)
+ */
+export const POP_MIN_MS = 1500
 /** The computer takes over this long after a missed mark */
 const MISS_AFTER = 2
 

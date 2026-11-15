@@ -7,6 +7,7 @@ import {
   currentEvent,
   eventTime,
   newLaunch,
+  POP_MIN_MS,
   press,
   release,
   setupFromDesign,
@@ -417,6 +418,15 @@ function drawTimeline(canvas: HTMLCanvasElement, s: LaunchState) {
   }
 }
 
+/** How many grade pops stack at once (each stays up POP_MIN_MS, see logic.ts) */
+const POP_MAX = 2
+interface Pop {
+  big: string
+  small: string
+  grade: keyof typeof GRADE_TEXT
+  key: number
+}
+
 const GRADE_TEXT = { perfect: 'text-go', good: 'text-kapton', off: 'text-nogo', early: 'text-nogo' } as const
 const GRADE_CHIP = { perfect: 'bg-go/20 text-go', good: 'bg-kapton/20 text-kapton', off: 'bg-nogo/20 text-nogo' } as const
 
@@ -451,7 +461,8 @@ export function LaunchDayGame({
   // Redrawn every frame from the state; React only holds what the player reads
   const [hud, setHud] = useState({ alt: 0, vel: 0, score: 0, combo: 0, verb: '—', live: false, hold: false, holding: false })
   const [callout, setCallout] = useState<{ a: string; b: string }>({ a: 'Go for launch', b: 'Counting down' })
-  const [pop, setPop] = useState<{ big: string; small: string; grade: keyof typeof GRADE_TEXT; key: number } | null>(null)
+  // Every pop stays up at least POP_MIN_MS; a newer one stacks under it instead of replacing it
+  const [pops, setPops] = useState<Pop[]>([])
   const [fact, setFact] = useState<{ title: string; text: string; key: number } | null>(null)
 
   const stars = useMemo(
@@ -489,7 +500,9 @@ export function LaunchDayGame({
   const applyFeedback = useCallback(
     (fb: Feedback | null) => {
       if (!fb) return
-      setPop({ big: fb.big, small: fb.small, grade: fb.grade, key: Date.now() })
+      const key = performance.now()
+      setPops((list) => [...list, { big: fb.big, small: fb.small, grade: fb.grade, key }].slice(-POP_MAX))
+      window.setTimeout(() => setPops((list) => list.filter((p) => p.key !== key)), POP_MIN_MS)
       if (fb.grade === 'perfect') play('sfx.go')
       else if (fb.grade === 'good') play('sfx.turn')
       else play('sfx.error')
@@ -660,11 +673,6 @@ export function LaunchDayGame({
     const id = window.setTimeout(() => setFact(null), 7000)
     return () => window.clearTimeout(id)
   }, [fact])
-  useEffect(() => {
-    if (!pop) return
-    const id = window.setTimeout(() => setPop(null), 1100)
-    return () => window.clearTimeout(id)
-  }, [pop])
 
   if (phase === 'briefing') {
     return (
@@ -771,13 +779,17 @@ export function LaunchDayGame({
           <div className="fp-display text-2xl text-paper drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] sm:text-3xl">{callout.a}</div>
           <div className="mt-0.5 text-sm text-paper-dim drop-shadow-[0_1px_6px_rgba(0,0,0,0.8)]">{callout.b}</div>
         </div>
-        {pop && (
-          <div
-            key={`pop-${pop.key}`}
-            className={`pointer-events-none absolute inset-x-0 top-[34%] text-center fp-display text-4xl tracking-widest drop-shadow-[0_3px_12px_rgba(0,0,0,0.9)] ${GRADE_TEXT[pop.grade]}`}
-          >
-            {pop.big}
-            <div className="mt-1 fp-data text-base tracking-normal">{pop.small}</div>
+        {pops.length > 0 && (
+          <div className="pointer-events-none absolute inset-x-0 top-[34%] flex flex-col items-center gap-2 text-center">
+            {pops.map((pop) => (
+              <div
+                key={`pop-${pop.key}`}
+                className={`fp-display text-4xl tracking-widest drop-shadow-[0_3px_12px_rgba(0,0,0,0.9)] ${GRADE_TEXT[pop.grade]}`}
+              >
+                {pop.big}
+                <div className="mt-1 fp-data text-base tracking-normal">{pop.small}</div>
+              </div>
+            ))}
           </div>
         )}
         {fact && (
