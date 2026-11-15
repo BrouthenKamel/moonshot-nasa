@@ -5,7 +5,8 @@ import { fundingPerDay, grantShare, missionFunding, popularityEffects } from '..
 import { lunarPapers } from '../../game/research'
 import { failedLine, missionResult, type MissionResult } from '../../game/result'
 import { useUiStore } from '../../state/uiStore'
-import { campaign, phaseProgress } from '../../game/campaign'
+import { useCampaignStore } from '../../state/campaignStore'
+import { hqProgress } from '../../campaign/progress'
 import type { FeedItem } from '../../game/world'
 import { difficultyPresets } from '../../data/brief'
 import { computeBudgets } from '../../sim/budgets'
@@ -18,7 +19,7 @@ import { Eng, Sheet, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
 /*
  * The agency layer on the base screen (numbers from src/game through useWorldStore):
  * the clock and the wallet in the top bar, the mission card on the right, news on the left,
- * and the Headquarters campaign and New mission dialogs.
+ * and the Headquarters label (the campaign ladder itself is src/ui/campaign).
  * FLIGHT PLAN look: ink sheets, hairline rules, fp-data readouts, Kapton for the one action.
  * Story view keeps the decisions (the budget); detail breakdowns sit in <Eng>.
  */
@@ -225,36 +226,8 @@ function WalletBreakdown({ detail, onClose }: { detail: 'funds' | 'popularity'; 
 }
 
 /* ------------------------------------------------------------------ */
-/* Shared: modal sheet, ruled stat cell, ops-log tone rules            */
+/* Shared: ruled stat cell, ops-log tone rules                         */
 /* ------------------------------------------------------------------ */
-
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-0/80 p-4" onClick={onClose}>
-      <Sheet
-        tone="raised"
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="w-full max-w-lg p-5 text-paper"
-        onClick={(e: MouseEvent) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3 border-b border-rule pb-2">
-          <h2 className="fp-display text-lg text-paper">{title}</h2>
-          <button type="button" aria-label="Close" onClick={onClose} className="fp-btn-ghost !p-1">
-            <Icon name="close" />
-          </button>
-        </div>
-        {children}
-      </Sheet>
-    </div>
-  )
-}
 
 /** A ruled data cell: label over an fp-data value */
 function Stat({ label, value, tone = 'text-paper' }: { label: string; value: string; tone?: string }) {
@@ -462,125 +435,13 @@ export function MissionPanel({
 }
 
 /* ------------------------------------------------------------------ */
-/* New mission                                                         */
+/* Headquarters: the campaign (the ladder is src/ui/campaign)          */
 /* ------------------------------------------------------------------ */
 
-export function NewMissionDialog({ onClose, onStart }: { onClose: () => void; onStart: () => void }) {
-  const popularity = useWorldStore((s) => s.popularity)
-  const funds = useWorldStore((s) => s.funds)
-  const difficulty = useGameStore((s) => s.difficulty)
-  const budget = difficultyPresets[difficulty].budgetCap
-  const f = missionFunding(budget, popularity)
-  const affordable = funds >= f.agencyPays
-  const locked = [
-    { name: 'Crewed lunar landing', why: 'Opens after the ice map' },
-    { name: 'Mars survey probe', why: 'Mars phase' },
-  ]
-  return (
-    <Modal title="New mission" onClose={onClose}>
-      <p className="mt-2 text-sm text-paper-dim">Choose what the agency works on next. One mission at a time.</p>
-      <button
-        type="button"
-        onClick={onStart}
-        className="mt-4 block w-full border border-kapton/60 bg-ink-1 text-left transition-colors hover:border-kapton hover:bg-ink-2"
-      >
-        <div className="flex items-baseline gap-3 px-3 pt-3">
-          <span className="fp-data text-xs text-kapton">01</span>
-          <div className="min-w-0">
-            <div className="fp-display text-base text-paper">Lunar Ice Mapper</div>
-            <div className="text-xs text-paper-dim">A 6U CubeSat maps water ice in the Moon's dark craters</div>
-          </div>
-        </div>
-        <div className="mt-3 grid grid-cols-3 border-y border-rule">
-          <div className="px-3 py-1.5">
-            <div className="fp-label text-[0.6rem] text-paper-faint">Budget</div>
-            <div className="fp-data text-sm font-semibold text-paper">{money(budget)}</div>
-          </div>
-          <div className="border-l border-rule px-3 py-1.5">
-            <div className="fp-label text-[0.6rem] text-paper-faint">Government</div>
-            <div className="fp-data text-sm font-semibold text-paper">{money(f.grant)}</div>
-          </div>
-          <div className={`border-l border-rule px-3 py-1.5 ${affordable ? '' : 'bg-nogo/10'}`}>
-            <div className="fp-label text-[0.6rem] text-paper-faint">You pay at launch</div>
-            <div className={`fp-data text-sm font-semibold ${affordable ? 'text-go' : 'text-nogo'}`}>{money(f.agencyPays)}</div>
-          </div>
-        </div>
-        <div className="flex justify-end p-3">
-          <span className="fp-btn-primary">Start planning →</span>
-        </div>
-      </button>
-      <ul className="mt-3 border-t border-rule">
-        {locked.map((m, i) => (
-          <li key={m.name} className="flex items-center gap-3 border-b border-rule px-3 py-2 text-paper-faint">
-            <span className="fp-data text-xs">{String(i + 2).padStart(2, '0')}</span>
-            <Icon name="lock" className="h-3.5 w-3.5" />
-            <span className="text-sm font-semibold">{m.name}</span>
-            <span className="fp-label ml-auto text-[0.62rem] text-paper-faint">{m.why}</span>
-          </li>
-        ))}
-      </ul>
-    </Modal>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/* Headquarters: the campaign                                          */
-/* ------------------------------------------------------------------ */
-
-/** Campaign progress for the Headquarters label, 0-1 per phase */
+/** Campaign progress for the Headquarters label, 0-1 per phase, read from the ladder */
 export function useCampaignProgress() {
-  const mission = useWorldStore((s) => s.mission)
-  return useMemo(() => {
-    const [sat, moon, mars] = campaign({ mission })
-    return { satellites: phaseProgress(sat), moon: phaseProgress(moon), mars: phaseProgress(mars) }
-  }, [mission])
-}
-
-export function CampaignDialog({ onClose }: { onClose: () => void }) {
-  const mission = useWorldStore((s) => s.mission)
-  const phases = campaign({ mission })
-  return (
-    <Modal title="Headquarters: the campaign" onClose={onClose}>
-      <p className="mt-2 text-sm text-paper-dim">From satellites to a base on Mars. Each phase opens the next.</p>
-      <div className="mt-4 space-y-3">
-        {phases.map((p, i) => {
-          const pct = Math.round(phaseProgress(p) * 100)
-          const lockedPhase = p.goals.every((g) => g.state === 'locked')
-          return (
-            <div key={p.id} className={`border border-rule p-3 ${lockedPhase ? 'bg-ink-1' : 'bg-ink-2'}`}>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className={`flex items-baseline gap-2 ${lockedPhase ? 'text-paper-faint' : 'text-paper'}`}>
-                  <span className="fp-data text-xs text-paper-faint">{i + 1}.</span>
-                  <span className="fp-display text-sm">{p.name}</span>
-                </span>
-                <span className="fp-data text-xs text-paper-dim">{pct}%</span>
-              </div>
-              <div className="mt-1.5 h-1.5 border border-rule bg-ink-0">
-                <div className={`hud-bar-segments h-full ${pct >= 100 ? 'bg-go' : 'bg-kapton'}`} style={{ width: `${pct}%` }} />
-              </div>
-              <ul className="mt-2 text-sm">
-                {p.goals.map((g) => (
-                  <li
-                    key={g.label}
-                    className={`flex items-center gap-2 border-b border-rule py-1 last:border-b-0 ${g.state === 'locked' ? 'text-paper-faint' : 'text-paper'}`}
-                  >
-                    <Icon
-                      name={g.state === 'done' ? 'check' : g.state === 'locked' ? 'lock' : 'rocket'}
-                      className={`h-3.5 w-3.5 shrink-0 ${g.state === 'done' ? 'text-go' : g.state === 'active' ? 'text-kapton' : ''}`}
-                    />
-                    {g.label}
-                    {g.state === 'active' && g.progress !== undefined && (
-                      <span className="fp-data ml-auto text-xs text-kapton">{Math.round(g.progress * 100)}%</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )
-        })}
-      </div>
-    </Modal>
-  )
+  const progress = useCampaignStore((s) => s.progress)
+  return useMemo(() => hqProgress(progress), [progress])
 }
 
 /* ------------------------------------------------------------------ */

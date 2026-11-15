@@ -11,7 +11,6 @@ import {
   nextMissionTurnDay,
   type MissionSnapshot,
 } from './world'
-import { campaign, phaseProgress } from './campaign'
 
 const snap = (over: Partial<MissionSnapshot> = {}): MissionSnapshot => ({
   seed: 42,
@@ -132,12 +131,5 @@ describe('real mission', () => {
     expect(r1.world.funds).toBeCloseTo(fundsBefore + 1.5, 5)
     const r2 = missionTurned(r1.world, end)
     expect(r2.world.funds).toBe(r1.world.funds)
-  })
-
-  it('counts the ice map as a Moon-phase goal once it succeeds', () => {
-    let w = approved()
-    const moonBefore = phaseProgress(campaign(w)[1])
-    w = missionTurned(w, snap({ ended: true, outcome: 'success', phase: 'complete', turn: 20 })).world
-    expect(phaseProgress(campaign(w)[1])).toBeGreaterThan(moonBefore)
   })
 })
