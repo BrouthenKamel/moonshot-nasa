@@ -1,49 +1,50 @@
 import { Component, type ReactNode } from 'react'
 import { buildings } from '../data/agency'
 import type { BaseMapProps } from './BaseMap'
-import { buildingIcons } from './buildingIcons'
 
 /**
  * The buildings as a plain list: the base map for a browser without WebGL, or when the
  * 3D map fails. Each button walks into its building, just as clicking it on the map does.
+ * Drawn as a flight-plan sheet: one ruled row per building, its state as a 3px left rule.
  */
 export function BuildingList({ labels, onBuildingClick }: BaseMapProps) {
   return (
-    <div className="h-full w-full overflow-y-auto bg-[#1d2c4f] p-4 pb-10 text-white">
-      <h2 className="font-display text-xl font-bold">Agency base</h2>
-      <p className="mt-1 text-sm text-slate-300">
+    <div className="hud-grid-bg h-full w-full overflow-y-auto p-4 pb-10 text-paper">
+      <h2 className="fp-display text-lg text-paper">Agency base</h2>
+      <p className="mt-1 text-sm text-paper-dim">
         {onBuildingClick
           ? 'Click a building to walk in.'
           : 'The craft is flying: the buildings show its state.'}{' '}
         (The 3D map needs WebGL, which this browser has turned off.)
       </p>
       <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-        {buildings.map((b) => {
+        {buildings.map((b, i) => {
           const label = labels[b.id]
           const body = (
             <>
-              <span className="flex items-center gap-2">
-                <span className="text-xl leading-none" aria-hidden="true">
-                  {buildingIcons[b.id]}
+              <span className="flex items-baseline gap-2">
+                <span className="fp-data text-[11px] text-paper-faint" aria-hidden="true">
+                  B-{String(i + 1).padStart(2, '0')}
                 </span>
-                <span className="font-display text-base font-bold">{b.name}</span>
+                <span className="fp-display text-sm text-paper">{b.name}</span>
               </span>
-              <span className="mt-1 block text-sm text-slate-600">{label.status}</span>
+              <span className="mt-1 block text-sm text-paper-dim">{label.status}</span>
             </>
           )
-          const border = label.alert ? 'border-red-500' : label.highlight ? 'border-orange-400' : label.pulse ? 'border-emerald-400' : 'border-transparent'
+          const rule = label.alert ? 'border-l-nogo' : label.highlight ? 'border-l-kapton' : label.pulse ? 'border-l-go' : 'border-l-rule-strong'
+          const cell = `block w-full border border-l-[3px] border-rule bg-ink-2 p-3 text-left ${rule}`
           return (
             <li key={b.id}>
               {onBuildingClick ? (
                 <button
                   type="button"
                   onClick={() => onBuildingClick(b.id)}
-                  className={`block w-full rounded-xl border-2 bg-white/95 p-3 text-left text-slate-800 shadow transition hover:bg-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-orange-400 ${border}`}
+                  className={`${cell} transition-colors hover:bg-ink-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-kapton`}
                 >
                   {body}
                 </button>
               ) : (
-                <div className={`rounded-xl border-2 bg-white/95 p-3 text-slate-800 ${border}`}>{body}</div>
+                <div className={cell}>{body}</div>
               )}
             </li>
           )
