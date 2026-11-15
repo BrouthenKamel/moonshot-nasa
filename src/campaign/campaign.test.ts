@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { CAMPAIGN, defaultPicks, missionById, planOf, type CampaignMission, type Picks } from './missions'
 import { flyMission, outcomeOdds } from './flight'
 import { agencyShare, approveCampaignMission, awardIceMapper, canAfford, settleCampaignFlight } from './ledger'
-import { buildUpMission, hqProgress, minimumShare, repeatValue, emptyProgress, gateProgress, ladder, markOpened, nextMission, recordFlight, type CampaignProgress } from './progress'
+import { buildUpMission, gateDistance, hqProgress, unlockNote, minimumShare, repeatValue, emptyProgress, gateProgress, ladder, markOpened, nextMission, recordFlight, type CampaignProgress } from './progress'
 import { advanceDays, approveMission, initialWorld, missionTurned, type MissionSnapshot, type World } from '../game/world'
 
 /** The picks with the best landing chance: what a careful player does */
@@ -169,6 +169,28 @@ describe('ladder and gates', () => {
   it('makes a careful repeat flight of missions 2 and 3 worth money on average', () => {
     // Mars is the last rung: it never builds up for a later gate
     for (const m of CAMPAIGN.slice(1, 3)) expect(repeatValue(m, m.gate!.popularity), m.id).toBeGreaterThan(0)
+  })
+})
+
+describe('gateDistance and unlockNote', () => {
+  const iceFlown = recordFlight(emptyProgress(), { missionId: 'ice-mapper', outcome: 'success', science: 0, day: 0, seed: 1 })
+
+  it('spells out how far a locked rung is from its gate', () => {
+    expect(gateDistance(missionById('moon-landing').gate!, 18.44, 68.2)).toBe('Funds $18.4M of $35M · Popularity 68% of 68%')
+    expect(gateDistance(missionById('mars-base').gate!, 0, 0)).toBe('Funds $0.0M of $125M · Popularity 0% of 76%')
+  })
+
+  it('says what a newly unlocked rung needs, or that it is ready', () => {
+    expect(unlockNote(iceFlown, 'ice-mapper', 28.4, 80)).toMatchObject({ met: false, text: 'Unlocked! Needs $35M: you have $28.4M.' })
+    expect(unlockNote(iceFlown, 'ice-mapper', 28.4, 60)!.text).toBe('Unlocked! Needs $35M and 68% popularity: you have $28.4M and 60%.')
+    expect(unlockNote(iceFlown, 'ice-mapper', 40, 80)).toMatchObject({ met: true, text: 'Unlocked! The Moon landing is ready to plan.' })
+  })
+
+  it('says nothing after a failure, for a rung already started, or with no flight', () => {
+    const failed = recordFlight(emptyProgress(), { missionId: 'ice-mapper', outcome: 'failed', science: 0, day: 0, seed: 1 })
+    expect(unlockNote(failed, 'ice-mapper', 40, 80)).toBeNull()
+    expect(unlockNote(markOpened(iceFlown, 'moon-landing'), 'ice-mapper', 40, 80)).toBeNull()
+    expect(unlockNote(iceFlown, null, 40, 80)).toBeNull()
   })
 })
 

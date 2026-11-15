@@ -293,10 +293,7 @@ export function InstrumentsScreen() {
 
         {count === 0 && <div className="border-l-2 border-nogo bg-ink-2 p-3 text-sm text-paper">Select at least one instrument to continue.</div>}
 
-        <div className="flex justify-between pt-1">
-          <Btn type="button" onClick={() => setDesignStep('planning')}>
-            ← Back
-          </Btn>
+        <div className="flex justify-end pt-1">
           <Btn variant="primary" type="button" onClick={() => setDesignStep('spacecraft')} disabled={count === 0}>
             {nextLabel('instruments')}
           </Btn>

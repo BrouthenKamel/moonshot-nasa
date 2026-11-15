@@ -113,7 +113,7 @@ function OrbitDashboard({ plan }: { plan: OrbitPlan }) {
       </Details>
       <PlanChecks checks={plan.checks} />
       <PlanOdds />
-      <PlanNav back={{ label: '← Back', to: 'spacecraft' }} next={{ label: nextLabel('orbit'), to: 'ride' }} />
+      <PlanNav next={{ label: nextLabel('orbit'), to: 'ride' }} />
     </PlanPanel>
   )
 }

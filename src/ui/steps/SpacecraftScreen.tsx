@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { canUseWebGL } from '../../scene/webgl'
 import { getPartById, type PropulsionPart } from '../../data/parts'
@@ -234,12 +234,15 @@ export function SpacecraftScreen() {
   const [seen, setSeen] = useState(hasSeenRocketLoad)
   /** Where the player is headed once the craft is in the rocket */
   const [exitTo, setExitTo] = useState<DesignStep>('orbit')
+  /** The rocket hall has loaded (its models take a few seconds the first time) */
+  const [hallReady, setHallReady] = useState(false)
 
   /**
    * Leaving the Craft step loads the craft into the rocket on the way out, then shows the rocket
-   * explained, before the next step opens. The first time it plays in full, whichever way the
-   * player leaves. After that, "Next" plays a quicker carry that one click or Esc skips, and a tab
-   * jump goes straight through, so moving between tabs never gets in the way.
+   * explained, before the next step opens. The first time it plays at full length, whichever way
+   * the player leaves; after that, "Next" plays a quicker carry and a tab jump goes straight
+   * through, so moving between tabs never gets in the way. A button to go on (and Esc) is there
+   * from the first frame, while the rocket is still loading too, so the player is never held.
    */
   const leave = (to: DesignStep, via: 'next' | 'tab'): boolean => {
     if (seen && via === 'tab') return false
@@ -247,10 +250,16 @@ export function SpacecraftScreen() {
     setExitTo(to)
     setFocus('payload')
     // No 3D, or the player asked for less motion: straight to the craft inside the rocket
+    setHallReady(false)
     setPhase(room && !prefersReducedMotion() ? 'loading' : 'inside')
     return true
   }
   const goOn = () => setDesignStep(exitTo)
+  // If the 3D hall fails during the carry, there is nothing left to wait for: show the craft inside
+  useEffect(() => {
+    if (!room && phase === 'loading') setPhase('inside')
+  }, [room, phase])
+  const markHallReady = useCallback(() => setHallReady(true), [])
   const loaded = () => {
     markRocketLoadSeen()
     setSeen(true)
@@ -275,13 +284,13 @@ export function SpacecraftScreen() {
     [],
   )
 
-  // Esc skips straight on: during a repeat carry, or from the explainer
+  // Esc goes straight on, like the button: during the carry (loading or not) and from the explainer
   const goOnRef = useRef(goOn)
   useEffect(() => {
     goOnRef.current = goOn
   })
   useEffect(() => {
-    if (phase === 'build' || (phase === 'loading' && !seen)) return
+    if (phase === 'build') return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') goOnRef.current()
     }
@@ -326,7 +335,7 @@ export function SpacecraftScreen() {
         <div className="relative min-h-0 flex-1 overflow-hidden">
           {room ? (
             <BayBoundary onError={() => setRoom(false)}>
-              <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Opening the rocket hall…</div>}>
+              <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Loading the rocket…</div>}>
                 <RocketBay
                   config={rocket}
                   activeSlot={focus === 'payload' || focus === 'whole' ? null : focus}
@@ -336,12 +345,22 @@ export function SpacecraftScreen() {
                   speed={seen ? 2.5 : 1}
                   focus={focus}
                   onLoaded={loaded}
+                  onReady={markHallReady}
                 />
               </Suspense>
             </BayBoundary>
           ) : (
             <div className="h-full overflow-auto">
               <RocketText items={explainer} />
+            </div>
+          )}
+          {room && !hallReady && (
+            <div
+              className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center bg-ink-0 text-paper-faint"
+              role="status"
+              data-testid="rocket-loading"
+            >
+              Loading the rocket…
             </div>
           )}
 
@@ -356,11 +375,16 @@ export function SpacecraftScreen() {
           </div>
 
           <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-2">
+            {/* There from the first frame, while the rocket loads too: the player is never held */}
             {loading ? (
-              seen && (
+              seen ? (
                 <Btn variant="secondary" type="button" onClick={goOn} className="bg-ink-1" data-testid="skip-load" title="Skip (Esc)">
                   Skip to {STEP_NAMES[exitTo]} ▸▸
                 </Btn>
+              ) : (
+                <button type="button" onClick={goOn} className="tactical-btn-next" data-testid="carry-next" title="Go on (Esc)">
+                  {`Next: ${STEP_NAMES[exitTo]} →`}
+                </button>
               )
             ) : (
               <button type="button" onClick={goOn} className="tactical-btn-next" data-testid="explainer-next">
@@ -422,12 +446,6 @@ export function SpacecraftScreen() {
             Your ride (scale model) · the craft goes in the top
           </div>
         )}
-
-        <div className="absolute top-3 left-3 z-10 flex flex-col items-start gap-2">
-          <button type="button" onClick={() => setDesignStep('instruments')} className="tactical-btn-back bg-ink-1">
-            ← Back
-          </button>
-        </div>
 
         <div className="absolute top-3 right-3 z-10 flex w-64 flex-col items-end gap-3">
           <button type="button" onClick={() => leave('orbit', 'next')} className="tactical-btn-next" data-testid="craft-next">

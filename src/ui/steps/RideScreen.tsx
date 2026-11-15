@@ -242,7 +242,6 @@ function RideOption({ row }: { row: BoardRow }) {
 
 function RideList({ onNext }: { onNext: () => void }) {
   const view = useRideView()
-  const setDesignStep = useGameStore((s) => s.setDesignStep)
   return (
     <div className="hud-panel pointer-events-auto flex w-[320px] flex-col gap-2 rounded-xl p-3">
       <div className="fp-label text-[0.66rem] tracking-[0.16em] text-kapton">{stepTitle('ride')}</div>
@@ -253,9 +252,6 @@ function RideList({ onNext }: { onNext: () => void }) {
         ))}
       </div>
       <div className="flex gap-2 pt-1">
-        <button type="button" onClick={() => setDesignStep('orbit')} className="tactical-btn-back flex-1 bg-ink-1">
-          ← Back
-        </button>
         <button type="button" onClick={onNext} className="tactical-btn-next flex-[2]">
           Plan the transfer →
         </button>

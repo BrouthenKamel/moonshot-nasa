@@ -1,11 +1,18 @@
 import { useMemo } from 'react'
 import { useDesignPreview } from '../useDesignPreview'
+import { useGameStore } from '../../state/gameStore'
+import { audio } from '../../assets/audio'
+import { buildingForStep, buildingName } from '../../viz/missionMap'
 
 /**
  * The permanent header readout: the Go / No-Go verdict (blockers, risks or all clear) and the
  * mission's resource strip (mass, power, delta-v, cost). Plain text, nothing to click: the numbers
  * are the budgets the checklist asks the player to keep in view. While a card is hovered the
  * strip shows the what-if values with their change.
+ *
+ * A red blocker makes the verdict a button: its tooltip says where each one is fixed ("Delta-v:
+ * Launch Site", the same building names the map uses) and a click goes to the step that fixes
+ * the first one.
  */
 export function ResourceStrip() {
   const { budgets, checks, previewBudgets, isPreviewing } = useDesignPreview()
@@ -13,6 +20,12 @@ export function ResourceStrip() {
   const activeBudgets = previewBudgets ?? budgets
   const blockers = checks.blockers
   const warnings = checks.warnings
+  const setDesignStep = useGameStore((s) => s.setDesignStep)
+
+  // Where each red bar is fixed: the resource, then the building that holds its step
+  const fixes = blockers.filter((c) => c.fixStep)
+  const fixHint = fixes.map((c) => `${c.resource}: ${buildingName(buildingForStep(c.fixStep!))}`).join('. ')
+  const firstFix = fixes[0]?.fixStep
 
   const statusVerdict = useMemo(() => {
     if (blockers.length > 0) {
@@ -41,13 +54,28 @@ export function ResourceStrip() {
 
   return (
     <div className="flex items-center gap-2">
-      {/* Go / No-Go verdict */}
-      <div
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono text-xs font-bold tracking-wider shadow-sm ${statusVerdict.tone}`}
-      >
-        <span className={`h-2 w-2 rounded-full ${statusVerdict.dot}`} />
-        <span>{statusVerdict.label}</span>
-      </div>
+      {/* Go / No-Go verdict: a button to the fix when something is red */}
+      {firstFix ? (
+        <button
+          type="button"
+          onClick={() => {
+            audio.play('sfx.click')
+            setDesignStep(firstFix)
+          }}
+          title={`${fixHint}. Click to go there.`}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono text-xs font-bold tracking-wider shadow-sm hover:brightness-125 ${statusVerdict.tone}`}
+        >
+          <span className={`h-2 w-2 rounded-full ${statusVerdict.dot}`} />
+          <span>{statusVerdict.label}</span>
+        </button>
+      ) : (
+        <div
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-mono text-xs font-bold tracking-wider shadow-sm ${statusVerdict.tone}`}
+        >
+          <span className={`h-2 w-2 rounded-full ${statusVerdict.dot}`} />
+          <span>{statusVerdict.label}</span>
+        </div>
+      )}
 
       {/* Key numbers (desktop only) */}
       <div className="hidden lg:flex items-center gap-3 px-2 py-0.5 rounded-md bg-ink-2/60 border border-rule/50 text-[11px] font-mono text-paper-dim">

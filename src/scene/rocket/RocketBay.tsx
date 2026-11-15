@@ -53,6 +53,8 @@ interface ViewProps {
   speed?: number
   focus: RocketFocus
   onLoaded: () => void
+  /** Called once, when the rocket and the craft have loaded and the scene is drawn */
+  onReady?: () => void
 }
 
 /* ---------------- one part ---------------- */
@@ -625,6 +627,14 @@ function Payload({
 
 /* ---------------- the scene ---------------- */
 
+/** Mounts only once everything in its Suspense boundary has loaded */
+function Ready({ onReady }: { onReady?: () => void }) {
+  useEffect(() => {
+    onReady?.()
+  }, [onReady])
+  return null
+}
+
 type Layout = ReturnType<typeof layoutRocket>
 /** The engine bells hang below the core's base: lift the whole rocket so they clear the table */
 const liftOf = (layout: Layout) => TABLE_Y + 0.26 + GAP - layout.bottom * S
@@ -644,6 +654,7 @@ function Rocket({
   speed,
   focus,
   onLoaded,
+  onReady,
   tagEls,
   payloadTag,
 }: ViewProps & { layout: Layout; tagEls: RefObject<(HTMLDivElement | null)[]>; payloadTag: RefObject<HTMLDivElement | null> }) {
@@ -670,10 +681,12 @@ function Rocket({
     <>
       <Hangar topY={lift + layout.top * S} />
       <CameraRig follow={follow} still={still} />
-      <group position-y={lift}>
-        {layout.placed.map((p) => (
-          <Suspense key={`${p.slot}:${p.part.id}`} fallback={null}>
+      {/* One boundary for the rocket and the craft, so they appear together and onReady fires once both are in */}
+      <Suspense fallback={null}>
+        <group position-y={lift}>
+          {layout.placed.map((p) => (
             <PartModel
+              key={`${p.slot}:${p.part.id}`}
               placed={p}
               ghost={p.slot === 'nose' && open}
               highlighted={activeSlot === p.slot}
@@ -681,10 +694,8 @@ function Rocket({
               onHover={onSlotHover}
               onClick={onSlotClick}
             />
-          </Suspense>
-        ))}
-      </group>
-      <Suspense fallback={null}>
+          ))}
+        </group>
         <Payload
           loading={payload === 'loading'}
           speed={speed ?? 1}
@@ -697,6 +708,7 @@ function Rocket({
           onOpen={() => setOpened(true)}
           onLoaded={onLoaded}
         />
+        <Ready onReady={onReady} />
       </Suspense>
       <TagProjector anchors={anchors} elements={tagEls} />
     </>

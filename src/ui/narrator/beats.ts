@@ -9,7 +9,7 @@ import type { Budgets, DesignStep, GoNoGoResult, Report, SimState } from '../../
 import type { Screen } from '../../state/gameStore'
 import { craftWasLost } from '../../sim/evaluate'
 import { STEP_NAMES } from '../kit/stepNumbers'
-import { buildingName, firstStop } from '../../viz/missionMap'
+import { buildingForStep, buildingName, firstStop } from '../../viz/missionMap'
 
 export const NARRATOR_NAME = 'Commander Rosa Vega'
 export const NARRATOR_ROLE = 'Retired astronaut, now the agency’s mission mentor'
@@ -25,6 +25,7 @@ export const BEAT_IDS = [
   'step-ride',
   'step-comms',
   'go-nogo',
+  'blocker',
   'flight-build',
   'launch',
   'capture',
@@ -44,6 +45,8 @@ export interface Beat {
   text: string
   /** 'run': shown once per flight (flight and ending beats); 'game': shown once */
   scope: 'game' | 'run'
+  /** Remembered under this key instead of the id (a blocker line is one beat per cause) */
+  key?: string
 }
 
 /** Catalogue facts about the instruments on board (from src/data/parts.ts) */
@@ -190,7 +193,33 @@ function flightBeat(sim: SimState, report: Report | null): Beat | null {
 
 /** The key a beat is remembered under: flight and ending beats once per flight, the rest once */
 export function beatKey(beat: Beat, seed: number | undefined): string {
+  if (beat.key) return beat.key
   return beat.scope === 'run' && seed !== undefined ? `${beat.id}@${seed}` : beat.id
+}
+
+/** The first sentence of a check's reason: one line the mentor can say */
+function firstSentence(text: string): string {
+  const end = text.search(/[.!?](\s|$)/)
+  return end === -1 ? text : text.slice(0, end + 1)
+}
+
+/**
+ * The first red Go / No-Go bar, on any step: the mentor says its cause instead of the generic tip.
+ * It reads the checks (headline, else the first sentence of the reason), so no screen writes its
+ * own line. On the step that fixes it the line stands alone; on any other step it adds where to
+ * fix it ("...; fix it at the Launch Site"), using the map's building names. Go / No-Go keeps its
+ * own beat, which already counts the red bars.
+ */
+function blockerBeat(i: NarratorInput): Beat | null {
+  if (i.designStep === 'go-nogo') return null
+  const blocker = i.goNoGo.blockers[0]
+  if (!blocker) return null
+  const line = blocker.headline ?? firstSentence(blocker.reason)
+  const text =
+    blocker.fixStep && blocker.fixStep !== i.designStep
+      ? `${line.replace(/[.!?]$/, '')}; fix it at the ${buildingName(buildingForStep(blocker.fixStep))}.`
+      : line
+  return { id: 'blocker', key: `blocker:${i.designStep}:${blocker.resource}`, scope: 'game', text }
 }
 
 /** The beat for the current moment, or null when the narrator has nothing to say */
@@ -209,7 +238,7 @@ export function pickBeat(i: NarratorInput): Beat | null {
       return null
     case 'setup':
     case 'design':
-      return stepBeat(i.designStep, i)
+      return blockerBeat(i) ?? stepBeat(i.designStep, i)
     case 'report':
       return i.sim && i.report ? endBeat(i.sim, i.report) : null
     default:

@@ -481,11 +481,6 @@ function PlanningQuickHudOverlay() {
 
 function StepButtons({ overlay, rowRef }: { overlay: boolean; rowRef?: RefObject<HTMLDivElement | null> }) {
   const setDesignStep = useGameStore((s) => s.setDesignStep)
-  const back = (
-    <Btn type="button" onClick={() => setDesignStep('brief')}>
-      ← Back
-    </Btn>
-  )
   const next = (
     <Btn variant="primary" type="button" onClick={() => setDesignStep('instruments')}>
       {nextLabel('planning')}
@@ -495,8 +490,8 @@ function StepButtons({ overlay, rowRef }: { overlay: boolean; rowRef?: RefObject
   // On short windows the title card drops its question line so the row (and the room's shrink) stays small.
   if (overlay)
     return (
-      <div ref={rowRef} className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-3">
-        <div className="pointer-events-auto">{back}</div>
+      <div ref={rowRef} className="pointer-events-none absolute inset-x-3 top-3 grid grid-cols-[1fr_auto_1fr] items-start gap-3">
+        <div />
         <div className="hidden md:block">
           <Sheet tone="inset" className="px-4 py-2 text-center">
             <div className="flex items-baseline justify-center gap-2">
@@ -506,12 +501,11 @@ function StepButtons({ overlay, rowRef }: { overlay: boolean; rowRef?: RefObject
             <div className="text-xs text-paper-dim [@media(max-height:680px)]:hidden">{STEP_QUESTION.planning}</div>
           </Sheet>
         </div>
-        <div className="pointer-events-auto">{next}</div>
+        <div className="pointer-events-auto col-start-3 justify-self-end">{next}</div>
       </div>
     )
   return (
-    <div className="mx-auto mt-6 flex max-w-3xl justify-between">
-      {back}
+    <div className="mx-auto mt-6 flex max-w-3xl justify-end">
       {next}
     </div>
   )

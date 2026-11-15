@@ -210,7 +210,7 @@ export function CommsScreen() {
         />
         <PlanChecks checks={commsChecks} />
         <PlanOdds />
-        <PlanNav back={{ label: '← Back', to: 'ride' }} next={{ label: nextLabel('comms'), to: 'go-nogo' }} />
+        <PlanNav next={{ label: nextLabel('comms'), to: 'go-nogo' }} />
       </PlanPanel>
     </div>
   )
