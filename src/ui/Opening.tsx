@@ -31,7 +31,7 @@ export function Opening({ onBegin }: { onBegin?: () => void }) {
 
   return (
     <div
-      className={`fixed inset-0 z-50 overflow-hidden bg-black text-white transition-opacity duration-[900ms] ${leaving ? 'opacity-0' : 'opacity-100'}`}
+      className={`fixed inset-0 z-50 overflow-hidden bg-ink-0 text-paper transition-opacity duration-[900ms] ${leaving ? 'opacity-0' : 'opacity-100'}`}
     >
       <SceneBoundary>
         <Suspense fallback={null}>
@@ -40,39 +40,38 @@ export function Opening({ onBegin }: { onBegin?: () => void }) {
       </SceneBoundary>
 
       {/* Darker edges so the words stay readable over the picture */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_40%,transparent_30%,rgba(0,0,0,0.6)_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_40%,transparent_30%,rgba(7,9,13,0.7)_100%)]" />
 
-      {/* Subtle tactical HUD mission frame */}
-      <div className="pointer-events-none absolute inset-4 border border-white/10 sm:inset-6">
-        <span className="absolute -top-px -left-px h-4 w-4 border-t-2 border-l-2 border-orange-400/80" />
-        <span className="absolute -top-px -right-px h-4 w-4 border-t-2 border-r-2 border-orange-400/80" />
-        <span className="absolute -bottom-px -left-px h-4 w-4 border-b-2 border-l-2 border-orange-400/80" />
-        <span className="absolute -right-px -bottom-px h-4 w-4 border-r-2 border-b-2 border-orange-400/80" />
+      {/* Corner registration marks, as on a printed flight plan */}
+      <div className="pointer-events-none absolute inset-4 sm:inset-6" aria-hidden="true">
+        <span className="absolute top-0 left-0 h-5 w-5 border-t border-l border-paper-faint/80" />
+        <span className="absolute top-0 right-0 h-5 w-5 border-t border-r border-paper-faint/80" />
+        <span className="absolute bottom-0 left-0 h-5 w-5 border-b border-l border-paper-faint/80" />
+        <span className="absolute right-0 bottom-0 h-5 w-5 border-r border-b border-paper-faint/80" />
       </div>
 
       <div className="absolute inset-0 flex flex-col justify-between p-8 sm:p-14">
-        <div className="opening-rise max-w-xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-orange-400/35 bg-[#070c18]/80 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.24em] text-orange-300 backdrop-blur">
-            <span className="h-2 w-2 rounded-full bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,0.9)]" aria-hidden="true" />
-            NASA SPACE APPS · LUNAR ICE MAPPER · 6U CUBESAT MISSION
+        <div className="opening-rise max-w-2xl">
+          <div className="fp-label flex items-center gap-3 border-y border-rule-strong py-2 text-paper-dim">
+            <span className="h-2 w-2 bg-kapton" aria-hidden="true" />
+            <span>NASA SPACE APPS · LUNAR ICE MAPPER · 6U CUBESAT</span>
           </div>
-          <h1 className="mt-5 font-display text-6xl font-bold uppercase leading-none tracking-[0.12em] drop-shadow-[0_4px_30px_rgba(0,0,0,0.8)] sm:text-8xl">
-            Moonshot
-          </h1>
-          <p className="mt-5 max-w-md text-lg leading-relaxed text-slate-200/95">
+          <h1 className="fp-display mt-6 text-7xl leading-[0.85] text-paper sm:text-9xl">Moonshot</h1>
+          <div className="mt-4 h-px w-full bg-rule-strong" aria-hidden="true" />
+          <p className="mt-5 max-w-md text-lg leading-relaxed text-paper-dim">
             Run a small space agency. Design one CubeSat, fly it to the Moon and find the ice hidden in craters that never
             see the Sun.
           </p>
           <button
             onClick={begin}
             autoFocus
-            className="mt-9 inline-flex items-center gap-3 rounded-xl border border-orange-300/70 bg-gradient-to-b from-orange-500 to-orange-700 px-10 py-3.5 font-display text-lg font-bold uppercase tracking-[0.2em] text-white shadow-[0_0_40px_rgba(249,115,22,0.55),inset_0_1px_0_rgba(255,255,255,0.3)] transition hover:scale-105 hover:brightness-110 focus:outline-none focus-visible:ring-4 focus-visible:ring-orange-300"
+            style={{ padding: '0.85rem 2.75rem', fontSize: '1rem' }}
+            className="fp-btn-primary mt-9 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper"
           >
-            <span className="h-2.5 w-2.5 rounded-full bg-white shadow-[0_0_8px_#fff]" aria-hidden="true" />
             Begin
           </button>
         </div>
-        <div className="opening-rise font-mono text-xs leading-relaxed text-slate-400">
+        <div className="opening-rise fp-data text-xs leading-relaxed text-paper-faint">
           Moon, Earth and stars drawn from NASA data: LRO, LOLA, Blue Marble, Deep Star Maps.
           <br />
           Mission numbers from NASA CubeSat 101 and the Lunar IceCube, Lunar Flashlight and LunaH-Map missions.

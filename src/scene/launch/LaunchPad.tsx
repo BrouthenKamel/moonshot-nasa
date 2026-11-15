@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { ModelId } from '../../assets/manifest'
 import { useModel } from '../../assets/models'
+import { Effects } from '../space/Effects'
 import { useRideView, chooseRide, chooseTransfer } from '../../viz/ride/useRideView'
 import type { DropKind, RideView } from '../../viz/ride/rideView'
 import {
@@ -631,6 +632,7 @@ export function LaunchPad({ focus }: { focus: RideFocus }) {
       <Pad view={view} reduced={reduced} />
       <Tank view={view} reduced={reduced} />
       <Board view={view} hover={stableHover} setHover={setPointerHover} />
+      <Effects preset="night" />
     </Canvas>
   )
 }
