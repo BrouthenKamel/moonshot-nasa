@@ -762,7 +762,7 @@ export function MissionResultDialog({
         <div className="grid grid-cols-3 border-b border-rule px-3 py-1.5">
           <Stat label="Ice mapped" value={`${result.coverage.toFixed(0)}%`} tone="text-ice" />
           <Stat label="Data home" value={`${Math.round(result.dataMb)} MB`} />
-          <Stat label="Months" value={`${sim.currentTurn}`} />
+          <Stat label="Science months" value={`${sim.flight.scienceTurns}`} />
         </div>
 
         <div className="grid grid-cols-2 gap-2 px-5 pt-4">
