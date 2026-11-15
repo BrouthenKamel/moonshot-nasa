@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { computeBudgets, createDefaultDesign } from '../../sim/budgets'
 import { COVERAGE_TARGET } from '../../sim/evaluate'
 import type { Design } from '../../sim/types'
-import { AREAS, TARGET_PCT, passHours, autoplay, setupFromDesign, summarize } from './logic'
+import { AREAS, TARGET_PCT, autoplay, craterState, newPass, passHours, passWhy, setupFromDesign, summarize } from './logic'
 
 const design = (patch: Partial<Design>): Design => ({ ...createDefaultDesign(), ...patch })
 /** Sees only sunlit ground: nothing aboard reads permanently shadowed craters */
@@ -49,5 +49,36 @@ describe('the pass on screen', () => {
       expect(r.perArea.every((a) => a.blocked === null)).toBe(true)
       expect(r.win).toBe(true)
     }
+  })
+})
+
+describe('passWhy: one sentence on the result', () => {
+  it('names the locked craters for a design that cannot see into shadow', () => {
+    const su = setupFromDesign(blind)
+    const why = passWhy(su, summarize(autoplay(su)))
+    expect(why).toMatch(/^Locked out of Shackleton, Faustini and \d+ more: the IR Spectrometer cannot see into permanent shadow\.$/)
+  })
+
+  it('names the missed craters and the footprint when a narrow beam misses some', () => {
+    const su = setupFromDesign(seeing)
+    const r = summarize(newPass(su)) // nothing flown: every crater missed, the pass went by
+    const why = passWhy(su, { ...r, reason: 'passed' })
+    expect(why).toMatch(/^Missed Shackleton, Faustini and 7 more: /)
+    const narrow = su.scanners.every((s) => s.beam < 46)
+    expect(why).toContain(narrow ? 'footprint is narrow, sweep slower' : 'slipped past')
+  })
+
+  it('blames the battery when it ran out', () => {
+    const su = setupFromDesign(seeing)
+    expect(passWhy(su, { ...summarize(newPass(su)), reason: 'battery' })).toContain('the battery ran out first')
+  })
+
+  it('says so when every crater is mapped, and classifies each crater', () => {
+    const su = setupFromDesign(design({ instruments: ['inst-neutron'], battery: 'battery-large' }))
+    const r = summarize(autoplay(su))
+    expect(passWhy(su, r)).toBe('Every crater mapped.')
+    expect(r.perArea.map(craterState).every((s) => s === 'reached')).toBe(true)
+    expect(craterState({ name: 'x', value: 1, pct: 40, blocked: null })).toBe('missed')
+    expect(craterState({ name: 'x', value: 1, pct: 0, blocked: 'dark' })).toBe('locked')
   })
 })

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getOrbitById } from '../../data/orbits'
 import { getPartById, type InstrumentPart } from '../../data/parts'
 import { computeBudgets } from '../../sim/budgets'
-import { firstPassLine, passMix, type FirstPass } from '../../sim/firstPass'
+import { firstPassCoverage, firstPassLine, passMix, type FirstPass } from '../../sim/firstPass'
 import type { SimState } from '../../sim/types'
 import { useGameStore } from '../../state/gameStore'
 import { STEP_NAMES } from '../../viz/missionMap'
@@ -58,6 +58,7 @@ export function FirstMappingPass({ sim }: { sim: SimState }) {
       design={sim.design}
       intro={<DesignRows sim={sim} />}
       skippable={played}
+      toBeat={`Autopilot: about ${Math.round(firstPassCoverage(sim.design, budgets, 0))}% of month 1 · your pass can only add to it`}
       lineAfter={(o) => firstPassLine(sim.design, budgets, toFirstPass(o))}
       onDone={(o) => {
         if (o.how === 'flown') markPlayed()
