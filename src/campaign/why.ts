@@ -20,31 +20,41 @@ export interface ChancePart {
 /** Chance of success in percent, as the Go screen shows it */
 export const chancePercent = (mission: CampaignMission, picks: Picks) => Math.round(planOf(mission, picks).success * 100)
 
+/** The chance in percent (unrounded) when only the first `k` choices count; the rest are neutral */
+function chanceWithFirst(mission: CampaignMission, picks: Picks, k: number): number {
+  const m: CampaignMission = {
+    ...mission,
+    choices: mission.choices.map((c, i) => (i < k ? c : { ...c, options: c.options.map((o) => ({ ...o, reliability: 0 })) })),
+  }
+  return planOf(m, picks).success * 100
+}
+
 /**
- * Each pick's share of the chance of success: the chance with the pick, minus the chance with a
- * neutral pick in its place (one that adds nothing). Includes the launch odds and the caps, so the
- * parts are what the player really gains or loses.
+ * The base chance: what the mission's own risks leave with neutral picks (launch odds times the
+ * mission's base landing chance). Rounded the way the Go screen shows it.
+ */
+export const chanceBase = (mission: CampaignMission, picks: Picks) => Math.round(chanceWithFirst(mission, picks, 0))
+
+/**
+ * Each pick's share of the chance of success, in choice order: what it adds on top of the base and
+ * the picks before it. Includes the launch odds and the ceiling, so the parts are what the player
+ * really gains or loses, and they are rounded so that base + parts = the chance shown, exactly.
  */
 export function chanceParts(mission: CampaignMission, picks: Picks): ChancePart[] {
-  const withAll = planOf(mission, picks).success
-  return mission.choices.map((c) => {
-    const opt = pickedOption(c, picks)
-    const neutral: CampaignMission = {
-      ...mission,
-      choices: mission.choices.map((x) => (x.id === c.id ? { ...x, options: x.options.map((o) => (o.id === opt.id ? { ...o, reliability: 0 } : o)) } : x)),
-    }
-    const without = planOf(neutral, picks).success
-    return { choiceId: c.id, short: c.short, option: opt.name, points: Math.round((withAll - without) * 100) }
-  })
+  return mission.choices.map((c, i) => ({
+    choiceId: c.id,
+    short: c.short,
+    option: pickedOption(c, picks).name,
+    points: Math.round(chanceWithFirst(mission, picks, i + 1)) - Math.round(chanceWithFirst(mission, picks, i)),
+  }))
 }
 
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '±0')
 
-/** "Engine −8 · Site −10 · Payload +3" for the Go screen */
+/** "Base 55 · Engine −8 · Site −10 · Payload +3 = 40%" for the Go screen: it adds up */
 export function chanceLine(mission: CampaignMission, picks: Picks): string {
-  return chanceParts(mission, picks)
-    .map((p) => `${p.short} ${signed(p.points)}`)
-    .join(' · ')
+  const parts = chanceParts(mission, picks).map((p) => `${p.short} ${signed(p.points)}`)
+  return `Base ${chanceBase(mission, picks)} · ${parts.join(' · ')} = ${chancePercent(mission, picks)}%`
 }
 
 /**
@@ -91,6 +101,19 @@ export function retryCost(mission: CampaignMission, picks: Picks, funds: number,
     ? `You can afford to try again: your share would be ${money(same)} of your ${money(funds)}.`
     : canCheapest
       ? `Not with the same choices (${money(same)}), but cheaper choices would cost ${money(cheapest)} of your ${money(funds)}.`
-      : `You can't afford to try again yet: the cheapest try costs ${money(cheapest)}, you have ${money(funds)}.`
+      : shortfallText(cheapest - funds)
   return { same, cheapest, canSame, canCheapest, text }
+}
+
+/** A shortfall in $M, rounded up to the next $0.1M so it never reads "$0.0M short" */
+const shortMoney = (m: number) => `$${(Math.ceil(m * 10 - 1e-9) / 10).toFixed(1)}M`
+
+/**
+ * The line for an agency that cannot pay: how much it is short, and what to do about it.
+ * With `cheaperPlan`, cheaper options for this same mission are still affordable.
+ */
+export function shortfallText(short: number, cheaperPlan = false): string {
+  return cheaperPlan
+    ? `You are ${shortMoney(short)} short for this plan: pick cheaper options, or fly more missions first.`
+    : `You are ${shortMoney(short)} short: fly more missions first.`
 }
