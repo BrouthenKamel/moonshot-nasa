@@ -625,7 +625,7 @@ export function useRealNews(): FeedItem[] {
   return useMemo(() => feed.filter((e) => !e.quiet).slice(0, 12), [feed])
 }
 
-export function Notifications() {
+export function Notifications({ onHide }: { onHide?: () => void } = {}) {
   const items = useRealNews()
   const day = useWorldStore((s) => s.day)
   const today = Math.floor(day)
@@ -633,7 +633,14 @@ export function Notifications() {
 
   return (
     <Sheet as="section" tone="inset" aria-label="Notifications" className="flex min-h-0 flex-col text-paper">
-      <h2 className="fp-label border-b border-rule-strong px-3 py-2">Notifications</h2>
+      <div className="flex items-center justify-between border-b border-rule-strong px-3 py-2">
+        <h2 className="fp-label">Notifications</h2>
+        {onHide && (
+          <button type="button" onClick={onHide} aria-label="Hide notifications" className="fp-label text-paper-dim hover:text-paper">
+            Hide ◂
+          </button>
+        )}
+      </div>
       <ul className="scroll-quiet fade-bottom flex min-h-0 flex-col overflow-y-auto pb-8">
         {items.map((e, i) => {
           const look = kindLook[kindOf(e)]

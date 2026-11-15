@@ -19,6 +19,7 @@ import { AudioControls } from '../kit/AudioControls'
 import { EngineerSwitch } from '../kit/EngineerSwitch'
 import { Sheet } from '../kit'
 import { useUiStore } from '../../state/uiStore'
+import { newsDrawerOpen } from '../agency/newsDrawer'
 import {
   AgencyClock,
   AgencyWallet,
@@ -202,7 +203,7 @@ export function BaseScreen() {
   // to a badge until a mission is chosen, so nothing competes with it.
   const mapLabels = missionOpen ? labels : quietLabels(labels)
   const [newsOpen, setNewsOpen] = useState(false)
-  const showNews = missionOpen || newsOpen
+  const showNews = newsDrawerOpen({ openedByPlayer: newsOpen, decisionWaiting: !!simState?.pendingDecision })
   const hasNews = useRealNews().length > 0
   const startMission = () => {
     // A finished flight goes to the history; the new mission starts at the Comms Center
@@ -244,7 +245,7 @@ export function BaseScreen() {
               <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:left-6 lg:top-6 lg:z-10 lg:w-72">
                 <div className="flex min-h-0 flex-col lg:pointer-events-auto">
                   {showNews ? (
-                    <Notifications />
+                    <Notifications onHide={() => setNewsOpen(false)} />
                   ) : (
                     <button
                       type="button"

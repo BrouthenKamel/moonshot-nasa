@@ -37,7 +37,7 @@ export interface WorldState extends World {
   missionOpen: boolean
   /** The finished mission whose result pop-up the player already closed (by seed) */
   resultSeenSeed: number | null
-  /** The player has started the clock (first New mission, or any speed button); false in a fresh game */
+  /** The player has pressed a speed button; false in a fresh game */
   clockStarted: boolean
   setSpeed: (speed: Speed) => void
   /** Advance the clock by real seconds at the current speed */
@@ -89,7 +89,7 @@ export const useWorldStore = create<WorldState>()(
   persist(
     (set, get) => ({
       ...initialWorld(),
-      // A fresh game waits for the player (see clockStarted)
+      // A fresh game waits for the player; so does every later mission until Play is pressed
       speed: 'paused' as Speed,
       missionOpen: false,
       resultSeenSeed: null as number | null,
@@ -113,7 +113,8 @@ export const useWorldStore = create<WorldState>()(
         runUntil(get().day + rate * seconds)
       },
       // Choosing a mission is the first real action: a fresh game's clock starts here
-      openMission: () => set((s) => (s.clockStarted ? { missionOpen: true } : { missionOpen: true, speed: 'normal', clockStarted: true })),
+      // Choosing a mission never touches the clock: it runs only after the player presses Play
+      openMission: () => set({ missionOpen: true }),
       markResultSeen: (seed) => set({ resultSeenSeed: seed }),
       resetWorld: () => set({ ...initialWorld(), missionOpen: false, resultSeenSeed: null, speed: 'paused', clockStarted: false }),
     }),
