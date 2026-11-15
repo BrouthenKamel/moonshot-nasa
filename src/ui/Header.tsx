@@ -1,30 +1,14 @@
-import { useEffect } from 'react'
 import { AudioControls } from './kit/AudioControls'
 import { EngineerSwitch } from './kit/EngineerSwitch'
 import { useGameStore } from '../state/gameStore'
-import { useUiStore } from '../state/uiStore'
 import { lunarIceMapperBrief } from '../data/brief'
 import { StepDock } from './hud/StepDock'
-import { MissionVitalityPill } from './hud/MissionVitalityCluster'
+import { ResourceStrip } from './hud/ResourceStrip'
 
 export function Header() {
   const screen = useGameStore((s) => s.screen)
   const simState = useGameStore((s) => s.simState)
   const setScreen = useGameStore((s) => s.setScreen)
-  const toggleHudModal = useUiStore((s) => s.toggleHudModal)
-
-  // Global 'H' shortcut to toggle HUD modal during design
-  useEffect(() => {
-    if (screen !== 'design') return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-      if (e.key === 'h' || e.key === 'H') {
-        toggleHudModal()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [screen, toggleHudModal])
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-rule bg-ink-1 px-4 py-2 select-none">
@@ -39,13 +23,13 @@ export function Header() {
         )}
       </div>
 
-      {/* Center: Mission Sequencer & Vitality Telemetry Strip */}
+      {/* Center: the mission sequencer and the resource strip */}
       {screen === 'design' && (
         <div className="flex items-center gap-3">
           <div className="hidden md:flex">
             <StepDock />
           </div>
-          <MissionVitalityPill />
+          <ResourceStrip />
         </div>
       )}
 

@@ -14,16 +14,8 @@ export function BriefScreen() {
   const brief = lunarIceMapperBrief
   const stop = firstStop()
 
-  const constraints = [
-    { label: 'CubeSat size', value: `${brief.constraints.maxVolume}U`, icon: '📐' },
-    { label: 'Maximum mass', value: `${brief.constraints.maxMass} kg`, icon: '⚖️' },
-    { label: 'Budget cap', value: `$${preset.budgetCap}M`, icon: '💰' },
-  ]
-  const stages = [
-    { n: '01', name: 'Build & test', when: `Months 0–${brief.defaultRideTurn}`, icon: '🛠️' },
-    { n: '02', name: `Ride (Month ${brief.defaultRideTurn})`, when: 'Launch & transfer', icon: '🚀' },
-    { n: '03', name: `Lunar ops (${brief.missionDurationTurns} months)`, when: 'Ice mapping', icon: '❄️' },
-  ]
+  const limits = `${brief.constraints.maxVolume}U CubeSat · ${brief.constraints.maxMass} kg maximum · $${preset.budgetCap}M budget cap`
+  const timeline = `Build and test in months 0–${brief.defaultRideTurn} · ride leaves in month ${brief.defaultRideTurn} · ${brief.missionDurationTurns} months of ice mapping`
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 pb-16">
@@ -32,10 +24,7 @@ export function BriefScreen() {
       <Sheet className="space-y-6 p-6 sm:p-8 rounded-2xl border border-rule/80 bg-ink-1/90 shadow-2xl backdrop-blur-md">
         {/* Cinematic Directive Header */}
         <div className="border-l-4 border-kapton pl-4 py-1">
-          <div className="font-mono text-xs text-kapton uppercase tracking-wider font-bold">
-            Expedition Directive: Lunar Polar Reconnaissance
-          </div>
-          <p className="mt-1 text-base sm:text-lg leading-relaxed text-paper font-sans">
+          <p className="text-base sm:text-lg leading-relaxed text-paper font-sans">
             {brief.objective}
           </p>
         </div>
@@ -45,7 +34,6 @@ export function BriefScreen() {
           className="rounded-xl border border-kapton/40 bg-kapton/10 p-4 text-sm text-paper-dim flex items-center gap-3"
           data-testid="brief-first-stop"
         >
-          <span className="text-xl">⚠️</span>
           <div>
             {/* Read from the step order, so the brief, the map's lit sign and the mission panel name the same stop */}
             <span className="font-bold text-paper">
@@ -57,22 +45,20 @@ export function BriefScreen() {
 
         {/* Mission Objectives / Requirements */}
         <section>
-          <div className="flex items-center justify-between border-b border-rule/80 pb-2">
+          <div className="border-b border-rule/80 pb-2">
             <LineItem n={`${N}.1`} label="Requirements" />
-            <span className="font-mono text-xs text-paper-faint">5 Primary Metrics</span>
           </div>
 
           <ol className="mt-2 divide-y divide-rule/50">
-            {brief.requirements.map((req, i) => (
+            {brief.requirements.map((req) => (
               <li key={req.id} className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 py-3 hover:bg-ink-2/40 px-2 rounded-lg transition-colors">
                 <div className="flex items-baseline gap-3">
-                  <span className="fp-data w-8 shrink-0 text-xs font-mono text-paper-faint">{`${N}.1.${i + 1}`}</span>
                   <div>
                     <span className="text-sm font-bold text-paper block sm:inline">{req.name}</span>
                     <span className="block text-xs text-paper-dim mt-0.5">{req.description}</span>
                   </div>
                 </div>
-                <div className="sm:text-right shrink-0 font-mono text-xs text-kapton font-semibold pl-11 sm:pl-0">
+                <div className="sm:text-right shrink-0 font-mono text-xs text-kapton font-semibold">
                   Target: {req.id === 'data' ? preset.dataTarget : req.target} {req.unit}
                 </div>
               </li>
@@ -80,37 +66,15 @@ export function BriefScreen() {
           </ol>
         </section>
 
-        {/* Envelope constraints */}
-        <section>
-          <LineItem n={`${N}.2`} label="Envelope constraints" />
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {constraints.map((c) => (
-              <div key={c.label} className="p-4 rounded-xl border border-rule/60 bg-ink-2/80 text-center shadow-md">
-                <div className="text-xl mb-1">{c.icon}</div>
-                <div className="fp-data text-2xl font-bold text-paper tracking-tight">{c.value}</div>
-                <div className="fp-label mt-1 text-[11px] text-paper-faint uppercase font-mono">{c.label}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Mission timeline */}
-        <section>
-          <LineItem n={`${N}.3`} label="Mission timeline" />
-          <ol className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {stages.map((s) => (
-              <li key={s.n} className="p-4 rounded-xl border border-rule/60 bg-ink-2/80">
-                <div className="flex items-center justify-between font-mono text-xs text-paper-faint">
-                  <span>Stage {s.n}</span>
-                  <span>{s.icon}</span>
-                </div>
-                <div className="mt-2 text-sm font-bold text-paper">{s.name}</div>
-                <div className="fp-data text-xs text-paper-dim mt-0.5">{s.when}</div>
-              </li>
-            ))}
-          </ol>
-          <p className="mt-3 text-xs font-mono text-paper-dim">
-            The mission clock counts months from month 0, when the mission starts. Be ready before your ride leaves.
+        {/* Limits and schedule: one line each */}
+        <section className="space-y-1.5 text-sm text-paper-dim">
+          <p>
+            <span className="fp-label mr-2 text-paper">Limits</span>
+            {limits}
+          </p>
+          <p>
+            <span className="fp-label mr-2 text-paper">Schedule</span>
+            {timeline}. The mission clock counts months from month 0, when the mission starts. Be ready before your ride leaves.
           </p>
         </section>
       </Sheet>

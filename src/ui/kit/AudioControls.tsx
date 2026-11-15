@@ -19,9 +19,9 @@ function Glyph({ d }: { d: string }) {
 /**
  * Sound and picture settings: a speaker button that mutes, and a small sheet with
  * volumes and the graphics quality. `tone` is kept for callers; every bar is ink now.
+ * `onStartOver` adds a "Start over" action at the foot of the sheet (the base screen uses it).
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function AudioControls(_props: { tone?: 'dark' | 'navy' } = {}) {
+export function AudioControls({ onStartOver }: { tone?: 'dark' | 'navy'; onStartOver?: () => void } = {}) {
   const { muted, setMuted, volume, setVolume } = useAudioSettings()
   const quality = useGraphics((s) => s.quality)
   const setQuality = useGraphics((s) => s.setQuality)
@@ -94,6 +94,20 @@ export function AudioControls(_props: { tone?: 'dark' | 'navy' } = {}) {
               ))}
             </div>
           </div>
+          {onStartOver && (
+            <div className="mt-3 border-t border-rule pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  onStartOver()
+                }}
+                className="fp-btn-secondary w-full justify-center !py-1.5"
+              >
+                Start over
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

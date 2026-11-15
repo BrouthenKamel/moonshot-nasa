@@ -325,6 +325,16 @@ export function missionTurned(world: World, now: MissionSnapshot): { world: Worl
     pause = true
   }
 
+  // The player answered the event card: say so, so the list reads as what really happened
+  if (before.decisionTitle && !now.decisionTitle) {
+    w = addFeed(w, {
+      day,
+      title: `Decision made: ${before.decisionTitle}`,
+      detail: `${name} flies on`,
+      tone: 'info',
+    })
+  }
+
   let settled = mission.settled
   if (now.ended && !mission.settled) {
     const effect =
