@@ -169,6 +169,18 @@ export const ellipticalOrbit: LunarOrbit = {
 }
 lunarOrbits.splice(1, 0, ellipticalOrbit)
 
+/**
+ * An orbit in words by its height, not its family: "15 km over the pole, far side 3,150 km".
+ * Used wherever a player-facing line names the orbit they chose.
+ */
+export function orbitHeightText(orbit: LunarOrbit): string {
+  const km = (n: number) => `${n.toLocaleString('en-US')} km`
+  const far = orbit.farPointKm
+  if (orbit.type === 'halo') return `a loop dipping to ${km(orbit.altitude)} over the pole`
+  if (far === null || far <= orbit.altitude) return `${km(orbit.altitude)} over the pole (a circle)`
+  return `${km(orbit.altitude)} over the pole (far side ${km(far)})`
+}
+
 export function getOrbitById(id: string): LunarOrbit | undefined {
   const fixed = lunarOrbits.find((o) => o.id === id)
   if (fixed) return fixed

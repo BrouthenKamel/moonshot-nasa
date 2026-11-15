@@ -99,11 +99,12 @@ export function transferPlan(design: Design, difficulty: Difficulty): TransferPl
 }
 
 /**
- * Why the player cannot go on from the transfer yet, or null. A blocker is a red check on this view
- * (fuel, budget), a flight an ion engine cannot brake from, or a Moon the craft never reaches.
+ * Why the player cannot go on from the transfer yet, or null. A blocker is a red Fuel check, a flight
+ * an ion engine cannot brake from, or a Moon the craft never reaches. Budget is left to the Go / No-Go:
+ * it often depends on Comms costs, which are set on the very screen this button leads to.
  */
 export function transferBlocker(plan: TransferPlan): string | null {
-  const red = plan.checks.some((c) => c.status === 'red')
+  const red = plan.checks.some((c) => c.label === 'Fuel' && c.status === 'red')
   const ionTooFast = plan.ionEngine && plan.days < plan.minDays
   return red || ionTooFast || plan.cruiseMonths === null ? 'Fix the transfer first' : null
 }
