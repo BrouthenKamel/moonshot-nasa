@@ -10,6 +10,7 @@ import { AstronautSetup } from './player/AstronautSetup'
 import { usePlayerStore } from './player/playerStore'
 import { campusNavGrid } from './campus/campusNav'
 import { SPAWN, doorPoint } from './campus/layout'
+import { ResourceStrip } from './hud/ResourceStrip'
 
 /** The door the astronaut last walked through: they come back out there, not at spawn */
 let lastDoor: RoomId | null = null
@@ -76,6 +77,7 @@ export function CampusScreen() {
   return (
     <div className="relative h-screen overflow-hidden bg-ink-0" data-testid="campus">
       <CampusWorld />
+      <ResourceStrip />
       <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
         <div
           data-testid="objective"

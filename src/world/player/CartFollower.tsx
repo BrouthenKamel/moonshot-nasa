@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { CubeSat, craftParts } from '../../scene/space/CubeSat'
 import { useGameStore } from '../../state/gameStore'
 import type { AstronautHandle } from './Astronaut'
+import { CartGauges } from './CartGauges'
 
 export interface CartFollowerProps {
   /** The astronaut to trail (the ref passed to <Astronaut>) */
@@ -116,6 +117,7 @@ export function CartFollower({ leader, distance = 1.15, scale = 1 }: CartFollowe
           </mesh>
         ))}
       </group>
+      <CartGauges />
       <group ref={sat} position={[0, 0.3, 0]}>
         <CubeSat design={design} scale={SAT_SCALE} />
       </group>
