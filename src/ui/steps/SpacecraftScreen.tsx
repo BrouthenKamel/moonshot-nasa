@@ -5,13 +5,11 @@ import { getPartById, type PropulsionPart } from '../../data/parts'
 import { buildBayView, type BayView } from '../../viz/spacecraft/bayView'
 import { buildCraft, type CraftSlot } from '../../viz/spacecraft/craftBuild'
 import { useDesignPreview } from '../useDesignPreview'
-import { useInsideStore } from '../interaction/insideStore'
 import { audio } from '../../assets/audio'
 import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { trayGroups, type TrayKey } from '../../viz/spacecraft/trayOptions'
 import { TONE_COLORS } from '../../viz/spacecraft/boardPainter'
-import type { ViewPreset } from '../../scene/spacecraft/SpacecraftStage'
-import { Btn, Eng, STEP_NAMES, Sheet, Stamp, nextLabel, stepTitle } from '../kit'
+import { Btn, Eng, STEP_NAMES, Sheet, nextLabel, stepTitle } from '../kit'
 import { normalizeRocket, rocketExplainer, type ExplainerItem } from '../../viz/rocket/rocketView'
 import type { RocketFocus } from '../../scene/rocket/RocketBay'
 import { prefersReducedMotion } from '../../scene/space/quality'
@@ -63,14 +61,6 @@ function useBayView(): {
   )
   return { ...current, preview }
 }
-
-const VIEWS: Array<{ id: ViewPreset; label: string }> = [
-  { id: 'closeup', label: 'Close-up' },
-  { id: 'overview', label: 'Whole craft' },
-  { id: 'avionics', label: 'Avionics' },
-  { id: 'propulsion', label: 'Engine' },
-  { id: 'payload', label: 'Payload' },
-]
 
 /** Where the power goes: bus, instruments, radio and ion engine against what the panels make. The bar is the story; the numbers are Engineer view. */
 function PowerBudgetSplitBar() {
@@ -133,108 +123,6 @@ function PowerBudgetSplitBar() {
           Solar
         </span>
       </div>
-    </div>
-  )
-}
-
-/** The camera and display controls of the bay, folded behind one "Look around" button */
-function LookAround({
-  preset,
-  setPreset,
-  deployed,
-  toggleDeployed,
-  panels,
-  togglePanels,
-  sunLamp,
-  toggleSunLamp,
-  integrated,
-  explode,
-  setExplode,
-}: {
-  preset: ViewPreset
-  setPreset: (v: ViewPreset) => void
-  deployed: boolean
-  toggleDeployed: () => void
-  panels: boolean
-  togglePanels: () => void
-  sunLamp: boolean
-  toggleSunLamp: () => void
-  integrated: boolean
-  explode: number
-  setExplode: (x: number) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const box = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const close = (e: PointerEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) setOpen(false)
-    }
-    const esc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('pointerdown', close)
-    window.addEventListener('keydown', esc)
-    return () => {
-      window.removeEventListener('pointerdown', close)
-      window.removeEventListener('keydown', esc)
-    }
-  }, [open])
-  const ghost = (on: boolean) => `fp-btn-ghost justify-start ${on ? '!bg-ink-3 !text-kapton' : ''}`
-  return (
-    <div ref={box} className="flex flex-col items-start gap-2">
-      <Btn
-        variant="secondary"
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        data-testid="look-around"
-        className={`bg-ink-1 ${open ? '!border-kapton !text-kapton' : ''}`}
-      >
-        Look around {open ? '▴' : '▾'}
-      </Btn>
-      {open && (
-        <Sheet tone="flat" className="flex w-40 flex-col bg-ink-1/95 p-1">
-          <div role="group" aria-label="Camera" className="flex flex-col">
-            {VIEWS.map((v) => (
-              <button key={v.id} type="button" onClick={() => setPreset(v.id)} aria-pressed={preset === v.id} className={ghost(preset === v.id)}>
-                {v.label}
-              </button>
-            ))}
-          </div>
-          <div className="mt-1 flex flex-col border-t border-rule pt-1">
-            <button type="button" onClick={toggleDeployed} aria-pressed={deployed} className={ghost(false)}>
-              {deployed ? 'Fold wings' : 'Deploy wings'}
-            </button>
-            <button type="button" onClick={togglePanels} aria-pressed={panels} className={ghost(panels)} data-testid="close-panels">
-              {panels ? 'Open the panels' : 'Close the panels'}
-            </button>
-            <button type="button" onClick={toggleSunLamp} aria-pressed={sunLamp} className={ghost(sunLamp)} data-testid="sun-lamp">
-              Sun lamp: {sunLamp ? 'On' : 'Off'}
-            </button>
-            {integrated && (
-              <div className="px-2 py-1">
-                <Stamp verdict="go" size="sm" animate>
-                  INTEGRATED
-                </Stamp>
-              </div>
-            )}
-            <label className="flex flex-col gap-1 px-2 py-1.5">
-              <span className="fp-label text-[0.62rem] text-paper-faint">Exploded view</span>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={explode}
-                onChange={(e) => setExplode(Number(e.target.value))}
-                className="tactical-range w-full"
-                aria-label="Exploded view"
-              />
-            </label>
-          </div>
-        </Sheet>
-      )}
     </div>
   )
 }
@@ -332,12 +220,6 @@ export function SpacecraftScreen() {
   const [room, setRoom] = useState(canUseWebGL)
   const [hover, setHover] = useState<ActiveOption | null>(null)
   const [last, setLast] = useState<ActiveOption | null>(null)
-  const [explode, setExplode] = useState(0)
-  const [deployed, setDeployed] = useState(true)
-  const [panels, setPanels] = useState(false)
-  const [sunLamp, setSunLamp] = useState(true)
-  const [integrated, setIntegrated] = useState(false)
-  const [preset, setPreset] = useState<ViewPreset>('closeup')
   const [hoverSlot, setHoverSlot] = useState<CraftSlot | null>(null)
   const [pickedSlot, setPickedSlot] = useState<CraftSlot | null>(null)
   const [phase, setPhase] = useState<Phase>('build')
@@ -399,24 +281,6 @@ export function SpacecraftScreen() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [phase, seen])
-
-  const togglePanels = () => {
-    const closing = !panels
-    setPanels(closing)
-    if (closing) {
-      setDeployed(false)
-      setExplode(0)
-      audio.play('sfx.snap')
-      useInsideStore.getState().play({
-        id: 'factory-integrate',
-        caption: 'Panels closed, wings stowed — sliding into the 6U orbital deployer.',
-        durationS: 5.5,
-        onEnd: () => setIntegrated(true),
-      })
-    } else {
-      setIntegrated(false)
-    }
-  }
 
   const selected: Record<TrayKey, string> = {
     solar: design.solar,
@@ -502,10 +366,10 @@ export function SpacecraftScreen() {
             <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Opening the assembly bay…</div>}>
               <SpacecraftStage
                 craft={craft}
-                explode={explode}
-                deployed={deployed}
-                panels={panels}
-                view={preset}
+                explode={0}
+                deployed
+                panels={false}
+                view="closeup"
                 ringColor={TONE_COLORS[view.massTone]}
                 activeSlot={glowSlot}
                 massKg={activeBudgets.totalMass}
@@ -514,7 +378,7 @@ export function SpacecraftScreen() {
                 powerMarginW={activeBudgets.powerMargin}
                 powerGeneratedW={activeBudgets.powerGenerated}
                 propellantMassKg={activeBudgets.propellantMass}
-                sunLamp={sunLamp}
+                sunLamp
                 selected={selected}
                 rocket={rocket}
                 onHover={setHoverSlot}
@@ -538,7 +402,7 @@ export function SpacecraftScreen() {
           </div>
         )}
         {room && (
-          <div className="pointer-events-none absolute right-[3%] bottom-1.5 z-10 bg-ink-1/85 px-1.5 py-0.5 fp-data text-[10px] text-paper-dim" data-testid="model-rocket-caption">
+          <div className="pointer-events-none absolute left-[3%] bottom-1.5 z-10 bg-ink-1/85 px-1.5 py-0.5 fp-data text-[10px] text-paper-dim" data-testid="model-rocket-caption">
             Your ride (scale model) · the craft goes in the top
           </div>
         )}
@@ -547,21 +411,6 @@ export function SpacecraftScreen() {
           <button type="button" onClick={() => setDesignStep('instruments')} className="tactical-btn-back bg-ink-1">
             ← Back
           </button>
-          {room && (
-            <LookAround
-              preset={preset}
-              setPreset={setPreset}
-              deployed={deployed}
-              toggleDeployed={() => setDeployed((v) => !v)}
-              panels={panels}
-              togglePanels={togglePanels}
-              sunLamp={sunLamp}
-              toggleSunLamp={() => setSunLamp((v) => !v)}
-              integrated={integrated}
-              explode={explode}
-              setExplode={setExplode}
-            />
-          )}
         </div>
 
         <div className="absolute top-3 right-3 z-10 flex w-64 flex-col items-end gap-3">

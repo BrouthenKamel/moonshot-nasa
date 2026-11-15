@@ -1,16 +1,9 @@
 import { useEffect, useState, type KeyboardEvent, type Ref } from 'react'
-import { ChoiceCard, type ChoiceStat } from '../../kit/ChoiceCard'
+import { ChoiceCard } from '../../kit/ChoiceCard'
 import { choiceArt } from '../../../assets/catalogueArt'
 import { useDragStore } from '../../interaction/dragStore'
 import type { TrayKey, TrayOption } from '../../../viz/spacecraft/trayOptions'
-import { optionChips } from './optionChips'
-
-/** The two numbers on the card itself: the key number and what it costs in the box (mass, or volume for a fuelled engine) */
-function cardChips(key: TrayKey, o: TrayOption): ChoiceStat[] {
-  const all = optionChips(key, o)
-  const second = all.find((c) => c.label === (key === 'propulsion' ? 'Volume' : 'Mass'))
-  return second ? [all[0], second] : [all[0]]
-}
+import { allStats, cardChips } from './optionChips'
 
 /*
  * Scoped overrides for a 72-120 px tray card (on this wrapper only; ChoiceCard is shared and left
@@ -53,7 +46,7 @@ export function TrayCard({ group, option, selected, tabIndex, buttonRef, onPick,
   }, [lastRefusal, group, option.id])
 
   return (
-    <div className={`${COMPACT}${bouncing ? ' bounce-back' : ''}`}>
+    <div className={`${COMPACT}${bouncing ? ' bounce-back' : ''}`} title={`${option.short}: ${allStats(group, option)}`}>
       <ChoiceCard
         id={option.id}
         title={option.short}
