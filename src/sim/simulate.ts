@@ -161,6 +161,14 @@ function recordEvent(ctx: TurnContext, eventId: EventType, phase: TurnEvent['pha
   return ev
 }
 
+/** The one answer of a card that only informs (no reserve to pay for the fix) */
+const UNDERSTOOD = [{ id: 'understood', label: 'Understood' }]
+
+/** "No signal after deployment, and there is no reserve to book emergency tracking: the craft is lost. …" */
+export function noReserveText(what: string, fix: string, result: string, cost: number): string {
+  return `${what}, and there is no reserve to ${fix}: ${result}. A reserve would have paid for this (about $${cost.toFixed(1)}M).`
+}
+
 function decide(ctx: TurnContext, key: EventType, text: string, options: { id: string; label: string }[]): string {
   const answer = ctx.action.choices?.[key]
   if (answer && options.some((o) => o.id === answer)) return answer
@@ -300,6 +308,9 @@ function launch(ctx: TurnContext) {
       record.choiceSucceeded = recovered
     } else {
       note(ctx, `No reserve left to pay for emergency tracking (${recovery.reserveCost} M needed).`)
+      // Nothing to choose, but the player should see what the reserve would have bought (Jakob, 15 Nov):
+      // a card with one button instead of a silent notice. The outcome is the same either way.
+      decide(ctx, 'no-signal', noReserveText('No signal after deployment', 'book emergency tracking', 'the craft is lost', recovery.reserveCost), UNDERSTOOD)
     }
     if (!recovered) {
       fail(ctx, 'lost contact after deployment')
@@ -351,8 +362,10 @@ function transferTurn(ctx: TurnContext) {
       }
       record.choiceSucceeded = fixed
     } else {
-      // Nothing to choose: no card, and no choice that "failed"
+      // Nothing to choose, so no choice that "failed"; but a one-button card shows what the reserve
+      // would have bought (Jakob, 15 Nov). The outcome is the same either way.
       note(ctx, `No reserve left to pay for a fix (${fix.reserveCost} M needed).`)
+      decide(ctx, 'thruster', noReserveText('The thruster underperforms', 'pay for a fix', effect, fix.reserveCost), UNDERSTOOD)
     }
     if (!fixed) {
       f.thrusterOk = false
