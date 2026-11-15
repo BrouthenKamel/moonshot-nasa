@@ -5,8 +5,8 @@ import type { DesignStep } from '../../../sim/types'
 
 /*
  * The one dashboard of the Orbit and Transfer views: a compact panel on the right with the
- * figures for the value being set, the mission's chance and the way on. It never scrolls:
- * figures sit in small tiles, explanations are a line or two. The value itself is set with a
+ * figures for the value being set, the mission's chance and the way on. It scrolls only
+ * while a Details panel is open: figures sit in small tiles, explanations are a line or two. The value itself is set with a
  * tall slider beside the view (PlanVSlider).
  */
 
@@ -22,7 +22,7 @@ export function PlanPanel({ children }: { children: ReactNode }) {
   return (
     <aside
       style={{ width: PANEL_PX }}
-      className="hud-panel pointer-events-auto flex max-h-full flex-col gap-2.5 overflow-hidden rounded-xl p-3.5 text-paper"
+      className="hud-panel pointer-events-auto flex max-h-full flex-col gap-2 overflow-y-auto overscroll-contain rounded-xl p-3.5 text-paper"
     >
       {children}
     </aside>
@@ -49,9 +49,21 @@ export function PlanNote({ tone, children }: { tone: Tone; children: ReactNode }
 }
 
 /** A small figure tile: label, value, a short note under it */
-export function PlanRow({ label, value, tone, sub }: { label: string; value: ReactNode; tone?: Tone; sub?: ReactNode }) {
+export function PlanRow({
+  label,
+  value,
+  tone,
+  sub,
+  className = '',
+}: {
+  label: string
+  value: ReactNode
+  tone?: Tone
+  sub?: ReactNode
+  className?: string
+}) {
   return (
-    <div className="min-w-0 bg-ink-1 px-2 py-1.5">
+    <div className={`min-w-0 bg-ink-1 px-2 py-1.5 ${className}`}>
       <div className="truncate text-[0.64rem] uppercase tracking-wider text-paper-faint">{label}</div>
       <div className={`fp-data truncate text-[0.86rem] leading-tight ${tone ? TONE_TEXT[tone] : 'text-paper'}`}>{value}</div>
       {sub && <div className="truncate text-[0.62rem] text-paper-faint">{sub}</div>}
@@ -129,18 +141,40 @@ export function PlanOdds() {
   )
 }
 
-/** Back and on, at the foot of the panel */
-export function PlanNav({ back, next }: { back: { label: string; to: DesignStep | (() => void) }; next: { label: string; to: DesignStep | (() => void) } }) {
+/**
+ * Back and on, at the foot of the panel. A `next.blockedBy` reason switches the way on off and says why
+ * right above the buttons (not only in a tooltip, which a touch screen never shows).
+ */
+export function PlanNav({
+  back,
+  next,
+}: {
+  back: { label: string; to: DesignStep | (() => void) }
+  next: { label: string; to: DesignStep | (() => void); blockedBy?: string }
+}) {
   const setDesignStep = useGameStore((s) => s.setDesignStep)
   const go = (to: DesignStep | (() => void)) => (typeof to === 'function' ? to() : setDesignStep(to))
   return (
-    <div className="mt-auto flex gap-2 pt-1">
-      <button type="button" onClick={() => go(back.to)} className="tactical-btn-back flex-1 whitespace-nowrap bg-ink-1">
-        {back.label}
-      </button>
-      <button type="button" onClick={() => go(next.to)} className="tactical-btn-next flex-[2] whitespace-nowrap">
-        {next.label}
-      </button>
+    <div className="sticky bottom-0 mt-auto bg-ink-2 pb-0.5">
+      {next.blockedBy && (
+        <p role="status" className="pt-1 text-[0.72rem] font-semibold leading-snug text-nogo">
+          {next.blockedBy}
+        </p>
+      )}
+      <div className="flex gap-2 pt-1">
+        <button type="button" onClick={() => go(back.to)} className="tactical-btn-back flex-1 whitespace-nowrap bg-ink-1">
+          {back.label}
+        </button>
+        <button
+          type="button"
+          disabled={!!next.blockedBy}
+          title={next.blockedBy}
+          onClick={() => go(next.to)}
+          className="tactical-btn-next flex-[2] whitespace-nowrap"
+        >
+          {next.label}
+        </button>
+      </div>
     </div>
   )
 }
@@ -152,6 +186,7 @@ export const SLIDER_PX = 76
  * A tall slider beside the view: the top end is `topText`, the bottom `bottomText`; the dashboard
  * shows the value itself (and `valueText` reads it out). Pointer, keyboard (arrows, Page Up/Down, Home/End) and screen readers.
  * `value` and `min` are 0..1 positions; nothing below `min` can be chosen (e.g. engine limits).
+ * `marks` are labelled ticks to the left of the track; clicking one (or its tick) snaps the slider there.
  */
 export function PlanVSlider({
   label,
@@ -161,7 +196,7 @@ export function PlanVSlider({
   topText,
   bottomText,
   min = 0,
-  ticks = [],
+  marks = [],
 }: {
   label: string
   value: number
@@ -170,8 +205,8 @@ export function PlanVSlider({
   topText: string
   bottomText: string
   min?: number
-  /** Labelled marks beside the track (0..1 positions); clicking one snaps the slider to it */
-  ticks?: { at: number; label: string; title?: string }[]
+  /** Labelled ticks beside the track; a click on one snaps the slider to its position (0..1). `title` is the full name. */
+  marks?: { at: number; label: string; title?: string }[]
 }) {
   const track = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
@@ -237,18 +272,23 @@ export function PlanVSlider({
             <div className="h-5 w-5 rounded-full border-2 border-kapton bg-ink-0 shadow-[0_0_12px_rgba(232,163,61,0.6)] transition-transform group-active:scale-110" />
           </div>
         </div>
-        {ticks.map((t) => (
+        {/* Beside the track, not inside the slider: a mark is its own button and its click starts no drag */}
+        {marks.map((m) => (
           <button
-            key={t.label}
+            key={m.label}
             type="button"
-            title={t.title ?? t.label}
-            aria-label={`Snap to ${t.title ?? t.label}`}
-            onClick={() => onChange(Math.max(min, Math.min(1, t.at)))}
-            className="absolute right-[calc(50%+6px)] flex -translate-y-1/2 items-center gap-1 whitespace-nowrap text-paper-dim hover:text-paper focus-visible:text-paper"
-            style={{ top: `${(1 - t.at) * 100}%` }}
+            tabIndex={-1}
+            title={m.title ?? m.label}
+            aria-label={`Set ${m.title ?? m.label}`}
+            data-testid="slider-mark"
+            onClick={() => onChange(Math.max(min, Math.min(1, m.at)))}
+            style={{ top: `${(1 - m.at) * 100}%` }}
+            className="absolute right-1/2 mr-2.5 flex -translate-y-1/2 cursor-pointer items-center gap-1.5 text-right"
           >
-            <span className="fp-label rounded-sm bg-ink-0/80 px-1 text-[0.58rem]">{t.label}</span>
-            <span aria-hidden className="h-px w-3 bg-current" />
+            <span className="w-[150px] rounded bg-ink-0/80 px-1.5 py-0.5 text-[0.66rem] leading-tight text-paper-dim hover:text-paper">
+              {m.label}
+            </span>
+            <span aria-hidden className="h-px w-3 bg-kapton" />
           </button>
         ))}
       </div>

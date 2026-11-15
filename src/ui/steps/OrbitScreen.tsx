@@ -155,7 +155,7 @@ export function OrbitScreen() {
       valueText={`${fmtKm(plan.km)} km`}
       topText={`${fmtKm(ORBIT_MAX_KM)} km`}
       bottomText={`${ORBIT_MIN_KM} km`}
-      ticks={MISSION_TICKS}
+      marks={MISSION_TICKS}
     />
   )
 

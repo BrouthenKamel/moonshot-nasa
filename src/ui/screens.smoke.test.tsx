@@ -105,13 +105,12 @@ describe('screens render', () => {
     })
   }
 
-  it('the instruments summary counts in singular and plural', () => {
+  it('the instruments summary says how many of the two allowed are chosen', () => {
     const text = () => renderToString(<App />).replace(/<[^>]+>/g, '').replace(/<!-- -->/g, '')
     useGameStore.setState({ screen: 'design', designStep: 'instruments', design: flashlightDesign })
-    expect(text()).toContain('1 instrument')
-    expect(text()).not.toContain('1 instruments')
+    expect(text()).toContain('1 of 2 instruments')
     useGameStore.setState({ design: { ...flashlightDesign, instruments: ['inst-laser', 'inst-neutron'] } })
-    expect(text()).toContain('2 instruments')
+    expect(text()).toContain('2 of 2 instruments')
   })
 
   it('MVP: the instrument step locks nothing and shows no lab level', () => {

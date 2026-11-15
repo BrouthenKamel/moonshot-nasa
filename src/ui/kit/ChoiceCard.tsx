@@ -14,7 +14,7 @@ export interface ChoiceStat {
 }
 
 export interface ChoiceCardProps {
-  /** Catalogue id: part, orbit, ride, transfer, ground station or difficulty */
+  /** Catalogue id: part, orbit, ride, transfer, or ground station */
   id: string
   title: string
   /** One line under the title (the real mission it comes from, or what it does) */
