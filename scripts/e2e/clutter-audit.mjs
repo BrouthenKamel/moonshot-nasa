@@ -3,15 +3,20 @@
  * Clutter audit: visits every screen of the game at 1440×900 and measures how much is on it.
  *
  *   pnpm audit:clutter                       # starts its own Vite dev server on a free port
- *   pnpm audit:clutter --url http://localhost:5173/   # or uses one that is already running
  *   pnpm audit:clutter --out shots/clutter-audit --json docs/design/clutter-baseline.json --md docs/design/clutter-baseline.md
  *   pnpm audit:clutter --only design-instruments,report   # a few screens (still writes the files)
+ *   pnpm audit:clutter --from launch                      # open the game, jump to one screen and go on from
+ *                                                         # there (quick checks; writes no baseline)
  *
- * It needs a dev server, not a preview build: it reaches each screen by importing the game's
+ * It always starts its own dev server (a long-running one, or one from another checkout, measured the
+ * wrong thing): a dev server, not a preview build, because it reaches each screen by importing the game's
  * stores through Vite's module URLs (/src/state/*.ts), which are the same instances the page uses.
  *
  * Per screen it counts, on the page as drawn (the 3D scene's own labels counted apart):
  *   buttons  visible buttons and other controls (button, link, input, select, role=button/tab/radio/...)
+ * Before measuring, each screen checks it is really there (game state plus a marker on top, `expect`);
+ * if not, the run stops with the screen's id and a <id>.WRONG.png screenshot, and writes no baseline.
+ *
  * Only what is on top counts (sampled with elementFromPoint): a pop-up's backdrop or the launch cinematic hides
  * what is under it. Content below the fold of a scrolling step screen counts.
  *
@@ -27,7 +32,7 @@
  * Run it on two branches and compare the two .md tables for a before/after.
  */
 import { spawn, execSync } from 'node:child_process'
-import { mkdirSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
+import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join, dirname, resolve } from 'node:path'
 import { homedir } from 'node:os'
@@ -50,6 +55,8 @@ const ONLY = arg('only', '')
   .map((s) => s.trim())
   .filter(Boolean)
 const SETTLE_MS = Number(arg('settle', '2500'))
+/** Start at this screen (after opening the game): for checking one part of the run quickly; writes no baseline */
+const FROM = arg('from', '')
 
 // ---------- dev server ----------
 function freePort() {
@@ -385,12 +392,51 @@ const score = (m) => Math.round((m.numbers * 2 + m.buttons + m.panels * 3 + m.wo
 const stores = (page, fn, arg) =>
   page.evaluate(
     async ([src, a]) => {
-      const s = {
-        game: (await import('/src/state/gameStore.ts')).useGameStore,
-        ui: (await import('/src/state/uiStore.ts')).useUiStore,
-        world: (await import('/src/state/worldStore.ts')).useWorldStore,
+      // The app's own store instances. After a hot reload Vite serves modules as /src/x.ts?t=…, and a
+      // plain import('/src/x.ts') would give a second, stale copy that the page never reads. So: the
+      // stores the app hands out on window.__moonshot (src/devHook.ts), and for the world store, which
+      // it does not hand out, the newest URL the page loaded, checked against the hook's game store.
+      const hook = window.__moonshot
+      if (!hook) throw new Error('window.__moonshot is missing: run the audit against a dev server (pnpm dev), not a build')
+      const newest = async (path) => {
+        const urls = performance
+          .getEntriesByType('resource')
+          .map((e) => e.name)
+          .filter((u) => new URL(u).pathname === path)
+        return import(urls.length ? urls[urls.length - 1] : path)
       }
-      return new Function('s', 'a', `return (async () => { ${src} })()`)(s, a)
+      if ((await newest('/src/state/gameStore.ts')).useGameStore !== hook.game)
+        throw new Error('the dev server serves stale modules (hot reload): restart it and run the audit again')
+      const s = {
+        game: hook.game,
+        ui: hook.ui,
+        inside: hook.inside,
+        world: (await newest('/src/state/worldStore.ts')).useWorldStore,
+      }
+      // h: is a marker on top? Plain hit-testing: click-through decoration (a pulsing ring) does not
+      // hide it, a pop-up's backdrop or another screen does
+      const h = {
+        onTop: (sel) =>
+          [...document.querySelectorAll(sel)].some((el) => {
+            const r = el.getBoundingClientRect()
+            if (r.width < 2 || r.height < 2) return false
+            const x = Math.min(Math.max(r.left + r.width / 2, 0), innerWidth - 1)
+            const y = Math.min(Math.max(r.top + Math.min(r.height / 2, 40), 0), innerHeight - 1)
+            const hit = document.elementFromPoint(x, y)
+            return !!hit && (hit === el || el.contains(hit))
+          }),
+        inside: async () => s.inside.getState(),
+        // a button whose text matches is on top
+        buttonOnTop: (re) =>
+          [...document.querySelectorAll('button')].some((el) => {
+            if (!re.test(el.innerText || el.getAttribute('aria-label') || '')) return false
+            const r = el.getBoundingClientRect()
+            if (r.width < 2 || r.height < 2) return false
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+            return !!hit && (hit === el || el.contains(hit))
+          }),
+      }
+      return new Function('s', 'a', 'h', `return (async () => { ${src} })()`)(s, a, h)
     },
     [fn, arg],
   )
@@ -400,7 +446,7 @@ const stores = (page, fn, arg) =>
  * month flips), until none has played for a second
  */
 const SKIP_LAUNCH = `
-  const inside = (await import('/src/ui/interaction/insideStore.ts')).useInsideStore
+  const inside = s.inside
   let quiet = 0
   for (let i = 0; i < 40 && quiet < 4; i++) {
     await new Promise((r) => setTimeout(r, 250))
@@ -411,111 +457,162 @@ const SKIP_LAUNCH = `
     } else quiet++
   }
 `
+/**
+ * Give the flight a fixed seed, so the same branch flies the same flight (same events, same report)
+ * on every run and a before/after compares designs, not luck. startSimulation() picks a random seed;
+ * this replaces the fresh flight with the same one on seed `n`.
+ */
+const reseed = (n) => `
+  {
+    const { initSim } = await import('/src/sim/simulate.ts')
+    const gs = s.game.getState()
+    s.game.setState({ simState: initSim(gs.design, gs.difficulty, ${n}) })
+  }
+`
+/**
+ * Click a button: a page busy drawing its 3D scene in software can take long to take a click, so
+ * wait up to 90 s and try once more before giving up
+ */
+async function click(locator) {
+  try {
+    await locator.click({ timeout: 90_000 })
+  } catch {
+    await locator.click({ timeout: 90_000, force: true })
+  }
+}
+
 const pause = (page) => stores(page, `s.world.getState().setSpeed('paused')`)
 const settle = (page, ms = SETTLE_MS) => page.waitForTimeout(ms)
 
-/** The nine steps in play order, numbered as their own headers number them (00 Brief … 08 Go/No-Go) */
-const STEPS = [
-  ['brief', 'Brief'],
-  ['planning', 'Planning'],
-  ['instruments', 'Instruments'],
-  ['rocket', 'Rocket'],
-  ['spacecraft', 'Spacecraft'],
-  ['orbit', 'Orbit'],
-  ['ride', 'Ride'],
-  ['comms', 'Comms'],
-  ['go-nogo', 'Go/No-Go'],
-]
+/**
+ * The steps in play order with their player-facing names, read from the game's own single source
+ * (src/ui/kit/stepNumbers.ts: STEP_ORDER and STEP_NAMES), so a renamed or folded step is followed
+ * here without editing the audit
+ */
+function readSteps() {
+  const src = readFileSync(join(ROOT, 'src/ui/kit/stepNumbers.ts'), 'utf8')
+  const order = src.match(/STEP_ORDER[^=]*=\s*\[([^\]]*)\]/)
+  if (!order) throw new Error('src/ui/kit/stepNumbers.ts: STEP_ORDER not found; update readSteps() in the audit')
+  const ids = [...order[1].matchAll(/'([\w-]+)'/g)].map((m) => m[1])
+  const names = src.slice(src.indexOf('STEP_NAMES'))
+  return ids.map((id) => {
+    const m = names.match(new RegExp(`['"]?${id}['"]?\\s*:\\s*'([^']+)'`))
+    return [id, m ? m[1] : id]
+  })
+}
+const STEPS = readSteps()
 
 /** Each screen: id, name, how to reach it from the screen before (screens run in this order) */
 const SCREENS = [
   {
     id: 'title',
+    expect: `return !s.ui.getState().openingDone && /begin/i.test(document.body.innerText) ? '' : 'the opening curtain is not showing'`,
     name: 'Title (opening curtain)',
     go: async (page, url) => {
       await page.goto(url)
+      await page.getByRole('button').first().waitFor({ timeout: 180_000 })
+      // Load what the run imports later now: Vite may reload the page the first time it optimizes a
+      // dependency, and that must happen here, not in the middle of a measurement
+      await page
+        .evaluate(async () => {
+          await import('/src/sim/simulate.ts')
+          await import('/src/sim/fixtures.ts')
+        })
+        .catch(() => {})
+      await page.waitForLoadState('networkidle').catch(() => {})
+      await page.waitForTimeout(1500)
       await page.evaluate(() => localStorage.clear())
       await page.reload()
-      await page.getByRole('button').first().waitFor({ timeout: 60_000 })
+      await page.getByRole('button').first().waitFor({ timeout: 180_000 })
     },
   },
   {
     id: 'base',
+    expect: `const g = s.game.getState(); return g.screen === 'base' && !g.simState && !s.world.getState().missionOpen && h.onTop('section[aria-label="Current mission"]') ? '' : \`screen \${g.screen}, mission open \${s.world.getState().missionOpen}, or the mission panel is covered\``,
     name: 'Base map (no mission)',
     go: async (page) => {
-      await page.getByRole('button').first().click()
-      await page.getByRole('button', { name: /new mission/i }).first().waitFor({ timeout: 60_000 })
+      await click(page.getByRole('button').first())
+      await page.getByRole('button', { name: /new mission/i }).first().waitFor({ timeout: 180_000 })
       await pause(page)
     },
   },
   {
     id: 'panel-funds',
+    expect: `return s.ui.getState().agencyWalletDetail === 'funds' ? '' : 'the funds panel is not open'`,
     name: 'Agency panel: Funds',
     go: (page) => stores(page, `s.ui.getState().setAgencyWalletDetail('funds')`),
     leave: (page) => stores(page, `s.ui.getState().setAgencyWalletDetail(null)`),
   },
   {
     id: 'panel-popularity',
+    expect: `return s.ui.getState().agencyWalletDetail === 'popularity' ? '' : 'the popularity panel is not open'`,
     name: 'Agency panel: Popularity',
     go: (page) => stores(page, `s.ui.getState().setAgencyWalletDetail('popularity')`),
     leave: (page) => stores(page, `s.ui.getState().setAgencyWalletDetail(null)`),
   },
   {
     id: 'panel-settings',
+    expect: `return h.onTop('input[type=range]') ? '' : 'no settings slider on top'`,
     name: 'Agency panel: Sound & graphics settings',
-    go: (page) => page.getByRole('button', { name: /settings/i }).first().click(),
-    leave: (page) => page.getByRole('button', { name: /settings/i }).first().click(),
+    go: (page) => click(page.getByRole('button', { name: /settings/i }).first()),
+    leave: (page) => click(page.getByRole('button', { name: /settings/i }).first()),
   },
   {
+    // HQ and "New mission" both open the campaign since the campaign ladder replaced the new-mission dialog
     id: 'panel-campaign',
+    expect: `return h.onTop('[role=dialog][aria-label="Campaign"]') ? '' : 'the campaign is not on top'`,
     name: 'Agency panel: Headquarters (campaign)',
-    go: (page) => page.locator('button', { hasText: /headquarters/i }).first().click({ force: true }),
-    leave: (page) => page.getByRole('button', { name: 'Close' }).first().click(),
-  },
-  {
-    id: 'panel-new-mission',
-    name: 'Agency panel: New mission',
-    go: (page) => page.getByRole('button', { name: /new mission/i }).first().click(),
-    leave: (page) => page.getByRole('button', { name: 'Close' }).first().click(),
+    go: (page) => click(page.locator('button', { hasText: /headquarters/i }).first()),
+    leave: (page) => click(page.locator('[role=dialog][aria-label="Campaign"] button', { hasText: /close/i }).first()),
   },
   {
     id: 'base-mission',
+    expect: `const g = s.game.getState(); return g.screen === 'base' && !g.simState && s.world.getState().missionOpen && h.onTop('section[aria-label="Current mission"]') ? '' : \`screen \${g.screen}, mission open \${s.world.getState().missionOpen}\``,
     name: 'Base map (mission chosen)',
     go: (page) => stores(page, `s.world.getState().openMission()`),
   },
   ...STEPS.flatMap(([step, label], i) => [
     {
       id: `design-${step}`,
-      name: `Step ${String(i).padStart(2, '0')}: ${label}`,
+      name: `Step ${i}: ${label}`,
       go: (page) => stores(page, `s.game.getState().setDesignStep(a); s.game.getState().setScreen('design')`, step),
+      expect: `const g = s.game.getState(); return g.screen === 'design' && g.designStep === ${JSON.stringify(step)} && h.onTop('[data-role]') ? '' : \`screen \${g.screen}, step \${g.designStep}\``,
     },
     // The Ride step has a second stage, reached only by its own button
     ...(step === 'ride'
       ? [
           {
             id: 'design-ride-transfer',
-            name: `Step ${String(i).padStart(2, '0')}b: Ride, transfer stage`,
-            go: (page) => page.getByRole('button', { name: /plan the transfer/i }).first().click(),
+            name: `Step ${i}b: ${label}, transfer stage`,
+            go: async (page) => {
+              const next = page.getByRole('button', { name: /plan the transfer/i }).first()
+              if (!(await next.isVisible().catch(() => false)))
+                throw new Error('Ride has no "Plan the transfer" button: the Ride step changed, update this screen in the audit')
+              await click(next)
+            },
+            expect: `const g = s.game.getState(); return g.screen === 'design' && g.designStep === 'ride' && !/plan the transfer/i.test(document.body.innerText) ? '' : 'still on the first Ride stage'`,
           },
         ]
       : []),
   ]),
   {
     id: 'flight-build',
+    expect: `const g = s.game.getState(); return g.screen === 'base' && g.simState && g.simState.flight.launchedTurn === null ? '' : \`screen \${g.screen}, flight \${g.simState ? 'launched' : 'none'}\``,
     name: 'Flight: build months on the base',
     go: async (page) => {
       // The flight flies the Lunar Flashlight reference design: main's starting design often fails at
       // launch, before any event card or the science orbit shows up
       await stores(
         page,
-        `s.game.getState().updateDesign((await import('/src/sim/fixtures.ts')).flashlightDesign); s.game.getState().startSimulation()`,
+        `s.game.getState().updateDesign((await import('/src/sim/fixtures.ts')).flashlightDesign); s.game.getState().startSimulation(); ${reseed(1001)}`,
       )
       await pause(page)
     },
   },
   {
     id: 'launch',
-    name: 'Launch (ride inside the fairing)',
+    expect: `const g = s.game.getState(); const i = await h.inside(); return g.simState?.flight.launchedTurn != null && (i.shot || s.ui.getState().launchAt !== null) ? '' : \`no launch is playing (launched in month \${g.simState?.flight.launchedTurn}, month \${g.simState?.currentTurn}, phase \${g.simState?.phase}, card \${g.simState?.pendingDecision?.key ?? 'none'})\``,
+    name: 'Liftoff (ride inside the fairing)',
     go: async (page) => {
       // Fly the build and test months one by one (React must see liftoff happen to start the launch);
       // liftoff plays the fairing shot, or the island countdown without WebGL
@@ -523,9 +620,20 @@ const SCREENS = [
         page,
         `
         const g = s.game.getState
-        const inside = (await import('/src/ui/interaction/insideStore.ts')).useInsideStore
+        const inside = s.inside
+        // A headless browser plays the shot out in a blink (the camera path ends it, and two wall-clock
+        // timers back that up). Hold it: until leave() runs, ending a shot does nothing, and the camera
+        // stays 2 s in, inside the fairing
+        window.__clutterEnd = inside.getState().end
+        inside.setState({ end: () => {} })
+        window.__clutterHold = setInterval(() => {
+          if (inside.getState().shot) inside.setState({ startedAt: performance.now() - 2000 })
+        }, 20)
         for (let i = 0; i < 40 && g().simState.flight.launchedTurn === null; i++) {
-          g().advanceTurn()
+          // An event card (a build delay) holds the clock until it is answered
+          const card = g().simState.pendingDecision
+          if (card) g().answerEvent(card.options[0].id)
+          else g().advanceTurn()
           await new Promise((r) => setTimeout(r, 80))
         }
         for (let i = 0; i < 40 && !inside.getState().shot && s.ui.getState().launchAt === null; i++) await new Promise((r) => setTimeout(r, 50))
@@ -533,50 +641,22 @@ const SCREENS = [
       )
       await pause(page)
     },
-    // The shot is short in a headless browser: measure it while it plays
-    wait: 400,
+    wait: 1500,
     leave: (page) =>
-      stores(page, `(await import('/src/ui/interaction/insideStore.ts')).useInsideStore.getState().end(true); s.ui.getState().endLaunch()`),
-  },
-  {
-    id: 'flight-event',
-    name: 'Flight with an event card',
-    go: async (page) => {
-      const ok = await stores(
+      stores(
         page,
-        `
-        const g = s.game.getState
-        for (let attempt = 0; attempt < 30; attempt++) {
-          if (attempt > 0) g().startSimulation()
-          for (let i = 0; i < 60 && !g().simState.pendingDecision; i++) {
-            const sim = g().simState
-            if (sim.phase === 'complete' || sim.phase === 'failed') break
-            g().flyOn()
-          }
-          if (g().simState.pendingDecision) break
-        }
-        // The flights tried before this one finished and went into the run history: the report
-        // should show a first play's history (this flight only)
-        g().clearHistory()
-        ${SKIP_LAUNCH}
-        return !!g().simState.pendingDecision
-        `,
-      )
-      await pause(page)
-      if (!ok) console.warn('  ! no event card came up in 30 flights; measured the flight without one')
-    },
+        `clearInterval(window.__clutterHold); s.inside.setState({ end: window.__clutterEnd }); s.inside.getState().end(true); s.ui.getState().endLaunch()`,
+      ),
   },
   {
     id: 'flight-space',
+    expect: `const g = s.game.getState(); const i = await h.inside(); return g.screen === 'base' && s.ui.getState().flightView === 'space' && g.simState?.flight.launchedTurn != null && !i.shot && h.buttonOnTop(/advance one month/i) ? '' : \`view \${s.ui.getState().flightView}, shot \${i.shot?.id ?? 'none'}\``,
     name: 'Flight HUD (space view)',
     go: async (page) => {
       await stores(
         page,
         `
-        const g = s.game.getState
-        const sim = g().simState
-        if (sim.pendingDecision) g().answerEvent(sim.pendingDecision.options[0].id)
-        // Answering can fly through liftoff: skip the launch it starts
+        // Straight after the launch: in transit, before any arrival prompt or event card
         ${SKIP_LAUNCH}
         s.ui.getState().setFlightView('space')
         `,
@@ -585,7 +665,42 @@ const SCREENS = [
     },
   },
   {
+    id: 'flight-event',
+    expect: `const g = s.game.getState(); return g.screen === 'base' && g.simState?.pendingDecision && h.buttonOnTop(/\\[1\\]/) ? '' : 'no event card on top'`,
+    name: 'Flight with an event card',
+    go: async (page) => {
+      const ok = await stores(
+        page,
+        `
+        const g = s.game.getState
+        for (let attempt = 0; attempt < 30; attempt++) {
+          if (attempt > 0) {
+            g().startSimulation()
+            ${reseed('2000 + attempt')}
+          }
+          // A card before arrival: once the craft is in lunar orbit the first mapping pass (a mini-game)
+          // takes the screen, so a flight that gets there without a card is tried again on the next seed
+          for (let i = 0; i < 60 && !g().simState.pendingDecision; i++) {
+            const sim = g().simState
+            if (sim.phase === 'complete' || sim.phase === 'failed' || sim.flight.captured) break
+            g().flyOn()
+          }
+          if (g().simState.pendingDecision && !g().simState.flight.captured) break
+        }
+        // The flights tried before this one finished and went into the run history: the report
+        // should show a first play's history (this flight only)
+        g().clearHistory()
+        ${SKIP_LAUNCH}
+        return !!g().simState.pendingDecision && !g().simState.flight.captured
+        `,
+      )
+      await pause(page)
+      if (!ok) throw new Error('flight-event: no event card came up before arrival in 30 seeded flights')
+    },
+  },
+  {
     id: 'mission-result',
+    expect: `const g = s.game.getState(); const sim = g.simState; return sim && (sim.phase === 'complete' || sim.phase === 'failed') && h.buttonOnTop(/see the report/i) ? '' : \`phase \${sim?.phase}, or no result pop-up with "See the report" on top\``,
     name: 'Mission result pop-up',
     go: async (page) => {
       await stores(
@@ -595,7 +710,11 @@ const SCREENS = [
         for (let i = 0; i < 200; i++) {
           const sim = g().simState
           if (sim.phase === 'complete' || sim.phase === 'failed') break
-          if (sim.pendingDecision) g().answerEvent(sim.pendingDecision.options[0].id)
+          // On arrival the flight waits for the first mapping pass (the Ice Mapper mini-game): record it
+          // as skipped, as its own Skip does
+          const passDue = sim.phase === 'orbit' && sim.flight.captured && sim.flight.scienceTurns === 0 && sim.firstPass === undefined
+          if (passDue) s.game.setState({ simState: { ...sim, firstPass: { how: 'skipped', mix: 0 } } })
+          else if (sim.pendingDecision) g().answerEvent(sim.pendingDecision.options[0].id)
           else g().flyOn()
         }
         ${SKIP_LAUNCH}
@@ -607,6 +726,7 @@ const SCREENS = [
   },
   {
     id: 'report',
+    expect: `const g = s.game.getState(); return g.screen === 'report' ? '' : \`screen \${g.screen}\``,
     name: 'Report',
     go: (page) => stores(page, `s.game.getState().showReport()`),
   },
@@ -674,13 +794,9 @@ function writeReports(results, meta) {
 
 // ---------- main ----------
 async function main() {
-  let server = null
-  let url = arg('url', '')
-  if (!url) {
-    server = await startDevServer()
-    url = server.url
-    console.log(`dev server: ${url}`)
-  }
+  const server = await startDevServer()
+  const url = server.url
+  console.log(`dev server: ${url}`)
   mkdirSync(OUT, { recursive: true })
   const browser = await chromium.launch({
     executablePath: chromePath(),
@@ -691,10 +807,25 @@ async function main() {
   try {
     const page = await browser.newPage({ viewport: VIEWPORT })
     page.on('pageerror', (e) => errors.push(e.message.slice(0, 200)))
-    for (const screen of SCREENS) {
+    const fromAt = FROM ? SCREENS.findIndex((x) => x.id === FROM) : 0
+    if (fromAt < 0) throw new Error(`--from ${FROM}: no such screen (${SCREENS.map((x) => x.id).join(', ')})`)
+    for (const [n, screen] of SCREENS.entries()) {
+      // --from: open the game (title, base), then skip to the chosen screen
+      if (n < fromAt && n > 1) continue
       process.stdout.write(`${screen.id.padEnd(20)} `)
       await screen.go(page, url)
       await settle(page, screen.wait ?? SETTLE_MS)
+      // Fail loudly rather than measure the wrong screen
+      // (retried for up to 15 s: a pop-up may still be animating in on a busy machine)
+      let wrong = screen.expect ? await stores(page, screen.expect) : ''
+      for (let t = 0; wrong && t < 15; t++) {
+        await page.waitForTimeout(1000)
+        wrong = await stores(page, screen.expect)
+      }
+      if (wrong) {
+        await page.screenshot({ path: join(OUT, `${screen.id}.WRONG.png`), timeout: 20_000 }).catch(() => {})
+        throw new Error(`${screen.id}: expected screen is not on top (${wrong}); see ${join(OUT, screen.id)}.WRONG.png. No baseline written.`)
+      }
       if (!ONLY.length || ONLY.includes(screen.id)) {
         const m = await page.evaluate(measureInPage)
         await page.evaluate(expandInPage)
@@ -719,7 +850,11 @@ async function main() {
     }
   } finally {
     await browser.close()
-    server?.stop()
+    server.stop()
+  }
+  if (FROM) {
+    console.log('--from: partial run, no baseline written')
+    return
   }
   const meta = { ...gitInfo(), date: new Date().toISOString().slice(0, 10), viewport: VIEWPORT }
   const sorted = writeReports(results, meta)
