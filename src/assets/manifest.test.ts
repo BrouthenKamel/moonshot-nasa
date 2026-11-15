@@ -17,7 +17,8 @@ const MAX_BYTES: Record<Asset['kind'], number> = {
   sfx: 300 * 1024,
   voice: 500 * 1024,
 }
-const MAX_TOTAL = 40 * 1024 * 1024
+// Raised from 40 MB for the Ice Hunters music + voice; WP-6 deletes the classic music and AI images and should bring it back down
+const MAX_TOTAL = 56 * 1024 * 1024
 
 describe('asset manifest', () => {
   it('has unique ids and files', () => {
