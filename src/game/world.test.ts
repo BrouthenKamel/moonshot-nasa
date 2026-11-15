@@ -112,6 +112,13 @@ describe('real mission', () => {
     expect(world.feed[0].title).toContain('Decision needed')
   })
 
+  it('records the answer to an event card, and nothing for filler', () => {
+    const waiting = missionTurned(approved(), snap({ turn: 3, decisionTitle: 'Part arrives late' })).world
+    const { world } = missionTurned(waiting, snap({ turn: 3, decisionTitle: null }))
+    expect(world.feed[0].title).toBe('Decision made: Part arrives late')
+    expect(world.feed.every((e) => !e.id.startsWith('news-'))).toBe(true)
+  })
+
   it('sends data to the lab and settles the mission once', () => {
     let w = approved()
     w = missionTurned(w, snap({ turn: 14, phase: 'orbit', launched: true, captured: true, coverage: 30, dataMb: 120 })).world

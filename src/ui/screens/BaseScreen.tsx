@@ -11,14 +11,13 @@ import {
   flightFeed,
   missionClockLabel,
   missionLabels,
-  missionMonth,
   missionStatus,
   type MissionLogEntry,
 } from '../../viz/missionMap'
 import { FlightStage, useSpaceShowing } from '../flight/FlightStage'
 import { AudioControls } from '../kit/AudioControls'
 import { EngineerSwitch } from '../kit/EngineerSwitch'
-import { Flap, Sheet } from '../kit'
+import { Sheet } from '../kit'
 import { useUiStore } from '../../state/uiStore'
 import {
   AgencyClock,
@@ -28,9 +27,9 @@ import {
   MissionResultDialog,
   NewMissionDialog,
   Notifications,
-  Readout,
   useAgencyClock,
   useCampaignProgress,
+  useRealNews,
 } from '../agency/AgencyPanels'
 import { useWorldStore } from '../../state/worldStore'
 
@@ -124,32 +123,22 @@ export function StartOverDialog({ onCancel, onConfirm }: { onCancel: () => void;
   )
 }
 
-function TopBar({ month }: { month: number }) {
+function TopBar() {
   const startNewMission = useGameStore((s) => s.startNewMission)
   const [confirming, setConfirming] = useState(false)
   return (
     <header className="flex flex-wrap items-stretch gap-x-4 gap-y-2 border-b border-rule bg-ink-1 px-4 py-2 text-paper">
       <div className="flex items-center gap-2.5 pr-1">
         <span className="h-6 w-1 shrink-0 bg-kapton" aria-hidden="true" />
-        <div className="leading-none">
-          <span className="block fp-display text-xl text-paper">MOONSHOT</span>
-          <span className="fp-label mt-0.5 block text-[0.58rem] text-paper-faint">Agency base · Flight plan</span>
-        </div>
+        <span className="block fp-display text-xl leading-none text-paper">MOONSHOT</span>
       </div>
 
       <AgencyClock />
 
-      <Readout label="Mission" title="The mission clock: month 0 when the mission starts">
-        <Flap value={`Month ${month}`} />
-      </Readout>
-
       <div className="ml-auto flex flex-wrap items-center gap-2">
         <AgencyWallet />
-        <button type="button" onClick={() => setConfirming(true)} className="fp-btn-secondary !py-1.5">
-          Start over
-        </button>
         <EngineerSwitch />
-        <AudioControls />
+        <AudioControls onStartOver={() => setConfirming(true)} />
       </div>
 
       {confirming && (
@@ -214,6 +203,7 @@ export function BaseScreen() {
   const mapLabels = missionOpen ? labels : quietLabels(labels)
   const [newsOpen, setNewsOpen] = useState(false)
   const showNews = missionOpen || newsOpen
+  const hasNews = useRealNews().length > 0
   const startMission = () => {
     // A finished flight goes to the history; the new mission starts at the Comms Center
     if (simState) startNewMission()
@@ -233,7 +223,7 @@ export function BaseScreen() {
 
   return (
     <div className="flex min-h-screen flex-col bg-ink-0 lg:h-screen lg:min-h-0">
-      <TopBar month={missionMonth(simState)} />
+      <TopBar />
       {/* Wide screens: the map fills the area and both dashboards float over its edges. Phones: stacked. */}
       <div className="relative flex flex-1 flex-col gap-3 p-3 lg:block lg:min-h-0">
         <div className="relative h-[60vh] min-h-[360px] overflow-hidden border border-rule lg:absolute lg:inset-3 lg:h-auto lg:min-h-0">
@@ -245,45 +235,37 @@ export function BaseScreen() {
           ) : (
             <BaseMap labels={mapLabels} onBuildingClick={onBuildingClick} hq={hq} />
           )}
-          {!spaceShowing && (
-            <div className="fp-label pointer-events-none absolute bottom-2 left-2 border border-rule bg-ink-1/85 px-2 py-1 text-[0.62rem] text-paper-dim lg:left-1/2 lg:-translate-x-1/2">
-              {onBuildingClick && missionOpen ? 'Click a building to walk in · drag to move · scroll to zoom' : 'Drag to move · scroll to zoom'}
-            </div>
-          )}
         </div>
         {/* The space view has the whole map: no side panels, only its own Back to agency */}
         {!spaceShowing && (
           <>
-            {/* Left: notifications */}
-            <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:left-6 lg:top-6 lg:z-10 lg:w-72">
-              <div className="flex min-h-0 flex-col lg:pointer-events-auto">
-                {showNews ? (
-                  <Notifications />
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setNewsOpen(true)}
-                    aria-expanded={false}
-                    className="fp-label self-start border border-rule-strong bg-ink-1/95 px-3 py-2 text-paper-dim hover:text-paper"
-                  >
-                    Notifications ▸
-                  </button>
-                )}
+            {/* Left: what really happened (no events, no panel) */}
+            {hasNews && (
+              <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:left-6 lg:top-6 lg:z-10 lg:w-72">
+                <div className="flex min-h-0 flex-col lg:pointer-events-auto">
+                  {showNews ? (
+                    <Notifications />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setNewsOpen(true)}
+                      aria-expanded={false}
+                      className="fp-label self-start border border-rule-strong bg-ink-1/95 px-3 py-2 text-paper-dim hover:text-paper"
+                    >
+                      Notifications ▸
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
             {/* Right: the current mission and its log */}
             <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:right-6 lg:top-6 lg:z-10 lg:w-80">
               <div className="relative flex min-h-0 flex-col lg:pointer-events-auto">
                 {!missionOpen && (
-                  <>
-                    <p data-testid="start-here" className="fp-label mb-1.5 self-end bg-kapton px-2 py-1 text-[0.68rem] text-kapton-ink">
-                      Start here: pick your first mission ↓
-                    </p>
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none absolute -inset-1 top-7 z-10 ring-2 ring-kapton/80 motion-safe:animate-pulse"
-                    />
-                  </>
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -inset-1 z-10 ring-2 ring-kapton/80 motion-safe:animate-pulse"
+                  />
                 )}
                 <MissionPanel
                   status={status}
