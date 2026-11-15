@@ -9,6 +9,7 @@ import { getOrbitById } from '../../data/orbits'
 import { getPartById, instruments as catalogue, type AttitudePart, type InstrumentPart } from '../../data/parts'
 import { computeBudgets } from '../../sim/budgets'
 import type { Design } from '../../sim/types'
+import { computeSynergies } from '../../viz/synergies'
 
 export const COVERAGE_TARGET = 70
 const MAX_INSTRUMENTS = 2
@@ -140,7 +141,10 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
       `The link is too slow: ${Math.round(b.dataPerTurn)} MB a turn is made, ${Math.round(b.downlinkPerTurn)} MB gets home, and coverage only counts once its data is home. Link: Comms Center.`
     )
   }
-  if (!chosen.some((p) => p.kind === 'ice')) reasons.push('Nothing aboard sees into shadow: no ice is mapped.')
+  // The Synergy strip on this step already says it, and names the fix, when it shows the 'shadow-blind'
+  // conflict card: that card is the one source, so the panel repeats the cause only when no card covers it.
+  const shadowCardShown = computeSynergies(design, b).some((c) => c.id === 'shadow-blind' && c.steps.includes('instruments'))
+  if (!chosen.some((p) => p.kind === 'ice') && !shadowCardShown) reasons.push('Nothing aboard sees into shadow: no ice is mapped.')
 
   const fromDesign = whatIfFromDesign(design)
   return {
