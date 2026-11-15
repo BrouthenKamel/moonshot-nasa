@@ -95,7 +95,8 @@ safely(() => Howler.mute(useAudioSettings.getState().muted))
 
 const voiceBuffers = new Map<AudioId, Promise<AudioBuffer | null>>()
 /** Lines waiting to be spoken, with when they were asked for: a line that waited too long is stale */
-const voiceQueue: { id: AudioId; at: number }[] = []
+/** A queued line: a recorded voice clip, or a caption-only line (`text`) when no clip says the right thing */
+const voiceQueue: ({ id: AudioId; at: number } | { text: string; at: number })[] = []
 const STALE_MS = 7000
 let speaking = false
 /** Most lines a burst of turns may queue; older ones are dropped */
@@ -165,15 +166,21 @@ async function speakNext() {
   let next = voiceQueue.shift()
   while (next && performance.now() - next.at > STALE_MS) next = voiceQueue.shift()
   if (!next) return
-  const id = next.id
   speaking = true
-  const a = getAsset(id) as AudioAsset
-  useAudioSettings.setState({ caption: a.caption ?? a.prompt ?? null })
   const done = () => {
     speaking = false
     useAudioSettings.setState({ caption: null })
     void speakNext()
   }
+  if ('text' in next) {
+    // Caption only: up for about as long as a spoken line of that length would take
+    useAudioSettings.setState({ caption: next.text })
+    window.setTimeout(done, Math.max(1800, next.text.length * 70))
+    return
+  }
+  const id = next.id
+  const a = getAsset(id) as AudioAsset
+  useAudioSettings.setState({ caption: a.caption ?? a.prompt ?? null })
   const ctx = audioContext()
   const buffer = await loadVoice(id)
   if (!ctx || !buffer || useAudioSettings.getState().muted) {
@@ -246,6 +253,16 @@ export const audio = {
     voiceQueue.push({ id, at: performance.now() })
     while (voiceQueue.length > MAX_QUEUE) voiceQueue.shift()
     void loadVoice(id)
+    void speakNext()
+  },
+
+  /**
+   * Queue a caption-only line in the voice loop, in turn with the spoken lines (no clip, no Quindar tone).
+   * For a moment no recorded clip fits, e.g. "Go with a caution on Science" (no such clip was recorded).
+   */
+  note(text: string) {
+    voiceQueue.push({ text, at: performance.now() })
+    while (voiceQueue.length > MAX_QUEUE) voiceQueue.shift()
     void speakNext()
   },
 
