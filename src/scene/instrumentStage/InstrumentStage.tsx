@@ -6,7 +6,7 @@ import { getOrbitById } from '../../data/orbits'
 import { useDropTarget } from '../../ui/interaction/drag'
 import { Scene } from './Scene'
 import { Effects } from '../space/Effects'
-import { ForecastPanel, ReadOuts, TitleLine } from './Overlays'
+import { ForecastCorner, ForecastPanel, ReadOuts, TitleLine } from './Overlays'
 import { InstrumentBar } from './InstrumentBar'
 import { DesignDeltaLine } from '../../viz/DesignDeltaLine'
 import { satHeight, type Pass } from './frame'
@@ -72,10 +72,7 @@ export default function InstrumentStage({ fill = false, topLeft }: { fill?: bool
           <Effects preset="space" bloom={0.35} />
         </Canvas>
         {/* One dashboard in the top-left corner: the forecast, and under it the hovered instrument's details */}
-        <div className="hud-panel pointer-events-none absolute left-3 top-3 flex w-[23rem] max-w-[40%] flex-col gap-2.5 rounded-xl p-3.5">
-          <ForecastPanel forecast={model.forecast} altitudeKm={model.altitudeKm} inline />
-          {topLeft && <div className="border-t border-rule pt-2.5">{topLeft}</div>}
-        </div>
+        <ForecastCorner forecast={model.forecast} altitudeKm={model.altitudeKm} topLeft={topLeft} />
         <ReadOuts views={model.instruments} overShadow={overShadow} top />
         {!dragged && (
           <div className="hud-fade pointer-events-none absolute left-1/2 top-3 hidden -translate-x-1/2 rounded bg-slate-950/70 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500 sm:block">

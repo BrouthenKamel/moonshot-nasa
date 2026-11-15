@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Eng, Tag } from '../../ui/kit'
 import { COVERAGE_TARGET, activityText, passesText, type StageForecast, type InstrumentView } from './stageModel'
 
@@ -123,6 +124,19 @@ export function ReadOuts({ views, overShadow, top = false }: { views: Instrument
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * The top-left dashboard of the Science stage: the forecast, and under it whatever `topLeft` holds.
+ * It needs no 3D, so the screen shows it at once while the scene loads (LiveForecastCorner).
+ */
+export function ForecastCorner({ forecast, altitudeKm, topLeft }: { forecast: StageForecast; altitudeKm: number; topLeft?: ReactNode }) {
+  return (
+    <div className="hud-panel pointer-events-none absolute left-3 top-3 flex w-[23rem] max-w-[40%] flex-col gap-2.5 rounded-xl p-3.5">
+      <ForecastPanel forecast={forecast} altitudeKm={altitudeKm} inline />
+      {topLeft && <div className="border-t border-rule pt-2.5">{topLeft}</div>}
     </div>
   )
 }

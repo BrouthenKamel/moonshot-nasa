@@ -13,7 +13,7 @@ import { goToStep } from '../interaction/stepLeave'
  */
 interface Stage {
   id: DesignStep
-  /** The Ride step's view this stage opens: Ride is the launch, Transfer the flight time */
+  /** The Ride step's view this stage opens: Ride is the launch, Trip the flight time to the Moon (one idea: a ride, then the trip, not two launches) */
   view?: 'launch' | 'transfer'
   label: string
   stationName: string
@@ -23,7 +23,7 @@ const STATIONS: (Stage & { num: string })[] = TAB_STEPS.flatMap((id): Stage[] =>
   return id === 'ride'
     ? [
         { id, view: 'launch', label: STEP_NAMES.ride, stationName },
-        { id, view: 'transfer', label: 'Transfer', stationName },
+        { id, view: 'transfer', label: 'Trip', stationName },
       ]
     : [{ id, label: STEP_NAMES[id], stationName }]
 }).map((s, i) => ({ ...s, num: String(i + 1) }))
