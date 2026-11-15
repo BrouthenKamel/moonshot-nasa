@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAgencyStore } from './agencyStore'
+import { useUiStore } from './uiStore'
 import { DEMO_START_DAY } from '../data/agency'
 import { DAYS_PER_TURN, advanceDays, approveMission, initialWorld, missionTurned, type World } from '../game/world'
 import { research } from '../game/research'
@@ -15,7 +16,8 @@ import type { SimState } from '../sim/types'
  * - The clock runs on the base screen: 1 day a second, or 10 when fast.
  *   Government funding comes in every day and popularity drifts back toward 50.
  * - A flying mission takes one month (turn) every 30 days. The clock stops
- *   by itself while an event card waits for the player.
+ *   by itself while an event card waits for the player, and holds while the
+ *   launch animation plays, so the trip starts once the rocket has gone.
  * - Launching a mission (a new flight at month 0) is the government's Go: the
  *   agency pays its share of the budget. The mission's own buttons ("Advance
  *   one month") still work: the clock catches up to the month they reach.
@@ -70,6 +72,8 @@ function runUntil(target: number) {
       stepMission() // the listener below books the month
       const after = currentSim()
       if (!after || after.currentTurn === sim.currentTurn || after.pendingDecision) return
+      // Liftoff: stop here so the launch animation plays before any day of the trip passes
+      if (after.flight.launchedTurn !== null && sim.flight.launchedTurn === null) return
     }
   }
 }
@@ -86,6 +90,8 @@ export const useWorldStore = create<WorldState>()(
         const rate = SPEEDS[get().speed]
         if (rate === 0 || seconds <= 0) return
         if (currentSim()?.pendingDecision) return // waits for the event card
+        // The launch plays on the island first: the craft leaves only once the rocket has gone
+        if (useUiStore.getState().launchAt !== null) return
         runUntil(get().day + rate * seconds)
       },
       openMission: () => set({ missionOpen: true }),
