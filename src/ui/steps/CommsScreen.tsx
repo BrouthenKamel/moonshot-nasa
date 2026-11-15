@@ -8,7 +8,7 @@ import { computeBudgets } from '../../sim/budgets'
 import type { Budgets, Design } from '../../sim/types'
 
 type DesignPatch = Partial<Design>
-import { hoursAfterSwitch } from './comms/hours'
+import { hoursAfterSwitch, rememberHours } from './comms/hours'
 import { PickRow, PickTile, SignalPath, type PickTone } from './comms/CommsPick'
 import { nextLabel, stepTitle } from '../kit/stepNumbers'
 import { PlanChecks, PlanHeadline, PlanMeter, PlanNav, PlanOdds, PlanPanel, PlanRow, PlanRows } from './plan/PlanPanel'
@@ -114,7 +114,11 @@ export function CommsScreen() {
   const stationId = previewPatch?.groundStation ?? design.groundStation
   const radio = getPartById(radioId) as RadioPart | undefined
   const station = getGroundStationById(stationId)
-  const stationPatch = (s: GroundStation): DesignPatch => ({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })
+  const stationPatch = (s: GroundStation): DesignPatch => {
+    // Switching away keeps the hours set on this station, so switching back restores them
+    if (design.groundStation !== s.id) rememberHours(design)
+    return { groundStation: s.id, contactHours: hoursAfterSwitch(design, s) }
+  }
   const preview = (patch: DesignPatch) => (on: boolean) => setPreviewPatch(on ? patch : null)
 
   const tone = homeTone(b)

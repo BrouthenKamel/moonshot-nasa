@@ -1,6 +1,6 @@
 import type { InstrumentPart } from '../../data/parts'
 import { Eng, Tag } from '../../ui/kit'
-import { altitudeText } from './instrumentCards'
+import { altitudeText, readsLabel } from './instrumentCards'
 
 /**
  * Under an instrument card. Story view: the one thing that matters, as a tag
@@ -9,7 +9,7 @@ import { altitudeText } from './instrumentCards'
 export function InstrumentCardFoot({ inst, on, color }: { inst: InstrumentPart; on: boolean; color: string }) {
   return (
     <div className="flex flex-col items-start gap-1.5 px-0.5">
-      <Tag tone={inst.seesShadow ? 'ice' : 'neutral'}>{inst.seesShadow ? 'Sees into shadow' : 'Sunlit ground only'}</Tag>
+      <Tag tone={inst.seesShadow ? 'ice' : 'neutral'}>{readsLabel(inst)}</Tag>
       <Eng as="dl" className="grid w-full grid-cols-2 gap-x-2 gap-y-0.5 fp-data text-[10px] text-paper-dim">
         <dt className="text-paper-faint">Mass</dt>
         <dd className="text-right">{inst.mass} kg</dd>

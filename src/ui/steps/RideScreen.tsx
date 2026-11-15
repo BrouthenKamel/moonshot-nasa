@@ -76,6 +76,17 @@ const TRANSFER_MARKS = [
   { at: positionOfDays(LOW_ENERGY_DAYS), label: 'Low-energy, 90+ days (CAPSTONE took about 4 months)' },
 ]
 
+/**
+ * Arrow keys on the flight-time slider: a log scale moves less than a day per 1% below about 30 days, so there
+ * the arrows step exactly one day and the keyboard reaches the same shortest flight as dragging does.
+ */
+const FINE_BELOW_DAYS = 30
+function daysKeyStep(value: number, dir: 1 | -1): number | null {
+  const d = daysAt(value)
+  if (dir > 0 ? d >= FINE_BELOW_DAYS : d <= FINE_BELOW_DAYS) return null
+  return positionOfDays(d + dir)
+}
+
 /** Room the slider and the dashboard take on the right, with their margins */
 const RIGHT_PX = PANEL_PX + SLIDER_PX + 40
 
@@ -172,6 +183,7 @@ function TransferView({ onBack, webgl, onSceneError }: { onBack: () => void; web
       topText={`${TRANSFER_MAX_DAYS} days`}
       bottomText={`${TRANSFER_MIN_DAYS} days`}
       marks={TRANSFER_MARKS}
+      keyStep={daysKeyStep}
     />
   )
   const dashboard = <TransferDashboard plan={plan} onBack={onBack} />

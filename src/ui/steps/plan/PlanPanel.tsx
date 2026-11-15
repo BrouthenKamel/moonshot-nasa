@@ -199,6 +199,7 @@ export function PlanVSlider({
   bottomText,
   min = 0,
   marks = [],
+  keyStep,
 }: {
   label: string
   value: number
@@ -209,6 +210,11 @@ export function PlanVSlider({
   min?: number
   /** Labelled ticks beside the track; a click on one snaps the slider to its position (0..1). `title` is the full name. */
   marks?: { at: number; label: string; title?: string }[]
+  /**
+   * Position after one arrow key press (dir 1 = up, -1 = down), or null for the default 1% step. A log-scale
+   * slider needs it where 1% is less than a whole unit of its value.
+   */
+  keyStep?: (value: number, dir: 1 | -1) => number | null
 }) {
   const track = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
@@ -235,7 +241,9 @@ export function PlanVSlider({
   }
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     const step = { ArrowUp: 0.01, ArrowRight: 0.01, ArrowDown: -0.01, ArrowLeft: -0.01, PageUp: 0.1, PageDown: -0.1 }[e.key]
-    let next: number | null = step !== undefined ? value + step : e.key === 'Home' ? min : e.key === 'End' ? 1 : null
+    const arrow = e.key.startsWith('Arrow') ? (step! > 0 ? 1 : -1) : null
+    const custom = arrow !== null && keyStep ? keyStep(value, arrow) : null
+    let next: number | null = custom ?? (step !== undefined ? value + step : e.key === 'Home' ? min : e.key === 'End' ? 1 : null)
     if (next === null) return
     e.preventDefault()
     next = Math.max(min, Math.min(1, next))

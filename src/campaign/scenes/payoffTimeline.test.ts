@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { beatAt, easeOutBack, easeOutElastic, payoffBeats, payoffCues, payoffDuration, restTime, seg } from './payoffTimeline'
+import { iceFailureBeat, beatAt, easeOutBack, easeOutElastic, payoffBeats, payoffCues, payoffDuration, restTime, seg } from './payoffTimeline'
 import type { Outcome, PayoffKind } from './types'
 
 const KINDS: PayoffKind[] = ['ice-map', 'moon-landing', 'moon-base', 'mars-base']
@@ -73,5 +73,19 @@ describe('payoff timeline', () => {
     expect(easeOutElastic(1)).toBe(1)
     expect(easeOutBack(0)).toBeCloseTo(0)
     expect(easeOutBack(1)).toBeCloseTo(1)
+  })
+})
+
+describe('the failed ice map names its real cause', () => {
+  it('does not say "went silent before its first scan" for a budget failure', () => {
+    expect(iceFailureBeat('budget ran out in orbit').text).toMatch(/money ran out/)
+    expect(payoffBeats('ice-map', 'failed', 'budget ran out in orbit').at(-1)?.text).not.toMatch(/went silent/)
+  })
+  it('keeps the silence for a lost craft and names a lost capture', () => {
+    expect(iceFailureBeat('lost contact after deployment').text).toMatch(/went silent/)
+    expect(iceFailureBeat('not enough delta-v left to capture').text).toMatch(/brake into lunar orbit/)
+  })
+  it('keeps the old line when the cause is unknown', () => {
+    expect(payoffBeats('ice-map', 'failed').at(-1)?.text).toMatch(/went silent/)
   })
 })

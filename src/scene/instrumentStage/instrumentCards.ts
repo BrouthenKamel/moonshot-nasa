@@ -12,9 +12,18 @@ import { INSTRUMENT_COLORS, INSTRUMENT_SHORT_NAMES } from './stageModel'
 export const instrumentColor = (id: string) => INSTRUMENT_COLORS[id] ?? '#94a3b8'
 export const instrumentShortName = (inst: InstrumentPart) => INSTRUMENT_SHORT_NAMES[inst.id] ?? inst.name
 
+/** What an instrument really reads, in a few words (the same on its card, its foot and the dock) */
+export function readsLabel(inst: InstrumentPart): string {
+  if (inst.seesShadow) return 'Maps ice, even in shadow'
+  return inst.kind === 'context' ? 'Maps sunlit ground, not ice' : 'Pictures only, maps no ice'
+}
+
 /** The key lesson, in a few words: does it see into the shadowed craters, and from how high */
 export function lessonText(inst: InstrumentPart): string {
-  if (!inst.seesShadow) return 'Needs sunlight: cannot map the ice in shadow'
+  if (!inst.seesShadow)
+    return inst.kind === 'context'
+      ? 'Maps the sunlit ground only: it cannot see the ice in shadow'
+      : 'Takes pictures: it maps no ice'
   return inst.maxAltitudeKm === null
     ? 'Sees into shadowed craters'
     : `Sees into shadowed craters, only below ${inst.maxAltitudeKm} km`
