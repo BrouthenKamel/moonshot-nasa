@@ -3,8 +3,8 @@ import { modelConstants } from './brief'
 
 /**
  * Lunar science orbits, all polar. Values from the logic map: the halo loop is
- * Lunar Flashlight's plan, the elliptical orbit LunaH-Map's, the low circular
- * orbit Lunar Prospector's and KPLO's.
+ * Lunar Flashlight's plan, the elliptical orbit LunaH-Map's, the 100 km circular
+ * orbit Lunar Prospector's and KPLO's. "Low" is kept for the 15 km passes over the pole.
  */
 export const LunarOrbitSchema = z.object({
   id: z.string(),
@@ -62,7 +62,7 @@ export const lunarOrbits: LunarOrbit[] = [
   },
   {
     id: 'orbit-100km',
-    name: 'Low Circular Polar (100 km)',
+    name: 'Circular Polar (100 km)',
     altitude: 100,
     farPointKm: 100,
     type: 'circular',
