@@ -36,17 +36,6 @@ export function toggleInstrument(current: string[], id: string): string[] {
   return current.includes(id) ? current.filter((i) => i !== id) : [...current, id].slice(-MAX_INSTRUMENTS)
 }
 
-/** The other buildings' choices the simulator lets the player try. */
-export interface WhatIf {
-  orbit: string
-  precise: boolean
-}
-
-export function whatIfFromDesign(design: Design): WhatIf {
-  const attitude = getPartById(design.attitude) as AttitudePart | undefined
-  return { orbit: design.orbit, precise: attitude?.precise ?? false }
-}
-
 export interface InstrumentView {
   id: string
   name: string
@@ -71,7 +60,6 @@ export interface StageForecast {
   outreachMB: number
   passesPerTurn: number
   meetsTarget: boolean
-  isWhatIf: boolean
   reasons: string[]
 }
 
@@ -81,16 +69,13 @@ export interface StageModel {
   forecast: StageForecast
 }
 
-export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatIf): StageModel {
-  const tried: Design = {
-    ...design,
-    orbit: whatIf.orbit,
-    attitude: whatIf.precise ? 'attitude-precision' : 'attitude-basic',
-  }
-  const b = computeBudgets(tried, difficulty)
-  const orbit = getOrbitById(whatIf.orbit)
+/** The lab tests the instruments at the design's own orbit and pointing: those are decided in their own steps. */
+export function stageModel(design: Design, difficulty: Difficulty): StageModel {
+  const b = computeBudgets(design, difficulty)
+  const orbit = getOrbitById(design.orbit)
   const altitudeKm = orbit?.altitude ?? FALLBACK_ALTITUDE_KM
   const duty = b.scienceDuty
+  const precise = (getPartById(design.attitude) as AttitudePart | undefined)?.precise ?? false
 
   const chosen = design.instruments
     .map((id) => catalogue.find((c) => c.id === id))
@@ -99,7 +84,7 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
   const views = chosen.map((p): InstrumentView => {
     const strength = b.quality[p.id] ?? 0
     const heightIsCause = p.maxAltitudeKm !== null && altitudeKm > p.maxAltitudeKm
-    const shaky = !whatIf.precise && p.qualityWithoutPrecisePointing < 1
+    const shaky = !precise && p.qualityWithoutPrecisePointing < 1
     const problems: string[] = []
     if (heightIsCause) problems.push(`too high at ${altitudeKm} km: works below ${p.maxAltitudeKm} km`)
     if (shaky) problems.push('shaky aim: needs precise pointing')
@@ -146,7 +131,6 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
   const shadowCardShown = computeSynergies(design, b).some((c) => c.id === 'shadow-blind' && c.steps.includes('instruments'))
   if (!chosen.some((p) => p.kind === 'ice') && !shadowCardShown) reasons.push('Nothing aboard sees into shadow: no ice is mapped.')
 
-  const fromDesign = whatIfFromDesign(design)
   return {
     altitudeKm,
     instruments: views,
@@ -157,7 +141,6 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
       outreachMB: b.projectedOutreach,
       passesPerTurn: orbit?.passesPerTurn ?? 0,
       meetsTarget: b.projectedCoverage >= COVERAGE_TARGET,
-      isWhatIf: fromDesign.orbit !== whatIf.orbit || fromDesign.precise !== whatIf.precise,
       reasons,
     },
   }

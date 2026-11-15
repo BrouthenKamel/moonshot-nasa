@@ -1,16 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { renderToString } from 'react-dom/server'
-import { ReadOuts, TitleLine } from './Overlays'
-import { stageModel } from './stageModel'
-import { flashlightDesign } from '../../sim/fixtures'
+import { BenchControls, TitleLine } from './Overlays'
 
-describe('ReadOuts', () => {
-  const m = stageModel(flashlightDesign, 'engineer', { orbit: 'orbit-100km', precise: true })
-  it('marks the read-outs as a what-if view when a dial differs from the design', () => {
-    expect(renderToString(<ReadOuts views={m.instruments} overShadow={false} isWhatIf />)).toContain('What-if view')
+describe('BenchControls', () => {
+  const html = (altitudeKm: number) =>
+    renderToString(<BenchControls altitudeKm={altitudeKm} looking={false} hasInstruments onToggleLookThrough={() => {}} />).replace(/<!-- -->/g, '')
+  it('keeps Look through and says, with one number, which orbit it tests at', () => {
+    expect(html(15)).toContain('Look through')
+    expect(html(15)).toContain('Tested at your planned orbit, 15 km over the pole: change it in Orbit')
   })
-  it('has no what-if mark for the real design', () => {
-    expect(renderToString(<ReadOuts views={m.instruments} overShadow={false} isWhatIf={false} />)).not.toContain('What-if view')
+  it('has no altitude lever or what-if dials any more', () => {
+    expect(html(15)).not.toContain('altitude-lever')
+    expect(html(100)).not.toContain('100 km</span>')
   })
 })
 
