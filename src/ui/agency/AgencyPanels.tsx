@@ -577,6 +577,7 @@ const signedPoints = (x: number) => `${x >= 0 ? '+' : '−'}${Math.abs(Math.roun
 function Ledger({
   title,
   rows,
+  netLabel,
   net,
   fmt,
   total,
@@ -587,6 +588,8 @@ function Ledger({
   fmt: (x: number) => string
   /** Replaces the Net line when the headline is not a signed sum (money: left of the budget) */
   total?: { label: string; text: string }
+  /** What the signed sum counts, instead of a bare "Net" */
+  netLabel?: string
 }) {
   return (
     <div className="border border-rule bg-ink-1 p-2.5">
@@ -600,7 +603,7 @@ function Ledger({
         ))}
       </Eng>
       <div className="mt-1 flex justify-between text-sm font-semibold">
-        <span className="text-paper">{total?.label ?? 'Net'}</span>
+        <span className="text-paper">{total?.label ?? netLabel ?? 'Net'}</span>
         <span className={`fp-data whitespace-nowrap ${total ? 'text-paper' : net >= 0 ? 'text-go' : 'text-nogo'}`}>{total?.text ?? fmt(net)}</span>
       </div>
     </div>
@@ -667,7 +670,8 @@ export function MissionResultDialog({
             fmt={signedMoney}
             total={{ label: 'Left', text: `${money(result.moneyLeft)} of ${money(result.budget)}` }}
           />
-          <Ledger title="Popularity" rows={result.popularity} net={result.popularityNet} fmt={signedPoints} />
+          {/* Only this mission's own popularity (launch, result, papers): not the drift and news between missions (QC, 16 Nov) */}
+          <Ledger title="Popularity" rows={result.popularity} net={result.popularityNet} fmt={signedPoints} netLabel="This mission" />
         </div>
 
         {result.papers.length > 0 && (

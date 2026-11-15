@@ -9,7 +9,8 @@ const row = (r: Partial<BoardRow>): BoardRow => ({ key: 'mass', title: '', text:
 describe('redCause', () => {
   it('names a braking shortfall with the real numbers, rounded to tens', () => {
     expect(redCause(row({ key: 'deltav', value: 563, limit: 48 }))).toBe(
-      'Cannot reach: this engine has about 50 m/s of braking; the trip to the Moon needs about 560.',
+      // "needs" is the Delta-v check's total: capture plus station-keeping (QC, 16 Nov)
+      'Cannot reach: this engine has about 50 m/s of braking; the mission needs about 560 (capture plus station-keeping).',
     )
   })
 

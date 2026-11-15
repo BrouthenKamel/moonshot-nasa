@@ -21,6 +21,7 @@ import {
 } from '../../viz/ride/transferPlan'
 import { Details } from '../kit'
 import { STEP_NAMES, nextLabel, stepTitle } from '../kit/stepNumbers'
+import { CAPTURE_LABEL } from '../../viz/numbers'
 import {
   PANEL_PX,
   SLIDER_PX,
@@ -99,7 +100,7 @@ function TransferDashboard({ plan, onBack }: { plan: TransferPlan; onBack: () =>
   const holdTone: Tone = plan.monthsHeld >= 12 ? 'green' : plan.monthsHeld >= 6 ? 'yellow' : 'red'
   return (
     <PlanPanel>
-      <PlanHeadline kicker={`${STEP_NAMES.ride}: the transfer to the Moon`} value={plan.days} unit="days of flight" line={KIND_LINE[plan.kind]} />
+      <PlanHeadline kicker={`${STEP_NAMES.ride}: the transfer to the Moon`} value={plan.tripHeadline.value} unit={plan.tripHeadline.unit} line={KIND_LINE[plan.kind]} />
       {plan.ionEngine &&
         (plan.days < plan.minDays ? (
           <PlanNote tone="red">An ion engine cannot brake from a fast arrival: it needs {plan.minDays} days or more.</PlanNote>
@@ -112,7 +113,7 @@ function TransferDashboard({ plan, onBack }: { plan: TransferPlan; onBack: () =>
           label="Reaches the Moon"
           value={plan.cruiseMonths === null ? 'never' : `Month ${plan.cruiseMonths === 0 ? plan.departureMonth : plan.arrivalMonth}`}
           tone={plan.cruiseMonths === null ? 'red' : undefined}
-          sub={plan.cruiseMonths === null ? 'cannot capture' : plan.cruiseMonths === 0 ? 'same month' : `${months(plan.cruiseMonths)} on the way`}
+          sub={plan.cruiseMonths === null ? 'cannot capture' : `${plan.trip} on the way`}
         />
         <PlanRow
           className="col-span-2"
@@ -133,7 +134,7 @@ function TransferDashboard({ plan, onBack }: { plan: TransferPlan; onBack: () =>
         <PlanRows>
           <PlanRow label="Arrives at" value={`${plan.arrivalKms.toFixed(2)} km/s`} sub="over escape speed" />
           <PlanRow
-            label="Brake into orbit"
+            label={CAPTURE_LABEL}
             value={plan.capture === null ? 'cannot' : `${Math.round(plan.capture)} m/s`}
             tone={fuelTone}
             sub={`tank ${Math.round(plan.tank)} m/s`}

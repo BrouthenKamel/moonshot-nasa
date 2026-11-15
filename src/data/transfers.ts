@@ -30,6 +30,7 @@ export const transfers: Transfer[] = [
     type: 'direct',
     durationTurns: 0,
     propulsionType: 'chemical',
+    days: 5,
   },
   {
     id: 'transfer-low-energy',
@@ -64,6 +65,18 @@ export const TRANSFER_MAX_DAYS = 120
 export const DIRECT_MAX_DAYS = 20
 /** From this long, the Sun and Earth do the braking: the Moon captures the craft at almost no speed */
 export const LOW_ENERGY_DAYS = 90
+
+/**
+ * The fastest arrival (km/s over the Moon's escape speed) an ion engine can still spiral down from.
+ * The one ion-engine rule: the sim's capture (budgets.ts insertionDeltaV), the Go/No-Go check
+ * (isTransferCompatible via propulsionType) and the transfer slider's minimum all read it (QC, 16 Nov).
+ */
+export const ION_MAX_ARRIVAL_EXCESS_KMS = 0.05
+
+/** Can an ion engine brake into lunar orbit from this transfer? */
+export function ionCanBrake(t: Pick<Transfer, 'type' | 'arrivalExcessKms'>): boolean {
+  return t.type !== 'direct' && (t.arrivalExcessKms ?? 0) <= ION_MAX_ARRIVAL_EXCESS_KMS
+}
 
 const TIMED = /^transfer-(\d+)d$/
 
@@ -102,7 +115,10 @@ export function timedTransfer(days: number): Transfer {
         : 'A long loop out past the Moon: the Sun does most of the braking.',
     type: direct ? 'direct' : 'low_energy',
     durationTurns: direct ? 0 : Math.round(d / 30),
-    propulsionType: d >= LOW_ENERGY_DAYS ? 'any' : 'chemical',
+    // Which engines can use it follows the one ion-engine rule (ionCanBrake), not a separate day count
+    propulsionType: ionCanBrake({ type: direct ? 'direct' : 'low_energy', arrivalExcessKms: Math.round(0.85 * fast ** 1.3 * 1000) / 1000 })
+      ? 'any'
+      : 'chemical',
     days: d,
     arrivalExcessKms: Math.round(0.85 * fast ** 1.3 * 1000) / 1000,
     courseCorrection: Math.round(30 + 20 * (1 - fast)),
@@ -115,3 +131,9 @@ export function getTransferById(id: string): Transfer | undefined {
   const days = timedTransferDays(id)
   return days === null ? undefined : timedTransfer(days)
 }
+
+/** The shortest timed transfer an ion engine can brake from: the first day count ionCanBrake accepts */
+export const ION_MIN_DAYS: number = (() => {
+  for (let d = TRANSFER_MIN_DAYS; d <= TRANSFER_MAX_DAYS; d++) if (ionCanBrake(timedTransfer(d))) return d
+  return TRANSFER_MAX_DAYS
+})()

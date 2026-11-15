@@ -1,7 +1,7 @@
 import { computeBudgets } from '../../sim/budgets'
 import { lunarIceMapperBrief, type Difficulty } from '../../data/brief'
 import { rides, getRideById, type Ride } from '../../data/rides'
-import { transfers, isTransferCompatible } from '../../data/transfers'
+import { transfers, isTransferCompatible, transferDays } from '../../data/transfers'
 import { getPartById, type PropulsionPart } from '../../data/parts'
 import type { BarStatus, Budgets, CheckResult, Design } from '../../sim/types'
 import { orbitColour, orbitShortName } from './orbitColours'
@@ -213,7 +213,7 @@ export function buildRideView(design: Design, difficulty: Difficulty, budgets: B
         sub: !selectable
           ? 'needs a chemical engine (Factory)'
           : direct
-            ? 'about 5 days · one big braking burn'
+            ? `${transferDays(t)} days · one big braking burn`
             : 'months of coasting · small burn',
         selectable,
         selected: design.transfer === t.id,

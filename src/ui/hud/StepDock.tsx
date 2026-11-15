@@ -53,8 +53,10 @@ export function StepDock({ className = '' }: { className?: string }) {
     <nav aria-label="Mission design stages" className={`flex w-full items-stretch bg-ink-0/60 select-none ${className}`}>
       {STATIONS.map((station) => {
         const isCurrent = station.id === (designStep === 'rocket' ? 'spacecraft' : designStep) && (!station.view || station.view === rideView)
-        const hasBlocker = blockerSteps.has(station.id)
-        const hasWarning = warningSteps.has(station.id)
+        // The Launch tab answers for the whole launch: red whenever anything blocks it, not only its own checks (QC, 16 Nov)
+        const isLaunch = station.id === 'go-nogo'
+        const hasBlocker = isLaunch ? !checks.canGo : blockerSteps.has(station.id)
+        const hasWarning = isLaunch ? checks.warnings.length > 0 : warningSteps.has(station.id)
         const isVisited = visitedSteps.includes(station.id)
 
         // Red when a check fixed here is no-go, yellow when one is a risk, green once visited and clear
