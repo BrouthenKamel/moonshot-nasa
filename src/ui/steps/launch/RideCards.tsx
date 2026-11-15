@@ -6,7 +6,10 @@ import { getRideById } from '../../../data/rides'
 import { transfers, getTransferById } from '../../../data/transfers'
 import { getPartById, type PropulsionPart } from '../../../data/parts'
 import { computeBudgets } from '../../../sim/budgets'
+import { useDropTarget } from '../../interaction/drag'
+import { useDragStore } from '../../interaction/dragStore'
 import type { ChoiceStat } from '../../kit/ChoiceCard'
+import { Flap } from '../../kit'
 import { LaunchCard, type Plaque } from './LaunchCard'
 import { playPick, useRadioKeys } from './radioKeys'
 
@@ -52,6 +55,90 @@ const DROP_SHORT: Record<string, string> = {
   'lunar-vicinity': 'Close to the Moon',
 }
 
+function RideRowCard({
+  row,
+  index,
+  size,
+  totalMass,
+  tabIndex,
+  buttonRef,
+  onKeyDown,
+  onPick,
+  onHover,
+}: {
+  row: BoardRow
+  index: number
+  size: CardSize
+  totalMass: number
+  tabIndex: number
+  buttonRef: (el: HTMLButtonElement | null) => void
+  onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => void
+  onPick: () => void
+  onHover?: (id: string | null) => void
+}) {
+  const ride = getRideById(row.id)
+  const refusal = useDragStore((s) => s.lastRefusal)
+  const drop = useDropTarget({
+    id: `ride:row:${row.id}`,
+    accepts: ['boarding-pass'],
+    refuse: () => {
+      if (totalMass > row.limitKg) return `OVERWEIGHT: ${totalMass.toFixed(1)} kg > ${row.limitKg} kg limit`
+      if (row.status === 'wrongEngine') return row.statusLabel
+      return null
+    },
+    onDrop: () => onPick(),
+  })
+  const bounced = refusal?.field === 'boarding-pass' && row.status === 'tooHeavy' ? 'bounce-back' : ''
+  const overMass = totalMass > row.limitKg
+  const flapText = drop.state.over && !drop.state.ok ? 'OVERWEIGHT' : overMass ? 'OVERWEIGHT' : row.selected ? 'BOARDING' : 'OPEN'
+  const flapToneClass =
+    flapText === 'OVERWEIGHT' ? '!text-nogo border-nogo/60' : row.selected ? '!text-go border-go/60' : 'text-paper-dim'
+  return (
+    <div
+      {...drop.handlers}
+      className={`flex flex-col gap-1 transition-colors ${bounced} ${
+        drop.state.over
+          ? drop.state.ok
+            ? 'outline outline-1 outline-kapton'
+            : 'outline outline-1 outline-nogo'
+          : drop.state.compatible
+            ? 'outline outline-1 outline-dashed outline-rule-strong'
+            : ''
+      }`}
+    >
+      <div className="flex items-center justify-between px-1">
+        <span className="fp-data text-[10px] text-paper-faint">GATE {index + 1}</span>
+        <Flap value={flapText} className={`text-[10px] ${flapToneClass}`} />
+      </div>
+      <LaunchCard
+        id={row.id}
+        title={ride?.name ?? row.name}
+        subtitle={`${(ride && DROP_SHORT[ride.dropOffOrbit]) ?? cap(row.dropWords)} · ${row.limitKg} kg max`}
+        stats={rideStats(row)}
+        plaque={{ tone: ROW_TONE[row.status], text: row.statusLabel }}
+        inset
+        insetSize={size === 'xs' ? 68 : 84}
+        size={size}
+        selected={row.selected}
+        drag={{
+          field: 'ride',
+          value: row.id,
+          label: ride?.name ?? row.name,
+          patch: { ride: row.id },
+          sound: 'sfx.pick-ride',
+        }}
+        onPick={onPick}
+        radio
+        tabIndex={tabIndex}
+        buttonRef={buttonRef}
+        onKeyDown={onKeyDown}
+        onFocus={() => onHover?.(row.id)}
+        onHover={() => onHover?.(row.id)}
+      />
+    </div>
+  )
+}
+
 export function RideCardTray({
   size,
   columns = 3,
@@ -62,6 +149,7 @@ export function RideCardTray({
   onHover?: (id: string | null) => void
 }) {
   const view = useRideView()
+  const totalMass = view.payload.mass
   const selectedId = view.rows.find((r) => r.selected)?.id ?? ''
   const pick = (id: string, fromKeyboard: boolean) => {
     if (fromKeyboard) playPick(id)
@@ -77,30 +165,20 @@ export function RideCardTray({
       onPointerLeave={() => onHover?.(null)}
       onBlur={() => onHover?.(null)}
     >
-      {view.rows.map((r, i) => {
-        const ride = getRideById(r.id)
-        return (
-          <LaunchCard
-            key={r.id}
-            id={r.id}
-            title={ride?.name ?? r.name}
-            subtitle={`${(ride && DROP_SHORT[ride.dropOffOrbit]) ?? cap(r.dropWords)} · ${r.limitKg} kg max`}
-            stats={rideStats(r)}
-            plaque={{ tone: ROW_TONE[r.status], text: r.statusLabel }}
-            inset
-            insetSize={size === 'xs' ? 68 : 84}
-            size={size}
-            selected={r.selected}
-            onPick={() => pick(r.id, false)}
-            radio
-            tabIndex={keys.tabIndex(r.id)}
-            buttonRef={keys.ref(i)}
-            onKeyDown={keys.onKeyDown(i)}
-            onFocus={() => onHover?.(r.id)}
-            onHover={() => onHover?.(r.id)}
-          />
-        )
-      })}
+      {view.rows.map((r, i) => (
+        <RideRowCard
+          key={r.id}
+          row={r}
+          index={i}
+          size={size}
+          totalMass={totalMass}
+          tabIndex={keys.tabIndex(r.id)}
+          buttonRef={keys.ref(i)}
+          onKeyDown={keys.onKeyDown(i)}
+          onPick={() => pick(r.id, false)}
+          onHover={onHover}
+        />
+      ))}
     </div>
   )
 }
@@ -180,6 +258,17 @@ export function TransferCardTray({
             reason={`Needs a chemical engine; yours is ${engineWords}.`}
             size={size}
             selected={s.selected}
+            drag={
+              s.selectable
+                ? {
+                    field: 'transfer',
+                    value: s.id,
+                    label: t?.name ?? s.title,
+                    patch: { transfer: s.id },
+                    sound: 'sfx.select',
+                  }
+                : undefined
+            }
             onPick={() => pick(s.id, false)}
             radio
             tabIndex={keys.tabIndex(s.id)}

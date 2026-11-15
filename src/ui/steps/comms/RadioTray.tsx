@@ -98,6 +98,13 @@ export function RadioTray({
                 selected={selected}
                 look="portrait"
                 size="lg"
+                drag={{
+                  field: 'radio',
+                  value: radio.id,
+                  label: radio.name,
+                  patch: { radio: radio.id },
+                  sound: 'sfx.pick-radio',
+                }}
                 onHover={() => {
                   hoverSound()
                   setInspect(radio.id)

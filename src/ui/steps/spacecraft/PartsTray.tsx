@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import type { TrayGroup, TrayKey, TrayOption } from '../../../viz/spacecraft/trayOptions'
 import { useUiStore } from '../../../state/uiStore'
+import { useDragStore } from '../../interaction/dragStore'
 import { glossaryForPart } from '../../../data/glossary'
 import { audio } from '../../../assets/audio'
 import { choiceArt } from '../../../assets/catalogueArt'
@@ -39,6 +40,7 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
   useEffect(() => () => setPreviewPatch(null), [setPreviewPatch])
 
   const clearHover = () => {
+    if (useDragStore.getState().held) return
     onActive(null)
     setPreviewPatch(null)
   }

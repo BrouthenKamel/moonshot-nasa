@@ -3,6 +3,10 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useModel } from '../assets/models'
 import { useGameStore } from '../state/gameStore'
+import { useAgencyStore } from '../state/agencyStore'
+import { useUiStore } from '../state/uiStore'
+import { computeBudgets } from '../sim/budgets'
+import { goNoGo } from '../sim/checks'
 import { Effects } from './space/Effects'
 import { usePlanningOdds } from '../ui/useOdds'
 import { buildPlanningView, type PlanningView } from '../viz/planning/planningView'
@@ -41,19 +45,19 @@ function makeCanvasTexture(w: number, h: number) {
   return { canvas, ctx: canvas.getContext('2d') as CanvasRenderingContext2D, texture }
 }
 
-/** Live view of the planning numbers, recomputed when the design or difficulty changes. */
+/** Live view of the planning numbers, recomputed when the design, preview, or difficulty changes. */
 function usePlanningView(): PlanningView {
   const design = useGameStore((s) => s.design)
+  const previewPatch = useUiStore((s) => s.previewPatch)
   const difficulty = useGameStore((s) => s.difficulty)
-  const getBudgets = useGameStore((s) => s.getBudgets)
-  const getGoNoGo = useGameStore((s) => s.getGoNoGo)
+  const day = useAgencyStore((s) => s.day)
+  const active = useMemo(() => (previewPatch ? { ...design, ...previewPatch } : design), [design, previewPatch])
   // The chance of full success at each setting, shown on the knob and fader readouts once worked out
   const odds = usePlanningOdds(design, difficulty)
-  return useMemo(
-    () => buildPlanningView(design, getBudgets(), getGoNoGo().checks, odds),
-    // getBudgets / getGoNoGo read design and difficulty from the store
-    [design, difficulty, getBudgets, getGoNoGo, odds]
-  )
+  return useMemo(() => {
+    const b = computeBudgets(active, difficulty)
+    return buildPlanningView(active, b, goNoGo(active, b, day).checks, odds)
+  }, [active, difficulty, day, odds])
 }
 
 function setPlanning(patch: { testTurns?: number; reservePercent?: number }) {

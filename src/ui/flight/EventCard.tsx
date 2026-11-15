@@ -1,9 +1,12 @@
-import { useEffect, useId, useRef, type KeyboardEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { assetUrl, type ImageId } from '../../assets'
+import { audio } from '../../assets/audio'
 import { getEventById, type EventType } from '../../data/events'
+import { prefersReducedMotion } from '../../scene/space/quality'
 import { useGameStore } from '../../state/gameStore'
 import { missionClockLabel } from '../../viz/missionMap'
 import { Tag } from '../kit'
+import { DECISION_CLOCK_MS, decisionClockFraction, shouldPauseDecisionClock, standingOrderOptionId } from './decisionClock'
 
 const ART: Partial<Record<EventType, ImageId>> = {
   thruster: 'image.event-thruster',
@@ -53,14 +56,61 @@ export function EventCard() {
   const firstOption = useRef<HTMLButtonElement>(null)
   // A new card takes the focus, so the keyboard lands on its first option (QC #43)
   const cardKey = decision ? `${decision.key}-${decision.turn}` : null
+  const [clock, setClock] = useState<{ key: string | null; elapsedMs: number }>({ key: null, elapsedMs: 0 })
+  const [blurred, setBlurred] = useState(false)
+  const autoFiredRef = useRef<string | null>(null)
+  const reduced = prefersReducedMotion()
+  const elapsedMs = clock.key === cardKey ? clock.elapsedMs : 0
+  const clockPaused = shouldPauseDecisionClock({ reducedMotion: reduced, blurred, hasDecision: !!decision })
+
   useEffect(() => {
     if (cardKey) firstOption.current?.focus()
   }, [cardKey])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return
+    const onBlur = () => setBlurred(true)
+    const onFocus = () => setBlurred(document.hidden)
+    const onVisibility = () => setBlurred(document.hidden)
+    window.addEventListener('blur', onBlur)
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('blur', onBlur)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (clockPaused || !cardKey) return
+    const id = window.setInterval(() => {
+      setClock((prev) => {
+        const current = prev.key === cardKey ? prev.elapsedMs : 0
+        const next = Math.min(DECISION_CLOCK_MS, current + 100)
+        return { key: cardKey, elapsedMs: next }
+      })
+    }, 100)
+    return () => window.clearInterval(id)
+  }, [clockPaused, cardKey])
+
+  useEffect(() => {
+    if (!decision || !cardKey || elapsedMs < DECISION_CLOCK_MS) return
+    if (autoFiredRef.current === cardKey) return
+    const optId = standingOrderOptionId(decision)
+    if (!optId) return
+    autoFiredRef.current = cardKey
+    audio.play('sfx.click')
+    answerEvent(optId)
+  }, [decision, cardKey, elapsedMs, answerEvent])
+
   if (!decision || !flight) return null
 
   const art = ART[decision.key]
   const severity = getEventById(decision.key)?.severity ?? 'major'
   const critical = severity === 'critical'
+  const remainingFrac = decisionClockFraction(elapsedMs)
+  const remainingS = Math.max(0, Math.ceil((DECISION_CLOCK_MS - elapsedMs) / 1000))
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === '1' || e.key === '2') {
@@ -88,6 +138,26 @@ export function EventCard() {
           Flight note · <span>Event, {missionClockLabel(decision.turn)}</span>
         </div>
         <Tag tone={critical ? 'nogo' : 'caution'}>{critical ? 'Critical' : 'Major'}</Tag>
+      </div>
+      {/* 30 s CAPCOM decision clock */}
+      <div
+        data-testid="decision-clock"
+        data-paused={reduced || blurred ? 'true' : 'false'}
+        data-remaining-ms={Math.max(0, DECISION_CLOCK_MS - elapsedMs)}
+        className="border-b border-rule bg-ink-1 px-5 py-1.5"
+      >
+        <div className="flex items-center justify-between gap-2 fp-data text-[11px] text-paper-dim">
+          <span className="fp-label">Decision clock · Standing order [1]</span>
+          <span className={remainingS <= 5 && !(reduced || blurred) ? 'font-bold text-nogo' : 'text-kapton'}>
+            {reduced || blurred ? `Paused · ${remainingS}s` : `${remainingS}s`}
+          </span>
+        </div>
+        <div className="mt-1 h-1.5 w-full overflow-hidden border border-rule bg-ink-0">
+          <div
+            className="h-full bg-kapton transition-[width] duration-100 ease-linear"
+            style={{ width: `${(remainingFrac * 100).toFixed(2)}%` }}
+          />
+        </div>
       </div>
       {art && (
         <div className="h-36 overflow-hidden border-b border-rule sm:h-44">
@@ -131,6 +201,11 @@ export function EventCard() {
                     [{i + 1}]
                   </kbd>
                   <span className="min-w-0 flex-1 leading-snug">{o.label}</span>
+                  {i === 0 && (
+                    <span className="shrink-0 self-center">
+                      <Tag tone="caution">Standing order</Tag>
+                    </span>
+                  )}
                 </div>
                 {prob && (
                   <div className="mt-2 pl-8">

@@ -1,6 +1,16 @@
-import { useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { audio } from '../../../assets/audio'
 import { Eng, stepNumber } from '../../kit'
+
+/** Snap pointer X inside track rect to a 0.25 h contact booking in [0.25, maxHours]. */
+export function hoursFromTrackX(clientX: number, rectLeft: number, rectWidth: number, maxHours: number): number {
+  const min = 0.25
+  const span = Math.max(0.25, maxHours - min)
+  const t = Math.min(1, Math.max(0, (clientX - rectLeft) / Math.max(1, rectWidth)))
+  const raw = min + t * span
+  const snapped = Math.round(raw * 4) / 4
+  return Math.min(maxHours, Math.max(min, snapped))
+}
 
 /**
  * Contact time: hours a day booked on the ground station, as a console slider with a tick per
@@ -21,9 +31,43 @@ export function ContactSlider({
   onChange: (hours: number) => void
 }) {
   const lastTick = useRef(0)
+  const trackRef = useRef<HTMLDivElement>(null)
   const min = 0.25
   const pct = maxHours > min ? ((hours - min) / (maxHours - min)) * 100 : 100
   const ticks = Array.from({ length: Math.floor(maxHours) }, (_, i) => i + 1)
+
+  const handleDialDown = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0 || maxHours <= min || !trackRef.current) return
+      e.preventDefault()
+      const track = trackRef.current
+      let lastH = hours
+      const updateFromEvent = (ev: PointerEvent | React.PointerEvent) => {
+        const rect = track.getBoundingClientRect()
+        const next = hoursFromTrackX(ev.clientX, rect.left, rect.width, maxHours)
+        if (next !== lastH) {
+          lastH = next
+          const now = performance.now()
+          if (now - lastTick.current > 70) {
+            lastTick.current = now
+            audio.play('sfx.click')
+          }
+          onChange(next)
+        }
+      }
+      updateFromEvent(e)
+      const move = (ev: PointerEvent) => updateFromEvent(ev)
+      const up = () => {
+        window.removeEventListener('pointermove', move)
+        window.removeEventListener('pointerup', up)
+        window.removeEventListener('pointercancel', up)
+      }
+      window.addEventListener('pointermove', move)
+      window.addEventListener('pointerup', up)
+      window.addEventListener('pointercancel', up)
+    },
+    [hours, maxHours, onChange],
+  )
 
   return (
     <section aria-labelledby="contact-hours-label">
@@ -51,10 +95,21 @@ export function ContactSlider({
         </div>
       </div>
 
-      <div className="relative mt-4">
+      <div ref={trackRef} className="relative mt-4">
         <div className="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 border border-rule bg-ink-1">
           <div className="h-full bg-kapton" style={{ width: `${pct}%` }} />
         </div>
+        <button
+          type="button"
+          data-testid="contact-dial"
+          aria-label={`Drag booking dial along 24 h track (${hours} h of ${maxHours} h)`}
+          disabled={maxHours <= min}
+          onPointerDown={handleDialDown}
+          style={{ left: `${pct}%`, touchAction: 'none' }}
+          className="absolute top-1/2 z-20 h-6 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize border border-ink-0 bg-kapton px-1.5 fp-data text-[10px] font-bold text-kapton-ink transition-colors hover:brightness-110 disabled:cursor-default disabled:opacity-40"
+        >
+          {hours}h
+        </button>
         <input
           id="contact-hours"
           type="range"

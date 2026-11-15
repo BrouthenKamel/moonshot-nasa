@@ -102,6 +102,13 @@ export function StationTray({
                 selected={design.groundStation === station.id}
                 look="scene"
                 size="lg"
+                drag={{
+                  field: 'groundStation',
+                  value: station.id,
+                  label: station.name,
+                  patch: { groundStation: station.id, contactHours: hoursAfterSwitch(design, station) },
+                  sound: 'sfx.pick-ground',
+                }}
                 onHover={() => {
                   hoverSound()
                   setInspect(station.id)

@@ -8,14 +8,18 @@ import { computeBudgets } from '../../sim/budgets'
 import { isSimComplete } from '../../sim/simulate'
 import type { SimState, TurnLog } from '../../sim/types'
 import { LAUNCH, useUiStore, type FlightCamMode } from '../../state/uiStore'
+import { useInsideStore } from '../interaction/insideStore'
 import { flightShot, type FlightShot } from '../../viz/flight/flightDirector'
 import { useWorldStore } from '../../state/worldStore'
 import { DAYS_PER_TURN } from '../../game/world'
+import { audio } from '../../assets/audio'
+import { prefersReducedMotion, useGraphics } from '../../scene/space/quality'
 import { Eng, Flap, Sheet } from '../kit'
 import { EventCard } from './EventCard'
 import { FlightControls } from './FlightControls'
 
 const FlightView = lazy(() => import('../../scene/flight/FlightView').then((m) => ({ default: m.FlightView })))
+const FairingRide = lazy(() => import('../../scene/launch/FairingRide').then((m) => ({ default: m.FairingRide })))
 
 class ViewBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -472,11 +476,50 @@ export function FlightViewToggle({ sim }: { sim: SimState }) {
   return <Segmented label="View" options={VIEWS} value={view} onChange={setView} />
 }
 
+/** Watches lunar orbit capture burn phase for audio tension + subtle hairline burn indicator */
+function CaptureBurnWatch({ phase }: { phase: SimState['phase'] }) {
+  const { quality } = useGraphics()
+  const reduced = prefersReducedMotion()
+  const capturing = phase === 'capture'
+
+  useEffect(() => {
+    if (!capturing) return
+    audio.play('sfx.burn')
+    audio.play('sfx.capture')
+    audio.duckMusic(true)
+    return () => {
+      audio.duckMusic(false)
+    }
+  }, [capturing])
+
+  if (!capturing) return null
+  const animatePulse = quality !== 'low' && !reduced
+  return (
+    <div data-testid="capture-burn" aria-live="polite" className="pointer-events-none absolute inset-0 z-[5]">
+      {animatePulse && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 animate-pulse border border-kapton/40"
+          style={{
+            background: 'radial-gradient(ellipse at center, transparent 66%, rgba(12, 16, 22, 0.36) 88%, rgba(244, 174, 64, 0.14) 100%)',
+          }}
+        />
+      )}
+      <div className="absolute inset-x-0 bottom-[5.25rem] flex justify-center">
+        <div className="flex items-center gap-2 border border-kapton bg-ink-1/90 px-3 py-1 fp-label text-kapton">
+          <span aria-hidden="true" className="h-1.5 w-1.5 bg-kapton" />
+          <span>LOI capture burn · telemetry live</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** The three space-view cameras on the base */
 const CAMERAS: readonly (readonly [FlightCamMode, string])[] = [
-  ['overview', 'Overview'],
-  ['moon', 'Moon'],
-  ['earth', 'Earth'],
+  ['overview', 'CAM 1 · WIDE'],
+  ['earth', 'CAM 2 · CRAFT'],
+  ['moon', 'CAM 3 · MOON'],
 ]
 
 /** Over the space view: back to the agency, the three cameras, and where the craft is */
@@ -498,7 +541,18 @@ function SpaceBar({ sim, shot, monthFraction }: { sim: SimState; shot: FlightSho
         ← Back to agency
       </button>
       <div className="flex flex-col items-center gap-1.5">
-        <Segmented label="Camera" options={CAMERAS} value={camera} onChange={setCamera} className="pointer-events-auto min-w-[16rem]" />
+        <div
+          data-testid="capcom-cams"
+          data-active-cam={camera}
+          className="pointer-events-auto flex items-center gap-2 border border-rule bg-ink-1/95 px-2 py-1"
+        >
+          <span
+            aria-hidden="true"
+            title="Live camera feed"
+            className="h-2 w-2 shrink-0 border border-kapton bg-kapton"
+          />
+          <Segmented label="Camera" options={CAMERAS} value={camera} onChange={setCamera} className="min-w-[22rem]" />
+        </div>
         {caption && (
           <div className="border border-rule bg-ink-1 px-3 py-1 fp-data text-xs text-paper">
             {shot.stage === 'orbit' ? (
@@ -532,10 +586,20 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   const endLaunch = useUiStore((s) => s.endLaunch)
   const launched = sim.flight.launchedTurn !== null
 
-  // The launch plays once, when the core reports liftoff
+  // The launch plays once, when the core reports liftoff: WebGL rides inside the fairing; non-WebGL falls back to the island countdown
   const wasLaunched = useRef(launched)
   useEffect(() => {
-    if (launched && !wasLaunched.current) startLaunch()
+    if (launched && !wasLaunched.current) {
+      startLaunch()
+      if (canUseWebGL()) {
+        useInsideStore.getState().play({
+          id: 'fairing-ride',
+          caption: 'T-minus 5… inside the payload fairing beside your 6U deployer.',
+          durationS: LAUNCH.durationS,
+          onEnd: () => useUiStore.getState().endLaunch(),
+        })
+      }
+    }
     wasLaunched.current = launched
   }, [launched, startLaunch])
   useEffect(() => {
@@ -567,6 +631,7 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
       ) : (
         island
       )}
+      <CaptureBurnWatch phase={sim.phase} />
       {showSpace ? (
         <SpaceBar sim={sim} shot={shot} monthFraction={monthFraction} />
       ) : (
@@ -576,6 +641,13 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
         </div>
       )}
       <Countdown />
+      {launchAt !== null && canUseWebGL() && (
+        <ViewBoundary fallback={null}>
+          <Suspense fallback={null}>
+            <FairingRide />
+          </Suspense>
+        </ViewBoundary>
+      )}
       {sim.pendingDecision && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-ink-0/70 p-4">
           <div className="w-[min(100%,560px)]">

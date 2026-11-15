@@ -1,14 +1,18 @@
 import { Component, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
+import { useDragStore } from '../interaction/dragStore'
+import { useDropTarget } from '../interaction/drag'
+import { chooseRide, chooseTransfer } from '../../viz/ride/useRideView'
 import { useDesignPreview } from '../useDesignPreview'
 import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { canUseWebGL } from '../../scene/webgl'
-import { RideOverlay, RideTimeline, RideVerdict } from './RideOverlay'
+import { BoardingPass, RideOverlay, RideTimeline, RideVerdict } from './RideOverlay'
 import { Eng, Sheet, StepHeader } from '../kit'
 import { getPartById, type PropulsionPart } from '../../data/parts'
 import { EngineNote, RideCardTray, TransferCardTray } from './launch/RideCards'
 import { choiceBriefing } from './launch/briefing'
+import { playPick } from './launch/radioKeys'
 import { rideDock, transferDock } from './launch/skyLayout'
 
 const LaunchPad = lazy(() => import('../../scene/launch/LaunchPad').then((m) => ({ default: m.LaunchPad })))
@@ -85,6 +89,7 @@ function PlainRide() {
 
   const onHoverRide = useCallback(
     (id: string | null) => {
+      if (!id && useDragStore.getState().held) return
       setHover(id)
       setPreviewPatch(id ? { ride: id } : null)
     },
@@ -93,6 +98,7 @@ function PlainRide() {
 
   const onHoverTransfer = useCallback(
     (id: string | null) => {
+      if (!id && useDragStore.getState().held) return
       setHover(id)
       setPreviewPatch(id ? { transfer: id } : null)
     },
@@ -105,6 +111,7 @@ function PlainRide() {
       <Sheet className="p-4">
         <RideVerdict />
       </Sheet>
+      <BoardingPass />
       <BudgetSummary hidden={false} />
       <SynergyStrip step="ride" />
       <DesignDeltaLine />
@@ -186,6 +193,7 @@ function PadDocks() {
 
   const handleRideHover = useCallback(
     (id: string | null) => {
+      if (!id && useDragStore.getState().held) return
       setHover(id)
       setPreviewPatch(id ? { ride: id } : null)
     },
@@ -194,6 +202,7 @@ function PadDocks() {
 
   const handleTransferHover = useCallback(
     (id: string | null) => {
+      if (!id && useDragStore.getState().held) return
       setHover(id)
       setPreviewPatch(id ? { transfer: id } : null)
     },
@@ -289,6 +298,15 @@ export function RideScreen() {
   useEffect(() => () => setPreviewPatch(null), [setPreviewPatch])
   // The 3D launch pad starts only in a browser with WebGL; server rendering and tests take the plain path
   const [pad, setPad] = useState(canUseWebGL)
+  const chartDrop = useDropTarget({
+    id: 'ride:chart',
+    accepts: ['transfer', 'ride'],
+    onDrop: (p) => {
+      playPick(p.value)
+      if (p.field === 'transfer') chooseTransfer(p.value)
+      else chooseRide(p.value)
+    },
+  })
 
   if (!pad)
     return (
@@ -300,11 +318,18 @@ export function RideScreen() {
 
   return (
     <div className="relative h-full min-h-[480px] w-full overflow-hidden bg-ink-0">
-      <PadBoundary onError={() => setPad(false)}>
-        <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Opening the launch site…</div>}>
-          <LaunchPad focus={null} />
-        </Suspense>
-      </PadBoundary>
+      <div
+        {...chartDrop.handlers}
+        className={`absolute inset-0 transition-colors ${
+          chartDrop.state.over ? 'outline outline-1 -outline-offset-2 outline-kapton' : ''
+        }`}
+      >
+        <PadBoundary onError={() => setPad(false)}>
+          <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Opening the launch site…</div>}>
+            <LaunchPad focus={null} />
+          </Suspense>
+        </PadBoundary>
+      </div>
       <BudgetSummary hidden />
       <RideTimeline />
       <PadDocks />

@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useModel } from '../assets/models'
 import { useGameStore } from '../state/gameStore'
+import { useDragStore } from '../ui/interaction/dragStore'
 import { CubeSat, Earth as SpaceEarth, Effects, Moon as SpaceMoon, Starfield } from './space'
 import type { OrbitOption, OrbitView } from '../viz/orbit/orbitView'
 import { stripCount } from '../viz/orbit/orbitView'
@@ -494,6 +495,7 @@ function CameraRig({ targetDist, reduced }: { targetDist: number; reduced: boole
   useEffect(() => {
     const el = gl.domElement
     const down = (e: PointerEvent) => {
+      if (useDragStore.getState().held) return
       drag.current = { x: e.clientX, y: e.clientY }
       el.style.cursor = 'grabbing'
     }

@@ -3,10 +3,14 @@ import { useGameStore } from '../../state/gameStore'
 import { canUseWebGL } from '../../scene/webgl'
 import { BODY_RADIUS_M, getRocketPart, rocketSlots, type RocketPart, type RocketSlot } from '../../data/rocket'
 import { layoutRocket, normalizeRocket, optionsFor, partStat, pick, rocketChecks, rocketStats } from '../../viz/rocket/rocketView'
+import { useDragPart } from '../interaction/drag'
+import { useInsideStore } from '../interaction/insideStore'
+import { preloadFairingRide } from '../../scene/launch/fairingAssets'
 import { Btn, Eng, Sheet, StepHeader, Tag } from '../kit'
 import { SceneTitle } from './launch/SceneTitle'
 
 const RocketBay = lazy(() => import('../../scene/rocket/RocketBay').then((m) => ({ default: m.RocketBay })))
+const FairingRide = lazy(() => import('../../scene/launch/FairingRide').then((m) => ({ default: m.FairingRide })))
 
 /** Falls back to the plain list if the 3D hall throws. */
 class HallBoundary extends Component<{ children: ReactNode; onError: () => void }, { failed: boolean }> {
@@ -44,6 +48,7 @@ function RocketText({ rows }: { rows: Array<{ slot: string; label: string; stat:
 
 /** One option in a slot's segmented column: flat, a colour rule on the left when picked */
 function OptionButton({
+  slot,
   part,
   selected,
   blocked,
@@ -51,6 +56,7 @@ function OptionButton({
   onPick,
   onActive,
 }: {
+  slot: RocketSlot
   part: RocketPart
   selected: boolean
   blocked: string | null
@@ -58,18 +64,25 @@ function OptionButton({
   onPick: () => void
   onActive: (on: boolean) => void
 }) {
+  const dragProps = useDragPart(
+    blocked ? null : { field: 'rocket-part', value: `${slot}:${part.id}`, label: part.label, sound: 'sfx.snap' },
+    { disabled: blocked !== null },
+  )
   return (
     <button
       role="radio"
+      data-rocket-part={`${slot}:${part.id}`}
       aria-checked={selected}
       aria-disabled={blocked !== null}
       title={blocked ?? part.what}
       onClick={() => {
         if (!blocked) onPick()
       }}
+      onPointerDown={dragProps.onPointerDown}
+      data-draggable={dragProps['data-draggable']}
       onMouseEnter={() => onActive(true)}
       onFocus={() => onActive(true)}
-      style={{ ['--c' as string]: color }}
+      style={{ ['--c' as string]: color, ...dragProps.style }}
       className={`relative min-w-0 border-b border-rule px-2 py-1.5 text-left text-xs leading-tight transition-colors last:border-b-0 focus:outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-kapton ${
         selected
           ? 'bg-ink-3 font-semibold text-paper before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--c)]'
@@ -107,6 +120,17 @@ export function RocketScreen() {
   const [note, setNote] = useState<string | null>(null)
   const timers = useRef<number[]>([])
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), [])
+  useEffect(() => {
+    if (hall) preloadFairingRide()
+  }, [hall])
+
+  const boardFairing = () => {
+    useInsideStore.getState().play({
+      id: 'fairing-ride',
+      caption: 'T-minus 5… inside the payload fairing beside your 6U deployer.',
+      durationS: 11,
+    })
+  }
 
   const choose = (slot: RocketSlot, id: string) => {
     const r = pick(config, slot, id)
@@ -147,6 +171,7 @@ export function RocketScreen() {
                   setActiveSlot(slot)
                   setLast({ slot, id: config[slot] })
                 }}
+                onPartDrop={(slot, id) => choose(slot, id)}
               />
             </Suspense>
           </HallBoundary>
@@ -180,9 +205,20 @@ export function RocketScreen() {
               >
                 Exploded view
               </Btn>
+              <Btn variant="primary" type="button" onClick={boardFairing} data-testid="board-fairing">
+                Board fairing
+              </Btn>
             </>
           )}
         </div>
+
+        {hall && (
+          <HallBoundary onError={() => {}}>
+            <Suspense fallback={null}>
+              <FairingRide />
+            </Suspense>
+          </HallBoundary>
+        )}
 
         <div className="absolute top-3 right-3 flex w-64 flex-col items-end gap-3">
           <button type="button" onClick={() => setDesignStep('spacecraft')} className="tactical-btn-next">
@@ -204,7 +240,7 @@ export function RocketScreen() {
               {stats.boosters > 0 && <Tag>{stats.boosters} boosters</Tag>}
             </div>
             <Eng as="div" className="mt-1.5 fp-data text-[10px] text-paper-faint">
-              Drawn to a Falcon 9 scale ({(BODY_RADIUS_M * 2).toFixed(1)} m wide)
+              Drawn to a Falcon 9 scale ({(BODY_RADIUS_M * 2).toFixed(1)} m wide). Cosmetic stack only: rocket parts do not alter mission mass, delta-v, or cost.
             </Eng>
             <ul className="mt-3 space-y-2 border-t border-rule pt-2">
               {checks.map((c) => (
@@ -260,6 +296,7 @@ export function RocketScreen() {
                 {optionsFor(config, slot.id).map(({ part, selected, blocked }) => (
                   <OptionButton
                     key={part.id}
+                    slot={slot.id}
                     part={part}
                     selected={selected}
                     blocked={blocked}

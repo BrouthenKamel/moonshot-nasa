@@ -5,11 +5,13 @@ import { getPartById, type PropulsionPart } from '../../data/parts'
 import { buildBayView, type BayView } from '../../viz/spacecraft/bayView'
 import { buildCraft, type CraftSlot } from '../../viz/spacecraft/craftBuild'
 import { useDesignPreview } from '../useDesignPreview'
+import { useInsideStore } from '../interaction/insideStore'
+import { audio } from '../../assets/audio'
 import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { trayGroups, type TrayKey } from '../../viz/spacecraft/trayOptions'
 import { TONE_COLORS } from '../../viz/spacecraft/boardPainter'
 import type { ViewPreset } from '../../scene/spacecraft/SpacecraftStage'
-import { Eng, Sheet } from '../kit'
+import { Eng, Sheet, Stamp } from '../kit'
 import { PartsTray, FactStrip, type ActiveOption } from './spacecraft/PartsTray'
 import { BoardText } from './spacecraft/BoardText'
 import { FlySheet } from './spacecraft/FlySheet'
@@ -140,15 +142,37 @@ export function SpacecraftScreen() {
   const { view, preview, budgets } = useBayView()
   const groups = useMemo(() => trayGroups(budgets), [budgets])
   const craft = useMemo(() => buildCraft(design), [design])
+  const { previewBudgets } = useDesignPreview()
+  const activeBudgets = previewBudgets ?? budgets
   const [room, setRoom] = useState(canUseWebGL)
   const [hover, setHover] = useState<ActiveOption | null>(null)
   const [last, setLast] = useState<ActiveOption | null>(null)
   const [explode, setExplode] = useState(0)
   const [deployed, setDeployed] = useState(true)
   const [panels, setPanels] = useState(false)
+  const [sunLamp, setSunLamp] = useState(true)
+  const [integrated, setIntegrated] = useState(false)
   const [preset, setPreset] = useState<ViewPreset>('closeup')
   const [hoverSlot, setHoverSlot] = useState<CraftSlot | null>(null)
   const [pickedSlot, setPickedSlot] = useState<CraftSlot | null>(null)
+
+  const togglePanels = () => {
+    const closing = !panels
+    setPanels(closing)
+    if (closing) {
+      setDeployed(false)
+      setExplode(0)
+      audio.play('sfx.snap')
+      useInsideStore.getState().play({
+        id: 'factory-integrate',
+        caption: 'Panels closed, wings stowed — sliding into the 6U orbital deployer.',
+        durationS: 5.5,
+        onEnd: () => setIntegrated(true),
+      })
+    } else {
+      setIntegrated(false)
+    }
+  }
 
   const selected: Record<TrayKey, string> = {
     solar: design.solar,
@@ -187,6 +211,14 @@ export function SpacecraftScreen() {
                 view={preset}
                 ringColor={TONE_COLORS[view.massTone]}
                 activeSlot={glowSlot}
+                massKg={activeBudgets.totalMass}
+                massLimitKg={activeBudgets.massLimit}
+                volumeMarginU={budgets.volumeMargin}
+                powerMarginW={activeBudgets.powerMargin}
+                powerGeneratedW={activeBudgets.powerGenerated}
+                propellantMassKg={activeBudgets.propellantMass}
+                sunLamp={sunLamp}
+                selected={selected}
                 onHover={setHoverSlot}
                 onSelect={(slot) => {
                   setPickedSlot(slot)
@@ -226,9 +258,19 @@ export function SpacecraftScreen() {
                 <button type="button" onClick={() => setDeployed((v) => !v)} aria-pressed={deployed} className={ghost(false)}>
                   {deployed ? 'Fold wings' : 'Deploy wings'}
                 </button>
-                <button type="button" onClick={() => setPanels((v) => !v)} aria-pressed={panels} className={ghost(false)}>
+                <button type="button" onClick={togglePanels} aria-pressed={panels} className={ghost(panels)} data-testid="close-panels">
                   {panels ? 'Open the panels' : 'Close the panels'}
                 </button>
+                <button type="button" onClick={() => setSunLamp((v) => !v)} aria-pressed={sunLamp} className={ghost(sunLamp)} data-testid="sun-lamp">
+                  Sun lamp: {sunLamp ? 'On' : 'Off'}
+                </button>
+                {integrated && (
+                  <div className="px-2 py-1">
+                    <Stamp verdict="go" size="sm" animate>
+                      INTEGRATED
+                    </Stamp>
+                  </div>
+                )}
                 <label className="flex flex-col gap-1 px-2 py-1.5">
                   <span className="fp-label text-[0.62rem] text-paper-faint">Exploded view</span>
                   <input
@@ -255,7 +297,10 @@ export function SpacecraftScreen() {
             <div className="w-full">
               <FlySheet view={view} preview={preview} />
               <Eng as="p" className="mt-1 border border-rule bg-ink-1 p-2 text-[10px] leading-snug text-paper-faint">
-                {view.status.lines}
+                Scale: {activeBudgets.totalMass.toFixed(1)} / {activeBudgets.massLimit.toFixed(1)} kg · Bus:{' '}
+                {activeBudgets.powerGenerated}W solar vs {activeBudgets.powerConsumed}W load · Propellant:{' '}
+                {activeBudgets.propellantMass.toFixed(1)} kg
+                <span className="mt-1 block border-t border-rule pt-1">{view.status.lines}</span>
                 <span className="mt-1 block border-t border-rule pt-1">
                   Chosen elsewhere: {instruments.join(' and ')} (Research Lab), {radio} (Communications Center).
                 </span>

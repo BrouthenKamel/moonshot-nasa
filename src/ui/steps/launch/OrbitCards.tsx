@@ -74,6 +74,13 @@ export function OrbitCardTray({
           plaque={sameVerdict ? undefined : { tone: o.verdict.tone, text: o.verdict.text }}
           size={size}
           selected={o.id === selectedId}
+          drag={{
+            field: 'orbit',
+            value: o.id,
+            label: o.shortName,
+            patch: { orbit: o.id },
+            sound: 'sfx.pick-orbit',
+          }}
           onPick={() => onPick(o.id, false)}
           radio
           tabIndex={keys.tabIndex(o.id)}

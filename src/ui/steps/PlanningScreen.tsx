@@ -2,12 +2,16 @@ import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from '
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
 import { turnConstants } from '../../data/brief'
+import type { PlanningChoices } from '../../sim/types'
 import { percent } from '../../sim/odds'
 import { usePlanningOdds } from '../useOdds'
 import { useDesignPreview } from '../useDesignPreview'
 import { DesignDeltaLine } from '../../viz/DesignDeltaLine'
 import { canUseWebGL } from '../../scene/webgl'
+import { prefersReducedMotion } from '../../scene/space/quality'
 import type { ControlFocus } from '../../scene/ControlRoom'
+import { useDragStore } from '../interaction/dragStore'
+import { useDragPart, useDropTarget } from '../interaction/drag'
 import { Btn, Eng, LineItem, Sheet, STEP_QUESTION, StepHeader, stepNumber } from '../kit'
 
 const ControlRoom = lazy(() => import('../../scene/ControlRoom').then((m) => ({ default: m.ControlRoom })))
@@ -50,13 +54,86 @@ function OddsRow({ byValue, current, label }: { byValue?: Record<number, number>
   )
 }
 
-/** Flat segmented quick-picks: one row, the chosen segment in Kapton; win odds per option in Engineer view */
+function SegmentedOption({
+  v,
+  active,
+  odd,
+  unit,
+  recommended,
+  field,
+  planning,
+  onPick,
+  onHover,
+  onFocusField,
+}: {
+  v: number
+  active: boolean
+  odd: number | undefined
+  unit: (v: number) => string
+  recommended?: number
+  field: 'test' | 'reserve'
+  planning: PlanningChoices
+  onPick: (v: number) => void
+  onHover: (v: number | null) => void
+  onFocusField?: (f: ControlFocus) => void
+}) {
+  const dragProps = useDragPart({
+    field: field === 'test' ? 'planning-test' : 'planning-reserve',
+    value: String(v),
+    label: field === 'test' ? `Test · ${unit(v)}` : `Reserve · ${unit(v)}`,
+    patch: {
+      planning:
+        field === 'test'
+          ? { ...planning, testTurns: v }
+          : { ...planning, reservePercent: v },
+    },
+    sound: 'sfx.snap',
+  })
+  return (
+    <button
+      {...dragProps}
+      type="button"
+      data-testid={field === 'test' ? `test-block-${v}` : `reserve-coin-${v}`}
+      aria-pressed={active}
+      onClick={() => onPick(v)}
+      onMouseEnter={() => {
+        if (!useDragStore.getState().held) onHover(v)
+      }}
+      onFocus={() => {
+        onHover(v)
+        onFocusField?.(field)
+      }}
+      onBlur={() => {
+        if (!useDragStore.getState().held) onHover(null)
+        onFocusField?.(null)
+      }}
+      className={`flex min-w-[3.25rem] cursor-grab flex-col items-center border-r border-rule px-2.5 py-1.5 last:border-r-0 active:cursor-grabbing focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-kapton ${
+        active ? 'bg-kapton text-kapton-ink' : 'text-paper-dim hover:bg-ink-3 hover:text-paper'
+      }`}
+    >
+      <span className="fp-data text-xs font-semibold">
+        {unit(v)}
+        {v === recommended && (
+          <span aria-hidden="true" title="CubeSat 101 recommended" className="ml-0.5">
+            ★
+          </span>
+        )}
+      </span>
+      <Eng className={`fp-data text-[10px] ${active ? 'text-kapton-ink' : 'text-paper-faint'}`}>
+        {odd !== undefined ? percent(odd) : '…'}
+      </Eng>
+    </button>
+  )
+}
+
+/** Flat segmented quick-picks: one row, the chosen segment in Kapton; draggable onto the schedule/reserve slots */
 function Segmented({
   options,
   current,
   unit,
   recommended,
   oddsByValue,
+  planning,
   onPick,
   onHover,
   onFocusField,
@@ -68,6 +145,7 @@ function Segmented({
   unit: (v: number) => string
   recommended?: number
   oddsByValue?: Record<number, number>
+  planning: PlanningChoices
   onPick: (v: number) => void
   onHover: (v: number | null) => void
   onFocusField?: (f: ControlFocus) => void
@@ -75,53 +153,42 @@ function Segmented({
   ariaLabel: string
 }) {
   return (
-    <div role="group" aria-label={ariaLabel} className="flex w-fit border border-rule-strong" onMouseLeave={() => onHover(null)}>
-      {options.map((v) => {
-        const active = current === v
-        const odd = oddsByValue?.[v]
-        return (
-          <button
-            key={v}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onPick(v)}
-            onMouseEnter={() => onHover(v)}
-            onFocus={() => {
-              onHover(v)
-              onFocusField?.(field)
-            }}
-            onBlur={() => {
-              onHover(null)
-              onFocusField?.(null)
-            }}
-            className={`flex min-w-[3.25rem] flex-col items-center border-r border-rule px-2.5 py-1.5 last:border-r-0 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-kapton ${
-              active ? 'bg-kapton text-kapton-ink' : 'text-paper-dim hover:bg-ink-3 hover:text-paper'
-            }`}
-          >
-            <span className="fp-data text-xs font-semibold">
-              {unit(v)}
-              {v === recommended && (
-                <span aria-hidden="true" title="CubeSat 101 recommended" className="ml-0.5">
-                  ★
-                </span>
-              )}
-            </span>
-            <Eng className={`fp-data text-[10px] ${active ? 'text-kapton-ink' : 'text-paper-faint'}`}>
-              {odd !== undefined ? percent(odd) : '…'}
-            </Eng>
-          </button>
-        )
-      })}
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      className="flex w-fit border border-rule-strong"
+      onMouseLeave={() => {
+        if (!useDragStore.getState().held) onHover(null)
+      }}
+    >
+      {options.map((v) => (
+        <SegmentedOption
+          key={v}
+          v={v}
+          active={current === v}
+          odd={oddsByValue?.[v]}
+          unit={unit}
+          recommended={recommended}
+          field={field}
+          planning={planning}
+          onPick={onPick}
+          onHover={onHover}
+          onFocusField={onFocusField}
+        />
+      ))}
     </div>
   )
 }
 
 const N = stepNumber('planning')
 
-/** The schedule and the money, as two ruled gauges: the shape tells the story, the figures are for engineers */
-function ScheduleAndReserveVisuals({ testMonths }: { testMonths: number }) {
-  const { budgets, previewBudgets } = useDesignPreview()
+/** The schedule and the money, as two ruled drop zones: magnetic schedule wall and sealed reserve box. */
+function ScheduleAndReserveVisuals({ testMonths, compact = false }: { testMonths: number; compact?: boolean }) {
+  const design = useGameStore((s) => s.design)
+  const updateDesign = useGameStore((s) => s.updateDesign)
+  const { budgets, previewBudgets, previewPatch } = useDesignPreview()
   const active = previewBudgets ?? budgets
+  const shownReservePct = previewPatch?.planning?.reservePercent ?? design.planning.reservePercent
   const scaleMax = Math.max(active.rideTurn + 1, active.readyTurn + 1, 8)
   const pct = (m: number) => `${(m / scaleMax) * 100}%`
   const ridePct = Math.min(100, (active.rideTurn / scaleMax) * 100)
@@ -129,32 +196,55 @@ function ScheduleAndReserveVisuals({ testMonths }: { testMonths: number }) {
   const planPct = Math.min(100, (active.totalCost / cap) * 100)
   const reservePct = Math.min(100 - planPct, (active.reserveAmount / cap) * 100)
   const overBudget = active.totalCost > active.spendable
+  const missed = active.timeMarginTurns < 0
+  const reduced = prefersReducedMotion()
   const seg = 'flex items-center justify-center border-r border-ink-1 fp-data text-[10px] font-semibold'
 
+  const scheduleDrop = useDropTarget({
+    id: 'planning:schedule-wall',
+    accepts: ['planning-test'],
+    onDrop: (p) => updateDesign({ planning: { ...design.planning, testTurns: Number(p.value) } }),
+  })
+  const reserveDrop = useDropTarget({
+    id: 'planning:reserve-box',
+    accepts: ['planning-reserve'],
+    onDrop: (p) => updateDesign({ planning: { ...design.planning, reservePercent: Number(p.value) } }),
+  })
+
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Sheet tone="flat" className="p-4">
+    <div className="grid gap-3 md:grid-cols-2">
+      <style>{`@keyframes ride-depart { 0% { transform: translateX(0); opacity: 1 } 100% { transform: translateX(18px); opacity: 0.25 } }`}</style>
+      <div
+        {...scheduleDrop.handlers}
+        className={`border bg-ink-1/95 transition-colors ${compact ? 'p-3' : 'p-4'} ${
+          scheduleDrop.state.over
+            ? 'border-kapton'
+            : scheduleDrop.state.compatible
+              ? 'border-dashed border-rule-strong'
+              : 'border-rule'
+        }`}
+      >
         <LineItem
           n={`${N}.2`}
-          label="Schedule"
+          label="Schedule wall"
           aside={
-            <span className={active.timeMarginTurns >= 0 ? 'text-go' : 'text-nogo'}>
-              {active.timeMarginTurns >= 0 ? 'Ready in time' : 'Misses the ride'}
-              <Eng>{active.timeMarginTurns >= 0 ? ` · +${active.timeMarginTurns} mo margin` : ` · ${active.timeMarginTurns} mo late`}</Eng>
+            <span className={!missed ? 'text-go' : 'text-nogo'}>
+              {!missed ? 'Ready in time' : 'Leaves without you'}
+              <Eng>{!missed ? ` · +${active.timeMarginTurns} mo margin` : ` · ${active.timeMarginTurns} mo late`}</Eng>
             </span>
           }
         />
-        <div className="relative mt-3 h-7 overflow-hidden border border-rule bg-ink-1">
+        <div className="relative mt-2.5 h-7 overflow-hidden border border-rule bg-ink-0">
           <div className="flex h-full">
             <div style={{ width: pct(1) }} className={`${seg} bg-ink-3 text-paper-dim`} title="Design: 1 month">
               D
             </div>
-            <div style={{ width: pct(active.buildTurns) }} className={`${seg} bg-rule-strong text-paper`} title={`Build: ${active.buildTurns} months`}>
-              Build
+            <div style={{ width: pct(active.buildTurns) }} className={`${seg} bg-rule-strong text-paper`} title={`Build: ${active.buildTurns} months (fixed by design)`}>
+              Build ({active.buildTurns}m fixed)
             </div>
             {testMonths > 0 && (
               <div style={{ width: pct(testMonths) }} className={`${seg} bg-kapton-dim text-paper`} title={`Test: ${testMonths} months`}>
-                Test
+                Test ({testMonths}m)
               </div>
             )}
             <div style={{ width: pct(1) }} className={`${seg} bg-ink-3 text-paper-dim`} title="Launch pad fitting: 1 month">
@@ -162,21 +252,38 @@ function ScheduleAndReserveVisuals({ testMonths }: { testMonths: number }) {
             </div>
           </div>
           <div
-            className="pointer-events-none absolute inset-y-0 w-0.5 bg-kapton"
+            className={`pointer-events-none absolute inset-y-0 w-0.5 ${missed ? 'bg-nogo' : 'bg-kapton'}`}
             style={{ left: `${ridePct}%` }}
             title={`Ride departs Month ${active.rideTurn}`}
           />
         </div>
+        {missed && (
+          <div data-testid="ride-missed" className="mt-1.5 flex items-center justify-between border-l-2 border-nogo bg-ink-2 px-2 py-1 text-[11px] font-semibold text-nogo">
+            <span>NO-GO · Ride leaves without you (M{active.rideTurn})</span>
+            <span aria-hidden style={reduced ? undefined : { animation: 'ride-depart 1.4s ease-out infinite' }}>
+              🚀→
+            </span>
+          </div>
+        )}
         <Eng as="div" className="mt-1.5 flex items-center justify-between fp-data text-[11px] text-paper-faint">
-          <span>Ready: M{active.readyTurn}</span>
-          <span className="text-kapton">Ride departs: M{active.rideTurn}</span>
+          <span>Ready: M{active.readyTurn} (Build {active.buildTurns} mo fixed)</span>
+          <span className={missed ? 'text-nogo' : 'text-kapton'}>Ride departs: M{active.rideTurn}</span>
         </Eng>
-      </Sheet>
+      </div>
 
-      <Sheet tone="flat" className="p-4">
+      <div
+        {...reserveDrop.handlers}
+        className={`border bg-ink-1/95 transition-colors ${compact ? 'p-3' : 'p-4'} ${
+          reserveDrop.state.over
+            ? 'border-kapton'
+            : reserveDrop.state.compatible
+              ? 'border-dashed border-rule-strong'
+              : 'border-rule'
+        }`}
+      >
         <LineItem
           n={`${N}.3`}
-          label="Budget"
+          label="Sealed reserve box"
           aside={
             <span className={overBudget ? 'text-nogo' : 'text-go'}>
               {overBudget ? 'Over budget' : 'Within budget'}
@@ -184,7 +291,7 @@ function ScheduleAndReserveVisuals({ testMonths }: { testMonths: number }) {
             </span>
           }
         />
-        <div className="relative mt-3 h-7 overflow-hidden border border-rule bg-ink-1">
+        <div className="relative mt-2.5 h-7 overflow-hidden border border-rule bg-ink-0">
           <div className="flex h-full">
             <div
               style={{ width: `${planPct}%` }}
@@ -199,7 +306,7 @@ function ScheduleAndReserveVisuals({ testMonths }: { testMonths: number }) {
                 style={{ width: `${reservePct}%` }}
                 className="flex items-center justify-center border-l border-ink-1 bg-kapton fp-data text-[10px] font-semibold text-kapton-ink transition-all"
               >
-                Reserve<Eng>{` $${active.reserveAmount.toFixed(1)}M`}</Eng>
+                Locked {shownReservePct}%<Eng>{` ($${active.reserveAmount.toFixed(1)}M)`}</Eng>
               </div>
             )}
           </div>
@@ -208,7 +315,7 @@ function ScheduleAndReserveVisuals({ testMonths }: { testMonths: number }) {
           <span>Spendable: ${active.spendable.toFixed(1)}M</span>
           <span>Cap: ${active.budgetCap}M</span>
         </Eng>
-      </Sheet>
+      </div>
     </div>
   )
 }
@@ -243,7 +350,7 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
         </Sheet>
       </Eng>
 
-      <ScheduleAndReserveVisuals testMonths={p.testTurns} />
+      {!hidden && <ScheduleAndReserveVisuals testMonths={p.testTurns} />}
 
       <Sheet className="p-5">
         <LineItem n={`${N}.4`} label={<label htmlFor="planning-test">Test time</label>} aside={<Eng>0.4 M per test month</Eng>} />
@@ -268,6 +375,7 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
               options={TEST_MONTH_OPTIONS}
               unit={(v) => `${v} mo`}
               current={p.testTurns}
+              planning={p}
               oddsByValue={odds?.test}
               onPick={(v) => set({ testTurns: v })}
               onHover={(v) => setPreviewPatch(v === null ? null : { planning: { ...p, testTurns: v } })}
@@ -309,6 +417,7 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
               unit={(v) => `${v}%`}
               recommended={turnConstants.recommendedReservePercent}
               current={p.reservePercent}
+              planning={p}
               oddsByValue={odds?.reserve}
               onPick={(v) => set({ reservePercent: v })}
               onHover={(v) => setPreviewPatch(v === null ? null : { planning: { ...p, reservePercent: v } })}
@@ -352,16 +461,20 @@ function PlanningQuickHudOverlay({ onFocus }: { onFocus: (f: ControlFocus) => vo
 
   return (
     <div className="pointer-events-none absolute inset-x-3 bottom-3 flex flex-col items-center gap-2">
+      <div className="pointer-events-auto w-full max-w-4xl">
+        <ScheduleAndReserveVisuals testMonths={p.testTurns} compact />
+      </div>
       <DesignDeltaLine className="pointer-events-auto max-w-3xl" />
       <Sheet className="pointer-events-auto flex w-full max-w-4xl flex-wrap items-end justify-between gap-4 px-4 py-3">
         <div className="space-y-1.5">
-          <div className="fp-label text-[10px] text-paper-faint">{N}.4 Test months</div>
+          <div className="fp-label text-[10px] text-paper-faint">{N}.4 Test blocks (drag onto schedule)</div>
           <Segmented
             field="test"
             ariaLabel="Test months"
             options={TEST_MONTH_OPTIONS}
             unit={(v) => `${v} mo`}
             current={p.testTurns}
+            planning={p}
             oddsByValue={odds?.test}
             onPick={(v) => set({ testTurns: v })}
             onHover={(v) => setPreviewPatch(v === null ? null : { planning: { ...p, testTurns: v } })}
@@ -369,7 +482,7 @@ function PlanningQuickHudOverlay({ onFocus }: { onFocus: (f: ControlFocus) => vo
           />
         </div>
         <div className="space-y-1.5">
-          <div className="fp-label text-[10px] text-paper-faint">{N}.5 Budget reserve</div>
+          <div className="fp-label text-[10px] text-paper-faint">{N}.5 Reserve coins (drag into box)</div>
           <Segmented
             field="reserve"
             ariaLabel="Budget reserve"
@@ -377,6 +490,7 @@ function PlanningQuickHudOverlay({ onFocus }: { onFocus: (f: ControlFocus) => vo
             unit={(v) => `${v}%`}
             recommended={turnConstants.recommendedReservePercent}
             current={p.reservePercent}
+            planning={p}
             oddsByValue={odds?.reserve}
             onPick={(v) => set({ reservePercent: v })}
             onHover={(v) => setPreviewPatch(v === null ? null : { planning: { ...p, reservePercent: v } })}

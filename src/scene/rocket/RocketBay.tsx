@@ -6,7 +6,10 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import type { ModelId } from '../../assets/manifest'
 import { preloadModel, useModel } from '../../assets/models'
 import { rocketParts, rocketSlots, type RocketConfig, type RocketSlot } from '../../data/rocket'
-import { layoutRocket, type PlacedPart } from '../../viz/rocket/rocketView'
+import { layoutRocket, pick, type PlacedPart } from '../../viz/rocket/rocketView'
+import { useDragStore } from '../../ui/interaction/dragStore'
+import { DropSlot } from '../interaction/DropSlot'
+import { HoldStillWhileDragging, SnapNudge, SnapPuff } from '../interaction/snap'
 import { prefersReducedMotion } from '../space/quality'
 import { Effects } from '../space/Effects'
 
@@ -44,6 +47,7 @@ interface ViewProps {
   activeSlot: RocketSlot | null
   onSlotHover: (slot: RocketSlot | null) => void
   onSlotClick: (slot: RocketSlot) => void
+  onPartDrop?: (slot: RocketSlot, id: string) => void
 }
 
 /* ---------------- one part ---------------- */
@@ -112,10 +116,13 @@ function PartModel({
       scale={S}
       visible={false}
       onPointerOver={(e) => {
+        if (useDragStore.getState().held) return
         e.stopPropagation()
         onHover(slot)
       }}
-      onPointerOut={() => onHover(null)}
+      onPointerOut={() => {
+        if (!useDragStore.getState().held) onHover(null)
+      }}
       onClick={(e) => {
         e.stopPropagation()
         onClick(slot)
@@ -399,6 +406,7 @@ function TagOverlay({
   onHover: (s: RocketSlot | null) => void
   onClick: (s: RocketSlot) => void
 }) {
+  const dragging = useDragStore((s) => !!s.held)
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {placed.map((p, idx) => {
@@ -418,7 +426,7 @@ function TagOverlay({
               onMouseEnter={() => onHover(p.slot)}
               onMouseLeave={() => onHover(null)}
               onClick={() => onClick(p.slot)}
-              className="pointer-events-auto flex items-center gap-2 whitespace-nowrap rounded-[2px] border px-2 py-1 font-mono text-[11px] font-medium transition-colors"
+              className={`${dragging ? 'pointer-events-none' : 'pointer-events-auto'} flex items-center gap-2 whitespace-nowrap rounded-[2px] border px-2 py-1 font-mono text-[11px] font-medium transition-colors`}
               style={{
                 borderColor: active ? ACCENT : '#3a4254',
                 color: active ? '#ede6d6' : '#b9b2a3',
@@ -475,6 +483,7 @@ type Controls = ComponentRef<typeof OrbitControls>
 function CameraRig({ top, bottom, lift }: { top: number; bottom: number; lift: number }) {
   const controls = useRef<Controls>(null)
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
+  const dragging = useDragStore((s) => !!s.held)
   const settle = useRef(1.4)
   const midY = lift + ((top + bottom) / 2) * S
   const fit = Math.max(16, ((top - bottom) * S * 1.3) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))))
@@ -505,7 +514,7 @@ function CameraRig({ top, bottom, lift }: { top: number; bottom: number; lift: n
       enablePan={false}
       enableDamping
       dampingFactor={0.08}
-      autoRotate
+      autoRotate={!dragging}
       autoRotateSpeed={0.55}
       minPolarAngle={0.5}
       maxPolarAngle={Math.PI / 2 - 0.04}
@@ -523,22 +532,49 @@ type Layout = ReturnType<typeof layoutRocket>
 const liftOf = (layout: Layout) => TABLE_Y + 0.26 + GAP - layout.bottom * S
 
 function Rocket({
+  config,
   layout,
   exploded,
   firing,
   activeSlot,
   onSlotHover,
   onSlotClick,
+  onPartDrop,
   tagEls,
-}: Omit<ViewProps, 'config'> & { layout: Layout; tagEls: RefObject<(HTMLDivElement | null)[]> }) {
+}: ViewProps & { layout: Layout; tagEls: RefObject<(HTMLDivElement | null)[]> }) {
   const reduced = useMemo(() => prefersReducedMotion(), [])
   const lift = liftOf(layout)
   const anchors = useMemo(() => layout.placed.map((p) => tagPosition(p, lift)), [layout, lift])
   const engineWidth = layout.placed.find((p) => p.slot === 'engine')!.part.engines === 9 ? 1 : 0.95
+  const stackMidY = lift + ((layout.top + layout.bottom) / 2) * S
+  const stackH = Math.max(10, (layout.top - layout.bottom + 6) * S)
+  const parsePart = (v: string): [RocketSlot, string] => {
+    const [slot, id] = v.split(':')
+    return [slot as RocketSlot, id]
+  }
   return (
     <>
       <Hangar topY={lift + (layout.top + (exploded ? EXPLODE.nose : 0)) * S} />
       <CameraRig top={exploded ? layout.top + EXPLODE.nose : layout.top} bottom={exploded ? layout.bottom + EXPLODE.engine : layout.bottom} lift={lift} />
+      <HoldStillWhileDragging />
+      <SnapNudge />
+      <SnapPuff at={[0, stackMidY, 0]} scale={16} slots={['rocket:hook']} />
+      <DropSlot
+        id="rocket:hook"
+        accepts={['rocket-part']}
+        position={[0, stackMidY, 0]}
+        size={[7, stackH, 7]}
+        preview={false}
+        refuse={(p) => {
+          const [slot, id] = parsePart(p.value)
+          const r = pick(config, slot, id)
+          return r.config[slot] === id ? null : (r.notes[0] ?? 'Does not fit on this rocket')
+        }}
+        onDrop={(p) => {
+          const [slot, id] = parsePart(p.value)
+          onPartDrop?.(slot, id)
+        }}
+      />
       <group position-y={lift}>
         {layout.placed.map((p) => (
           <Suspense key={`${p.slot}:${p.part.id}`} fallback={null}>
@@ -560,8 +596,7 @@ function Rocket({
 }
 
 export function RocketBay(props: ViewProps) {
-  const { config, ...rest } = props
-  const layout = useMemo(() => layoutRocket(config), [config])
+  const layout = useMemo(() => layoutRocket(props.config), [props.config])
   const tagEls = useRef<(HTMLDivElement | null)[]>([])
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
@@ -580,7 +615,7 @@ export function RocketBay(props: ViewProps) {
         }}
       >
         <Lights />
-        <Rocket {...rest} layout={layout} tagEls={tagEls} />
+        <Rocket {...props} layout={layout} tagEls={tagEls} />
         <Effects preset="interior" />
       </Canvas>
       <TagOverlay placed={layout.placed} activeSlot={props.activeSlot} elements={tagEls} onHover={props.onSlotHover} onClick={props.onSlotClick} />

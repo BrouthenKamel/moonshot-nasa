@@ -1,20 +1,24 @@
 import { useMemo } from 'react'
 import { useGameStore } from '../../state/gameStore'
+import { useAgencyStore } from '../../state/agencyStore'
+import { useUiStore } from '../../state/uiStore'
+import { computeBudgets } from '../../sim/budgets'
+import { goNoGo } from '../../sim/checks'
 import { transfers, isTransferCompatible } from '../../data/transfers'
 import { getPartById, type PropulsionPart } from '../../data/parts'
 import { buildRideView, type RideView } from './rideView'
 
-/** Live view of the ride step, recomputed when the design or difficulty changes. */
+/** Live view of the ride step, recomputed when the design, preview, or difficulty changes. */
 export function useRideView(): RideView {
   const design = useGameStore((s) => s.design)
+  const previewPatch = useUiStore((s) => s.previewPatch)
   const difficulty = useGameStore((s) => s.difficulty)
-  const getBudgets = useGameStore((s) => s.getBudgets)
-  const getGoNoGo = useGameStore((s) => s.getGoNoGo)
-  return useMemo(
-    () => buildRideView(design, difficulty, getBudgets(), getGoNoGo().checks),
-    // getBudgets / getGoNoGo read design and difficulty from the store
-    [design, difficulty, getBudgets, getGoNoGo]
-  )
+  const day = useAgencyStore((s) => s.day)
+  return useMemo(() => {
+    const active = previewPatch ? { ...design, ...previewPatch } : design
+    const b = computeBudgets(active, difficulty)
+    return buildRideView(active, difficulty, b, goNoGo(active, b, day).checks)
+  }, [design, previewPatch, difficulty, day])
 }
 
 /** Choose a rideshare. The only field besides `transfer` this step writes. */

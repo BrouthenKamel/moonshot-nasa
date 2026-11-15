@@ -1,5 +1,7 @@
-import type { KeyboardEvent, Ref } from 'react'
+import { useEffect, useState, type KeyboardEvent, type Ref } from 'react'
 import { ChoiceCard, type ChoiceStat } from '../../kit/ChoiceCard'
+import { choiceArt } from '../../../assets/catalogueArt'
+import { useDragStore } from '../../interaction/dragStore'
 import type { TrayKey, TrayOption } from '../../../viz/spacecraft/trayOptions'
 import { optionChips } from './optionChips'
 
@@ -41,8 +43,17 @@ interface TrayCardProps {
 
 /** One Factory part as a compact portrait card, a radio in its bin. The tray plays its sounds (sounds={false} here). */
 export function TrayCard({ group, option, selected, tabIndex, buttonRef, onPick, onActive, onHover, onKeyDown }: TrayCardProps) {
+  const lastRefusal = useDragStore((s) => s.lastRefusal)
+  const [bouncing, setBouncing] = useState(false)
+  useEffect(() => {
+    if (!lastRefusal || lastRefusal.field !== group || lastRefusal.value !== option.id) return
+    setBouncing(true)
+    const id = window.setTimeout(() => setBouncing(false), 350)
+    return () => window.clearTimeout(id)
+  }, [lastRefusal, group, option.id])
+
   return (
-    <div className={COMPACT}>
+    <div className={`${COMPACT}${bouncing ? ' bounce-back' : ''}`}>
       <ChoiceCard
         id={option.id}
         title={option.short}
@@ -58,6 +69,12 @@ export function TrayCard({ group, option, selected, tabIndex, buttonRef, onPick,
         onHover={onHover}
         sounds={false}
         onPick={onPick}
+        drag={{
+          field: group,
+          value: option.id,
+          label: option.short,
+          sound: choiceArt(option.id)?.pick ?? 'sfx.snap',
+        }}
         ariaLabel={`${option.short}: ${option.stats}`}
       />
     </div>

@@ -1,5 +1,6 @@
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
+import { useDragStore } from '../interaction/dragStore'
 import { useDesignPreview } from '../useDesignPreview'
 import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { difficultyPresets } from '../../data/brief'
@@ -80,6 +81,19 @@ export function CommsScreen() {
             stationId={stationId}
             stationName={station?.name ?? 'No station'}
             dataTarget={dataTarget}
+            onPickRadio={(id) => updateDesign({ radio: id })}
+            onPickStation={(id) => {
+              const s = getGroundStationById(id)
+              if (s) updateDesign({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })
+            }}
+            onPreviewStation={(id) => {
+              if (!id) {
+                setPreviewPatch(null)
+                return
+              }
+              const s = getGroundStationById(id)
+              if (s) setPreviewPatch({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })
+            }}
           />
         </div>
 
@@ -88,16 +102,19 @@ export function CommsScreen() {
 
         <div
           onMouseOver={(e) => {
+            if (useDragStore.getState().held) return
             const id = hoveredChoiceId(e.target)
             setPreviewPatch(id ? { radio: id } : null)
           }}
-          onMouseLeave={() => setPreviewPatch(null)}
+          onMouseLeave={() => {
+            if (!useDragStore.getState().held) setPreviewPatch(null)
+          }}
           onFocus={(e) => {
             const id = hoveredChoiceId(e.target)
             if (id) setPreviewPatch({ radio: id })
           }}
           onBlurCapture={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPreviewPatch(null)
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !useDragStore.getState().held) setPreviewPatch(null)
           }}
         >
           <RadioTray design={design} difficulty={difficulty} onPick={(id) => updateDesign({ radio: id })} />
@@ -105,18 +122,21 @@ export function CommsScreen() {
 
         <div
           onMouseOver={(e) => {
+            if (useDragStore.getState().held) return
             const id = hoveredChoiceId(e.target)
             const s = id ? getGroundStationById(id) : undefined
             setPreviewPatch(s ? { groundStation: s.id, contactHours: hoursAfterSwitch(design, s) } : null)
           }}
-          onMouseLeave={() => setPreviewPatch(null)}
+          onMouseLeave={() => {
+            if (!useDragStore.getState().held) setPreviewPatch(null)
+          }}
           onFocus={(e) => {
             const id = hoveredChoiceId(e.target)
             const s = id ? getGroundStationById(id) : undefined
             if (s) setPreviewPatch({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })
           }}
           onBlurCapture={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPreviewPatch(null)
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !useDragStore.getState().held) setPreviewPatch(null)
           }}
         >
           <StationTray

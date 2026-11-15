@@ -225,6 +225,15 @@ export const audio = {
     prev.howl.once('fade', () => prev.howl.stop())
   },
 
+  /** Temporarily duck or restore the active music volume without changing user settings */
+  duckMusic(ducked: boolean, fadeMs = 450) {
+    const cur = currentMusic
+    if (!cur) return
+    const base = gainFor(getAsset(cur.id) as AudioAsset)
+    const target = ducked ? base * 0.25 : base
+    safely(() => cur.howl.fade(cur.howl.volume(), target, fadeMs))
+  },
+
   /** Fire-and-forget sound effect */
   play(id: AudioId) {
     const h = howlFor(id)

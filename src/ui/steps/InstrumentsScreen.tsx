@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { computeBudgets } from '../../sim/budgets'
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
+import { useDragStore } from '../interaction/dragStore'
 import { DesignDiagramPanel } from '../../viz/DesignDiagramPanel'
 import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { useDesignPreview } from '../useDesignPreview'
@@ -61,7 +62,7 @@ function Stage({
       }}
     >
       <StageBoundary fallback={<Fallen onFall={onFall} />}>
-        <Suspense fallback={<div className="mb-4 h-[66vh] min-h-[460px] border border-rule bg-ink-1" />}>
+        <Suspense fallback={<div className="mb-4 h-[46vh] min-h-[340px] border border-rule bg-ink-1" />}>
           <InstrumentStage />
         </Suspense>
       </StageBoundary>
@@ -163,6 +164,17 @@ function InstrumentHand({
               reason={view.reason}
               ariaLabel={`${view.ariaLabel}. ${inst.description}`}
               sounds={false}
+              drag={
+                view.blocked
+                  ? undefined
+                  : {
+                      field: 'instruments',
+                      value: inst.id,
+                      label: instrumentShortName(inst),
+                      patch: { instruments: on ? chosen : toggleUnlocked(chosen, inst.id, day) },
+                      sound: 'sfx.pick-instrument',
+                    }
+              }
               buttonRef={(el) => {
                 refs.current[i] = el
               }}
@@ -266,6 +278,7 @@ export function InstrumentsScreen() {
   const toggleInstrument = (id: string) => updateDesign({ instruments: toggleUnlocked(design.instruments, id, day) })
   const handlePreview = useCallback(
     (id: string | null) => {
+      if (!id && useDragStore.getState().held) return
       if (!id) {
         setPreviewPatch(null)
         return

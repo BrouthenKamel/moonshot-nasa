@@ -32,16 +32,30 @@ export function trackDrag(payload: DragPayload, e: { clientX: number; clientY: n
   const y0 = e.clientY
   const limit = THRESHOLD[e.pointerType as keyof typeof THRESHOLD] ?? 5
   let dragging = false
+  let domSlotId: string | null = null
+  const syncDomSlot = (x: number, y: number) => {
+    if (typeof document === 'undefined' || typeof document.elementFromPoint !== 'function') return
+    const hit = document.elementFromPoint(x, y)?.closest?.('[data-drop-slot]')
+    const nextId = hit?.getAttribute('data-drop-slot') ?? null
+    if (nextId === domSlotId) return
+    if (domSlotId) useDragStore.getState().leave(domSlotId)
+    domSlotId = nextId
+    if (nextId) useDragStore.getState().enter(nextId)
+  }
   const start = (x: number, y: number) => {
     dragging = true
     setDragPointer(x, y)
     useDragStore.getState().begin(payload)
+    syncDomSlot(x, y)
   }
   if (immediate) start(x0, y0)
   const move = (ev: PointerEvent) => {
     if (ev.pointerId !== e.pointerId) return
     if (!dragging && Math.hypot(ev.clientX - x0, ev.clientY - y0) > limit) start(ev.clientX, ev.clientY)
-    if (dragging) setDragPointer(ev.clientX, ev.clientY)
+    if (dragging) {
+      setDragPointer(ev.clientX, ev.clientY)
+      syncDomSlot(ev.clientX, ev.clientY)
+    }
   }
   const done = (commit: boolean) => (ev: PointerEvent) => {
     if (ev.pointerId !== e.pointerId) return
@@ -55,8 +69,10 @@ export function trackDrag(payload: DragPayload, e: { clientX: number; clientY: n
       // clear the flag if no click follows (the pointer was released over another element)
       window.setTimeout(() => (suppressNextClick = false), 0)
     }
-    if (commit) useDragStore.getState().release()
-    else useDragStore.getState().cancel()
+    if (commit) {
+      syncDomSlot(ev.clientX, ev.clientY)
+      useDragStore.getState().release()
+    } else useDragStore.getState().cancel()
   }
   const up = done(true)
   const cancel = done(false)

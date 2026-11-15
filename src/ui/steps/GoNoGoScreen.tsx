@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { audio } from '../../assets/audio'
 import type { AudioId } from '../../assets/manifest'
+import { holdProgress, sweptAngle } from '../../scene/interaction/reactions'
 import { glossaryKeyForLabel } from '../../data/glossary'
 import { cannotMeetBrief, getGoNoGoSummary } from '../../sim/checks'
 import { percent } from '../../sim/odds'
@@ -158,6 +159,189 @@ function PollSlip({ station, n, stamp, active, run }: { station: Station; n: num
 /** Before the poll: -1 = poll open, nobody answered yet */
 const POLL_OPEN = -1
 
+const HOLD_NEED_MS = 1500
+const KEY_TURN_RAD = Math.PI / 2
+
+/** Turn the launch key in a circle, then hold for 1.5 s to launch */
+function LaunchKey({ canGo, onLaunch }: { canGo: boolean; onLaunch: () => void }) {
+  const [angle, setAngle] = useState(0)
+  const [heldMs, setHeldMs] = useState(0)
+  const [holding, setHolding] = useState(false)
+  const dialRef = useRef<HTMLButtonElement>(null)
+  const holdTimer = useRef<number | null>(null)
+  const launchedRef = useRef(false)
+  const holdingRef = useRef(false)
+
+  const armed = angle >= KEY_TURN_RAD * 0.92
+  const progress = holdProgress(heldMs, HOLD_NEED_MS)
+  const deg = Math.round((Math.min(angle, KEY_TURN_RAD) / KEY_TURN_RAD) * 90)
+
+  useEffect(() => {
+    if (!canGo) {
+      holdingRef.current = false
+      setAngle(0)
+      setHeldMs(0)
+      setHolding(false)
+    }
+  }, [canGo])
+
+  useEffect(() => () => {
+    if (holdTimer.current !== null) cancelAnimationFrame(holdTimer.current)
+  }, [])
+
+  const onKeyPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!canGo || e.button !== 0) return
+    const el = dialRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top + rect.height / 2
+    let lastX = e.clientX
+    let lastY = e.clientY
+    let acc = angle
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return
+      const delta = sweptAngle(cx, cy, lastX, lastY, ev.clientX, ev.clientY)
+      lastX = ev.clientX
+      lastY = ev.clientY
+      acc = Math.max(0, Math.min(KEY_TURN_RAD, acc + delta))
+      if (acc >= KEY_TURN_RAD * 0.92 && angle < KEY_TURN_RAD * 0.92) {
+        acc = KEY_TURN_RAD
+        audio.play('sfx.click')
+      }
+      setAngle(acc)
+    }
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+  }
+
+  const startHold = () => {
+    if (!canGo || !armed || holdingRef.current) return
+    holdingRef.current = true
+    launchedRef.current = false
+    setHolding(true)
+    const t0 = performance.now()
+    const tick = () => {
+      const ms = performance.now() - t0
+      setHeldMs(ms)
+      if (ms >= HOLD_NEED_MS) {
+        if (!launchedRef.current) {
+          launchedRef.current = true
+          holdingRef.current = false
+          setHolding(false)
+          audio.play('sfx.ignition')
+          onLaunch()
+        }
+        return
+      }
+      holdTimer.current = requestAnimationFrame(tick)
+    }
+    holdTimer.current = requestAnimationFrame(tick)
+  }
+
+  const stopHold = () => {
+    if (!holdingRef.current) return
+    holdingRef.current = false
+    if (holdTimer.current !== null) cancelAnimationFrame(holdTimer.current)
+    holdTimer.current = null
+    setHolding(false)
+    if (!launchedRef.current) {
+      audio.play('sfx.fit-error')
+      setHeldMs(0)
+    }
+  }
+
+  const circ = 2 * Math.PI * 19
+  return (
+    <div className="flex flex-wrap items-center gap-3 border border-rule bg-ink-2 px-3 py-2">
+      <button
+        ref={dialRef}
+        type="button"
+        data-testid="launch-key"
+        disabled={!canGo}
+        role="slider"
+        aria-label="Turn launch key"
+        aria-valuemin={0}
+        aria-valuemax={90}
+        aria-valuenow={deg}
+        onPointerDown={onKeyPointerDown}
+        onClick={() => {
+          if (!canGo) return
+          if (!armed) {
+            audio.play('sfx.click')
+            setAngle(KEY_TURN_RAD)
+          }
+        }}
+        className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors ${
+          !canGo ? 'cursor-not-allowed border-rule opacity-40' : armed ? 'border-kapton bg-ink-3' : 'cursor-grab border-rule-strong bg-ink-1 hover:border-kapton'
+        }`}
+        title={canGo ? 'Drag in a circle or press Enter to arm the launch key' : 'Fix red checks first'}
+      >
+        <span
+          aria-hidden="true"
+          className="block h-6 w-1.5 rounded-[1px] transition-transform"
+          style={{
+            background: armed ? 'var(--color-kapton)' : 'var(--color-paper-dim)',
+            transform: `rotate(${deg}deg)`,
+          }}
+        />
+      </button>
+
+      <div className="flex flex-col gap-0.5">
+        <span className="fp-label text-[10px] text-paper-faint">{armed ? 'Key armed' : '1. Turn key'}</span>
+        <Eng as="span" className="fp-data text-[10px] text-paper-faint">
+          Key: {deg}° / 90° · Hold: {(Math.min(heldMs, HOLD_NEED_MS) / 1000).toFixed(1)} / 1.5 s
+        </Eng>
+      </div>
+
+      <button
+        type="button"
+        data-testid="launch-hold"
+        disabled={!canGo || !armed}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture?.(e.pointerId)
+          startHold()
+        }}
+        onPointerUp={stopHold}
+        onPointerCancel={stopHold}
+        onKeyDown={(e) => {
+          if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
+            e.preventDefault()
+            startHold()
+          }
+        }}
+        onKeyUp={(e) => {
+          if (e.key === ' ' || e.key === 'Enter') stopHold()
+        }}
+        className="fp-btn-primary relative flex min-w-[14.5rem] items-center justify-center gap-2.5 disabled:opacity-40"
+      >
+        <svg className="h-5 w-5 -rotate-90" viewBox="0 0 44 44" aria-hidden="true">
+          <circle cx="22" cy="22" r="19" fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+          <circle
+            cx="22"
+            cy="22"
+            r="19"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeDasharray={circ}
+            strokeDashoffset={circ * (1 - progress)}
+          />
+        </svg>
+        <span>{holding ? 'Holding 1.5s to Launch…' : armed ? '2. Hold 1.5s to Launch' : 'Arm key first'}</span>
+      </button>
+    </div>
+  )
+}
+
 export function GoNoGoScreen() {
   const getGoNoGo = useGameStore((s) => s.getGoNoGo)
   const getBudgets = useGameStore((s) => s.getBudgets)
@@ -271,7 +455,8 @@ export function GoNoGoScreen() {
             <button type="button" onClick={runPoll} disabled={polling} className="fp-btn-secondary disabled:opacity-50">
               {polled ? 'Poll again' : 'Run the poll'}
             </button>
-            <button type="button" onClick={() => result.canGo && startSimulation()} disabled={!result.canGo} className="fp-btn-primary">
+            <LaunchKey canGo={result.canGo} onLaunch={startSimulation} />
+            <button type="button" data-testid="launch-accessible" onClick={() => result.canGo && startSimulation()} disabled={!result.canGo} className="fp-btn-secondary">
               {result.canGo ? 'Launch Mission' : 'Fix Issues First'}
             </button>
           </div>

@@ -1,6 +1,9 @@
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
+import { audio } from '../../assets/audio'
+import { useDragStore } from '../interaction/dragStore'
+import { useDropTarget } from '../interaction/drag'
 import { useDesignPreview } from '../useDesignPreview'
 import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { getPartById, type InstrumentPart } from '../../data/parts'
@@ -11,6 +14,7 @@ import { OrbitCardTray } from './launch/OrbitCards'
 import { playPick } from './launch/radioKeys'
 import { SceneTitle } from './launch/SceneTitle'
 import type { LapseClock } from '../../scene/OrbitView'
+import { ORBIT_SNAP_STOPS, radiusForOrbit, snapOrbitByRadius } from '../../viz/orbit/orbitDraw'
 import {
   buildOrbitView,
   coverageAt,
@@ -311,16 +315,19 @@ function PlainOrbit() {
 
         <div
           onMouseOver={(e) => {
+            if (useDragStore.getState().held) return
             const id = hoveredChoiceId(e.target)
             setPreviewPatch(id ? { orbit: id } : null)
           }}
-          onMouseLeave={() => setPreviewPatch(null)}
+          onMouseLeave={() => {
+            if (!useDragStore.getState().held) setPreviewPatch(null)
+          }}
           onFocus={(e) => {
             const id = hoveredChoiceId(e.target)
             if (id) setPreviewPatch({ orbit: id })
           }}
           onBlurCapture={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPreviewPatch(null)
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !useDragStore.getState().held) setPreviewPatch(null)
           }}
         >
           <OrbitCardTray
@@ -535,21 +542,27 @@ class SceneBoundary extends Component<{ children: ReactNode; onError: () => void
 
 function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: number | null }) {
   const design = useGameStore((s) => s.design)
+  const previewPatch = useUiStore((s) => s.previewPatch)
   const difficulty = useGameStore((s) => s.difficulty)
   const updateDesign = useGameStore((s) => s.updateDesign)
   const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
-  const view = useMemo(() => buildOrbitView(design, difficulty), [design, difficulty])
+  const liveDesign = useMemo(() => (previewPatch ? { ...design, ...previewPatch } : design), [design, previewPatch])
+  const view = useMemo(() => buildOrbitView(liveDesign, difficulty), [liveDesign, difficulty])
   const reduced = useMemo(() => prefersReducedMotion(), [])
+  const [drawSeq, setDrawSeq] = useState(0)
   const { clock, shownMonths, playing, togglePlay, scrub } = useLapse(
-    `${view.selectedId}|${design.instruments.join(',')}|${design.propulsion}`,
+    `${view.selectedId}|${design.instruments.join(',')}|${design.propulsion}|${drawSeq}`,
     reduced,
   )
   // Cards play their own pick sound; arrow keys and clicks in the 3D scene play it here
-  const pick = (id: string, quiet = false) => {
-    if (id === useGameStore.getState().design.orbit) return
-    if (!quiet) playPick(id)
-    updateDesign({ orbit: id })
-  }
+  const pick = useCallback(
+    (id: string, quiet = false) => {
+      if (!quiet) playPick(id)
+      setDrawSeq((n) => n + 1)
+      if (id !== useGameStore.getState().design.orbit) updateDesign({ orbit: id })
+    },
+    [updateDesign],
+  )
   const o = view.selected
   const months = Math.min(MISSION_MONTHS, Math.floor(shownMonths) + 1)
   const side = width === null || width >= MIN_SIDE_WIDTH
@@ -560,13 +573,74 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
   const cardsLeft = !side ? 12 : width !== null && width < CARDS_CENTRED_MIN ? 190 : READOUT_W + 24
   const lift = useSceneLift(stageEl?.parentElement ?? null, cardsEl)
 
+  const moonDrop = useDropTarget({
+    id: 'orbit:moon',
+    accepts: ['orbit'],
+    onDrop: (p) => pick(p.value, true),
+  })
+
+  const [drawDrag, setDrawDrag] = useState<{ r: number; snapId: string } | null>(null)
+  const handleDrawPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0 || !stageEl) return
+      e.stopPropagation()
+      e.preventDefault()
+      const rect = stageEl.getBoundingClientRect()
+      const cx = rect.left + rect.width * 0.5
+      const cy = rect.top + rect.height * 0.43
+      let lastSnap: string = o.id
+      const radiusFromEvent = (ev: PointerEvent | React.PointerEvent) =>
+        Math.max(52, Math.min(240, Math.hypot(ev.clientX - cx, ev.clientY - cy)))
+      const initialR = radiusFromEvent(e)
+      const initialStop = snapOrbitByRadius(initialR)
+      lastSnap = initialStop.id
+      setDrawDrag({ r: initialR, snapId: initialStop.id })
+      setPreviewPatch({ orbit: initialStop.id })
+
+      const move = (ev: PointerEvent) => {
+        const r = radiusFromEvent(ev)
+        const stop = snapOrbitByRadius(r)
+        if (stop.id !== lastSnap) {
+          lastSnap = stop.id
+          audio.play('sfx.click')
+          setPreviewPatch({ orbit: stop.id })
+        }
+        setDrawDrag({ r, snapId: stop.id })
+      }
+      const finish = (commit: boolean) => () => {
+        window.removeEventListener('pointermove', move)
+        window.removeEventListener('pointerup', up)
+        window.removeEventListener('pointercancel', cancel)
+        setDrawDrag(null)
+        setPreviewPatch(null)
+        if (commit) pick(lastSnap, false)
+      }
+      const up = finish(true)
+      const cancel = finish(false)
+      window.addEventListener('pointermove', move)
+      window.addEventListener('pointerup', up)
+      window.addEventListener('pointercancel', cancel)
+    },
+    [stageEl, o.id, setPreviewPatch, pick],
+  )
+
+  const activeRadius = drawDrag ? drawDrag.r : radiusForOrbit(o.id)
+  const snappedRadius = radiusForOrbit(drawDrag ? drawDrag.snapId : o.id)
+
   return (
     <>
       {/* On short screens the scene ends above part of the card row, so the Moon's south pole (where
           the ice is) stays clear of the cards; the edge fades into the background. */}
       <div
         ref={setSceneEl}
-        className="absolute inset-x-0 top-0"
+        {...moonDrop.handlers}
+        className={`absolute inset-x-0 top-0 transition-colors ${
+          moonDrop.state.over
+            ? 'outline outline-1 -outline-offset-2 outline-kapton'
+            : moonDrop.state.compatible
+              ? 'outline outline-1 -outline-offset-2 outline-dashed outline-rule-strong'
+              : ''
+        }`}
         style={{
           bottom: lift,
           maskImage: lift > 0 ? 'linear-gradient(to bottom, #000 calc(100% - 48px), transparent)' : undefined,
@@ -577,6 +651,69 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
             <OrbitScene view={view} lapse={clock} reduced={reduced} onPick={pick} />
           </Suspense>
         </SceneBoundary>
+
+        {/* Orbit draw overlay: chalk-dashed hairline ellipse + magnetic periapsis handle */}
+        <svg className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
+          <g style={{ transform: 'translate(50%, 43%)' }}>
+            {drawDrag &&
+              ORBIT_SNAP_STOPS.map((stop) => (
+                <g key={stop.id}>
+                  <ellipse
+                    cx={0}
+                    cy={0}
+                    rx={stop.id === 'orbit-100km' ? stop.radiusPx * 0.96 : stop.radiusPx * 0.68}
+                    ry={stop.radiusPx}
+                    fill="none"
+                    stroke={stop.id === drawDrag.snapId ? 'var(--color-kapton)' : 'var(--color-rule-strong)'}
+                    strokeWidth={stop.id === drawDrag.snapId ? 1.5 : 1}
+                    strokeDasharray={stop.id === drawDrag.snapId ? '5 4' : '2 6'}
+                    opacity={stop.id === drawDrag.snapId ? 0.9 : 0.45}
+                  />
+                  <text
+                    x={8}
+                    y={stop.radiusPx + 4}
+                    fill={stop.id === drawDrag.snapId ? 'var(--color-kapton)' : 'var(--color-paper-faint)'}
+                    fontSize="10"
+                    fontFamily="var(--font-mono)"
+                  >
+                    {stop.label}
+                  </text>
+                </g>
+              ))}
+            <ellipse
+              cx={0}
+              cy={0}
+              rx={activeRadius * (o.id === 'orbit-100km' ? 0.96 : 0.68)}
+              ry={activeRadius}
+              fill="none"
+              stroke={drawDrag ? 'var(--color-paper)' : 'var(--color-paper-faint)'}
+              strokeWidth={drawDrag ? 1.5 : 1}
+              strokeDasharray="6 5"
+              opacity={drawDrag ? 0.85 : 0.35}
+            />
+          </g>
+        </svg>
+
+        <button
+          type="button"
+          data-testid="orbit-handle"
+          aria-label={`Drag orbit periapsis handle (currently ${o.shortName}, ${o.altitudeKm} km)`}
+          onPointerDown={handleDrawPointerDown}
+          style={{
+            left: '50%',
+            top: `calc(43% + ${drawDrag ? snappedRadius : activeRadius}px)`,
+            transform: 'translate(-50%, -50%)',
+            touchAction: 'none',
+          }}
+          className={`pointer-events-auto absolute z-10 flex items-center gap-1.5 border px-2 py-1 fp-data text-[10px] tracking-wide transition-colors focus:outline-none focus-visible:outline-2 focus-visible:outline-kapton ${
+            drawDrag
+              ? 'cursor-grabbing border-kapton bg-kapton text-kapton-ink'
+              : 'cursor-grab border-rule-strong bg-ink-1/90 text-paper hover:border-kapton hover:text-kapton'
+          }`}
+        >
+          <span className="h-2 w-2 rounded-full bg-kapton" aria-hidden />
+          <span>↕ Periapsis · {o.altitudeKm} km</span>
+        </button>
       </div>
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-3 left-1/2 -translate-x-1/2 text-center">
@@ -613,7 +750,11 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
               )}
             </div>
           </SceneTitle>
-          <Eng as="div" className="mt-1 text-[11px] text-paper-faint">
+          <Eng as="div" className="mt-1 fp-data text-[11px] text-paper-dim">
+            Periapsis: {o.altitudeKm} km · Passes/turn: {o.passesPerTurn} · Capture Δv:{' '}
+            {o.captureDeltaV === null ? 'not possible' : `${Math.round(o.captureDeltaV).toLocaleString()} m/s`}
+          </Eng>
+          <Eng as="div" className="mt-0.5 text-[11px] text-paper-faint">
             Drag to look around, scroll to zoom. Heights are exaggerated.
           </Eng>
         </div>
@@ -624,16 +765,19 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
           className="pointer-events-auto absolute bottom-3 space-y-1.5"
           style={{ left: cardsLeft, right: READOUT_W + 24, maxWidth: CARDS_MAX_W, marginInline: 'auto' }}
           onMouseOver={(e) => {
+            if (useDragStore.getState().held) return
             const id = hoveredChoiceId(e.target)
             setPreviewPatch(id ? { orbit: id } : null)
           }}
-          onMouseLeave={() => setPreviewPatch(null)}
+          onMouseLeave={() => {
+            if (!useDragStore.getState().held) setPreviewPatch(null)
+          }}
           onFocus={(e) => {
             const id = hoveredChoiceId(e.target)
             if (id) setPreviewPatch({ orbit: id })
           }}
           onBlurCapture={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPreviewPatch(null)
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !useDragStore.getState().held) setPreviewPatch(null)
           }}
         >
           <SynergyStrip step="orbit" compact />

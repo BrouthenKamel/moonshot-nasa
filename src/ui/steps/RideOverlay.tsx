@@ -3,6 +3,8 @@ import { timelineLayout } from '../../viz/ride/rideView'
 import { DesignDeltaLine } from '../../viz/DesignDeltaLine'
 import type { BarStatus } from '../../sim/types'
 import { ROCKET_X, SKY_W } from '../../viz/ride/skyPath'
+import { useDesignPreview } from '../useDesignPreview'
+import { useDragPart } from '../interaction/drag'
 import { Eng, Sheet, Stamp, type StampVerdict } from '../kit'
 import { SceneTitle } from './launch/SceneTitle'
 
@@ -45,6 +47,62 @@ export function RideVerdict({ className = '' }: { className?: string }) {
   )
 }
 
+/** Draggable craft boarding pass + delta-v propellant tank gauge. */
+export function BoardingPass({ className = '' }: { className?: string }) {
+  const { budgets, previewBudgets } = useDesignPreview()
+  const active = previewBudgets ?? budgets
+  const dragProps = useDragPart({
+    field: 'boarding-pass',
+    value: 'craft',
+    label: `Boarding Pass · ${active.totalMass.toFixed(1)} kg`,
+    sound: 'sfx.pick-ride',
+  })
+  const dvAvail = active.deltaVAvailable
+  const dvNeed = active.captureDeltaV === null ? 0 : active.deltaVTotal
+  const dvRatio = dvNeed > 0 ? Math.min(1, dvAvail / dvNeed) : dvAvail > 0 ? 1 : 0
+  const dvOk = active.captureDeltaV !== null && dvAvail >= dvNeed
+
+  return (
+    <div className={`pointer-events-auto border border-rule bg-ink-1/95 p-2.5 ${className}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div
+          {...dragProps}
+          data-testid="boarding-pass"
+          role="button"
+          tabIndex={0}
+          aria-label={`Boarding pass for ${active.totalMass.toFixed(1)} kg spacecraft. Drag onto a departure gate.`}
+          className="flex cursor-grab items-center gap-2.5 border border-kapton/70 bg-ink-2 px-3 py-1.5 transition-colors hover:border-kapton active:cursor-grabbing"
+        >
+          <span className="h-3 w-1 bg-kapton" aria-hidden />
+          <div>
+            <div className="fp-label text-[9px] text-kapton">BOARDING PASS · DRAG TO GATE</div>
+            <div className="fp-data text-xs font-bold text-paper">
+              6U Spacecraft · {active.totalMass.toFixed(1)} kg
+            </div>
+          </div>
+        </div>
+        <div className="min-w-[130px] flex-1">
+          <div className="flex justify-between text-[10px]">
+            <span className="fp-label text-paper-faint">Δv tank</span>
+            <span className={`fp-data font-semibold ${dvOk ? 'text-go' : 'text-nogo'}`}>
+              {Math.round(dvAvail)} m/s
+            </span>
+          </div>
+          <div className="relative mt-1 h-2 border border-rule bg-ink-0">
+            <div
+              className={`h-full transition-all duration-300 ${dvOk ? 'bg-go' : 'bg-nogo'}`}
+              style={{ width: `${Math.round(dvRatio * 100)}%` }}
+            />
+          </div>
+          <Eng as="div" className="mt-1 fp-data text-[10px] text-paper-dim">
+            Tank {Math.round(dvAvail)} / {active.captureDeltaV === null ? '—' : Math.round(dvNeed)} m/s needed
+          </Eng>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function RideOverlay({ maxWidth }: { maxWidth?: number }) {
   const view = useRideView()
   return (
@@ -71,6 +129,7 @@ export function RideOverlay({ maxWidth }: { maxWidth?: number }) {
         </Eng>
         <DesignDeltaLine className="mt-2" />
       </Sheet>
+      <BoardingPass />
     </div>
   )
 }
