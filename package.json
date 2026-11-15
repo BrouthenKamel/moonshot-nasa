@@ -17,7 +17,8 @@
     "assets:credits": "tsx scripts/assets/credits.ts",
     "assets:nasa": "tsx scripts/assets/fetch-nasa.ts",
     "assets:portraits": "tsx scripts/assets/render-portraits.ts",
-    "audit:clutter": "node scripts/e2e/clutter-audit.mjs"
+    "audit:clutter": "node scripts/e2e/clutter-audit.mjs",
+    "audit:fit": "node scripts/e2e/fit-audit.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",

@@ -750,8 +750,10 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
         </ViewBoundary>
       )}
       {sim.pendingDecision && !showPlaying && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-ink-0/70 p-4">
-          <div className="w-[min(100%,560px)]">
+        // Scrolls when the card is taller than the view (the base's map box is 60vh on small windows):
+        // centred with my-auto, not items-center, so the top of a tall card is never cut off
+        <div className="absolute inset-0 z-20 flex justify-center overflow-y-auto overscroll-contain bg-ink-0/70 p-4">
+          <div className="my-auto w-[min(100%,560px)]">
             <EventCard />
           </div>
         </div>

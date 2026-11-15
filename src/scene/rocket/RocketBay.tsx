@@ -639,6 +639,21 @@ type Layout = ReturnType<typeof layoutRocket>
 /** The engine bells hang below the core's base: lift the whole rocket so they clear the table */
 const liftOf = (layout: Layout) => TABLE_Y + 0.26 + GAP - layout.bottom * S
 
+/** Vertical field of view of the bay camera, in degrees */
+const FOV = 35
+
+/**
+ * The wide shot of the whole rocket: from the floor (where the craft waits) to the nose tip, filling
+ * about two thirds of the view's height. The camera aims a little above the middle so the rocket sits
+ * low, clear of the step title laid over the top of the view. The height fits whatever the window's
+ * shape, since a perspective camera keeps its vertical field of view.
+ */
+export function wholeShot(topY: number): { y: number; dist: number } {
+  const span = Math.max(1, topY)
+  const dist = (span * 1.55) / (2 * Math.tan(THREE.MathUtils.degToRad(FOV / 2)))
+  return { y: span * 0.57, dist: Math.min(58, Math.max(16, dist)) }
+}
+
 /** Height the camera looks at for one part, in body radii above the core's base */
 function focusHeight(p: PlacedPart): number {
   if (p.slot === 'engine') return 0
@@ -665,7 +680,10 @@ function Rocket({
   const seat = useMemo(() => new THREE.Vector3(0, lift + (nose ? nose.y : layout.top - 3) * S + 0.12, 0), [lift, nose, layout.top])
   const high = lift + layout.top * S + 1.2
   const follow = useRef<Goal | null>(null)
-  const wholeDist = Math.max(16, ((layout.top - layout.bottom + 2) * S * 1.3) / (2 * Math.tan(THREE.MathUtils.degToRad(35 / 2))))
+  // The whole rocket, floor to nose, with room for the step title over the top of the view (QC fit
+  // sweep: the old shot aimed below the middle and lost the fairing above the frame on wide screens)
+  const wide = useMemo(() => wholeShot(lift + layout.top * S), [lift, layout.top])
+  const wholeDist = wide.dist
   // the fairing turns see-through as the craft goes in, and stays so once it is inside
   const [opened, setOpened] = useState(false)
   const open = payload === 'inside' || opened
@@ -674,8 +692,8 @@ function Rocket({
     if (focus === 'payload') return { target: new THREE.Vector3(0, seat.y + 0.4, 0), dist: 4.2 }
     const part = focus === 'whole' ? undefined : layout.placed.find((p) => p.slot === focus)
     if (part) return { target: new THREE.Vector3(0, lift + focusHeight(part) * S, 0), dist: Math.max(6, part.part.height * S * 2.6) }
-    return { target: new THREE.Vector3(0, lift + ((layout.top + layout.bottom) / 2) * S, 0), dist: wholeDist }
-  }, [focus, seat, layout, lift, wholeDist])
+    return { target: new THREE.Vector3(0, wide.y, 0), dist: wholeDist }
+  }, [focus, seat, layout, lift, wholeDist, wide.y])
 
   return (
     <>
@@ -701,7 +719,7 @@ function Rocket({
           speed={speed ?? 1}
           seat={seat}
           high={high}
-          wideY={(lift + ((layout.top + layout.bottom) / 2) * S) * 0.75}
+          wideY={wide.y}
           wideDist={wholeDist}
           follow={follow}
           tagEl={payloadTag}
@@ -724,7 +742,7 @@ export function RocketBay(props: ViewProps) {
       <Canvas
         shadows
         dpr={[1, 2]}
-        camera={{ fov: 35, position: [-14, 9, 24], near: 0.05, far: 200 }}
+        camera={{ fov: FOV, position: [-14, 9, 24], near: 0.05, far: 200 }}
         gl={{ antialias: true }}
         onCreated={({ scene, gl }) => {
           scene.background = new THREE.Color('#0d0e10')
