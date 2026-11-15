@@ -1,12 +1,12 @@
 import type { BuildingLabel } from './BaseMap'
 
 /**
- * The one line under a sign that says why the green glow is there. The brief's CAPCOM sends
- * the player to the Research Lab first ("Check whether your instrument can see into the dark
- * craters"); without words on the map the glow reads as decoration.
+ * The one line under the lit sign: what to do there next (from the mission's step order, see
+ * src/viz/missionMap.ts), so the map says in words what the orange tag means. None when a red
+ * problem takes over the sign.
  */
 export function signHint(label?: BuildingLabel): string | null {
-  return label?.pulse && !label.alert ? 'First stop: can it see the ice?' : null
+  return label?.highlight && label.hint && !label.alert ? label.hint : null
 }
 
 /**
@@ -15,13 +15,14 @@ export function signHint(label?: BuildingLabel): string | null {
  */
 export function quietLabels<K extends string>(labels: Record<K, BuildingLabel>): Record<K, BuildingLabel> {
   const out = {} as Record<K, BuildingLabel>
-  for (const id of Object.keys(labels) as K[]) out[id] = { ...labels[id], highlight: false, pulse: false }
+  for (const id of Object.keys(labels) as K[]) out[id] = { ...labels[id], highlight: false, pulse: false, hint: undefined }
   return out
 }
 
-/** What a lit sign means, for its tooltip: the orange tag and the green glow explain themselves */
+/** What a lit sign means, for its tooltip */
 export function signMeaning(label?: BuildingLabel): string | null {
   if (!label || label.alert) return null
-  if (label.highlight) return 'Next stop'
-  return signHint(label)
+  if (label.highlight) return signHint(label) ?? 'Next stop'
+  if (label.pulse) return 'First lesson here'
+  return null
 }

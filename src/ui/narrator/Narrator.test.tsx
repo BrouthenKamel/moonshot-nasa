@@ -12,6 +12,8 @@ import { beatKey } from './beats'
 import { useNarratorPrefs } from './narratorPrefs'
 import { useGameStore } from '../../state/gameStore'
 import { BriefScreen } from '../steps/BriefScreen'
+import { STEP_QUESTION } from '../kit'
+import { STEP_NAMES, buildingName, firstStop } from '../../viz/missionMap'
 
 describe('Narrator', () => {
   beforeEach(() => {
@@ -42,9 +44,10 @@ describe('Narrator', () => {
 })
 
 describe('brief (I5a)', () => {
-  it('points new players at the Research Lab first', () => {
+  it('names the first stop from the step order, as the map and the mission panel do', () => {
     const html = renderToString(<BriefScreen />)
-    expect(html).toContain('Your first stop: the Research Lab.')
-    expect(html).toContain('Check whether your instrument can see into the dark craters.')
+    const stop = firstStop()
+    expect(html).toContain(`Your first stop: ${STEP_NAMES[stop.step]} at the ${buildingName(stop.building)}.`)
+    expect(html).toContain(STEP_QUESTION[stop.step])
   })
 })

@@ -693,6 +693,8 @@ export interface BuildingLabel {
   /** 0-1 progress bar under the status */
   progress?: number
   highlight?: boolean
+  /** One line under the sign of the next building, e.g. "Next: Planning" */
+  hint?: string
   /** A gentle glow that points a new player here (the Research Lab's first lesson) */
   pulse?: boolean
   /** A red Go / No-Go bar is fixed in this building */
@@ -750,7 +752,7 @@ function Sign({
       {hint && (
         <span
           data-testid="sign-hint"
-          className="relative mt-0.5 whitespace-nowrap border border-go/70 bg-ink-1/95 px-1.5 py-px font-sans text-[10px] font-semibold leading-tight text-go"
+          className="relative mt-0.5 whitespace-nowrap border border-kapton/70 bg-ink-1/95 px-1.5 py-px font-sans text-[10px] font-semibold leading-tight text-kapton"
         >
           {hint}
         </span>

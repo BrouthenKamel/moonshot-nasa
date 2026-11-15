@@ -15,6 +15,8 @@ import {
   missionLabels,
   missionMonth,
   missionStatus,
+  firstStop,
+  nextStepHint,
   researchLabPulses,
   suggestedStep,
 } from './missionMap'
@@ -34,9 +36,7 @@ describe('mission map', () => {
   it('suggests the next unvisited step in order', () => {
     expect(suggestedStep([])).toBe('brief')
     expect(suggestedStep(['brief', 'planning'])).toBe('instruments')
-    // The brief sends the player to the Research Lab first
-    expect(suggestedStep(['brief'])).toBe('instruments')
-    expect(suggestedStep(['brief', 'instruments'])).toBe('planning')
+    expect(suggestedStep(['brief'])).toBe(STEP_ORDER[1])
     expect(suggestedStep(STEP_ORDER)).toBe('go-nogo')
   })
 
@@ -53,17 +53,33 @@ describe('mission map', () => {
     for (const label of Object.values(labelsFor())) expect(label).not.toHaveProperty('level')
   })
 
-  // Jakob (I5b): point new players at the first lesson in the Research Lab
-  it('the Research Lab pulses from the brief until the instruments step has been opened', () => {
-    expect(researchLabPulses([], null)).toBe(false) // before the brief, the brief is the one next step
-    expect(researchLabPulses(['brief'], null)).toBe(true)
-    expect(researchLabPulses(['brief', 'planning'], null)).toBe(true)
-    expect(researchLabPulses(['brief', 'planning', 'instruments'], null)).toBe(false)
-    expect(labelsFor(flashlightDesign, ['brief'])['research-lab'].pulse).toBe(true)
+  // Jakob (I5b): point new players at the first lesson in the Research Lab, when it is the next step
+  it('the Research Lab glows only while the instruments step is the next one', () => {
+    const before = STEP_ORDER.slice(0, STEP_ORDER.indexOf('instruments'))
+    expect(researchLabPulses([], null)).toBe(false) // the brief comes first
+    expect(researchLabPulses(before, null)).toBe(true)
+    expect(researchLabPulses([...before, 'instruments'], null)).toBe(false)
+    expect(labelsFor(flashlightDesign, before)['research-lab'].pulse).toBe(true)
     expect(labelsFor(flashlightDesign, ['instruments'])['research-lab'].pulse).toBe(false)
-    expect(labelsFor(flashlightDesign, ['brief'])['factory'].pulse).toBeFalsy()
+    expect(labelsFor(flashlightDesign, before)['factory'].pulse).toBeFalsy()
     const sim = runSimulation(flashlightDesign, 'engineer', 1)
-    expect(researchLabPulses([], sim)).toBe(false)
+    expect(researchLabPulses(before, sim)).toBe(false)
+  })
+
+  it('exactly one building is lit, with the next step named under it', () => {
+    for (let i = 0; i < STEP_ORDER.length; i++) {
+      const visited = STEP_ORDER.slice(0, i)
+      const l = labelsFor(flashlightDesign, visited)
+      const lit = Object.entries(l).filter(([, v]) => v.highlight)
+      expect(lit).toHaveLength(1)
+      expect(lit[0][0]).toBe(buildingForStep(STEP_ORDER[i]))
+      expect(lit[0][1].hint).toBe(nextStepHint(STEP_ORDER[i]))
+      expect(Object.values(l).filter((v) => v.hint)).toHaveLength(1)
+    }
+  })
+
+  it('the brief names the step after it and its building', () => {
+    expect(firstStop()).toEqual({ step: STEP_ORDER[1], building: buildingForStep(STEP_ORDER[1]) })
   })
 
   it('marks the building that fixes a red bar and highlights the suggested one', () => {

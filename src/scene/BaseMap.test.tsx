@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { isValidElement, type ReactElement, type ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { BaseMap, type BuildingLabel } from './BaseMap'
-import { signHint } from './mapCues'
+import { quietLabels, signHint, signMeaning } from './mapCues'
 import { BuildingList, MapBoundary } from './BuildingList'
 import type { BuildingId } from '../data/agency'
 
@@ -55,13 +55,23 @@ describe('base map without WebGL', () => {
 })
 
 describe('the next-stop cue on the map', () => {
-  it('puts one line of words under the glowing building, as the brief says', () => {
-    expect(signHint({ status: 'Lab', pulse: true })).toBe('First stop: can it see the ice?')
+  it('puts the next step in words under the lit sign', () => {
+    expect(signHint({ status: 'Comms', highlight: true, hint: 'Next: Planning' })).toBe('Next: Planning')
+    expect(signMeaning({ status: 'Comms', highlight: true, hint: 'Next: Planning' })).toBe('Next: Planning')
   })
 
-  it('says nothing without the glow, or when a red problem takes over the sign', () => {
-    expect(signHint({ status: 'Lab' })).toBeNull()
-    expect(signHint({ status: 'Lab', pulse: true, alert: true })).toBeNull()
+  it('says nothing on an unlit sign, or when a red problem takes over the sign', () => {
+    expect(signHint({ status: 'Lab', hint: 'Next: Instruments' })).toBeNull()
+    expect(signHint({ status: 'Lab', highlight: true, hint: 'Next: Instruments', alert: true })).toBeNull()
     expect(signHint(undefined)).toBeNull()
+  })
+
+  it('a fresh base lights nothing: New mission is the only start', () => {
+    const quiet = quietLabels({ ...labels, 'comms-center': { status: 'Comms', highlight: true, hint: 'Next: Brief' }, 'research-lab': { status: 'Lab', pulse: true } })
+    for (const l of Object.values(quiet)) {
+      expect(l.highlight).toBe(false)
+      expect(l.pulse).toBe(false)
+      expect(signHint(l)).toBeNull()
+    }
   })
 })
