@@ -26,6 +26,15 @@ describe('Narrator', () => {
     expect(html).toContain('aria-live="polite"')
   })
 
+  it('shows the line with one × and a plain "Don’t show tips" link, no header or menu', () => {
+    const html = renderToString(<Narrator />).replace(/<!-- -->/g, '')
+    expect(html).toContain('aria-label="Close tip"')
+    expect(html).toContain('Don’t show tips')
+    expect(html).not.toContain('CAPCOM')
+    expect(html).not.toContain('Narrator options')
+    expect(html).toContain('Commander Rosa Vega: ') // the speaker stays for screen readers
+  })
+
   it('offers to bring tips back once they are switched off', () => {
     useNarratorPrefs.getState().setTipsOff(true)
     expect(renderToString(<Narrator />)).toContain('Show tips from Commander Rosa Vega again')

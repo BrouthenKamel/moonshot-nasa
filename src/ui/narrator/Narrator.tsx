@@ -1,18 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { computeBudgets } from '../../sim/budgets'
 import { getPartById, type InstrumentPart } from '../../data/parts'
 import { NARRATOR_NAME, NARRATOR_ROLE, beatKey, pickBeat, type InstrumentFacts } from './beats'
 import { useNarratorPrefs } from './narratorPrefs'
+import { coversContent, pageContent } from './overlap'
 import { Portrait } from './Portrait'
 
 /**
  * The mission mentor: a small portrait with a radio-transcript slip in the bottom-left corner.
- * Shows the line for the current moment once, never takes focus, and closes with ×,
- * Escape or a click on the bubble. Mounted once over every screen (src/App.tsx).
+ * Shows the line for the current moment once, never takes focus, and closes with × or Escape.
+ * Mounted once over every screen (src/App.tsx).
+ *
+ * The slip never covers anything the player is reading: when it would land on text or a control
+ * it folds into the portrait with a dot, and a click on the portrait opens it. The check looks at
+ * the page itself (see overlap.ts), so it works the same on every screen and window size.
  */
-/** The speaker line on the transcript slip: "CAPCOM · Rosa Vega" */
-const SPEAKER = NARRATOR_NAME.replace(/^Commander\s+/, '')
+
+/** How often the page is re-checked while a line waits (content moves as screens load and resize) */
+const RECHECK_MS = 400
 
 export function Narrator() {
   const screen = useGameStore((s) => s.screen)
@@ -40,12 +46,17 @@ export function Narrator() {
 
   const key = beat ? beatKey(beat, sim?.seed) : null
   const [shownKey, setShownKey] = useState<string | null>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
+  // The player opened a folded slip: it stays open, wherever it sits
+  const [opened, setOpened] = useState(false)
+  // The slip would sit on text or a control
+  const [crowded, setCrowded] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const slipRef = useRef<HTMLElement>(null)
 
   // A new moment with a line not heard yet: show it (state adjusted during render, as React advises)
   if (key && !tipsOff && !seen.includes(key) && key !== shownKey) {
     setShownKey(key)
-    setMenuOpen(false)
+    setOpened(false)
   }
   // ...and remember in localStorage that it was heard
   useEffect(() => {
@@ -56,8 +67,35 @@ export function Narrator() {
 
   const close = () => {
     setShownKey(null)
-    setMenuOpen(false)
+    setOpened(false)
   }
+
+  // Is the slip on top of content? Re-checked while a line waits, because screens fill in late.
+  useEffect(() => {
+    if (!visible || opened) return
+    let timer: number | undefined
+    const check = () => {
+      const slip = slipRef.current
+      if (!slip) return
+      const r = slip.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0) return
+      setCrowded(coversContent({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }, pageContent(rootRef.current)))
+    }
+    const later = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(check, RECHECK_MS)
+    }
+    check()
+    later()
+    const watch = new MutationObserver(later)
+    watch.observe(document.body, { childList: true, subtree: true, characterData: true })
+    window.addEventListener('resize', later)
+    return () => {
+      window.clearTimeout(timer)
+      watch.disconnect()
+      window.removeEventListener('resize', later)
+    }
+  }, [visible, opened, shownKey, screen, designStep])
 
   useEffect(() => {
     if (!visible) return
@@ -72,8 +110,11 @@ export function Narrator() {
   // w-48), so the bubble never covers a card tray or catches clicks meant for the step.
   const inRail = screen === 'design'
 
+  const folded = visible && crowded && !opened
+
   return (
     <div
+      ref={rootRef}
       className={
         inRail
           ? 'pointer-events-none fixed bottom-3 left-2 z-40 w-44'
@@ -84,66 +125,57 @@ export function Narrator() {
       <div aria-live="polite" aria-atomic="true">
         {visible && beat && (
           <section
+            ref={slipRef}
             aria-label={`${NARRATOR_NAME}, mission mentor`}
             data-beat={beat.id}
-            className={inRail ? 'pointer-events-auto flex flex-col items-start gap-1.5' : 'pointer-events-auto flex items-end gap-2'}
+            // Folded: kept in layout so it can still be measured, but out of sight and out of reach
+            className={`${inRail ? 'flex flex-col items-start gap-1.5' : 'flex items-end gap-2'} ${folded ? 'invisible' : 'pointer-events-auto'}`}
           >
             <div className="shrink-0">
               <Portrait />
             </div>
             <div
-              onClick={close}
               style={{ borderLeft: '2px solid var(--color-kapton)' }}
-              className={`fp-sheet relative cursor-pointer ${inRail ? 'w-full text-[13px]' : 'flex-1 text-sm'} px-3 pb-2.5 pt-2 text-paper`}
+              className={`fp-sheet relative ${inRail ? 'w-full text-[13px]' : 'flex-1 text-sm'} px-3 pb-2 pt-2 pr-7 text-paper`}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="fp-label text-kapton">
-                  <span aria-hidden="true">CAPCOM · {SPEAKER}</span>
-                  <span className="sr-only">
-                    {NARRATOR_NAME}: {NARRATOR_ROLE}.
-                  </span>
-                </div>
-                <div className="-mr-1 -mt-0.5 flex items-center" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    aria-label="Narrator options"
-                    aria-haspopup="menu"
-                    aria-expanded={menuOpen}
-                    onClick={() => setMenuOpen((o) => !o)}
-                    className="px-1.5 text-base leading-none text-paper-faint hover:bg-ink-3 hover:text-paper"
-                  >
-                    <span aria-hidden="true">⋯</span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Close tip"
-                    onClick={close}
-                    className="px-1.5 text-base leading-none text-paper-faint hover:bg-ink-3 hover:text-paper"
-                  >
-                    <span aria-hidden="true">×</span>
-                  </button>
-                  {menuOpen && (
-                    <div role="menu" className="absolute right-2 top-8 z-10 border border-rule-strong bg-ink-3 py-1">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setTipsOff(true)
-                          close()
-                        }}
-                        className="block w-full whitespace-nowrap px-3 py-1.5 text-left text-sm text-paper hover:bg-ink-2"
-                      >
-                        Don’t show tips
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <p className="mt-1 leading-snug text-paper">{beat.text}</p>
+              <span className="sr-only">
+                {NARRATOR_NAME}: {NARRATOR_ROLE}.
+              </span>
+              <button
+                type="button"
+                aria-label="Close tip"
+                onClick={close}
+                className="absolute right-0.5 top-0.5 px-1.5 text-base leading-none text-paper-faint hover:bg-ink-3 hover:text-paper"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+              <p className="leading-snug text-paper">{beat.text}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setTipsOff(true)
+                  close()
+                }}
+                className="mt-1.5 text-[11px] text-paper-faint underline hover:text-paper"
+              >
+                Don’t show tips
+              </button>
             </div>
           </section>
         )}
       </div>
+      {folded && (
+        <button
+          type="button"
+          onClick={() => setOpened(true)}
+          aria-label={`New tip from ${NARRATOR_NAME}`}
+          data-testid="narrator-folded"
+          className="pointer-events-auto relative block"
+        >
+          <Portrait size={40} />
+          <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-ink-0 bg-kapton" />
+        </button>
+      )}
       {tipsOff && (
         <button
           type="button"

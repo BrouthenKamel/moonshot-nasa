@@ -188,9 +188,6 @@ export function RocketScreen() {
         )}
 
         <div className="absolute top-3 left-3 flex flex-col items-start gap-2">
-          <button type="button" onClick={() => setDesignStep('instruments')} className="tactical-btn-back bg-ink-1">
-            ← Back
-          </button>
           {hall && (
             <>
               <Btn variant="secondary" type="button" onClick={testFire} disabled={firing} className="bg-ink-1 disabled:opacity-50">

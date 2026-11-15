@@ -241,9 +241,6 @@ export function SpacecraftScreen() {
         )}
 
         <div className="absolute top-3 left-3 z-10 flex flex-col items-start gap-2">
-          <button type="button" onClick={() => setDesignStep('rocket')} className="tactical-btn-back bg-ink-1">
-            ← Back
-          </button>
           {room && (
             <Sheet tone="flat" className="flex w-40 flex-col bg-ink-1/90 p-1">
               <div role="group" aria-label="Camera" className="flex flex-col">

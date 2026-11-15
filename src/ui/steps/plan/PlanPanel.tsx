@@ -125,14 +125,16 @@ export function PlanOdds() {
 }
 
 /** Back and on, at the foot of the panel */
-export function PlanNav({ back, next }: { back: { label: string; to: DesignStep | (() => void) }; next: { label: string; to: DesignStep | (() => void) } }) {
+export function PlanNav({ back, next }: { back?: { label: string; to: DesignStep | (() => void) }; next: { label: string; to: DesignStep | (() => void) } }) {
   const setDesignStep = useGameStore((s) => s.setDesignStep)
   const go = (to: DesignStep | (() => void)) => (typeof to === 'function' ? to() : setDesignStep(to))
   return (
     <div className="mt-auto flex gap-2 pt-1">
-      <button type="button" onClick={() => go(back.to)} className="tactical-btn-back flex-1 whitespace-nowrap bg-ink-1">
-        {back.label}
-      </button>
+      {back && (
+        <button type="button" onClick={() => go(back.to)} className="tactical-btn-back flex-1 whitespace-nowrap bg-ink-1">
+          {back.label}
+        </button>
+      )}
       <button type="button" onClick={() => go(next.to)} className="tactical-btn-next flex-[2] whitespace-nowrap">
         {next.label}
       </button>

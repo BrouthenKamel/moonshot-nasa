@@ -376,7 +376,6 @@ export function GoNoGoScreen() {
   const getBudgets = useGameStore((s) => s.getBudgets)
   const design = useGameStore((s) => s.design)
   const difficulty = useGameStore((s) => s.difficulty)
-  const setDesignStep = useGameStore((s) => s.setDesignStep)
   const startSimulation = useGameStore((s) => s.startSimulation)
 
   const budgets = getBudgets()
@@ -472,10 +471,7 @@ export function GoNoGoScreen() {
           ))}
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-          <button type="button" onClick={() => setDesignStep('comms')} className="fp-btn-secondary">
-            ← Back to Design
-          </button>
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <LaunchKey canGo={result.canGo} onLaunch={startSimulation} />
             <button type="button" data-testid="launch-accessible" onClick={() => result.canGo && startSimulation()} disabled={!result.canGo} className="fp-btn-secondary">

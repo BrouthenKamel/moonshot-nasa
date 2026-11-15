@@ -481,11 +481,6 @@ function PlanningQuickHudOverlay() {
 
 function StepButtons({ overlay }: { overlay: boolean }) {
   const setDesignStep = useGameStore((s) => s.setDesignStep)
-  const back = (
-    <Btn type="button" onClick={() => setDesignStep('brief')}>
-      ← Back
-    </Btn>
-  )
   const next = (
     <Btn variant="primary" type="button" onClick={() => setDesignStep('instruments')}>
       Select instruments →
@@ -494,7 +489,6 @@ function StepButtons({ overlay }: { overlay: boolean }) {
   if (overlay)
     return (
       <>
-        <div className="absolute top-3 left-3">{back}</div>
         <div className="pointer-events-none absolute top-3 left-1/2 hidden -translate-x-1/2 md:block">
           <Sheet tone="inset" className="px-4 py-2 text-center">
             <div className="flex items-baseline justify-center gap-2">
@@ -508,10 +502,7 @@ function StepButtons({ overlay }: { overlay: boolean }) {
       </>
     )
   return (
-    <div className="mx-auto mt-6 flex max-w-3xl justify-between">
-      {back}
-      {next}
-    </div>
+    <div className="mx-auto mt-6 flex max-w-3xl justify-end">{next}</div>
   )
 }
 

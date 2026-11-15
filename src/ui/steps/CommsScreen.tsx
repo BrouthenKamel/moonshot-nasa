@@ -156,10 +156,7 @@ export function CommsScreen() {
           />
         </Sheet>
 
-        <div className="flex justify-between">
-          <Btn type="button" onClick={() => setDesignStep('ride')}>
-            ← Back
-          </Btn>
+        <div className="flex justify-end">
           <Btn variant="primary" type="button" onClick={() => setDesignStep('go-nogo')}>
             Go/No-Go review →
           </Btn>

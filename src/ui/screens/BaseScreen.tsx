@@ -259,13 +259,17 @@ export function BaseScreen() {
                 </div>
               </div>
             )}
-            {/* Right: the current mission and its log */}
-            <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:right-6 lg:top-6 lg:z-10 lg:w-80">
+            {/* Right: the current mission and its log. With no mission yet it comes first on a narrow screen, so the one start is never below the fold. */}
+            <div
+              className={`flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:right-6 lg:top-6 lg:z-10 lg:w-80 ${
+                missionOpen ? '' : 'max-lg:order-first'
+              }`}
+            >
               <div className="relative flex min-h-0 flex-col lg:pointer-events-auto">
                 {!missionOpen && (
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute -inset-1 z-10 ring-2 ring-kapton/80 motion-safe:animate-pulse"
+                    className="pointer-events-none absolute -inset-1 z-10 ring-2 ring-kapton shadow-[0_0_14px_rgba(232,163,61,0.45)] motion-safe:animate-pulse"
                   />
                 )}
                 <MissionPanel
