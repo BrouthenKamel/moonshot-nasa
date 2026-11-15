@@ -345,3 +345,40 @@ export function autoplay(setup: PassSetup, bot: Bot = AUTOPILOT): PassState {
 export function passHours(setup: PassSetup): number {
   return Math.max(1, Math.round(setup.batteryWh / setup.watts))
 }
+
+/** "Shackleton and Cabeus" / "Shackleton, Cabeus and 3 more" */
+function listNames(names: string[]): string {
+  if (names.length <= 2) return names.join(' and ')
+  return `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`
+}
+
+/** Per crater: mapped in full, partly or not at all, or locked (the instruments cannot read it) */
+export type CraterState = 'reached' | 'missed' | 'locked'
+export function craterState(a: PassResult['perArea'][number]): CraterState {
+  return a.blocked ? 'locked' : a.pct >= 100 ? 'reached' : 'missed'
+}
+
+/**
+ * One sentence on why the pass mapped what it did, biggest cause first: craters the instruments
+ * cannot read, then the battery, then the footprint, then aim.
+ */
+export function passWhy(setup: PassSetup, r: PassResult): string {
+  const byValue = [...r.perArea].sort((a, b) => b.value - a.value)
+  const locked = byValue.filter((a) => craterState(a) === 'locked')
+  const missed = byValue.filter((a) => craterState(a) === 'missed')
+  const readers = setup.scanners.filter((s) => s.mapsIce)
+  const names = (setup.scanners.length ? setup.scanners : readers).map((s) => s.name).join(' and ') || 'craft'
+  if (locked.length) {
+    const why = readers.length === 0 ? `the ${names} reads no ice` : `the ${readers.map((s) => s.name).join(' and ')} cannot see into permanent shadow`
+    return `Locked out of ${listNames(locked.map((a) => a.name))}: ${why}.`
+  }
+  if (!missed.length) return 'Every crater mapped.'
+  const narrow = beamRadius(setup) < BEAM_AT_REFERENCE
+  const cause =
+    r.reason === 'battery'
+      ? 'the battery ran out first; a bigger battery buys more time'
+      : narrow
+        ? `the ${readers.map((s) => s.name).join(' and ')}'s footprint is narrow, sweep slower`
+        : 'they slipped past; aim at the big shadowed craters first'
+  return `Missed ${listNames(missed.map((a) => a.name))}: ${cause}.`
+}

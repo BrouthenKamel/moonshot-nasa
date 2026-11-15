@@ -12,7 +12,7 @@ import type { Design } from '../../sim/types'
 import { computeSynergies } from '../../viz/synergies'
 
 export const COVERAGE_TARGET = 70
-const MAX_INSTRUMENTS = 2
+export const MAX_INSTRUMENTS = 2
 const VERY_WEAK = 0.2
 const FALLBACK_ALTITUDE_KM = 15
 

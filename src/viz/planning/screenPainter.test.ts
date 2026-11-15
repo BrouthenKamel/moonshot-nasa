@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { paintScreen, animFromView, SCREEN_H } from './screenPainter'
+import { paintScreen, animFromView, SCREEN_H, statusChipBox } from './screenPainter'
 import { buildPlanningView, type PlanningView } from './planningView'
 import { computeBudgets } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
@@ -70,8 +70,9 @@ describe('paintScreen', () => {
     const time = v.checks.find((c) => c.resource === 'Time')!
     expect(time.reason).toContain('take a later ride')
     expect(lines.some((t) => t.includes('take a later ride'))).toBe(true)
-    // Nothing on the check lines runs past the right edge (the fake context measures 18 px a character)
-    for (const c of calls.filter((c) => c.name === 'fillText' && (c.args[2] as number) > 700))
+    // Nothing on the check lines runs past the right edge (the fake context measures 18 px a character);
+    // the status tag's centred label is checked on its own below
+    for (const c of calls.filter((c) => c.name === 'fillText' && (c.args[2] as number) > 700 && c.args[0] !== v.status.chip))
       expect((c.args[1] as number) + String(c.args[0]).length * 18).toBeLessThanOrEqual(2400)
   })
 
@@ -85,6 +86,22 @@ describe('paintScreen', () => {
       const [, y, , h] = c.args as number[]
       expect(y).toBeGreaterThanOrEqual(0)
       expect(y + Math.max(0, h)).toBeLessThanOrEqual(SCREEN_H)
+    }
+  })
+
+  // Integration review, 15 Nov: the tag was cut by the "Select instruments" button and the title card
+  it('puts the status tag in the bottom strip, clear of the header row, and ends the check lines before it', () => {
+    for (const v of Object.values(cases)) {
+      const { ctx, calls } = fakeContext()
+      paintScreen(ctx, v, animFromView(v))
+      const tag = calls.find((c) => c.name === 'fillText' && c.args[0] === v.status.chip)!
+      expect(tag).toBeTruthy()
+      expect(tag.args[2] as number).toBeGreaterThan(700)
+      const box = statusChipBox(ctx, v)
+      expect(box.x + box.w).toBeLessThanOrEqual(2400)
+      expect(box.y + box.h).toBeLessThanOrEqual(SCREEN_H)
+      for (const c of calls.filter((c) => c.name === 'fillText' && (c.args[2] as number) > 700 && c.args[0] !== v.status.chip))
+        expect((c.args[1] as number) + String(c.args[0]).length * 18).toBeLessThanOrEqual(box.x)
     }
   })
 

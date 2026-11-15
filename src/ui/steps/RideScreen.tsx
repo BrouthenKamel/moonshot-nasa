@@ -1,8 +1,7 @@
 import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { canUseWebGL } from '../../scene/webgl'
-import { STEP_NAMES, nextLabel, stepTitle } from '../kit/stepNumbers'
-import { timedTransferDays, timedTransferId } from '../../data/transfers'
+import { LOW_ENERGY_DAYS, timedTransferDays, timedTransferId } from '../../data/transfers'
 import { getRideById } from '../../data/rides'
 import { choiceArt } from '../../assets/catalogueArt'
 import { assetUrl } from '../../assets/url'
@@ -15,9 +14,12 @@ import {
   designDays,
   minDaysFor,
   positionOfDays,
+  transferBlocker,
   transferPlan,
   type TransferPlan,
 } from '../../viz/ride/transferPlan'
+import { Details } from '../kit'
+import { STEP_NAMES, nextLabel, stepTitle } from '../kit/stepNumbers'
 import {
   PANEL_PX,
   SLIDER_PX,
@@ -67,6 +69,12 @@ const KIND_LINE: Record<TransferPlan['kind'], string> = {
 
 const months = (n: number) => `${n} month${n === 1 ? '' : 's'}`
 
+/** The two real ways to the Moon, as ticks on the slider; a click snaps to the day count named */
+const TRANSFER_MARKS = [
+  { at: positionOfDays(TRANSFER_MIN_DAYS), label: 'Direct, 4–5 days (needs a chemical engine)' },
+  { at: positionOfDays(LOW_ENERGY_DAYS), label: 'Low-energy, 90+ days (CAPSTONE took about 4 months)' },
+]
+
 /** Room the slider and the dashboard take on the right, with their margins */
 const RIGHT_PX = PANEL_PX + SLIDER_PX + 40
 
@@ -94,14 +102,8 @@ function TransferDashboard({ plan, onBack }: { plan: TransferPlan; onBack: () =>
           tone={plan.cruiseMonths === null ? 'red' : undefined}
           sub={plan.cruiseMonths === null ? 'cannot capture' : plan.cruiseMonths === 0 ? 'same month' : `${months(plan.cruiseMonths)} on the way`}
         />
-        <PlanRow label="Arrives at" value={`${plan.arrivalKms.toFixed(2)} km/s`} sub="over escape speed" />
         <PlanRow
-          label="Brake into orbit"
-          value={plan.capture === null ? 'cannot' : `${Math.round(plan.capture)} m/s`}
-          tone={fuelTone}
-          sub={`tank ${Math.round(plan.tank)} m/s`}
-        />
-        <PlanRow
+          className="col-span-2"
           label="Fuel left"
           value={plan.leftAfter === null ? '—' : `${Math.round(plan.leftAfter)} m/s`}
           tone={plan.leftAfter === null || plan.leftAfter < 0 ? 'red' : holdTone}
@@ -113,11 +115,23 @@ function TransferDashboard({ plan, onBack }: { plan: TransferPlan; onBack: () =>
                 : 'not enough'
           }
         />
-        <PlanRow label="Ride" value={plan.rideName} />
       </PlanRows>
+      {/* The rest of the figures wait behind the shared Details control (screen budget: three numbers) */}
+      <Details id="transfer" label="Details: arrival, braking, ride">
+        <PlanRows>
+          <PlanRow label="Arrives at" value={`${plan.arrivalKms.toFixed(2)} km/s`} sub="over escape speed" />
+          <PlanRow
+            label="Brake into orbit"
+            value={plan.capture === null ? 'cannot' : `${Math.round(plan.capture)} m/s`}
+            tone={fuelTone}
+            sub={`tank ${Math.round(plan.tank)} m/s`}
+          />
+          <PlanRow label="Ride" value={plan.rideName} />
+        </PlanRows>
+      </Details>
       <PlanChecks checks={plan.checks} />
       <PlanOdds />
-      <PlanNav back={{ label: '← Back', to: onBack }} next={{ label: nextLabel('ride'), to: 'comms' }} />
+      <PlanNav back={{ label: '← Back', to: onBack }} next={{ label: nextLabel('ride'), to: 'comms', blockedBy: transferBlocker(plan) ?? undefined }} />
     </PlanPanel>
   )
 }
@@ -156,6 +170,7 @@ function TransferView({ onBack, webgl, onSceneError }: { onBack: () => void; web
       valueText={`${plan.days} days`}
       topText={`${TRANSFER_MAX_DAYS} days`}
       bottomText={`${TRANSFER_MIN_DAYS} days`}
+      marks={TRANSFER_MARKS}
     />
   )
   const dashboard = <TransferDashboard plan={plan} onBack={onBack} />
@@ -210,7 +225,7 @@ function RideOption({ row }: { row: BoardRow }) {
     >
       {art?.card && <img src={assetUrl(art.card)} alt="" className="h-[68px] w-[92px] shrink-0 rounded object-cover" />}
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-display text-sm font-bold text-paper">{ride?.name ?? row.name}</span>
+        <span className="line-clamp-2 font-display text-sm font-bold leading-tight text-paper">{ride?.name ?? row.name}</span>
         <span className="truncate text-[0.68rem] text-paper-faint">
           {row.dropWords} · {row.limitKg} kg max
         </span>

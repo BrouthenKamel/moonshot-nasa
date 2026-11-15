@@ -10,6 +10,8 @@ import { useGameStore } from '../../state/gameStore'
 import { checkFigures } from '../../viz/checkMargin'
 import { SynergyStrip } from '../../viz/DesignDeltaLine'
 import { POLL_ORDER, ROLE_INFO, stations, type Role, type Station } from '../../viz/gonogo/stations'
+import { POLL_TIMING, pollEnd } from '../../viz/gonogo/pollEnd'
+import { InlineCaptions } from '../kit/Captions'
 import { fixLocation } from '../../viz/missionMap'
 import { checkHeadline } from '../../viz/gonogo/checkHeadline'
 import { Details, Eng, Stamp, Tag, stepTitle, type StampVerdict, type TagTone } from '../kit'
@@ -372,31 +374,42 @@ export function GoNoGoScreen() {
   const [step, setStep] = useState<number | null>(null)
   // Each run of the poll remounts the stamps so they thunk down again
   const [run, setRun] = useState(0)
+  // Only the first poll on entry plays at full length, with every station's voice; a re-poll after a
+  // design change runs about 3× faster with snaps only, so the new lamps show almost at once.
+  // Keyed on the result itself: React's StrictMode runs this effect twice for the same result in dev
+  const lastPolled = useRef<typeof result | null>(null)
   useEffect(() => {
+    const end = pollEnd(result, cannotMeetBrief(result), st)
+    const full = lastPolled.current === null || lastPolled.current === result
+    lastPolled.current = result
+    const t = full ? POLL_TIMING.full : POLL_TIMING.fast
     const timers: number[] = []
     setRun((r) => r + 1)
     setStep(POLL_OPEN)
-    audio.say('voice.poll-open')
-    const gap = 1700
+    if (full) audio.say('voice.poll-open')
     st.forEach((s, i) => {
       timers.push(
         window.setTimeout(() => {
           // The station's stamp thunks onto its lamp as its answer is spoken
           setStep(i)
-          audio.say(POLL_VOICE[s.role])
-          audio.say(s.status === 'red' ? 'voice.no-go' : i === st.length - 1 ? 'voice.go-flight' : 'voice.go')
+          if (full) {
+            audio.say(POLL_VOICE[s.role])
+            audio.say(s.status === 'red' ? 'voice.no-go' : i === st.length - 1 ? 'voice.go-flight' : 'voice.go')
+          }
           audio.play(s.status === 'red' ? 'sfx.error' : 'sfx.select')
           audio.play('sfx.snap')
-        }, 2600 + i * gap),
+        }, t.open + i * t.gap),
       )
     })
     timers.push(
       window.setTimeout(() => {
         setStep(POLL_ORDER.length)
-        audio.say(result.canGo ? 'voice.poll-all-go' : 'voice.poll-hold')
-        audio.play(result.canGo ? 'sfx.go' : 'sfx.alarm')
+        // The closing line matches the stamp: never "all stations are go" over a caution (QC, 15 Nov)
+        if (end.kind === 'caution') audio.note(end.text)
+        else audio.say(end.voice)
+        audio.play(end.kind === 'nogo' ? 'sfx.alarm' : 'sfx.go')
         audio.play('sfx.snap')
-      }, 2600 + st.length * gap + 600),
+      }, t.open + st.length * t.gap + t.end),
     )
     return () => timers.forEach(window.clearTimeout)
   }, [result, st])
@@ -428,6 +441,8 @@ export function GoNoGoScreen() {
             <PollLamp key={s.role} station={s} run={run} active={step === i} stamp={step === null ? 'static' : step >= i ? 'thunk' : 'none'} />
           ))}
         </div>
+        {/* The poll's voice loop, under the lamps it narrates instead of over the header and the step tabs */}
+        <InlineCaptions />
         <h2 className={`mt-1 fp-label text-[0.7rem] tracking-[0.16em] ${issues.length ? 'text-paper' : 'text-go'}`}>
           {issues.length ? 'Needs attention' : 'Nothing needs attention: every check is go'}
         </h2>
