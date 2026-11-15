@@ -19,6 +19,7 @@ import {
   type TransferPlan,
 } from '../../viz/ride/transferPlan'
 import { Details } from '../kit'
+import { STEP_NAMES, nextLabel, stepTitle } from '../kit/stepNumbers'
 import {
   PANEL_PX,
   SLIDER_PX,
@@ -86,7 +87,7 @@ function TransferDashboard({ plan, onBack }: { plan: TransferPlan; onBack: () =>
   const holdTone: Tone = plan.monthsHeld >= 12 ? 'green' : plan.monthsHeld >= 6 ? 'yellow' : 'red'
   return (
     <PlanPanel>
-      <PlanHeadline kicker="Transfer · drop-off to the Moon" value={plan.days} unit="days of flight" line={KIND_LINE[plan.kind]} />
+      <PlanHeadline kicker={`${STEP_NAMES.ride}: the transfer to the Moon`} value={plan.days} unit="days of flight" line={KIND_LINE[plan.kind]} />
       {plan.ionEngine &&
         (plan.days < plan.minDays ? (
           <PlanNote tone="red">An ion engine cannot brake from a fast arrival: it needs {plan.minDays} days or more.</PlanNote>
@@ -130,7 +131,7 @@ function TransferDashboard({ plan, onBack }: { plan: TransferPlan; onBack: () =>
       </Details>
       <PlanChecks checks={plan.checks} />
       <PlanOdds />
-      <PlanNav back={{ label: '← Launch', to: onBack }} next={{ label: 'Comms →', to: 'comms', blockedBy: transferBlocker(plan) ?? undefined }} />
+      <PlanNav back={{ label: '← Back', to: onBack }} next={{ label: nextLabel('ride'), to: 'comms', blockedBy: transferBlocker(plan) ?? undefined }} />
     </PlanPanel>
   )
 }
@@ -243,7 +244,8 @@ function RideList({ onNext }: { onNext: () => void }) {
   const view = useRideView()
   return (
     <div className="hud-panel pointer-events-auto flex w-[320px] flex-col gap-2 rounded-xl p-3">
-      <div className="fp-label text-[0.66rem] tracking-[0.16em] text-kapton">Ride · pick a launch</div>
+      <div className="fp-label text-[0.66rem] tracking-[0.16em] text-kapton">{stepTitle('ride')}</div>
+      <div className="text-[0.76rem] text-paper-dim">Pick a launch that drops the craft on its way.</div>
       <div role="radiogroup" aria-label="Rideshare launch" className="flex flex-col gap-2">
         {view.rows.map((r) => (
           <RideOption key={r.id} row={r} />

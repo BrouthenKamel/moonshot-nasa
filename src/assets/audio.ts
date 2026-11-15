@@ -94,9 +94,13 @@ safely(() => Howler.mute(useAudioSettings.getState().muted))
 /* ---------------- voice: a queue through a radio filter ---------------- */
 
 const voiceBuffers = new Map<AudioId, Promise<AudioBuffer | null>>()
-/** Lines waiting to be spoken, with when they were asked for: a line that waited too long is stale */
-/** A queued line: a recorded voice clip, or a caption-only line (`text`) when no clip says the right thing */
-const voiceQueue: ({ id: AudioId; at: number } | { text: string; at: number })[] = []
+/**
+ * Lines waiting to be spoken, with when they were asked for (a line that waited too long is stale):
+ * a recorded voice clip, or a caption-only line (`text`) when no clip says the right thing.
+ * `settle` tells the caller the line is over: spoken, or dropped (stale, crowded out, hushed).
+ */
+type Line = ({ id: AudioId } | { text: string }) & { at: number; settle: () => void }
+const voiceQueue: Line[] = []
 const STALE_MS = 7000
 /**
  * Longest a caption may stay up, whatever happens to the sound (Integration review, 15 Nov: "Liftoff.
@@ -171,11 +175,15 @@ function radioChain(ctx: AudioContext, gain: number): { input: AudioNode; output
 async function speakNext() {
   if (speaking) return
   let next = voiceQueue.shift()
-  while (next && performance.now() - next.at > STALE_MS) next = voiceQueue.shift()
+  while (next && performance.now() - next.at > STALE_MS) {
+    next.settle()
+    next = voiceQueue.shift()
+  }
   if (!next) return
   speaking = true
   let caption: string | null = null
   let finished = false
+  const line = next
   const done = () => {
     if (finished) return
     finished = true
@@ -183,6 +191,7 @@ async function speakNext() {
     speaking = false
     // Only take down our own caption: hush() may already have cleared it, and a newer line put up its own
     if (useAudioSettings.getState().caption === caption) useAudioSettings.setState({ caption: null })
+    line.settle()
     void speakNext()
   }
   // Every caption, spoken or caption-only, comes down after MAX_CAPTION_MS whatever the sound does
@@ -213,6 +222,15 @@ async function speakNext() {
   src.connect(chain.input)
   src.onended = () => window.setTimeout(done, 250)
   src.start(start + 0.32)
+}
+
+function enqueue(what: { id: AudioId } | { text: string }): Promise<void> {
+  return new Promise((settle) => {
+    voiceQueue.push({ ...what, at: performance.now(), settle })
+    while (voiceQueue.length > MAX_QUEUE) voiceQueue.shift()!.settle()
+    if ('id' in what) void loadVoice(what.id)
+    void speakNext()
+  })
 }
 
 export const audio = {
@@ -265,27 +283,25 @@ export const audio = {
     h.play()
   },
 
-  /** Queue a voice line: radio filter, Quindar tone, caption while it plays */
-  say(id: AudioId) {
-    voiceQueue.push({ id, at: performance.now() })
-    while (voiceQueue.length > MAX_QUEUE) voiceQueue.shift()
-    void loadVoice(id)
-    void speakNext()
+  /**
+   * Queue a voice line: radio filter, Quindar tone, caption while it plays. Resolves when the line is over
+   * (spoken, or dropped), so a sequence can wait for its words, e.g. the Go/No-Go poll.
+   */
+  say(id: AudioId): Promise<void> {
+    return enqueue({ id })
   },
 
   /**
    * Queue a caption-only line in the voice loop, in turn with the spoken lines (no clip, no Quindar tone).
    * For a moment no recorded clip fits, e.g. "Go with a caution on Science" (no such clip was recorded).
    */
-  note(text: string) {
-    voiceQueue.push({ text, at: performance.now() })
-    while (voiceQueue.length > MAX_QUEUE) voiceQueue.shift()
-    void speakNext()
+  note(text: string): Promise<void> {
+    return enqueue({ text })
   },
 
   /** Drop lines not yet spoken and take the caption down (e.g. when the flight phase changes) */
   hush() {
-    voiceQueue.length = 0
+    voiceQueue.splice(0).forEach((l) => l.settle())
     useAudioSettings.setState({ caption: null })
   },
 

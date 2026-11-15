@@ -11,7 +11,7 @@ import { instruments, type InstrumentPart } from '../../data/parts'
 import { useAgencyStore } from '../../state/agencyStore'
 import { instrumentLock, lockedInDesign, toggleUnlocked } from '../../scene/instrumentStage/labLocks'
 import { ChoiceCard } from '../kit/ChoiceCard'
-import { Btn, Eng, LineItem, Sheet, StepHeader, Tag, stepNumber } from '../kit'
+import { Btn, Eng, LineItem, Sheet, StepHeader, Tag, nextLabel, stepNumber, stepTitle } from '../kit'
 import { audio } from '../../assets/audio'
 import { assetUrl } from '../../assets/url'
 import { choiceArt } from '../../assets/catalogueArt'
@@ -262,7 +262,7 @@ export function InstrumentsScreen() {
 
   return (
     <>
-      <StepHeader step="instruments" title="Instruments" className="mx-auto mb-4 max-w-3xl">
+      <StepHeader step="instruments" title={stepTitle('instruments')} className="mx-auto mb-4 max-w-3xl">
         <span className="fp-data text-sm text-paper">{`${count} of ${MAX_INSTRUMENTS} instruments`}</span>
         <Eng className="fp-data text-xs text-paper-dim">
           · {totalMass.toFixed(1)} kg · {budgets.instrumentPower} W · {budgets.dataPerTurn.toFixed(0)} MB/month
@@ -294,8 +294,8 @@ export function InstrumentsScreen() {
         {count === 0 && <div className="border-l-2 border-nogo bg-ink-2 p-3 text-sm text-paper">Select at least one instrument to continue.</div>}
 
         <div className="flex justify-end pt-1">
-          <Btn variant="primary" type="button" onClick={() => setDesignStep('rocket')} disabled={count === 0}>
-            Choose the rocket →
+          <Btn variant="primary" type="button" onClick={() => setDesignStep('spacecraft')} disabled={count === 0}>
+            {nextLabel('instruments')}
           </Btn>
         </div>
       </div>

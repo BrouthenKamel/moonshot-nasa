@@ -14,7 +14,7 @@ import { POLL_TIMING, pollEnd } from '../../viz/gonogo/pollEnd'
 import { InlineCaptions } from '../kit/Captions'
 import { fixLocation } from '../../viz/missionMap'
 import { checkHeadline } from '../../viz/gonogo/checkHeadline'
-import { Details, Eng, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
+import { Details, Eng, Stamp, Tag, stepTitle, type StampVerdict, type TagTone } from '../kit'
 import { Tooltip } from '../Tooltip'
 import { goCall } from './gonogo/headline'
 import { useSuccessEstimate } from '../useOdds'
@@ -381,36 +381,52 @@ export function GoNoGoScreen() {
     const end = pollEnd(result, cannotMeetBrief(result), st)
     const full = lastPolled.current === null || lastPolled.current === result
     lastPolled.current = result
-    const t = full ? POLL_TIMING.full : POLL_TIMING.fast
     const timers: number[] = []
+    let cancelled = false
+    const answer = (s: Station, i: number) => {
+      setStep(i)
+      audio.play(s.status === 'red' ? 'sfx.error' : 'sfx.select')
+      audio.play('sfx.snap')
+    }
+    const close = () => {
+      setStep(POLL_ORDER.length)
+      // The closing line matches the stamp: never "all stations are go" over a caution (QC, 15 Nov)
+      if (end.kind === 'caution') void audio.note(end.text)
+      else void audio.say(end.voice)
+      audio.play(end.kind === 'nogo' ? 'sfx.alarm' : 'sfx.go')
+      audio.play('sfx.snap')
+    }
     setRun((r) => r + 1)
     setStep(POLL_OPEN)
-    if (full) audio.say('voice.poll-open')
-    st.forEach((s, i) => {
+    if (full) {
+      // The full poll waits for its words: the director asks, the station's stamp thunks as it answers.
+      // Paced by the voice loop, no line is crowded out (the queue keeps 4) and lamps and voice stay together.
+      // Started on a timer so React's StrictMode double effect cancels it before anything is said.
       timers.push(
-        window.setTimeout(() => {
-          // The station's stamp thunks onto its lamp as its answer is spoken
-          setStep(i)
-          if (full) {
-            audio.say(POLL_VOICE[s.role])
-            audio.say(s.status === 'red' ? 'voice.no-go' : i === st.length - 1 ? 'voice.go-flight' : 'voice.go')
+        window.setTimeout(async () => {
+          await audio.say('voice.poll-open')
+          for (const [i, s] of st.entries()) {
+            if (cancelled) return
+            await audio.say(POLL_VOICE[s.role])
+            if (cancelled) return
+            answer(s, i)
+            await audio.say(s.status === 'red' ? 'voice.no-go' : i === st.length - 1 ? 'voice.go-flight' : 'voice.go')
           }
-          audio.play(s.status === 'red' ? 'sfx.error' : 'sfx.select')
-          audio.play('sfx.snap')
-        }, t.open + i * t.gap),
+          if (!cancelled) close()
+        }, 0),
       )
-    })
-    timers.push(
-      window.setTimeout(() => {
-        setStep(POLL_ORDER.length)
-        // The closing line matches the stamp: never "all stations are go" over a caution (QC, 15 Nov)
-        if (end.kind === 'caution') audio.note(end.text)
-        else audio.say(end.voice)
-        audio.play(end.kind === 'nogo' ? 'sfx.alarm' : 'sfx.go')
-        audio.play('sfx.snap')
-      }, t.open + st.length * t.gap + t.end),
-    )
-    return () => timers.forEach(window.clearTimeout)
+    } else {
+      // A re-poll after a design change: about 3× faster, snaps only, then the closing line
+      const t = POLL_TIMING.fast
+      st.forEach((s, i) => timers.push(window.setTimeout(() => answer(s, i), t.open + i * t.gap)))
+      timers.push(window.setTimeout(close, t.open + st.length * t.gap + t.end))
+    }
+    return () => {
+      cancelled = true
+      timers.forEach(window.clearTimeout)
+      // Words of a poll that no longer applies are not spoken
+      audio.hush()
+    }
   }, [result, st])
 
   const polling = step !== null && step < POLL_ORDER.length
@@ -434,7 +450,7 @@ export function GoNoGoScreen() {
   return (
     <div className="grid h-full min-h-[560px] grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_minmax(0,1fr)] gap-x-4 gap-y-3 overflow-hidden p-4">
       <div className="col-start-1 row-start-1 flex min-w-0 flex-col gap-3">
-        <h2 className="fp-label text-[0.7rem] tracking-[0.16em] text-paper">Go / No-Go poll · each station answers for its checks</h2>
+        <h2 className="fp-label text-[0.7rem] tracking-[0.16em] text-paper">{stepTitle('go-nogo')} · each station answers for its checks</h2>
         <div className="grid grid-cols-4 gap-3">
           {st.map((s, i) => (
             <PollLamp key={s.role} station={s} run={run} active={step === i} stamp={step === null ? 'static' : step >= i ? 'thunk' : 'none'} />

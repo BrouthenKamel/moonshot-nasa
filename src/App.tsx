@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react'
 import { useGameStore } from './state/gameStore'
 import { useViewMode } from './ui/useViewMode'
 import { Shell } from './ui/Shell'
@@ -162,7 +163,20 @@ function ReplayScreen() {
   )
 }
 
+const CampaignLab = import.meta.env.DEV ? lazy(() => import('./campaign/scenes/Lab').then((m) => ({ default: m.CampaignLab }))) : () => null
+
 export default function App() {
+  // Dev builds only: the scene lab for the campaign's shows (src/campaign/scenes/Lab.tsx), never in the shipped bundle
+  if (import.meta.env.DEV && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('campaignlab'))
+    return (
+      <Suspense fallback={null}>
+        <CampaignLab />
+      </Suspense>
+    )
+  return <MainApp />
+}
+
+function MainApp() {
   const screen = useGameStore((s) => s.screen)
   const openingDone = useUiStore((s) => s.openingDone)
   useAudioDirector()

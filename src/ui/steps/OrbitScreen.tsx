@@ -3,6 +3,7 @@ import { useGameStore } from '../../state/gameStore'
 import { getOrbitById, polarOrbitId, polarOrbitKm } from '../../data/orbits'
 import { canUseWebGL } from '../../scene/webgl'
 import { Details } from '../kit'
+import { nextLabel, stepTitle } from '../kit/stepNumbers'
 import { COVERAGE_TARGET } from '../../sim/evaluate'
 import { ORBIT_MAX_KM, ORBIT_MIN_KM, kmAt, orbitPlan, positionOf, type OrbitPlan } from '../../viz/orbit/orbitPlan'
 import {
@@ -78,7 +79,7 @@ function OrbitDashboard({ plan }: { plan: OrbitPlan }) {
   const holdTone: Tone = plan.monthsHeld >= 12 ? 'green' : plan.monthsHeld >= 6 ? 'yellow' : 'red'
   return (
     <PlanPanel>
-      <PlanHeadline kicker="Orbit · height over the south pole" value={fmtKm(plan.km)} unit="km" line={heightLine(plan)} />
+      <PlanHeadline kicker={stepTitle('orbit')} value={fmtKm(plan.km)} unit="km" line={heightLine(plan)} />
       <PlanNote tone={ice.tone}>{ice.text}</PlanNote>
       <PlanMeter label="Ice mapped in 12 months" pct={plan.iceMapped} tone={iceTone} goal={GOAL / 100} />
       <PlanRows>
@@ -112,7 +113,7 @@ function OrbitDashboard({ plan }: { plan: OrbitPlan }) {
       </Details>
       <PlanChecks checks={plan.checks} />
       <PlanOdds />
-      <PlanNav next={{ label: 'Choose ride →', to: 'ride' }} />
+      <PlanNav next={{ label: nextLabel('orbit'), to: 'ride' }} />
     </PlanPanel>
   )
 }

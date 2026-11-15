@@ -1,6 +1,6 @@
 import { useGameStore } from '../../state/gameStore'
 import { lunarIceMapperBrief, difficultyPresets } from '../../data/brief'
-import { Btn, LineItem, Sheet, StepHeader, STEP_QUESTION, stepNumber } from '../kit'
+import { Btn, LineItem, Sheet, StepHeader, STEP_QUESTION, nextLabel, stepNumber } from '../kit'
 import { STEP_NAMES, buildingName, firstStop } from '../../viz/missionMap'
 import { audio } from '../../assets/audio'
 
@@ -19,7 +19,7 @@ export function BriefScreen() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 pb-16">
-      <StepHeader step="brief" kicker="Comms Center" title={brief.name} />
+      <StepHeader step="brief" kicker="Comms Center" title={`${STEP_NAMES.brief}: ${brief.name}`} />
 
       <Sheet className="space-y-6 p-6 sm:p-8 rounded-2xl border border-rule/80 bg-ink-1/90 shadow-2xl backdrop-blur-md">
         {/* Cinematic Directive Header */}
@@ -89,7 +89,7 @@ export function BriefScreen() {
           }}
           className="shadow-xl shadow-kapton/20 px-6 py-3 text-sm font-bold tracking-wider uppercase font-mono"
         >
-          COMMENCE MISSION PLANNING →
+          {nextLabel('brief')}
         </Btn>
       </div>
     </div>

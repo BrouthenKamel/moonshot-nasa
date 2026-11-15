@@ -162,7 +162,8 @@ export function sanitizeSavedGame(raw: unknown): SavedGame {
     : []
   const out: SavedGame = {
     design: validDesign(s.design) ?? createDefaultDesign(),
-    designStep: isStep(s.designStep) ? s.designStep : 'brief',
+    // The Rocket step was folded into the Craft step: a save made on it opens the craft
+    designStep: s.designStep === 'rocket' ? 'spacecraft' : isStep(s.designStep) ? s.designStep : 'brief',
     visitedSteps: Array.isArray(s.visitedSteps) ? (s.visitedSteps as unknown[]).filter(isStep) : [],
     runHistory,
     simState,

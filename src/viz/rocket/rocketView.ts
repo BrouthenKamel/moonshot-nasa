@@ -164,3 +164,36 @@ export function partStat(part: RocketPart): string {
   if (part.slot === 'boosters') return `${part.boosters} boosters · ${m}`
   return m
 }
+
+/** One row of the Craft step's rocket explainer: the payload, or one part of the rocket */
+export interface ExplainerItem {
+  id: RocketSlot | 'payload'
+  /** The slot's name, e.g. "Upper stage" */
+  title: string
+  /** The part on this rocket, e.g. "Short upper stage" */
+  label: string
+  what: string
+  example?: string
+}
+
+/** What rides at the very top: the player's CubeSat, in its deployer inside the fairing */
+export const PAYLOAD_EXPLAINER: ExplainerItem = {
+  id: 'payload',
+  title: 'Payload',
+  label: 'Your CubeSat',
+  what: 'Your craft rides sealed in a spring-loaded deployer, bolted inside the fairing. In space the fairing falls away, the door opens and the spring pushes the CubeSat out.',
+  example: 'On Artemis I, Lunar IceCube and LunaH-Map rode to the Moon in deployers like this, tucked inside the rocket below the Orion capsule.',
+}
+
+/**
+ * The rocket explained from the top down: the payload first, then every part this rocket has.
+ * Reuses each part's own words from the rocket data; nothing here is a choice.
+ */
+export function rocketExplainer(config: RocketConfig): ExplainerItem[] {
+  const order: RocketSlot[] = ['nose', 'stage2', 'stage1', 'boosters', 'fins', 'engine']
+  const parts = order
+    .map((slot) => getRocketPart(slot, config[slot])!)
+    .filter((p) => p.model !== null)
+    .map((p) => ({ id: p.slot, title: rocketSlots.find((s) => s.id === p.slot)!.title, label: p.label, what: p.what, example: p.example }))
+  return [PAYLOAD_EXPLAINER, ...parts]
+}

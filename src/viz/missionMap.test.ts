@@ -157,7 +157,7 @@ describe('mission map', () => {
   })
 
   it('names the building where a step is fixed', () => {
-    expect(fixLocation('spacecraft')).toBe('the Factory (Spacecraft)')
+    expect(fixLocation('spacecraft')).toBe('the Factory (Craft)')
     expect(fixLocation('comms')).toBe('the Communications Center (Comms)')
   })
 

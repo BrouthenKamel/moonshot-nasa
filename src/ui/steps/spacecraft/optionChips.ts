@@ -25,3 +25,19 @@ export function optionChips(key: TrayKey, o: TrayOption): ChoiceStat[] {
   }
   return chips
 }
+
+/**
+ * The one number on a tray card itself: the part's trade (W for panels, Wh for batteries, MB for
+ * computers, degrees for pointing, fuelled kg for engines). Every number, labelled, shows on hover
+ * or focus: in the fact strip above the tray, and in the card's tooltip (allStats).
+ */
+export function cardChips(key: TrayKey, o: TrayOption): ChoiceStat[] {
+  return optionChips(key, o).slice(0, 1)
+}
+
+/** All of a part's numbers in one line, for the card's tooltip: "Power 28 W · Mass 0.4 kg · Volume 0.2 U · Cost $0.1M" */
+export function allStats(key: TrayKey, o: TrayOption): string {
+  return optionChips(key, o)
+    .map((c) => `${c.label} ${c.value}`)
+    .join(' · ')
+}

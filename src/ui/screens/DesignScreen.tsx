@@ -5,7 +5,6 @@ import {
   BriefScreen,
   PlanningScreen,
   InstrumentsScreen,
-  RocketScreen,
   SpacecraftScreen,
   OrbitScreen,
   RideScreen,
@@ -21,8 +20,8 @@ function StepScreen({ designStep }: { designStep: string }) {
       return <PlanningScreen />
     case 'instruments':
       return <InstrumentsScreen />
+    // The rocket is explained inside the Craft step now; an old save on 'rocket' opens the craft
     case 'rocket':
-      return <RocketScreen />
     case 'spacecraft':
       return <SpacecraftScreen />
     case 'orbit':

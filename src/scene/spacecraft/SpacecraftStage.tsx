@@ -18,6 +18,8 @@ import { useInsidePath, type CamKey } from '../interaction/InsideCam'
 import { brownout, ledBrightness, scaleState, springStep, volumeRefusal } from '../interaction/reactions'
 import { prefersReducedMotion } from '../space/quality'
 import { Effects } from '../space/Effects'
+import { ModelRocket } from '../rocket/ModelRocket'
+import type { RocketConfig } from '../../data/rocket'
 
 /**
  * The spacecraft step's assembly bay: the 6U craft hovers over a turntable in a dark bay, built from
@@ -86,6 +88,8 @@ export interface StageProps {
   propellantMassKg?: number
   sunLamp?: boolean
   selected?: Record<FactorySlot, string>
+  /** The launch rocket, shown as a scale model behind the craft: what it will ride in */
+  rocket?: RocketConfig
 }
 
 /* ---------------- a craft part ---------------- */
@@ -718,6 +722,44 @@ function CameraRig({ view }: { view: ViewPreset }) {
   )
 }
 
+/* ---------------- the rocket it will ride in ---------------- */
+
+/** Height of the scale model, in metres, and how far in front of the camera it stands */
+const MODEL_ROCKET_M = 0.1
+const MODEL_ROCKET_DIST = 0.4
+
+/**
+ * The launch rocket as a small turning model, held in the lower left of the view wherever the
+ * camera orbits: context while the craft is built, so the player sees what it will ride in.
+ * It stands upright in the room and is drawn over it, so a wing swinging past never hides it.
+ */
+function RocketBesideCamera({ config }: { config: RocketConfig }) {
+  const holder = useRef<THREE.Group>(null)
+  const spin = useRef<THREE.Group>(null)
+  const inside = useInsidePlaying('factory-integrate')
+  const at = useMemo(() => new THREE.Vector3(), [])
+  useFrame(({ camera, size }, dt) => {
+    const g = holder.current
+    if (!g) return
+    const cam = camera as THREE.PerspectiveCamera
+    const h = MODEL_ROCKET_DIST * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))
+    const w = h * (size.width / Math.max(1, size.height))
+    at.set(-0.82 * w, -0.78 * h, -MODEL_ROCKET_DIST).applyMatrix4(cam.matrixWorld)
+    g.position.copy(at)
+    g.visible = !inside
+    if (spin.current) spin.current.rotation.y += dt * 0.5
+  })
+  return (
+    <group ref={holder}>
+      <group ref={spin}>
+        <Suspense fallback={null}>
+          <ModelRocket config={config} position={[0, 0, 0]} heightM={MODEL_ROCKET_M} onTop />
+        </Suspense>
+      </group>
+    </group>
+  )
+}
+
 /* ---------------- the scene ---------------- */
 
 function Scene({
@@ -757,6 +799,7 @@ function Scene({
       <Bay ringColor={props.ringColor} reduced={reduced} />
       <WeighingScale massKg={massKg} massLimitKg={massLimitKg} reduced={reduced} />
       <WorkbenchParts selected={props.selected} />
+      {props.rocket && <RocketBesideCamera config={props.rocket} />}
       <CameraRig view={props.view} />
       <HoldStillWhileDragging />
       <SnapNudge />

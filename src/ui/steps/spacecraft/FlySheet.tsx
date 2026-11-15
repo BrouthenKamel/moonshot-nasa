@@ -1,5 +1,6 @@
 import type { BayView, BoardRow, RowKey } from '../../../viz/spacecraft/bayView'
 import { Eng, MarginTick, Sheet, Stamp, type StampVerdict } from '../../kit'
+import { RED_WORD, redCause } from '../../../viz/spacecraft/redCause'
 
 /** Short scale names: the long board titles stay in the tooltip */
 const LABEL: Record<RowKey, string> = {
@@ -13,20 +14,10 @@ const LABEL: Record<RowKey, string> = {
 
 const UNIT: Record<RowKey, string> = { mass: 'kg', volume: 'U', power: 'W', money: '$M', deltav: 'm/s', time: 'mo' }
 
-/** What a red row means, in two or three words */
-const RED_WORD: Record<RowKey, string> = {
-  mass: 'Too heavy',
-  volume: 'Does not fit',
-  power: 'Not enough power',
-  money: 'Over budget',
-  deltav: 'Cannot reach',
-  time: 'Not ready in time',
-}
-
-/** The one verdict for the bay: the first red row, else the first tight one, else FITS */
-function flyVerdict(view: BayView): { verdict: StampVerdict; word: string } {
+/** The one verdict for the bay: the first red row, else the first tight one, else FITS; a red one says why */
+function flyVerdict(view: BayView): { verdict: StampVerdict; word: string; cause?: string } {
   const red = view.rows.find((r) => r.tone === 'red')
-  if (red) return { verdict: 'nogo', word: RED_WORD[red.key] }
+  if (red) return { verdict: 'nogo', word: RED_WORD[red.key], cause: redCause(red) }
   const tight = view.rows.find((r) => r.tone === 'yellow')
   if (tight) return { verdict: 'caution', word: `Tight: ${LABEL[tight.key].toLowerCase()}` }
   return { verdict: 'go', word: 'Fits' }
@@ -34,9 +25,21 @@ function flyVerdict(view: BayView): { verdict: StampVerdict; word: string } {
 
 /**
  * "Does it fly?": one needle per margin the Factory can turn red, and one stamp.
- * Story view: needles, words and the stamp. Engineer view adds each row's numbers and reason.
+ * Story view: needles, words and the stamp; under a red stamp, one sentence naming the cause.
+ * Engineer view adds each row's numbers and reason. `onReset`, when given, puts the starter
+ * craft back in one click (the screen passes it only while the craft differs from the starter).
  */
-export function FlySheet({ view, preview, className = '' }: { view: BayView; preview?: BayView | null; className?: string }) {
+export function FlySheet({
+  view,
+  preview,
+  onReset,
+  className = '',
+}: {
+  view: BayView
+  preview?: BayView | null
+  onReset?: () => void
+  className?: string
+}) {
   const v = flyVerdict(view)
   const ghost = (r: BoardRow) => {
     const p = preview?.rows.find((x) => x.key === r.key)
@@ -50,6 +53,23 @@ export function FlySheet({ view, preview, className = '' }: { view: BayView; pre
           {v.word}
         </Stamp>
       </div>
+      {onReset && (
+        <div className="mt-1 flex justify-end">
+          <button
+            type="button"
+            onClick={onReset}
+            className="whitespace-nowrap text-[11px] text-paper-dim underline decoration-rule underline-offset-2 hover:text-kapton"
+            data-testid="reset-starter"
+          >
+            Reset to starter
+          </button>
+        </div>
+      )}
+      {v.cause && (
+        <p className="mt-1.5 text-xs leading-snug text-nogo" data-testid="fly-cause">
+          {v.cause}
+        </p>
+      )}
       <ul className="mt-2.5 space-y-2.5">
         {view.rows.map((r) => (
           <li key={r.key} title={r.reason || r.title}>
