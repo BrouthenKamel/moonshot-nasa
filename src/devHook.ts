@@ -8,6 +8,7 @@ import { CAMPAIGN, type CampaignMissionId } from './campaign/missions'
 import { awardIceMapper } from './campaign/ledger'
 import { markOpened, recordFlight } from './campaign/progress'
 import type { Outcome } from './campaign/scenes/types'
+import { clampPopularity, popularityEffects } from './game/economy'
 
 /**
  * Dev builds only: the stores on `window.__moonshot`, so the Playwright checks in `scripts/e2e`
@@ -26,7 +27,10 @@ export function installDevHook() {
     },
     iceMapper(outcome: Outcome = 'success') {
       const w = useWorldStore.getState()
-      useWorldStore.setState(awardIceMapper(w, CAMPAIGN[0], outcome, true))
+      // What main's own settlement would add: the launch and the result (src/game/world.ts)
+      const effect = outcome === 'success' ? popularityEffects.missionSuccess : outcome === 'partial' ? popularityEffects.missionPartial : popularityEffects.missionFailed
+      const settled = { ...w, popularity: clampPopularity(w.popularity + popularityEffects.launch + effect) }
+      useWorldStore.setState(awardIceMapper(settled, CAMPAIGN[0], outcome, true))
       useCampaignStore.setState((s) => ({
         progress: recordFlight(s.progress, { missionId: 'ice-mapper', outcome, science: 75, day: w.day, seed: Date.now() }),
         pendingPayoff: { kind: 'ice-map', outcome },

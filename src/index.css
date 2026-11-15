@@ -517,7 +517,6 @@ body { margin: 0; font-family: var(--font-sans); background: var(--color-ink-1);
     radial-gradient(1px 1px at 22% 88%, #ede6d677 50%, transparent 51%),
     radial-gradient(120% 80% at 50% 110%, #1a2234 0%, transparent 60%),
     var(--color-ink-0);
-  animation: campaign-fade 0.35s ease-out;
 }
 .campaign-theme-moon { background-color: #080b12; }
 .campaign-theme-base {

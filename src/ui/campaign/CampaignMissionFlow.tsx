@@ -6,6 +6,7 @@ import { useCampaignStore, type ActiveMission } from '../../state/campaignStore'
 import { useWorldStore } from '../../state/worldStore'
 import { LiftoffShow } from '../../campaign/scenes/LiftoffShow'
 import { PayoffShow } from '../../campaign/scenes/PayoffShow'
+import type { Outcome } from '../../campaign/scenes/types'
 import { audio } from '../../assets/audio'
 import { Stamp } from '../kit'
 import { MissionArt } from './MissionArt'
@@ -37,7 +38,9 @@ function Frame({
   action,
   back,
   details,
+  outcome,
 }: {
+  outcome?: Outcome
   mission: CampaignMission
   step: string
   title: string
@@ -52,7 +55,7 @@ function Frame({
   const abandon = useCampaignStore((s) => s.abandon)
   return (
     <div className={`campaign-backdrop ${THEME[mission.id]} fixed inset-0 z-40 overflow-y-auto text-paper`} role="dialog" aria-modal="true" aria-label={title}>
-      <MissionArt id={mission.id} stage={step === 'Brief' ? 'brief' : step === 'Result' ? 'result' : 'design'} />
+      <MissionArt id={mission.id} outcome={outcome} stage={step === 'Brief' ? 'brief' : step === 'Result' ? 'result' : 'design'} />
       <div className="relative mx-auto flex min-h-full max-w-3xl flex-col px-4 py-6">
         <header className="flex items-center justify-between gap-3">
           <div className="fp-label text-[0.65rem] text-kapton">
@@ -363,6 +366,7 @@ function Result({ a, mission }: { a: ActiveMission; mission: CampaignMission }) 
     <Frame
       mission={mission}
       step="Result"
+      outcome={r.outcome}
       title={look.title}
       numbers={[
         { label: 'Money', value: signed(r.moneyNet, money), tone: r.moneyNet >= 0 ? 'text-go' : 'text-nogo' },

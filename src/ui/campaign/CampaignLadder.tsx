@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CAMPAIGN, type CampaignMission } from '../../campaign/missions'
-import { buildUpMission, gateProgress, ladder, nextMission, type Rung } from '../../campaign/progress'
+import { buildUpMission, gateProgress, ladder, minimumShare, nextMission, type Rung } from '../../campaign/progress'
 import { useCampaignStore } from '../../state/campaignStore'
 import { useWorldStore } from '../../state/worldStore'
 import { useGameStore } from '../../state/gameStore'
@@ -182,6 +182,12 @@ export function CampaignLadder() {
   // The one main action for the selected rung
   let action: { label: string; onClick?: () => void; why?: string }
   if (m.id === 'ice-mapper' && iceFlying) action = { label: 'Back to the flight', onClick: close }
+  else if (rung.open && funds < minimumShare(m, popularity) && buildUp.id !== m.id)
+    action = {
+      label: `Build up: fly the ${buildUp.name} again`,
+      onClick: () => start(buildUp.id),
+      why: `Your share at Go would be at least ${money(minimumShare(m, popularity))}; you have ${money(funds)}. Another flight earns money and popularity.`,
+    }
   else if (rung.open) action = { label: rung.state === 'flown' ? `Fly the ${m.name} again` : `Plan the ${m.name} →`, onClick: () => start(m.id) }
   else if (isNext && gate && gate.previousFlown)
     action = iceFlying

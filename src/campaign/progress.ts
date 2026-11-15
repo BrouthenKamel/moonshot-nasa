@@ -115,6 +115,17 @@ export function gateProgress(progress: CampaignProgress, funds: number, populari
   }
 }
 
+/** The cheapest picks: the least the agency can pay to fly a mission */
+export function cheapestPicks(m: CampaignMission): Picks {
+  return Object.fromEntries(m.choices.map((c) => [c.id, [...c.options].sort((a, b) => a.cost - b.cost)[0].id]))
+}
+
+/** The smallest agency share at Go for a mission at this popularity, $M (0 for mission 1, paid through main) */
+export function minimumShare(m: CampaignMission, popularity: number): number {
+  if (m.choices.length === 0) return 0
+  return missionFunding(planOf(m, cheapestPicks(m)).budget, popularity).agencyPays
+}
+
 /** The picks with the best landing chance: what the build-up advice assumes */
 export function safestPicks(m: CampaignMission): Picks {
   return Object.fromEntries(m.choices.map((c) => [c.id, [...c.options].sort((a, b) => b.reliability - a.reliability)[0].id]))
