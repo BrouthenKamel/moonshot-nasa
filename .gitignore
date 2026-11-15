@@ -38,6 +38,10 @@ assets-src/raw/
 # Raw procedural models: rebuilt from scripts/assets/models/parts by pnpm assets:models
 assets-src/models/parts/
 
-nasa/
+# Local clone of github.com/nasa/NASA-3D-Resources (input for scripts/assets/import-nasa-3d.ts).
+# Anchored to the root: an unanchored "nasa/" also hid public/assets/models/nasa/, so the built models were never committed.
+/nasa/
+# Raw NASA imports: rebuilt from /nasa by import-nasa-3d.ts; the compressed copies in public/ are committed
+assets-src/models/nasa/
 # Playwright check screenshots
 shots/
