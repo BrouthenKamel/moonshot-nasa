@@ -9,7 +9,7 @@ import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { getPartById, type InstrumentPart } from '../../data/parts'
 import { canUseWebGL } from '../../scene/webgl'
 import { lunarOrbits } from '../../data/orbits'
-import { Eng, Sheet, Stamp, StepHeader, type StampVerdict } from '../kit'
+import { Eng, Sheet, Stamp, StepHeader, nextLabel, stepTitle, type StampVerdict } from '../kit'
 import { OrbitCardTray } from './launch/OrbitCards'
 import { playPick } from './launch/radioKeys'
 import { SceneTitle } from './launch/SceneTitle'
@@ -186,7 +186,7 @@ function StepButtons({ overlay }: { overlay: boolean }) {
   )
   const next = (
     <button type="button" onClick={() => setDesignStep('ride')} className="tactical-btn-next">
-      Choose Ride →
+      {nextLabel('orbit')}
     </button>
   )
   if (overlay)
@@ -231,7 +231,7 @@ function PlainOrbit() {
   return (
     <div className="h-full overflow-auto p-4">
       <div className="mx-auto max-w-3xl space-y-4">
-        <StepHeader step="orbit" title="Orbit" kicker="Launch Site" />
+        <StepHeader step="orbit" title={stepTitle('orbit')} />
 
         <VerdictSheet o={view.selected} coverage={coverageAt(view.selected, MISSION_MONTHS)} />
 
@@ -717,7 +717,7 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
       </div>
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-3 left-1/2 -translate-x-1/2 text-center">
-          <SceneTitle step="orbit" title="Orbit" className="pointer-events-auto text-left">
+          <SceneTitle step="orbit" title={stepTitle('orbit')} className="pointer-events-auto text-left">
             <div className="mt-1.5 flex flex-col items-center gap-1 border-t border-rule pt-1.5 fp-data text-xs whitespace-nowrap text-paper-dim">
               {o.reachable ? (
                 <>

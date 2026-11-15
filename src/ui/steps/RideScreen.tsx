@@ -8,7 +8,7 @@ import { useDesignPreview } from '../useDesignPreview'
 import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { canUseWebGL } from '../../scene/webgl'
 import { BoardingPass, RideOverlay, RideTimeline, RideVerdict } from './RideOverlay'
-import { Eng, Sheet, StepHeader } from '../kit'
+import { Eng, Sheet, StepHeader, nextLabel, stepTitle } from '../kit'
 import { getPartById, type PropulsionPart } from '../../data/parts'
 import { EngineNote, RideCardTray, TransferCardTray } from './launch/RideCards'
 import { choiceBriefing } from './launch/briefing'
@@ -107,7 +107,7 @@ function PlainRide() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <StepHeader step="ride" title="Ride & Transfer" kicker="Launch Site" />
+      <StepHeader step="ride" title={stepTitle('ride')} />
       <Sheet className="p-4">
         <RideVerdict />
       </Sheet>
@@ -275,7 +275,7 @@ function StepButtons({ overlay }: { overlay: boolean }) {
       onClick={() => setDesignStep('comms')}
       className="tactical-btn-next"
     >
-      Setup Communications →
+      {nextLabel('ride')}
     </button>
   )
   if (overlay)

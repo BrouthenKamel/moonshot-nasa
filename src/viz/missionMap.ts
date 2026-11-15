@@ -4,7 +4,7 @@ import { getPartById } from '../data/parts'
 import type { BuildingLabel } from '../scene/BaseMap'
 import type { Budgets, Design, DesignStep, GoNoGoResult, SimState, TurnLog } from '../sim/types'
 import { buildReport, craftWasLost } from '../sim/evaluate'
-import { STEP_ORDER } from '../ui/kit/stepNumbers'
+import { STEP_NAMES, STEP_ORDER } from '../ui/kit/stepNumbers'
 
 /**
  * What the agency map shows for the Lunar Ice Mapper: which building holds
@@ -17,26 +17,15 @@ export const BUILDING_STEPS: Record<BuildingId, DesignStep[]> = {
   'comms-center': ['brief', 'planning', 'comms', 'go-nogo'],
   'research-lab': ['instruments'],
   factory: ['spacecraft'],
-  'launch-site': ['rocket', 'orbit', 'ride'],
+  'launch-site': ['orbit', 'ride'],
 }
 
 /**
- * The order the steps are suggested in: the one order of the game (the rail and every step
- * heading read it too), so the map's next-step cue follows any change to it.
+ * The order the steps are suggested in, and the names players read: the one order and naming of
+ * the game (the dock, every heading and next button read them too), so the map's next-step cue
+ * follows any change to them.
  */
-export { STEP_ORDER }
-
-export const STEP_NAMES: Record<DesignStep, string> = {
-  brief: 'Brief',
-  planning: 'Planning',
-  instruments: 'Instruments',
-  rocket: 'Rocket',
-  spacecraft: 'Spacecraft',
-  orbit: 'Orbit',
-  ride: 'Ride & transfer',
-  comms: 'Comms',
-  'go-nogo': 'Go / No-Go',
-}
+export { STEP_NAMES, STEP_ORDER }
 
 export function buildingForStep(step: DesignStep): BuildingId {
   const found = (Object.keys(BUILDING_STEPS) as BuildingId[]).find((id) => BUILDING_STEPS[id].includes(step))

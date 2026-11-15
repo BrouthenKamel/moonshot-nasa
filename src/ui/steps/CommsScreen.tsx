@@ -12,7 +12,7 @@ import { RadioTray } from './comms/RadioTray'
 import { StationTray } from './comms/StationTray'
 import { hoursAfterSwitch } from './comms/hours'
 import { ContactSlider } from './comms/ContactSlider'
-import { Btn, Sheet, StepHeader } from '../kit'
+import { Btn, Sheet, StepHeader, nextLabel, stepTitle } from '../kit'
 
 function hoveredChoiceId(target: EventTarget | null): string | null {
   return target instanceof Element ? target.closest<HTMLElement>('[data-choice-id]')?.dataset.choiceId ?? null : null
@@ -65,7 +65,7 @@ export function CommsScreen() {
     <div className="mx-auto max-w-5xl pb-6">
       <LinkRibbon budgets={activeBudgets} data={dataCheck} visible={consoleOut} />
       <div className="space-y-5">
-        <StepHeader step="comms" kicker="Comms Center" title="Communications" />
+        <StepHeader step="comms" kicker="Comms Center" title={stepTitle('comms')} />
         <p className="max-w-2xl px-1 text-sm text-paper-dim">
           Only data that reaches the ground counts. The Moon is a thousand times farther than low Earth orbit, so the radio and the ground
           station decide how much gets home.
@@ -161,7 +161,7 @@ export function CommsScreen() {
             ← Back
           </Btn>
           <Btn variant="primary" type="button" onClick={() => setDesignStep('go-nogo')}>
-            Go/No-Go review →
+            {nextLabel('comms')}
           </Btn>
         </div>
       </div>

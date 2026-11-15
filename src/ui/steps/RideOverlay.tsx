@@ -5,7 +5,7 @@ import type { BarStatus } from '../../sim/types'
 import { ROCKET_X, SKY_W } from '../../viz/ride/skyPath'
 import { useDesignPreview } from '../useDesignPreview'
 import { useDragPart } from '../interaction/drag'
-import { Eng, Sheet, Stamp, type StampVerdict } from '../kit'
+import { Eng, Sheet, Stamp, stepTitle, type StampVerdict } from '../kit'
 import { SceneTitle } from './launch/SceneTitle'
 
 /**
@@ -107,7 +107,7 @@ export function RideOverlay({ maxWidth }: { maxWidth?: number }) {
   const view = useRideView()
   return (
     <div className="pointer-events-none absolute top-14 left-4 max-w-[38%] space-y-1.5 select-none" style={maxWidth ? { maxWidth } : undefined}>
-      <SceneTitle step="ride" title="Ride & Transfer" />
+      <SceneTitle step="ride" title={stepTitle('ride')} />
       <Sheet className="p-3">
         <RideVerdict />
         <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-rule pt-2">

@@ -11,7 +11,7 @@ import { checkFigures } from '../../viz/checkMargin'
 import { SynergyStrip } from '../../viz/DesignDeltaLine'
 import { POLL_ORDER, ROLE_INFO, stations, type Role, type Station } from '../../viz/gonogo/stations'
 import { fixLocation } from '../../viz/missionMap'
-import { Eng, Stamp, StepHeader, Tag, type StampVerdict, type TagTone } from '../kit'
+import { Eng, Stamp, StepHeader, Tag, stepTitle, type StampVerdict, type TagTone } from '../kit'
 import { Tooltip } from '../Tooltip'
 import { goCall } from './gonogo/headline'
 import { useSuccessEstimate } from '../useOdds'
@@ -419,8 +419,8 @@ export function GoNoGoScreen() {
     <div className="mx-auto max-w-5xl space-y-6">
       <StepHeader
         step="go-nogo"
-        kicker="COMMS CENTER · GO / NO-GO"
-        title="Go / No-Go poll"
+        kicker="Comms Center"
+        title={stepTitle('go-nogo')}
         question="Before every launch the flight director asks each station, one by one, whether it is go. A station is no-go when a check fixed in its building is red."
       >
         <div className="flex min-h-[5.5rem] min-w-[14rem] flex-col items-end justify-center gap-2 text-right">

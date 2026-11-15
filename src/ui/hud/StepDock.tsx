@@ -2,22 +2,16 @@ import { useMemo } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import type { DesignStep } from '../../sim/types'
 import { audio } from '../../assets/audio'
+import { STEP_NAMES, TAB_STEPS, stepNumber } from '../kit/stepNumbers'
+import { buildingForStep, buildingName } from '../../viz/missionMap'
 
-interface StationItem {
-  id: DesignStep
-  num: string
-  label: string
-  stationName: string
-}
-
-const STATIONS: StationItem[] = [
-  { id: 'planning', num: '1', label: 'Plan', stationName: 'Communications Center' },
-  { id: 'instruments', num: '2', label: 'Science', stationName: 'Research Laboratory' },
-  { id: 'spacecraft', num: '3', label: 'Craft', stationName: 'Integration Cleanroom' },
-  { id: 'rocket', num: '4', label: 'Rocket', stationName: 'Launch Bay Hall' },
-  { id: 'orbit', num: '5', label: 'Orbit', stationName: 'Trajectory Navigation' },
-  { id: 'go-nogo', num: '6', label: 'Launch', stationName: 'Flight Control Center' },
-]
+/** One tab per step, in play order, named as everywhere else; the tooltip says which building holds it */
+const STATIONS = TAB_STEPS.map((id) => ({
+  id,
+  num: String(stepNumber(id)),
+  label: STEP_NAMES[id],
+  stationName: buildingName(buildingForStep(id)),
+}))
 
 export function StepDock({ className = '' }: { className?: string }) {
   const designStep = useGameStore((s) => s.designStep)
@@ -41,7 +35,7 @@ export function StepDock({ className = '' }: { className?: string }) {
       className={`flex items-center gap-1 rounded-xl bg-ink-2/70 p-1 border border-rule/50 select-none ${className}`}
     >
       {STATIONS.map((station) => {
-        const isCurrent = station.id === designStep
+        const isCurrent = station.id === (designStep === 'rocket' ? 'spacecraft' : designStep)
         const hasBlocker = blockerSteps.has(station.id)
         const hasWarning = warningSteps.has(station.id)
         const isVisited = visitedSteps.includes(station.id)
@@ -55,6 +49,7 @@ export function StepDock({ className = '' }: { className?: string }) {
           <button
             key={station.id}
             type="button"
+            aria-current={isCurrent ? 'step' : undefined}
             onClick={() => {
               audio.play('sfx.click')
               setDesignStep(station.id)
