@@ -3,9 +3,11 @@ import { difficultyPresets } from '../data/brief'
 import { computeBudgets } from '../sim/budgets'
 import { goNoGo } from '../sim/checks'
 import { isSimComplete } from '../sim/simulate'
+import { useCampusStore } from '../state/campusStore'
 import { useGameStore } from '../state/gameStore'
+import { isClassicMode } from '../world/mode'
 import { audio } from './audio'
-import { cuesFor, type Cue, type Snapshot } from './cues'
+import { cuesFor, trackForLocation, type Cue, type Snapshot } from './cues'
 import { getAsset, type AudioAsset } from './manifest'
 
 type GameState = ReturnType<typeof useGameStore.getState>
@@ -55,7 +57,14 @@ function snapshot(s: GameState, prevLogCount: number): Snapshot {
   }
 }
 
+/** The campus (base screen, not ?classic=1) scores each location; classic keeps the old tracks */
+const campusActive = () => !isClassicMode() && useGameStore.getState().screen === 'base'
+
 function play(cue: Cue) {
+  if (cue.kind === 'music' && !isClassicMode()) {
+    if (cue.id === 'music.theme' && campusActive()) cue = { ...cue, id: trackForLocation(useCampusStore.getState().currentRoom) }
+    else if (cue.id === 'music.departure') cue = { ...cue, id: 'music.ih-launch' }
+  }
   if (cue.kind === 'sfx') audio.play(cue.id)
   else if (cue.kind === 'voice') audio.say(cue.id)
   else {
@@ -75,7 +84,14 @@ export function useAudioDirector() {
     let prev = snapshot(useGameStore.getState(), useGameStore.getState().simState?.turnLogs.length ?? 0)
     // Start the music of the current moment once sound is allowed
     play({ kind: 'music', id: 'music.theme' })
-    return useGameStore.subscribe((state) => {
+    // Inside the campus the music follows the room, crossfading over 1.5 s
+    let room = useCampusStore.getState().currentRoom
+    const unsubCampus = useCampusStore.subscribe((c) => {
+      if (c.currentRoom === room) return
+      room = c.currentRoom
+      if (campusActive()) audio.playMusic(trackForLocation(room), 1500)
+    })
+    const unsubGame = useGameStore.subscribe((state) => {
       const next = snapshot(state, prev.flight?.logCount ?? 0)
       // A new flight starts from zero logs
       if (state.simState && !prev.flight) next.flight!.newLogs = state.simState.turnLogs
@@ -83,5 +99,9 @@ export function useAudioDirector() {
       for (const cue of cuesFor(prev, next)) play(cue)
       prev = next
     })
+    return () => {
+      unsubCampus()
+      unsubGame()
+    }
   }, [])
 }
