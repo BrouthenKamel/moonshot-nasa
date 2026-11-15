@@ -23,6 +23,7 @@ export const BEAT_IDS = [
   'step-ride',
   'step-comms',
   'go-nogo',
+  'blocker',
   'flight-build',
   'launch',
   'capture',
@@ -42,6 +43,8 @@ export interface Beat {
   text: string
   /** 'run': shown once per flight (flight and ending beats); 'game': shown once */
   scope: 'game' | 'run'
+  /** Remembered under this key instead of the id (a blocker line is one beat per cause) */
+  key?: string
 }
 
 /** Catalogue facts about the instruments on board (from src/data/parts.ts) */
@@ -186,7 +189,30 @@ function flightBeat(sim: SimState, report: Report | null): Beat | null {
 
 /** The key a beat is remembered under: flight and ending beats once per flight, the rest once */
 export function beatKey(beat: Beat, seed: number | undefined): string {
+  if (beat.key) return beat.key
   return beat.scope === 'run' && seed !== undefined ? `${beat.id}@${seed}` : beat.id
+}
+
+/** The first sentence of a check's reason: one line the mentor can say */
+function firstSentence(text: string): string {
+  const end = text.search(/[.!?](\s|$)/)
+  return end === -1 ? text : text.slice(0, end + 1)
+}
+
+/**
+ * A red bar the player can fix on this very step: the mentor says its cause instead of the generic
+ * tip. It reads the Go / No-Go checks (headline, else the first sentence of the reason), so no
+ * screen writes its own line, and it names the step the check points at (`fixStep`).
+ */
+function blockerBeat(i: NarratorInput): Beat | null {
+  const blocker = i.goNoGo.blockers.find((c) => c.fixStep === i.designStep)
+  if (!blocker) return null
+  return {
+    id: 'blocker',
+    key: `blocker:${i.designStep}:${blocker.resource}`,
+    scope: 'game',
+    text: blocker.headline ?? firstSentence(blocker.reason),
+  }
 }
 
 /** The beat for the current moment, or null when the narrator has nothing to say */
@@ -205,7 +231,7 @@ export function pickBeat(i: NarratorInput): Beat | null {
       return null
     case 'setup':
     case 'design':
-      return stepBeat(i.designStep, i)
+      return blockerBeat(i) ?? stepBeat(i.designStep, i)
     case 'report':
       return i.sim && i.report ? endBeat(i.sim, i.report) : null
     default:

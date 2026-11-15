@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickBeat, BEAT_IDS, type NarratorInput } from './beats'
+import { pickBeat, beatKey, BEAT_IDS, type NarratorInput } from './beats'
 import { computeBudgets, createDefaultDesign } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
 import { initSim } from '../../sim/simulate'
@@ -134,6 +134,23 @@ describe('pickBeat', () => {
 
   it('stays quiet on the replay screen', () => {
     expect(pickBeat(input({ screen: 'replay', sim: sim({ phase: 'complete' }), report: report({}) }))).toBeNull()
+  })
+
+  it('names the cause of a red bar on the step that fixes it, instead of the generic tip', () => {
+    const red = { ...gng.blockers[0], resource: 'Delta-v', reason: 'The tank gives 55 m/s; capturing needs 60. Carry more propellant.', headline: undefined, fixStep: 'orbit' as const }
+    const withRed = { ...gng, canGo: false, blockers: [red] }
+    const here = pickBeat(input({ screen: 'design', designStep: 'orbit', goNoGo: withRed }))
+    expect(here?.id).toBe('blocker')
+    expect(here?.text).toBe('The tank gives 55 m/s; capturing needs 60.')
+    // another step keeps its own tip
+    expect(pickBeat(input({ screen: 'design', designStep: 'planning', goNoGo: withRed }))?.id).toBe('step-planning')
+  })
+
+  it('uses a check headline when it has one, and remembers each cause under its own key', () => {
+    const red = { ...gng.blockers[0], resource: 'Mass', reason: 'Too heavy. Remove something.', headline: '12 kg over the limit.', fixStep: 'spacecraft' as const }
+    const b = pickBeat(input({ screen: 'design', designStep: 'spacecraft', goNoGo: { ...gng, canGo: false, blockers: [red] } }))
+    expect(b?.text).toBe('12 kg over the limit.')
+    expect(beatKey(b!, 1)).toBe('blocker:spacecraft:Mass')
   })
 
   it('only uses known beat ids', () => {
