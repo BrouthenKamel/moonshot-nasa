@@ -20,7 +20,7 @@ class ViewBoundary extends Component<{ children: ReactNode; fallback: ReactNode 
 
 /** Where the craft is, in words, where the 3D view cannot be drawn */
 function PlainPose({ label }: { label: string }) {
-  return <div className="rounded-xl border border-white/10 bg-slate-900 p-4 text-sm text-slate-200">{label}</div>
+  return <div className="fp-sheet p-4 fp-data text-sm text-paper" data-tone="inset">{label}</div>
 }
 
 interface ReplayPanelProps {
@@ -72,7 +72,7 @@ export function ReplayPanel({ design, logs, terminal, compact = false }: ReplayP
 
   if (logs.length === 0) {
     return (
-      <div className="rounded-lg bg-slate-900 p-4 text-sm text-slate-400">
+      <div className="fp-sheet p-4 text-sm text-paper-dim" data-tone="inset">
         No months flown yet. Advance a month to see the mission.
       </div>
     )
@@ -81,13 +81,13 @@ export function ReplayPanel({ design, logs, terminal, compact = false }: ReplayP
   return (
     <div className="space-y-3">
       {cinematic ? (
-        <div className={`relative w-full overflow-hidden rounded-xl bg-black ${compact ? 'h-64' : 'h-[30rem]'}`}>
+        <div className={`fp-sheet relative w-full overflow-hidden bg-ink-0 ${compact ? 'h-64' : 'h-[30rem]'}`}>
           <ViewBoundary fallback={<PlainPose label={poseLabel} />}>
             <Suspense fallback={null}>
               <FlightView design={design} shot={shot} />
             </Suspense>
           </ViewBoundary>
-          <div className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs text-slate-200">{poseLabel}</div>
+          <div className="pointer-events-none absolute left-3 top-3 border border-rule bg-ink-1 px-3 py-1 fp-data text-xs text-paper">{poseLabel}</div>
         </div>
       ) : (
         <PlainPose label={poseLabel} />
