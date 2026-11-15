@@ -16,6 +16,8 @@ import {
 } from '../../viz/missionMap'
 import { FlightStage, useSpaceShowing } from '../flight/FlightStage'
 import { AudioControls } from '../kit/AudioControls'
+import { EngineerSwitch } from '../kit/EngineerSwitch'
+import { Flap, Sheet } from '../kit'
 import { useUiStore } from '../../state/uiStore'
 import {
   AgencyClock,
@@ -25,6 +27,7 @@ import {
   MissionResultDialog,
   NewMissionDialog,
   Notifications,
+  Readout,
   useAgencyClock,
   useCampaignProgress,
 } from '../agency/AgencyPanels'
@@ -47,41 +50,36 @@ import { useWorldStore } from '../../state/worldStore'
 /* Mission log: the flight's own events, by month                      */
 /* ------------------------------------------------------------------ */
 
-const toneDot: Record<MissionLogEntry['tone'], string> = {
-  info: 'bg-sky-500',
-  good: 'bg-emerald-500',
-  warning: 'bg-amber-500',
-  bad: 'bg-red-500',
+const toneRule: Record<MissionLogEntry['tone'], string> = {
+  info: 'border-l-rule-strong',
+  good: 'border-l-go',
+  warning: 'border-l-caution',
+  bad: 'border-l-nogo',
 }
 
 export function MissionLog({ entries }: { entries: MissionLogEntry[] }) {
   return (
-    <aside
-      aria-label="Mission log"
-      className="flex max-h-[40vh] min-h-0 flex-col rounded-2xl bg-[#fbf7ef] p-3 text-slate-800 shadow-xl lg:max-h-none"
-    >
-      <h2 className="font-display text-lg font-bold">Mission log</h2>
+    <Sheet as="aside" tone="inset" aria-label="Mission log" className="flex max-h-[40vh] min-h-0 flex-col p-3 text-paper lg:max-h-none">
+      <h2 className="fp-label border-b border-rule pb-1">Mission log</h2>
       {entries.length === 0 ? (
-        <p className="mt-1 text-xs text-slate-500">Nothing yet. Advance a month to start the flight.</p>
+        <p className="mt-1 text-xs text-paper-faint">Nothing yet. Advance a month to start the flight.</p>
       ) : (
-        <ul className="mt-1 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+        <ul className="min-h-0 flex-1 overflow-y-auto pr-1">
           {entries.map((e, i) => (
-            <li key={e.id} className={`flex gap-2 rounded-lg p-1.5 ${i === 0 ? 'bg-orange-50' : ''}`}>
-              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneDot[e.tone]}`} />
-              <div className="min-w-0 text-xs">
-                <div className="font-semibold uppercase tracking-wide text-slate-400">{missionClockLabel(e.month)}</div>
-                <div className="text-slate-800">{e.title}</div>
-              </div>
+            <li key={e.id} className={`border-b border-l-[3px] border-b-rule py-1 pl-2 text-xs ${toneRule[e.tone]} ${i === 0 ? 'bg-ink-2' : ''}`}>
+              <div className="fp-data text-[10px] text-paper-faint">{missionClockLabel(e.month)}</div>
+              <div className="text-paper">{e.title}</div>
             </li>
           ))}
         </ul>
       )}
-    </aside>
+    </Sheet>
   )
 }
 
 /* ------------------------------------------------------------------ */
-/* Top bar: agency clock, mission month, funds, popularity, start over, sound */
+/* Top bar: a flight-plan title block. Agency clock, mission month,    */
+/* funds, popularity, start over, view and sound                       */
 /* ------------------------------------------------------------------ */
 
 /** In-app confirm for "Start over" (not window.confirm) */
@@ -96,39 +94,31 @@ export function StartOverDialog({ onCancel, onConfirm }: { onCancel: () => void;
     return () => window.removeEventListener('keydown', onKey)
   }, [onCancel])
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onCancel}>
-      <div
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-0/80 p-4" onClick={onCancel}>
+      <Sheet
+        tone="raised"
         role="dialog"
         aria-modal="true"
         aria-labelledby="start-over-title"
-        className="w-full max-w-sm rounded-2xl bg-[#fbf7ef] p-5 text-slate-800 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm border-t-2 border-t-caution p-5 text-paper"
+        onClick={(e: MouseEvent) => e.stopPropagation()}
       >
-        <h2 id="start-over-title" className="font-display text-xl font-bold">
+        <h2 id="start-over-title" className="fp-display text-lg text-paper">
           Start over?
         </h2>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="mt-2 text-sm text-paper-dim">
           The Lunar Ice Mapper goes back to month 0 with a fresh design. Your choices and any flight in progress are
           cleared. Reports of finished missions stay in the history.
         </p>
         <div className="mt-4 flex justify-end gap-2">
-          <button
-            ref={cancelRef}
-            type="button"
-            onClick={onCancel}
-            className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200"
-          >
+          <button ref={cancelRef} type="button" onClick={onCancel} className="fp-btn-ghost">
             Keep going
           </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-white hover:bg-orange-400"
-          >
+          <button type="button" onClick={onConfirm} className="fp-btn-primary">
             Start over
           </button>
         </div>
-      </div>
+      </Sheet>
     </div>
   )
 }
@@ -137,31 +127,28 @@ function TopBar({ month }: { month: number }) {
   const startNewMission = useGameStore((s) => s.startNewMission)
   const [confirming, setConfirming] = useState(false)
   return (
-    <header className="flex flex-wrap items-center gap-x-5 gap-y-2 bg-[#14213d] px-4 py-2 text-white shadow-lg">
-      <div className="flex items-center gap-2">
-        <span className="text-3xl leading-none">🌙</span>
-        <span className="block font-display text-2xl font-bold leading-none tracking-wide">MOONSHOT</span>
+    <header className="flex flex-wrap items-stretch gap-x-4 gap-y-2 border-b border-rule bg-ink-1 px-4 py-2 text-paper">
+      <div className="flex items-center gap-2.5 pr-1">
+        <span className="h-6 w-1 shrink-0 bg-kapton" aria-hidden="true" />
+        <div className="leading-none">
+          <span className="block fp-display text-xl text-paper">MOONSHOT</span>
+          <span className="fp-label mt-0.5 block text-[0.58rem] text-paper-faint">Agency base · Flight plan</span>
+        </div>
       </div>
-
-      <div className="hidden h-10 w-px bg-white/20 sm:block" />
 
       <AgencyClock />
 
-      <div className="leading-tight" title="The mission clock: month 0 when the mission starts">
-        <div className="text-[10px] font-semibold tracking-wider text-slate-300">MISSION</div>
-        <div className="font-display text-xl font-bold tabular-nums">Month {month}</div>
-      </div>
+      <Readout label="Mission" title="The mission clock: month 0 when the mission starts">
+        <Flap value={`Month ${month}`} />
+      </Readout>
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
         <AgencyWallet />
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-slate-200 hover:bg-white/10"
-        >
+        <button type="button" onClick={() => setConfirming(true)} className="fp-btn-secondary !py-1.5">
           Start over
         </button>
-        <AudioControls tone="navy" />
+        <EngineerSwitch />
+        <AudioControls />
       </div>
 
       {confirming && (
@@ -239,11 +226,11 @@ export function BaseScreen() {
       : (id: BuildingId) => (simState ? reviseAt(BUILDING_STEPS[id][0]) : openBuilding(id))
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#14213d] lg:h-screen lg:min-h-0">
+    <div className="flex min-h-screen flex-col bg-ink-0 lg:h-screen lg:min-h-0">
       <TopBar month={missionMonth(simState)} />
       {/* Wide screens: the map fills the area and both dashboards float over its edges. Phones: stacked. */}
       <div className="relative flex flex-1 flex-col gap-3 p-3 lg:block lg:min-h-0">
-        <div className="relative h-[60vh] min-h-[360px] overflow-hidden rounded-2xl shadow-inner lg:absolute lg:inset-3 lg:h-auto lg:min-h-0">
+        <div className="relative h-[60vh] min-h-[360px] overflow-hidden border border-rule lg:absolute lg:inset-3 lg:h-auto lg:min-h-0">
           {simState ? (
             <FlightStage
               sim={simState}
@@ -253,7 +240,7 @@ export function BaseScreen() {
             <BaseMap labels={labels} onBuildingClick={onBuildingClick} hq={hq} />
           )}
           {!spaceShowing && (
-            <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg bg-black/30 px-2 py-1 text-[11px] text-white lg:left-1/2 lg:-translate-x-1/2">
+            <div className="fp-label pointer-events-none absolute bottom-2 left-2 border border-rule bg-ink-1/85 px-2 py-1 text-[0.62rem] text-paper-dim lg:left-1/2 lg:-translate-x-1/2">
               {onBuildingClick ? 'Click a building to walk in · drag to move · scroll to zoom' : 'Drag to move · scroll to zoom'}
             </div>
           )}
