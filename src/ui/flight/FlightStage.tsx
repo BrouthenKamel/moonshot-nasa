@@ -673,7 +673,7 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
       )}
       <CaptureBurnWatch phase={sim.phase} />
       <IceStrikeWatch coverage={sim.coveragePercent} />
-      <FirstMappingPass sim={sim} />
+      <FirstMappingPass key={sim.seed} sim={sim} />
       {showSpace ? (
         <SpaceBar sim={sim} shot={shot} monthFraction={monthFraction} />
       ) : (

@@ -50,6 +50,7 @@ describe('first pass: floor, ceiling and mix', () => {
     const b = computeBudgets(blind, 'engineer')
     expect(b.projectedCoverage).toBe(0)
     expect(firstPassCoverage(blind, b, 1)).toBe(0)
+    expect(firstPassLine(blind, b, { mix: 1, how: 'flown' })).toBe("Pass 1: 0% mapped · autopilot 0% · this design's ceiling 0% · nothing aboard sees into shadow")
     const s = toOrbit(blind)
     expect(runToEnd({ ...s, firstPass: { mix: 1, how: 'flown' } }).flight.coverage).toBe(0)
   })

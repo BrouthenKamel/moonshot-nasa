@@ -55,7 +55,8 @@ export function firstPassCoverage(design: Design, b: Budgets, mix: number): numb
 /** "Pass 1: 31% mapped · autopilot 22% · this design's ceiling 61%": after the pass, and in the report */
 export function firstPassLine(design: Design, b: Budgets, fp: FirstPass): string {
   const pct = (mix: number) => `${Math.round(firstPassCoverage(design, b, mix))}%`
-  const ceiling = `this design's ceiling ${pct(1)}`
+  const blind = firstPassCoverage(design, b, 1) === 0 ? ' · nothing aboard sees into shadow' : ''
+  const ceiling = `this design's ceiling ${pct(1)}${blind}`
   if (fp.how !== 'flown') return `Pass 1 on autopilot: ${pct(0)} mapped · ${ceiling}`
   return `Pass 1: ${pct(fp.mix)} mapped · autopilot ${pct(0)} · ${ceiling}`
 }
