@@ -50,3 +50,12 @@ export function isLaunchDayPending(seed: number): boolean {
 export function resumeLaunchDay(sim: Pick<SimState, 'seed' | 'flight' | 'pendingDecision'>): boolean {
   return liftoffReached(sim) && isLaunchDayPending(sim.seed)
 }
+
+/**
+ * Is a campaign layer over the base (a mission's brief or flow, the ladder, a payoff show)? Launch Day
+ * belongs to the main flight screen: while one is up it waits, still pending, instead of drawing on top
+ * with no way to close it (Integration review, 16 Nov: it covered the Moon landing brief).
+ */
+export function campaignCoversFlight(c: { active: unknown; ladderOpen: boolean; pendingPayoff: unknown }): boolean {
+  return c.active !== null || c.ladderOpen || c.pendingPayoff !== null
+}
