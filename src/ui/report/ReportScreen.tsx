@@ -1,26 +1,30 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { assetUrl } from '../../assets'
 import { audio } from '../../assets/audio'
 import { getGroundStationById } from '../../data/ground'
 import { getOrbitById } from '../../data/orbits'
 import { getPartById } from '../../data/parts'
 import { getRideById } from '../../data/rides'
 import type { Report, RequirementResult } from '../../sim/types'
+import { useCampusStore } from '../../state/campusStore'
 import { useGameStore } from '../../state/gameStore'
+import type { FlightRecord } from '../../world/debrief/compare'
+import { patchSpec } from '../../world/debrief/patch'
 import { STEP_NAMES, buildingForStep, buildingName } from '../../viz/missionMap'
 import { Eng, Flap, Sheet, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
 import { FixItPanel, RelaunchButton } from './FixItPanel'
 import { ArtemisDebrief } from './ArtemisDebrief'
+import { Debrief } from './Debrief'
+import { MissionPatch } from './MissionPatch'
 import { classifyCause } from './fixIt'
 import { gradeFor } from './grade'
 import { medals } from './medals'
 
-/** The outcome as a stamp: the patch gets a double ring in the same ink, no glow */
+/** The outcome as a stamp; the patch draws its own ring in the same ink */
 const TONE = {
-  success: { label: 'Mission Success', text: 'text-go', stamp: 'go', tag: 'go', ring: 'border-kapton outline-ice' },
-  partial: { label: 'Partial Success', text: 'text-caution', stamp: 'caution', tag: 'caution', ring: 'border-caution outline-caution' },
-  failed: { label: 'Mission Failed', text: 'text-nogo', stamp: 'nogo', tag: 'nogo', ring: 'border-nogo outline-nogo' },
-} as const satisfies Record<Report['outcome'], { label: string; text: string; stamp: StampVerdict; tag: TagTone; ring: string }>
+  success: { label: 'Mission Success', text: 'text-go', stamp: 'go', tag: 'go' },
+  partial: { label: 'Partial Success', text: 'text-caution', stamp: 'caution', tag: 'caution' },
+  failed: { label: 'Mission Failed', text: 'text-nogo', stamp: 'nogo', tag: 'nogo' },
+} as const satisfies Record<Report['outcome'], { label: string; text: string; stamp: StampVerdict; tag: TagTone }>
 
 const SCORE_PARTS: { key: keyof Report['score']; label: string; max: number; bar: string }[] = [
   { key: 'coverage', label: 'Ice mapped', max: 400, bar: 'bg-ice' },
@@ -155,7 +159,29 @@ export function ReportScreen() {
   const openReplay = useGameStore((s) => s.openReplay)
   const reviseAt = useGameStore((s) => s.reviseAt)
   const simState = useGameStore((s) => s.simState)
+  const astronautName = useCampusStore((s) => s.astronautName)
   const report = currentReport ?? runHistory[0]?.report
+  // The flight behind the report: the live run, or the run saved with the history entry
+  const run = currentReport ? simState : runHistory[0]?.run
+  const record: FlightRecord | null = useMemo(
+    () => (report && run ? { report, turnLogs: run.turnLogs, events: run.allEvents } : null),
+    [report, run],
+  )
+  const outcome = report?.outcome
+
+  // Hooks run on every render, before the empty-state return (rules of hooks)
+  useEffect(() => {
+    if (outcome === 'success') {
+      audio.play('sfx.go')
+      audio.say('voice.end-success')
+    } else if (outcome === 'partial') {
+      audio.play('sfx.select')
+      audio.say('voice.end-partial')
+    } else if (outcome === 'failed') {
+      audio.play('sfx.error')
+      audio.say('voice.end-failed')
+    }
+  }, [outcome])
 
   if (!report) {
     return (
@@ -178,19 +204,7 @@ export function ReportScreen() {
   const playerOrbit = getOrbitById(report.design.orbit)?.name.replace(/\s*\(.*\)/, '') ?? report.design.orbit
   const won = medals(report)
   const wonCount = won.filter((m) => m.earned).length
-
-  useEffect(() => {
-    if (report.outcome === 'success') {
-      audio.play('sfx.go')
-      audio.say('voice.end-success')
-    } else if (report.outcome === 'partial') {
-      audio.play('sfx.select')
-      audio.say('voice.end-partial')
-    } else {
-      audio.play('sfx.error')
-      audio.say('voice.end-failed')
-    }
-  }, [report.outcome])
+  const patch = patchSpec(report.design, astronautName, report.outcome)
 
   return (
     <div data-role="ground" className="mx-auto max-w-4xl space-y-6 pb-10">
@@ -204,11 +218,7 @@ export function ReportScreen() {
       <Sheet className="report-in p-6 sm:p-8">
         <div className="flex flex-col items-center gap-8 sm:flex-row">
           <div className="patch-in shrink-0 -rotate-3">
-            <img
-              src={assetUrl('image.patch')}
-              alt="Lunar Ice Mapper mission patch"
-              className={`h-40 w-40 rounded-full border-4 outline outline-2 outline-offset-4 sm:h-48 sm:w-48 ${tone.ring} ${report.outcome === 'failed' ? 'grayscale-[0.7]' : ''}`}
-            />
+            <MissionPatch spec={patch} title="Lunar Ice Mapper mission patch" className="h-40 w-40 sm:h-48 sm:w-48" />
           </div>
           <div className="flex-1 text-center sm:text-left">
             <div className="fp-label">Lunar Ice Mapper · mission report</div>
@@ -299,6 +309,8 @@ export function ReportScreen() {
           </div>
         )}
       </Sheet>
+
+      <Debrief report={report} record={record} />
 
       <ArtemisDebrief report={report} />
 
