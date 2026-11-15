@@ -12,7 +12,7 @@ import { difficultyPresets } from '../../data/brief'
 import { computeBudgets } from '../../sim/budgets'
 import { isSimComplete } from '../../sim/simulate'
 import type { SimState } from '../../sim/types'
-import { FlightViewToggle } from '../flight/FlightStage'
+import { FlightPlan, FlightViewToggle } from '../flight/FlightStage'
 import { STAGE_NAMES, missionClockLabel, type MissionLogEntry, type MissionStage, type MissionStatusView } from '../../viz/missionMap'
 import { Eng, Sheet, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
 
@@ -381,13 +381,8 @@ export function MissionPanel({
       )}
 
       {sim ? (
-        <div className="mt-3 border-y border-rule py-1">
-          <Stat label="Ice mapped" value={`${sim.coveragePercent.toFixed(0)}%`} tone="text-ice" />
-          <Eng as="div" className="mt-1 grid grid-cols-3 border-t border-rule pt-1">
-            <Stat label="Data home" value={`${Math.round(sim.totalDataReturned)} MB`} />
-            <Stat label="Fuel (delta-v)" value={`${Math.max(0, sim.flight.dvLeft).toFixed(0)} m/s`} />
-            <Stat label="Budget left" value={`${Math.max(0, sim.flight.main).toFixed(1)}M`} />
-          </Eng>
+        <div className="mt-3 border-y border-rule py-2">
+          <FlightPlan sim={sim} />
         </div>
       ) : (
         <div className="mt-3 grid grid-cols-3 border-y border-rule py-1">
