@@ -1,6 +1,7 @@
 import { getEventById } from '../data/events'
 import { choiceResultText } from './eventChoice'
 import type { Design, TurnEvent, TurnLog } from '../sim/types'
+import { failedLabelOfNotes } from '../sim/evaluate'
 import { Eng, Tag } from '../ui/kit'
 
 interface TurnDetailProps {
@@ -28,7 +29,7 @@ const PHASE_NAME: Record<TurnLog['phase'], string> = {
   capture: 'Capture',
   orbit: 'Science orbit',
   complete: 'Complete',
-  failed: 'Lost',
+  failed: 'Failed',
 }
 
 function Stat({ label, value, tone = 'text-paper' }: { label: string; value: string; tone?: string }) {
@@ -49,7 +50,7 @@ export function TurnDetail({ log }: TurnDetailProps) {
           MONTH {String(log.turn).padStart(2, '0')}
           <span className="sr-only"> (Month {log.turn})</span>
         </div>
-        <Tag tone={log.phase === 'failed' ? 'nogo' : log.phase === 'complete' ? 'go' : 'neutral'}>{PHASE_NAME[log.phase]}</Tag>
+        <Tag tone={log.phase === 'failed' ? 'nogo' : log.phase === 'complete' ? 'go' : 'neutral'}>{log.phase === 'failed' ? failedLabelOfNotes(log.notes) : PHASE_NAME[log.phase]}</Tag>
       </header>
 
       <dl className="mt-2 grid grid-cols-1 gap-x-6 sm:grid-cols-3">

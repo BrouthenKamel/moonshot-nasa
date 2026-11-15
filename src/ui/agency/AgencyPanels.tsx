@@ -3,7 +3,7 @@ import { useGameStore } from '../../state/gameStore'
 import { useWorldStore, type Speed } from '../../state/worldStore'
 import { fundingPerDay, grantShare, missionFunding, popularityEffects } from '../../game/economy'
 import { lunarPapers } from '../../game/research'
-import { missionResult, type MissionResult } from '../../game/result'
+import { failedLine, missionResult, type MissionResult } from '../../game/result'
 import { useUiStore } from '../../state/uiStore'
 import { campaign, phaseProgress } from '../../game/campaign'
 import { backgroundNews } from '../../game/news'
@@ -197,13 +197,13 @@ function WalletBreakdown({ detail, onClose }: { detail: 'funds' | 'popularity'; 
           ['Government funding', `+${money(fundingPerDay(popularity) * 30)} a month`],
           ['Papers still to publish', `+${money(papersLeft)}`],
           ['Your share of the next launch', `−${money(next.agencyPays)}`],
-          ['Unspent mission budget', 'comes back at the end'],
+          ['Unspent mission budget', 'comes back after a success; a failure spends it all'],
         ]
       : [
           ['Government pays per mission', `${Math.round(grantShare(popularity) * 100)}% of the budget`],
           ['Funding multiplier', `${(0.5 + popularity / 100).toFixed(2)}×`],
           ['Launch / full success', `+${popularityEffects.launch}% / +${popularityEffects.missionSuccess}%`],
-          ['Mission lost', `${popularityEffects.missionFailed}%`],
+          ['Mission failed', `${popularityEffects.missionFailed}%`],
         ]
   return (
     <Sheet tone="raised" className="absolute right-0 top-full z-40 mt-2 w-72 p-3 text-paper">
@@ -735,14 +735,8 @@ export function MissionResultDialog({
 
   const look = OUTCOME_LOOK[result.outcome]
   // Say what actually happened: the craft lost, or a craft that flew but could not reach the goals
-  const line =
-    result.outcome !== 'failed'
-      ? look.line
-      : sim.phase === 'failed'
-        ? 'The spacecraft was lost. The report shows what went wrong.'
-        : result.coverage < 1
-          ? 'The spacecraft flew, but mapped no ice. The report shows why.'
-          : 'The spacecraft flew, but the ice map fell short. The report shows why.'
+  // (the same end reason the report gives: failedLine)
+  const line = result.outcome !== 'failed' ? look.line : failedLine(sim.flight.end, sim.phase === 'failed', result.coverage)
   const close = () => markSeen(mission.seed)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-0/80 p-4" onClick={close}>
@@ -768,7 +762,7 @@ export function MissionResultDialog({
         <div className="grid grid-cols-3 border-b border-rule px-3 py-1.5">
           <Stat label="Ice mapped" value={`${result.coverage.toFixed(0)}%`} tone="text-ice" />
           <Stat label="Data home" value={`${Math.round(result.dataMb)} MB`} />
-          <Stat label="Months" value={`${sim.currentTurn}`} />
+          <Stat label="Science months" value={`${sim.flight.scienceTurns}`} />
         </div>
 
         <div className="grid grid-cols-2 gap-2 px-5 pt-4">

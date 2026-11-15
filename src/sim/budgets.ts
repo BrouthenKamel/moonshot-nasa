@@ -96,6 +96,42 @@ export function newScienceState(instrumentIds: string[]): ScienceState {
  * dutyFactor 0 = safe mode; linkFactor 0.5 = station outage; scienceFactor drops as instruments degrade.
  * Returns the MB made, sent and lost this turn.
  */
+export interface LinkLoss {
+  /** MB a month the link cannot send: it waits in storage until storage is full */
+  backlogPerMonth: number
+  /** Months until storage is full (Infinity when the link keeps up) */
+  monthsToFill: number
+  /** MB lost each month once storage is full (what scienceTurn drops every month from then on) */
+  lostPerMonth: number
+  /** lostPerMonth as a share of the data made (0..1) */
+  lostShare: number
+}
+
+/**
+ * The one model of data loss, the same one scienceTurn runs month by month: what the link
+ * cannot send waits in storage; once storage is full, all of it is lost every month.
+ * The Data Link check and the Comms storage tray both read this (number truth, 15 Nov).
+ */
+export function linkLoss(dataPerTurn: number, downlinkPerTurn: number, storageCapacity: number): LinkLoss {
+  const made = Math.max(0, dataPerTurn)
+  const backlog = Math.max(0, made - Math.max(0, downlinkPerTurn))
+  const cap = Math.max(0, storageCapacity)
+  return {
+    backlogPerMonth: backlog,
+    monthsToFill: backlog > 0 ? cap / backlog : Infinity,
+    lostPerMonth: backlog,
+    lostShare: made > 0 ? backlog / made : 0,
+  }
+}
+
+/** "in about 2 months" / "within the first month": when storage fills */
+export function fillWhen(loss: Pick<LinkLoss, 'monthsToFill'>): string {
+  if (!Number.isFinite(loss.monthsToFill)) return 'never'
+  if (loss.monthsToFill < 1) return 'within the first month'
+  const m = Math.round(loss.monthsToFill)
+  return `in about ${m} month${m === 1 ? '' : 's'}`
+}
+
 export function scienceTurn(
   design: Design,
   b: Budgets,
@@ -366,6 +402,7 @@ export function computeBudgets(design: Design, difficulty: Difficulty): Budgets 
     batteryUsableWh,
     batteryNeedWh,
     batteryOk: batteryUsableWh >= batteryNeedWh,
+    batteryLongNeedWh: busPower * C.longEclipseHours,
     batteryLongOk: batteryUsableWh >= busPower * C.longEclipseHours,
     captureDeltaV,
     thrustPower,

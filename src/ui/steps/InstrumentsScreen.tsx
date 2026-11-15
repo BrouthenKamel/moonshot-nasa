@@ -5,7 +5,6 @@ import { useUiStore } from '../../state/uiStore'
 import { useDragStore } from '../interaction/dragStore'
 import { DesignDiagramPanel } from '../../viz/DesignDiagramPanel'
 import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
-import { useDesignPreview } from '../useDesignPreview'
 import { StageBoundary } from '../../scene/instrumentStage/StageBoundary'
 import { canUseWebGL } from '../../scene/webgl'
 import { instruments, type InstrumentPart } from '../../data/parts'
@@ -17,7 +16,6 @@ import { audio } from '../../assets/audio'
 import { assetUrl } from '../../assets/url'
 import { choiceArt } from '../../assets/catalogueArt'
 import { InstrumentCardFoot } from '../../scene/instrumentStage/InstrumentCardFoot'
-import { COVERAGE_TARGET } from '../../scene/instrumentStage/stageModel'
 import {
   EQUAL_HEIGHT_CARD,
   blockedThud,
@@ -211,7 +209,7 @@ function InstrumentHand({
 function InstrumentBrief({ instrument, selected }: { instrument: InstrumentPart; selected: boolean }) {
   return (
     <Sheet tone="flat" aria-live="polite" className="p-4">
-      <LineItem n={`${N}.3`} label={instrument.name} aside={selected ? 'Aboard' : 'In the catalogue'} />
+      <LineItem n={`${N}.2`} label={instrument.name} aside={selected ? 'Aboard' : 'In the catalogue'} />
       <p className="mt-2 text-sm leading-snug text-paper-dim">{instrument.description}</p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Tag tone={instrument.seesShadow ? 'ice' : 'caution'}>{lessonText(instrument)}</Tag>
@@ -220,50 +218,6 @@ function InstrumentBrief({ instrument, selected }: { instrument: InstrumentPart;
           {instrument.volume} U · Like {instrument.flownOn}
         </Eng>
       </div>
-    </Sheet>
-  )
-}
-
-/** The one verdict: does anything aboard see into the dark, and how much ice does that map. Cyan only for ice. */
-function ForecastVerdict({ chosen }: { chosen: string[] }) {
-  const { budgets, previewBudgets, isPreviewing } = useDesignPreview()
-  const active = previewBudgets ?? budgets
-  const cov = Math.max(0, Math.min(100, active.projectedCoverage))
-  const covDelta = active.projectedCoverage - budgets.projectedCoverage
-  const seers = instruments.filter((i) => chosen.includes(i.id) && i.seesShadow).length
-  const made = active.dataPerTurn
-  const link = active.downlinkPerTurn
-
-  const verdict =
-    chosen.length === 0
-      ? 'The payload bay is empty'
-      : seers === 0
-        ? 'Nothing aboard sees into shadow'
-        : chosen.length === 1
-          ? 'This instrument maps the dark craters'
-          : 'This pair maps the dark craters'
-
-  return (
-    <Sheet className="p-4" aria-live="polite">
-      <LineItem n={`${N}.2`} label="Forecast" />
-      <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <div className={`fp-display text-lg ${seers > 0 ? 'text-paper' : 'text-caution'}`}>{verdict}</div>
-        <div className="text-sm text-paper-dim">
-          <span className={`fp-data font-semibold ${cov >= COVERAGE_TARGET ? 'text-ice' : 'text-caution'}`}>{cov.toFixed(0)}%</span> of the ice mapped
-          <Eng className="fp-data text-xs">
-            {` · target ${COVERAGE_TARGET}%`}
-            {isPreviewing && Math.abs(covDelta) >= 1 ? ` (${covDelta > 0 ? `+${covDelta.toFixed(0)}` : covDelta.toFixed(0)}%)` : ''}
-          </Eng>
-        </div>
-      </div>
-      <div className="relative mt-2 h-2 border border-rule bg-ink-1">
-        <div className={`absolute inset-y-0 left-0 transition-all duration-300 ${cov >= COVERAGE_TARGET ? 'bg-ice' : 'bg-caution'}`} style={{ width: `${cov}%` }} />
-        <div className="absolute inset-y-[-3px] w-px bg-paper" style={{ left: `${COVERAGE_TARGET}%` }} title={`${COVERAGE_TARGET}% science target`} />
-      </div>
-      <Eng as="div" className="mt-3 flex justify-between border-t border-rule pt-2 fp-data text-[11px] text-paper-dim">
-        <span>Data link: made {made.toFixed(0)} MB/month</span>
-        <span className={made > link ? 'text-caution' : 'text-go'}>downlink {link.toFixed(0)} MB/month</span>
-      </Eng>
     </Sheet>
   )
 }
@@ -315,8 +269,6 @@ export function InstrumentsScreen() {
       </StepHeader>
       <Stage onFall={onFall} onPreview={handlePreview} />
       <div className="mx-auto max-w-3xl space-y-4">
-        <ForecastVerdict chosen={design.instruments} />
-
         <SynergyStrip step="instruments" />
 
         {picksHere && <DesignDeltaLine />}

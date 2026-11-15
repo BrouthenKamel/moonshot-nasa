@@ -36,9 +36,9 @@ describe('design round 2: the report explains the score', () => {
     }
   })
 
-  it('says a failed mission used up its budget', () => {
+  it('says a failed mission spends its whole budget', () => {
     const r = buildReport(runSimulation({ ...flashlightDesign, instruments: ['inst-camera'] }, 'engineer', 1))
     expect(r.outcome).toBe('failed')
-    expect(r.scoreNotes.join(' ')).toMatch(/failed mission uses up its budget/i)
+    expect(r.scoreNotes.join(' ')).toMatch(/failed mission spends its whole budget, so nothing is left to score/)
   })
 })

@@ -1,7 +1,5 @@
-import { lunarOrbits } from '../../data/orbits'
-import { audio } from '../../assets/audio'
-import { Btn, Eng, Tag } from '../../ui/kit'
-import { COVERAGE_TARGET, activityText, passesText, type StageForecast, type InstrumentView, type WhatIf } from './stageModel'
+import { Eng, Tag } from '../../ui/kit'
+import { COVERAGE_TARGET, activityText, passesText, type StageForecast, type InstrumentView } from './stageModel'
 
 /** A matte read-out sheet over the 3D stage: ink, hairline, no blur */
 // Not .fp-sheet: its unlayered position:relative would beat the absolute placement over the stage
@@ -9,13 +7,12 @@ const panel = 'border border-rule bg-ink-1/90'
 const TAU = Math.PI * 2
 
 /** Coverage dial: the arc is ice (cyan) once the forecast meets the target, caution below it */
-function Ring({ value, ok, whatIf }: { value: number; ok: boolean; whatIf: boolean }) {
+function Ring({ value, ok }: { value: number; ok: boolean }) {
   const r = 30
   const c = TAU * r
   const tone = ok ? 'var(--color-ice)' : 'var(--color-caution)'
   return (
     <svg viewBox="0 0 80 80" className="h-16 w-16 shrink-0" aria-hidden>
-      {whatIf && <circle cx="40" cy="40" r="38" fill="none" stroke="var(--color-paper-faint)" strokeWidth="1" strokeDasharray="4 3" />}
       <circle cx="40" cy="40" r={r} fill="none" stroke="var(--color-rule)" strokeWidth="6" />
       <circle
         cx="40"
@@ -47,11 +44,11 @@ export function TitleLine() {
 }
 
 /** Story: the coverage dial and one verdict. Engineer: what the forecast is made of. */
-export function ForecastPanel({ forecast }: { forecast: StageForecast }) {
+export function ForecastPanel({ forecast, altitudeKm }: { forecast: StageForecast; altitudeKm: number }) {
   return (
     <div className={`hud-fade pointer-events-none absolute left-3 top-3 max-w-sm p-2.5 pr-4 ${panel}`}>
       <div className="flex items-center gap-3">
-        <Ring value={forecast.coverage} ok={forecast.meetsTarget} whatIf={forecast.isWhatIf} />
+        <Ring value={forecast.coverage} ok={forecast.meetsTarget} />
         <div className="text-xs text-paper-dim">
           <div className="fp-label text-[10px] text-paper-faint">Ice coverage forecast</div>
           <div className={`text-sm font-semibold ${forecast.meetsTarget ? 'text-ice' : 'text-caution'}`}>
@@ -65,9 +62,9 @@ export function ForecastPanel({ forecast }: { forecast: StageForecast }) {
             <div>{passesText(forecast.passesPerTurn)}</div>
             {forecast.outreachMB > 0.5 && <div>pictures {forecast.outreachMB.toFixed(0)} MB</div>}
           </Eng>
-          {forecast.isWhatIf && <div className="mt-0.5 font-medium text-kapton">What-if: not your design</div>}
         </div>
       </div>
+      <div className="mt-2 text-[11px] text-paper-faint">Tested at your planned orbit, {altitudeKm} km over the pole: change it in Orbit</div>
       {forecast.reasons.length > 0 && (
         <ul className="mt-2 space-y-1 border-t border-rule pt-2 text-xs text-caution">
           {forecast.reasons.map((r) => (
@@ -87,60 +84,16 @@ export function PassChip({ overShadow }: { overShadow: boolean }) {
   )
 }
 
-export function LabDials({ whatIf, onChange }: { whatIf: WhatIf; onChange: (change: Partial<WhatIf>) => void }) {
-  const choice = (on: boolean) =>
-    `border-b border-rule px-2 py-1 text-left last:border-b-0 ${on ? 'bg-kapton text-kapton-ink' : 'text-paper-dim hover:bg-ink-3 hover:text-paper'}`
-  return (
-    <div className={`hud-fade absolute right-3 top-3 w-60 space-y-2.5 p-3 text-xs ${panel}`}>
-      <div>
-        <div className="fp-label text-[10px] text-paper">Lab simulator · what-if</div>
-        <div className="mt-0.5 text-paper-faint">Try the other buildings' choices here. Your design stays as it is.</div>
-      </div>
-      <div>
-        <div className="mb-1 text-paper-faint">Orbit · decided at the Launch Site</div>
-        <div className="flex flex-col border border-rule">
-          {lunarOrbits.map((o) => (
-            <button key={o.id} type="button" aria-pressed={o.id === whatIf.orbit} onClick={() => onChange({ orbit: o.id })} className={choice(o.id === whatIf.orbit)}>
-              {o.name}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <div className="mb-1 text-paper-faint">Pointing · built at the Factory</div>
-        <div className="flex border border-rule">
-          {[false, true].map((v) => (
-            <button
-              key={String(v)}
-              type="button"
-              aria-pressed={v === whatIf.precise}
-              onClick={() => onChange({ precise: v })}
-              className={`flex-1 border-r border-rule px-2 py-1 text-center last:border-r-0 ${v === whatIf.precise ? 'bg-kapton text-kapton-ink' : 'text-paper-dim hover:bg-ink-3 hover:text-paper'}`}
-            >
-              {v ? 'Precise' : 'Basic'}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function countsAsText(v: InstrumentView): string {
   if (v.countsAs === 'ice') return `maps ice: ${(v.iceRatePerTurn * 100).toFixed(1)}% of what is left, per month`
   if (v.countsAs === 'context') return 'maps sunlit ground only: adds no ice coverage'
   return 'pictures only: adds no ice coverage'
 }
 
-export function ReadOuts({ views, overShadow, isWhatIf }: { views: InstrumentView[]; overShadow: boolean; isWhatIf: boolean }) {
+export function ReadOuts({ views, overShadow }: { views: InstrumentView[]; overShadow: boolean }) {
   return (
     <div className="hud-fade pointer-events-none absolute bottom-3 right-3 flex w-80 flex-col items-end gap-1.5">
       <PassChip overShadow={overShadow} />
-      {isWhatIf && (
-        <Tag tone="kapton" className="bg-ink-1/90">
-          What-if view: not your design
-        </Tag>
-      )}
       {views.length === 0 && <div className={`w-full px-3 py-2 text-sm text-paper-dim ${panel}`}>The instrument bay is empty. Pick one or two below.</div>}
       {views.map((v) => {
         const text = activityText(v, overShadow)
@@ -168,63 +121,6 @@ export function ReadOuts({ views, overShadow, isWhatIf }: { views: InstrumentVie
           </div>
         )
       })}
-    </div>
-  )
-}
-
-/** Optical bench controls: 15 km / 100 km Altitude Lever + Look-through trigger. */
-export function BenchControls({
-  altitudeKm,
-  coverage,
-  looking,
-  hasInstruments,
-  onToggleAltitude,
-  onToggleLookThrough,
-}: {
-  altitudeKm: number
-  coverage: number
-  looking: boolean
-  hasInstruments: boolean
-  onToggleAltitude: () => void
-  onToggleLookThrough: () => void
-}) {
-  const low = altitudeKm <= 20
-  return (
-    <div
-      className={`pointer-events-auto flex flex-col gap-1.5 border border-rule bg-ink-1/90 px-3 py-2 text-xs transition-all ${
-        looking ? 'fixed bottom-16 left-4 z-[160]' : 'absolute bottom-3 left-3 z-10'
-      }`}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          data-testid="altitude-lever"
-          aria-pressed={low}
-          onClick={() => {
-            audio.play('sfx.click')
-            onToggleAltitude()
-          }}
-          className="flex items-center gap-2 border border-rule bg-ink-2 px-2.5 py-1 text-xs font-semibold text-paper hover:border-kapton focus:outline-none focus-visible:outline-2 focus-visible:outline-kapton"
-        >
-          <span className="fp-label text-[10px] text-paper-faint">Altitude</span>
-          <span className={`fp-data px-1.5 py-0.5 ${low ? 'bg-kapton text-kapton-ink' : 'text-paper-dim'}`}>15 km</span>
-          <span className="text-paper-faint">/</span>
-          <span className={`fp-data px-1.5 py-0.5 ${!low ? 'bg-nogo text-paper' : 'text-paper-dim'}`}>100 km</span>
-        </button>
-        <Btn
-          type="button"
-          data-testid="look-through-btn"
-          variant={looking ? 'primary' : undefined}
-          onClick={onToggleLookThrough}
-          disabled={!hasInstruments}
-          className="px-2.5 py-1 text-xs"
-        >
-          {looking ? 'Exit optics' : 'Look through'}
-        </Btn>
-      </div>
-      <Eng as="div" className="fp-data text-[11px] text-paper-dim">
-        Pass altitude: {altitudeKm} km · Ice limit: ≤20 km · Projected coverage: {Math.round(coverage)}%
-      </Eng>
     </div>
   )
 }

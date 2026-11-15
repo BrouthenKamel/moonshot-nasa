@@ -6,7 +6,7 @@ import { prefersReducedMotion } from '../../scene/space/quality'
 import { useGameStore } from '../../state/gameStore'
 import { missionClockLabel } from '../../viz/missionMap'
 import { Tag } from '../kit'
-import { DECISION_CLOCK_MS, decisionClockFraction, shouldPauseDecisionClock, standingOrderOptionId } from './decisionClock'
+import { DECISION_CLOCK_MS, decisionClockFraction, decisionClockNote, shouldPauseDecisionClock, standingOrderOptionId } from './decisionClock'
 
 const ART: Partial<Record<EventType, ImageId>> = {
   thruster: 'image.event-thruster',
@@ -58,10 +58,23 @@ export function EventCard() {
   const cardKey = decision ? `${decision.key}-${decision.turn}` : null
   const [clock, setClock] = useState<{ key: string | null; elapsedMs: number }>({ key: null, elapsedMs: 0 })
   const [blurred, setBlurred] = useState(false)
+  // Reading is never punished: the clock starts on the player's first move after the card
+  // appears (a click, a key, or the pointer leaving the card) and pauses while they read it
+  const [armedKey, setArmedKey] = useState<string | null>(null)
+  const [hovered, setHovered] = useState(false)
+  const [keyboardInside, setKeyboardInside] = useState(false)
   const autoFiredRef = useRef<string | null>(null)
   const reduced = prefersReducedMotion()
   const elapsedMs = clock.key === cardKey ? clock.elapsedMs : 0
-  const clockPaused = shouldPauseDecisionClock({ reducedMotion: reduced, blurred, hasDecision: !!decision })
+  const clockCond = {
+    reducedMotion: reduced,
+    blurred,
+    hasDecision: !!decision,
+    armed: armedKey === cardKey,
+    reading: hovered || keyboardInside,
+  }
+  const clockPaused = shouldPauseDecisionClock(clockCond)
+  const clockNote = decisionClockNote(clockCond)
 
   useEffect(() => {
     if (cardKey) firstOption.current?.focus()
@@ -81,6 +94,21 @@ export function EventCard() {
       document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [])
+
+  useEffect(() => {
+    if (!cardKey) return
+    const arm = () => setArmedKey(cardKey)
+    const onPointerDown = () => {
+      setKeyboardInside(false)
+      arm()
+    }
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', arm)
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', arm)
+    }
+  }, [cardKey])
 
   useEffect(() => {
     if (clockPaused || !cardKey) return
@@ -113,6 +141,8 @@ export function EventCard() {
   const remainingS = Math.max(0, Math.ceil((DECISION_CLOCK_MS - elapsedMs) / 1000))
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    // Moving through the options by keyboard is reading too
+    if (e.key === 'Tab' || e.key.startsWith('Arrow')) setKeyboardInside(true)
     if (e.key === '1' || e.key === '2') {
       const idx = Number(e.key) - 1
       const opt = decision.options[idx]
@@ -129,6 +159,14 @@ export function EventCard() {
       aria-labelledby={titleId}
       aria-describedby={textId}
       onKeyDown={onKeyDown}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => {
+        setHovered(false)
+        setArmedKey(cardKey)
+      }}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setKeyboardInside(false)
+      }}
       className="event-in fp-sheet overflow-hidden border-t-4 border-t-kapton"
       data-tone="raised"
     >
@@ -142,14 +180,14 @@ export function EventCard() {
       {/* 30 s CAPCOM decision clock */}
       <div
         data-testid="decision-clock"
-        data-paused={reduced || blurred ? 'true' : 'false'}
+        data-paused={clockPaused ? 'true' : 'false'}
         data-remaining-ms={Math.max(0, DECISION_CLOCK_MS - elapsedMs)}
         className="border-b border-rule bg-ink-1 px-5 py-1.5"
       >
         <div className="flex items-center justify-between gap-2 fp-data text-[11px] text-paper-dim">
           <span className="fp-label">Decision clock · Standing order [1]</span>
-          <span className={remainingS <= 5 && !(reduced || blurred) ? 'font-bold text-nogo' : 'text-kapton'}>
-            {reduced || blurred ? `Paused · ${remainingS}s` : `${remainingS}s`}
+          <span className={remainingS <= 5 && !clockNote ? 'font-bold text-nogo' : 'text-kapton'}>
+            {clockNote ? `${clockNote} · ${remainingS}s` : `${remainingS}s`}
           </span>
         </div>
         <div className="mt-1 h-1.5 w-full overflow-hidden border border-rule bg-ink-0">

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { TurnLog } from '../sim/types'
+import { failedLabelOfNotes } from '../sim/evaluate'
 
 interface ReplayTimelineProps {
   logs: TurnLog[]
@@ -29,7 +30,7 @@ const PHASE_NAME: Record<TurnLog['phase'], string> = {
   capture: 'Capture',
   orbit: 'Science orbit',
   complete: 'Complete',
-  failed: 'Lost',
+  failed: 'Failed',
 }
 
 /** Each month tick's name, for the tooltip and for screen readers (QC #40) */
@@ -88,7 +89,7 @@ export function ReplayTimeline({ logs, turnIndex, onSelect, playing, onTogglePla
             style={{ flexGrow: seg.end - seg.start + 1, flexBasis: 0 }}
           >
             <div className="mb-1 whitespace-nowrap pr-1 fp-label text-[0.6rem]">
-              {PHASE_NAME[seg.phase]}
+              {seg.phase === 'failed' ? failedLabelOfNotes(logs[seg.end].notes) : PHASE_NAME[seg.phase]}
             </div>
             <div className={`h-0.5 ${PHASE_BAND[seg.phase]}`} aria-hidden="true" />
             <div className="flex">

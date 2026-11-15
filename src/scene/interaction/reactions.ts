@@ -4,6 +4,8 @@
  * the bus lights flicker, how full the storage tray looks. Unit-tested like the `src/viz` models.
  */
 
+import { linkLoss } from '../../sim/budgets'
+
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 /* ---------------- the weighing scale (Factory) ---------------- */
@@ -77,23 +79,35 @@ export function ledBrightness(state: BrownoutState, t: number): number {
 /* ---------------- the storage tray (Comms) ---------------- */
 
 export interface StorageFlow {
-  /** 0..1 how full the onboard tray looks after a turn */
+  /** 0..1 how full the onboard tray looks in steady flight (full once a backlog has filled it) */
   fill: number
-  /** Share of the made data that falls off the tray (0 = none lost) */
+  /** Share of the made data lost each month once storage is full (0 = none lost); the sim's linkLoss */
   spill: number
+  /** MB lost each month once storage is full: the same figure as the Data Link check */
+  lostPerMonth: number
+  /** Months until storage is full (Infinity when the link keeps up) */
+  monthsToFill: number
   /** Packets per second drawn arriving at the dish (1..12) */
   rate: number
 }
 
-/** Made vs sent home per turn, with the onboard storage as buffer: what a turn's packets look like */
+/**
+ * Made vs sent home per month, with the onboard storage as buffer. It reads the simulation's own
+ * loss model (linkLoss): what the link cannot send piles up in storage month after month, so a
+ * short link fills any storage and from then on loses made − carried every month.
+ */
 export function storageFlow(dataPerTurn: number, downlinkPerTurn: number, storageCapacity: number): StorageFlow {
   const made = Math.max(0, dataPerTurn)
-  const sent = Math.max(0, downlinkPerTurn)
-  const left = Math.max(0, made - sent)
   const cap = Math.max(1, storageCapacity)
-  const fill = clamp(left / cap, 0, 1)
-  const lost = Math.max(0, left - cap)
-  return { fill: made > 0 ? Math.max(fill, Math.min(1, made / cap) * 0.15) : 0, spill: made > 0 ? clamp(lost / made, 0, 1) : 0, rate: clamp(Math.round(Math.sqrt(made) / 2), 1, 12) }
+  const loss = linkLoss(dataPerTurn, downlinkPerTurn, storageCapacity)
+  const fill = loss.backlogPerMonth > 0 ? 1 : 0
+  return {
+    fill: made > 0 ? Math.max(fill, Math.min(1, made / cap) * 0.15) : 0,
+    spill: clamp(loss.lostShare, 0, 1),
+    lostPerMonth: loss.lostPerMonth,
+    monthsToFill: loss.monthsToFill,
+    rate: clamp(Math.round(Math.sqrt(made) / 2), 1, 12),
+  }
 }
 
 /* ---------------- volume (Factory) ---------------- */

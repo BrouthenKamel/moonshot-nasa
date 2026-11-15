@@ -1,6 +1,7 @@
 import { useGameStore } from '../../state/gameStore'
 import { lunarIceMapperBrief, difficultyPresets } from '../../data/brief'
-import { Btn, LineItem, Sheet, StepHeader, stepNumber } from '../kit'
+import { Btn, LineItem, Sheet, StepHeader, STEP_QUESTION, stepNumber } from '../kit'
+import { STEP_NAMES, buildingName, firstStop } from '../../viz/missionMap'
 import { audio } from '../../assets/audio'
 
 const N = stepNumber('brief')
@@ -11,6 +12,7 @@ export function BriefScreen() {
   const difficulty = useGameStore((s) => s.difficulty)
   const preset = difficultyPresets[difficulty]
   const brief = lunarIceMapperBrief
+  const stop = firstStop()
 
   const constraints = [
     { label: 'CubeSat size', value: `${brief.constraints.maxVolume}U`, icon: '📐' },
@@ -45,7 +47,11 @@ export function BriefScreen() {
         >
           <span className="text-xl">⚠️</span>
           <div>
-            <span className="font-bold text-paper">Your first stop: the Research Lab.</span> Check whether your instrument can see into the dark craters.
+            {/* Read from the step order, so the brief, the map's lit sign and the mission panel name the same stop */}
+            <span className="font-bold text-paper">
+              {`Your first stop: ${STEP_NAMES[stop.step]} at the ${buildingName(stop.building)}.`}
+            </span>{' '}
+            {STEP_QUESTION[stop.step]}
           </div>
         </div>
 

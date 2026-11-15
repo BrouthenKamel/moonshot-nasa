@@ -115,8 +115,16 @@ describe('pickBeat', () => {
     expect(ok?.text).toContain('413 MB')
     expect(pickBeat(input({ sim: done, report: report({ outcome: 'partial' }) }))?.id).toBe('end-partial')
     expect(pickBeat(input({ sim: done, report: report({ outcome: 'failed' }) }))?.id).toBe('end-failed')
-    const lost = sim({ phase: 'failed' }, { alive: false })
+    const lost = sim({ phase: 'failed' }, { alive: false, end: 'lost contact after deployment' })
     expect(pickBeat(input({ sim: lost, report: report({ outcome: 'failed' }) }))?.id).toBe('end-lost')
+  })
+
+  it('does not say the craft was lost when the money ran out (QC, 15 Nov)', () => {
+    const broke = sim({ phase: 'failed' }, { alive: false, end: 'budget ran out in orbit' })
+    const b = pickBeat(input({ sim: broke, report: report({ outcome: 'failed' }) }))
+    expect(b?.id).toBe('end-stopped')
+    expect(b?.text).toContain('The money ran out')
+    expect(b?.text).not.toContain('lost her')
   })
 
   it('gives the ending on the report screen too', () => {

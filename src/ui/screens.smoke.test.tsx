@@ -204,6 +204,7 @@ describe('screens render', () => {
     useAgencyStore.getState().resetAgency()
     useAgencyStore.getState().markLunarMissionStarted()
     useGameStore.setState({ screen: 'base', simState: null, design: flashlightDesign })
+    useWorldStore.getState().openMission() // designing: a mission was chosen (before that, New mission is the only start)
     const html = renderToString(<App />)
     expect(html).toContain('13.2 / 14 kg') // 14.0 before the balance redesign (lighter chemical module)
     expect(html).toContain('Click a building to walk in')

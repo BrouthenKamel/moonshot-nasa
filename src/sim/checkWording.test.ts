@@ -11,7 +11,8 @@ describe('Go/No-Go wording (QC #17, #45)', () => {
   it('says how much data is lost when the instruments make more than the link carries', () => {
     const c = reasonOf({ ...base, dataPerTurn: 200, downlinkPerTurn: 90 }, 'Data Link')
     expect(c.status).toBe('yellow')
-    expect(c.reason).toContain('The instruments make 200 MB a month but the link carries 90: 110 MB a month is lost')
+    expect(c.reason).toContain('The instruments make 200 MB a month but the link carries 90')
+    expect(c.reason).toContain('then 110 MB a month (55% of the science) is lost')
     expect(c.reason).not.toContain('to spare')
   })
 
