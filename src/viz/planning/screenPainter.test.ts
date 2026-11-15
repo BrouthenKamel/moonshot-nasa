@@ -115,13 +115,22 @@ describe('paintScreen without details', () => {
     expect(lean.some((t) => t.startsWith('cap ') || t.startsWith('spend up to'))).toBe(false)
   })
 
-  it('says spare months or late, without the month-by-month schedule', () => {
+  // Jakob, 15 Nov: "I like this visual" (the road picture), "what i like more … is all the text it removes"
+  it('keeps the road picture (headline, bar, READY, ride rocket) without the month numbers and footer', () => {
     for (const v of [cases.nominal, cases.missed]) {
       const lean = texts(v, false)
       expect(lean).toContain(v.headline)
+      expect(lean).toContain(`BUILD ${v.buildTurns}`)
+      expect(lean).toContain('RIDE')
       expect(lean.some((t) => t.startsWith('RIDE · END OF MONTH'))).toBe(false)
+      expect(lean.some((t) => t.startsWith('Build: from your parts'))).toBe(false)
       expect(lean).not.toContain('1')
+      // Details open: the full schedule is back
+      const full = texts(v, true)
+      expect(full).toContain(`RIDE · END OF MONTH ${v.rideMonth}`)
+      expect(full).toContain('1')
     }
+    expect(texts(cases.nominal, false)).toContain('READY')
   })
 
   it('keeps the risk gauge reading but not its scale', () => {

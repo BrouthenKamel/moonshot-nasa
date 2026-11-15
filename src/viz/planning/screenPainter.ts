@@ -227,19 +227,8 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim, detail: boole
   const X = 720, W = 1020
   frame(ctx, X, W, 'ROAD TO LAUNCH', '#9fb5d6')
   const missed = view.marginMonths < 0
-  if (!detail) {
-    // The answer only: spare months or late. The month-by-month schedule waits behind Details.
-    ctx.textAlign = 'center'
-    ctx.font = font(800, 84)
-    ctx.fillStyle = missed ? '#dc7563' : view.marginMonths === 0 ? '#e8a33d' : '#8cc196'
-    ctx.fillText(view.headline, X + W / 2, 360)
-    ctx.font = font(600, 34)
-    ctx.fillStyle = missed ? '#dc7563' : '#a29b8c'
-    ctx.fillText(missed ? 'Not ready when the ride leaves: launch is blocked.' : 'Ready before the ride leaves.', X + W / 2, 440)
-    ctx.fillStyle = '#5a5650'
-    ctx.fillText('The month-by-month schedule is under Details.', X + W / 2, 640)
-    return
-  }
+  // Without details (Jakob, 15 Nov: keep this picture, lose the text) the headline, the bar, the READY
+  // craft and the ride rocket stay; the month numbers, the ride's month and the footer wait behind Details.
   ctx.textAlign = 'left'
   ctx.font = font(800, 58)
   ctx.fillStyle = missed ? '#dc7563' : view.marginMonths === 0 ? '#e8a33d' : '#8cc196'
@@ -261,7 +250,7 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim, detail: boole
     ctx.strokeStyle = 'rgba(148,163,184,.25)'
     ctx.lineWidth = 2
     ctx.beginPath(); ctx.moveTo(mx(m), BY - 12); ctx.lineTo(mx(m), BY + BH + 12); ctx.stroke()
-    if (m < n && (MW >= 48 || m % 2 === 0)) {
+    if (detail && m < n && (MW >= 48 || m % 2 === 0)) {
       ctx.font = font(700, 34)
       ctx.fillStyle = m < view.rideMonth ? '#a29b8c' : '#3a4254'
       ctx.fillText(String(m + 1), mx(m) + MW / 2, BY + BH + 44)
@@ -315,7 +304,7 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim, detail: boole
   ctx.beginPath(); ctx.moveTo(xr, 300); ctx.lineTo(xr, BY + BH + 14); ctx.stroke()
   ctx.font = font(800, 34)
   ctx.fillStyle = '#e8a33d'
-  const rideLabel = `RIDE · END OF MONTH ${view.rideMonth}`
+  const rideLabel = detail ? `RIDE · END OF MONTH ${view.rideMonth}` : 'RIDE'
   const half = ctx.measureText(rideLabel).width / 2
   ctx.fillText(rideLabel, Math.min(Math.max(xr, X + 26 + half), X + W - 26 - half), missed ? 290 : 262)
   if (anim.launchT >= 0) {
@@ -344,10 +333,12 @@ function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim, detail: boole
     ctx.fillText('READY', nearRocket ? Math.max(xs - 30, X0 + lw) : xs, BY - 92)
   }
 
-  ctx.textAlign = 'left'
-  ctx.font = font(600, 34)
-  ctx.fillStyle = '#a29b8c'
-  ctx.fillText('Build: from your parts  ·  Test: your knob', X0, 650)
+  if (detail) {
+    ctx.textAlign = 'left'
+    ctx.font = font(600, 34)
+    ctx.fillStyle = '#a29b8c'
+    ctx.fillText('Build: from your parts  ·  Test: your knob', X0, 650)
+  }
 }
 
 /* ---------------- Go / No-Go strip ---------------- */
@@ -462,7 +453,7 @@ export function paintScreen(
   ctx: Ctx,
   view: PlanningView,
   anim: ScreenAnim,
-  { detail = true, header = 'COMMS CENTER' }: { detail?: boolean; header?: string } = {}
+  { detail = true }: { detail?: boolean } = {}
 ): void {
   ctx.save()
   ctx.fillStyle = '#07090d'
@@ -481,7 +472,7 @@ export function paintScreen(
   ctx.fillStyle = '#9fb5d6'
   // Only the room's name: the step's title card floats over the middle of this header (it named the
   // mission and the step too, and ran under the card)
-  ctx.fillText(header, 30, 37)
+  ctx.fillText('COMMS CENTER', 30, 37)
   const level = view.status.level
   const blink = level === 'alert' && !anim.reducedMotion ? (Math.sin(anim.time * 8) > 0 ? 1 : 0.35) : 1
   ctx.font = font(800, 34)
