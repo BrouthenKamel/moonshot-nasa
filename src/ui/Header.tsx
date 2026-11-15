@@ -1,36 +1,66 @@
+import { useEffect } from 'react'
 import { AudioControls } from './kit/AudioControls'
 import { EngineerSwitch } from './kit/EngineerSwitch'
 import { useGameStore } from '../state/gameStore'
+import { useUiStore } from '../state/uiStore'
 import { lunarIceMapperBrief } from '../data/brief'
 import { buildingForStep, buildingName, STEP_NAMES } from '../viz/missionMap'
+import { StepDock } from './hud/StepDock'
+import { MissionVitalityPill } from './hud/MissionVitalityCluster'
 
 export function Header() {
   const screen = useGameStore((s) => s.screen)
   const designStep = useGameStore((s) => s.designStep)
   const simState = useGameStore((s) => s.simState)
   const setScreen = useGameStore((s) => s.setScreen)
+  const toggleHudModal = useUiStore((s) => s.toggleHudModal)
 
   const building = buildingForStep(designStep)
   const buildingLabel = buildingName(building)
   const stepLabel = STEP_NAMES[designStep]
 
+  // Global 'H' shortcut to toggle HUD modal during design
+  useEffect(() => {
+    if (screen !== 'design') return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.key === 'h' || e.key === 'H') {
+        toggleHudModal()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [screen, toggleHudModal])
+
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-rule bg-ink-1 px-4 py-2">
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-rule bg-ink-1 px-4 py-2 select-none">
+      {/* Left: Mission Brand & Location */}
       <div className="flex items-center gap-3">
         <span className="h-3 w-1 shrink-0 bg-[var(--role-accent)]" aria-hidden="true" />
         <h1 className="fp-display text-lg text-paper">Moonshot</h1>
         {screen !== 'title' && (
-          <span className="fp-label">
+          <span className="fp-label hidden sm:inline">
             {lunarIceMapperBrief.name}
           </span>
         )}
         {screen === 'design' && (
-          <span className="hidden items-center gap-1.5 border-l border-rule pl-3 fp-label text-[var(--role-accent)] sm:inline-flex">
+          <span className="hidden items-center gap-1.5 border-l border-rule pl-3 fp-label text-[var(--role-accent)] 2xl:inline-flex">
             {buildingLabel} · {stepLabel}
           </span>
         )}
       </div>
 
+      {/* Center: Mission Sequencer & Vitality Telemetry Strip */}
+      {screen === 'design' && (
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex">
+            <StepDock compact />
+          </div>
+          <MissionVitalityPill />
+        </div>
+      )}
+
+      {/* Right: Simulation Telemetry & Utility Controls */}
       <div className="flex items-center gap-3">
         {screen === 'simulation' && simState && (
           <div className="flex flex-wrap items-stretch text-xs">

@@ -375,6 +375,30 @@ function BennuLandmark({ reduced }: { reduced: boolean }) {
   )
 }
 
+function PolarReticle({ active }: { active: boolean }) {
+  const ringRef = useRef<THREE.Group>(null)
+  useFrame((_, delta) => {
+    if (ringRef.current && active) {
+      ringRef.current.rotation.z += delta * 0.6
+    }
+  })
+  if (!active) return null
+  return (
+    <group ref={ringRef} position={[0, -1.004, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh>
+        <ringGeometry args={[0.075, 0.08, 48]} />
+        <meshBasicMaterial color="#5ee6f0" transparent opacity={0.65} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+      {[0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((angle, idx) => (
+        <mesh key={idx} rotation={[0, 0, angle]} position={[0.088, 0, 0]}>
+          <planeGeometry args={[0.015, 0.002]} />
+          <meshBasicMaterial color="#5ee6f0" transparent opacity={0.8} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 interface FlightViewProps {
   design: Design
   shot: FlightShot
@@ -474,6 +498,7 @@ export function FlightView({ design, shot, className = '' }: FlightViewProps) {
           <Starfield brightness={0.75} />
           <Sun intensity={2.6} fill={0.05} />
           <Moon iceCoverage={shot.coverage} />
+          <PolarReticle active={shot.stage === 'orbit' && shot.science} />
           <group position={EARTH_POS}>
             <Earth radius={3.67} spin={0.006} />
           </group>

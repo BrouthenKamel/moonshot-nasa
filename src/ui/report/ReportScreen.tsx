@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { assetUrl } from '../../assets'
+import { audio } from '../../assets/audio'
 import { getGroundStationById } from '../../data/ground'
 import { getOrbitById } from '../../data/orbits'
 import { getPartById } from '../../data/parts'
@@ -9,6 +10,7 @@ import { useGameStore } from '../../state/gameStore'
 import { STEP_NAMES, buildingForStep, buildingName } from '../../viz/missionMap'
 import { Eng, Flap, Sheet, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
 import { FixItPanel, RelaunchButton } from './FixItPanel'
+import { ArtemisDebrief } from './ArtemisDebrief'
 import { classifyCause } from './fixIt'
 import { gradeFor } from './grade'
 import { medals } from './medals'
@@ -177,6 +179,19 @@ export function ReportScreen() {
   const won = medals(report)
   const wonCount = won.filter((m) => m.earned).length
 
+  useEffect(() => {
+    if (report.outcome === 'success') {
+      audio.play('sfx.go')
+      audio.say('voice.end-success')
+    } else if (report.outcome === 'partial') {
+      audio.play('sfx.select')
+      audio.say('voice.end-partial')
+    } else {
+      audio.play('sfx.error')
+      audio.say('voice.end-failed')
+    }
+  }, [report.outcome])
+
   return (
     <div data-role="ground" className="mx-auto max-w-4xl space-y-6 pb-10">
       {/* After-action title block */}
@@ -284,6 +299,8 @@ export function ReportScreen() {
           </div>
         )}
       </Sheet>
+
+      <ArtemisDebrief report={report} />
 
       <FixItPanel report={report} />
 

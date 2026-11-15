@@ -515,6 +515,21 @@ function CaptureBurnWatch({ phase }: { phase: SimState['phase'] }) {
   )
 }
 
+function IceStrikeWatch({ coverage }: { coverage: number }) {
+  const prev = useRef(coverage)
+  useEffect(() => {
+    if (prev.current === 0 && coverage > 0) {
+      audio.say('voice.ice-first')
+      audio.play('sfx.capture')
+    } else if (prev.current < 70 && coverage >= 70) {
+      audio.say('voice.ice-70')
+      audio.play('sfx.go')
+    }
+    prev.current = coverage
+  }, [coverage])
+  return null
+}
+
 /** The three space-view cameras on the base */
 const CAMERAS: readonly (readonly [FlightCamMode, string])[] = [
   ['overview', 'CAM 1 · WIDE'],
@@ -632,6 +647,7 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
         island
       )}
       <CaptureBurnWatch phase={sim.phase} />
+      <IceStrikeWatch coverage={sim.coveragePercent} />
       {showSpace ? (
         <SpaceBar sim={sim} shot={shot} monthFraction={monthFraction} />
       ) : (

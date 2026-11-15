@@ -34,10 +34,19 @@ const iceFragment = /* glsl */ `
     float id = floor((atan(p.z, p.x) / 6.2831853 + 0.5) * strips);
     float order = fract(sin(id * 12.9898) * 43758.5453);
     float mapped = step(order + 0.0005, coverage);
-    float edge = smoothstep(1.0, 0.8, r);
-    float pulse = 0.85 + 0.15 * sin(time * 1.7 + id * 2.1);
-    vec3 color = vec3(0.05, 0.95, 1.0) * ice * mapped * 3.2 * pulse;
-    color += vec3(0.05, 0.5, 0.7) * mapped * 0.07;
+    float edge = smoothstep(1.0, 0.85, r);
+
+    // Crystalline micro-glimmer on permanently shadowed ice deposits
+    float sparkle = fract(sin(dot(p.xz * 180.0, vec2(12.9898, 78.233)) + floor(time * 6.0)) * 43758.5453);
+    float glint = smoothstep(0.82, 0.99, sparkle) * 1.5;
+
+    // Deep luminous cyan with high-dynamic-range bloom emission
+    float pulse = 0.9 + 0.1 * sin(time * 2.0 + id * 1.8);
+    vec3 iceColor = vec3(0.08, 0.96, 1.15) * (ice * (3.5 * pulse + glint)) * mapped;
+    // Faint radar scan footprint over mapped polar sectors
+    vec3 radarGrid = vec3(0.02, 0.45, 0.65) * mapped * 0.08;
+
+    vec3 color = iceColor + radarGrid;
     gl_FragColor = vec4(color * edge, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>

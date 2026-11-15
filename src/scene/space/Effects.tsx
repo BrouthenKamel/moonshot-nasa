@@ -12,10 +12,10 @@ export type EffectsPreset = 'space' | 'interior' | 'night' | 'day'
  * screens): the threshold sits at or above 1 so lit panels never wash out.
  */
 const PRESETS: Record<EffectsPreset, { bloom: number; threshold: number; smoothing: number; radius: number; vignette: number; offset: number }> = {
-  space: { bloom: 0.9, threshold: 1, smoothing: 0.3, radius: 0.75, vignette: 0.75, offset: 0.2 },
-  interior: { bloom: 0.55, threshold: 1.05, smoothing: 0.25, radius: 0.6, vignette: 0.55, offset: 0.28 },
-  night: { bloom: 0.8, threshold: 0.95, smoothing: 0.3, radius: 0.7, vignette: 0.7, offset: 0.22 },
-  day: { bloom: 0.35, threshold: 1.15, smoothing: 0.2, radius: 0.55, vignette: 0.4, offset: 0.32 },
+  space: { bloom: 1.15, threshold: 0.92, smoothing: 0.35, radius: 0.8, vignette: 0.65, offset: 0.22 },
+  interior: { bloom: 0.75, threshold: 0.98, smoothing: 0.28, radius: 0.68, vignette: 0.48, offset: 0.26 },
+  night: { bloom: 0.95, threshold: 0.9, smoothing: 0.32, radius: 0.75, vignette: 0.68, offset: 0.22 },
+  day: { bloom: 0.45, threshold: 1.1, smoothing: 0.22, radius: 0.58, vignette: 0.38, offset: 0.3 },
 }
 
 /**

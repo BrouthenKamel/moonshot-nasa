@@ -375,12 +375,23 @@ function Bay({ ringColor, reduced }: { ringColor: string; reduced: boolean }) {
       {/* the turntable */}
       <mesh position-y={0.04}>
         <cylinderGeometry args={[0.52, 0.58, 0.08, 64]} />
-        <meshStandardMaterial color="#23262c" metalness={0.6} roughness={0.38} />
+        <meshStandardMaterial color="#23262c" metalness={0.7} roughness={0.32} />
       </mesh>
       <mesh position-y={0.085} rotation-x={Math.PI / 2}>
         <torusGeometry args={[0.5, 0.012, 8, 96]} />
         <meshBasicMaterial ref={ring} color={ringColor} toneMapped={false} />
       </mesh>
+      {/* Laser alignment cross projected on the turntable floor */}
+      <mesh rotation-x={-Math.PI / 2} position-y={0.086}>
+        <planeGeometry args={[0.88, 0.003]} />
+        <meshBasicMaterial color="#5ee6f0" transparent opacity={0.45} toneMapped={false} />
+      </mesh>
+      <mesh rotation-x={-Math.PI / 2} position-y={0.086}>
+        <planeGeometry args={[0.003, 0.88]} />
+        <meshBasicMaterial color="#5ee6f0" transparent opacity={0.45} toneMapped={false} />
+      </mesh>
+      {/* Overhead cleanroom spotlight directly over spacecraft */}
+      <spotLight position={[0, 4.2, 0]} angle={0.5} penumbra={0.7} intensity={16} color="#f0f6ff" />
       {/* a faint beam holds the craft up */}
       <mesh position-y={0.095 + 0.15}>
         <cylinderGeometry args={[0.3, 0.46, 0.3, 48, 1, true]} />
