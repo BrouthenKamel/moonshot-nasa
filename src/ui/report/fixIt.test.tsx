@@ -14,7 +14,7 @@ import { runSimulation } from '../../sim/simulate'
 import { buildReport } from '../../sim/evaluate'
 import { flashlightDesign, iceCubeDesign } from '../../sim/fixtures'
 import type { Design, Report, RequirementResult } from '../../sim/types'
-import { classifyCause, topCauses } from './fixIt'
+import { classifyCause, fixLabel, topCauses } from './fixIt'
 import { FixItPanel } from './FixItPanel'
 
 const reportOf = (design: Design, seed = 1) => buildReport(runSimulation(design, 'engineer', seed))
@@ -69,9 +69,19 @@ describe('topCauses: the decisions behind a failed or partial mission', () => {
   })
 
   it('a craft lost after deployment points to the testing time in planning', () => {
-    const r = reportOf(iceCubeDesign, 3)
+    // A craft that had a reserve: the search ran (or was called off), so testing is what to change
+    expect(classifyCause('Contact was lost right after deployment, as happened to Lunar IceCube.')).toMatchObject({ step: 'planning', decision: 'Testing time' })
+  })
+
+  it('a craft lost for want of a reserve: one link, "Fix at Plan: hold back a reserve" (QC, 15 Nov)', () => {
+    const r = reportOf(iceCubeDesign, 3) // 0% reserve: the no-signal card offered only "Accept the loss"
     expect(r.outcome).toBe('failed')
-    expect(topCauses(r)[0]).toMatchObject({ step: 'planning', building: 'comms-center', decision: 'Testing time' })
+    const causes = topCauses(r)
+    expect(causes).toHaveLength(1)
+    expect(causes[0]).toMatchObject({ step: 'planning', decision: 'Reserve', action: 'hold back a reserve' })
+    expect(fixLabel(causes[0])).toBe('Fix at Plan: hold back a reserve')
+    const html = renderToString(<FixItPanel report={r} />).replace(/<!-- -->/g, '')
+    expect(html).toContain('Fix at Plan: hold back a reserve')
   })
 
   it('names at most two decisions, one per step, in the report order', () => {

@@ -2,7 +2,7 @@ import { useGameStore } from '../../state/gameStore'
 import type { Report } from '../../sim/types'
 import { STEP_NAMES } from '../../viz/missionMap'
 import { Sheet, Tag } from '../kit'
-import { topCauses } from './fixIt'
+import { fixLabel, topCauses } from './fixIt'
 
 /**
  * "What to fix": the one or two decisions behind a failed or partial mission,
@@ -54,7 +54,7 @@ export function FixItPanel({ report }: { report: Report }) {
                 className="fp-btn-primary shrink-0"
                 aria-label={`Fix ${c.decision} at the ${c.buildingName}, ${STEP_NAMES[c.step]} step`}
               >
-                {`Fix at ${c.buildingName}`}
+                {fixLabel(c)}
               </button>
             </div>
           </li>
