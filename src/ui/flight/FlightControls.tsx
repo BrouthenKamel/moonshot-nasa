@@ -154,8 +154,12 @@ function ThisMonth({ simState, compact }: { simState: SimState; compact: boolean
   )
 }
 
-/** Month buttons during the flight; "See report" once it is over. Hidden while an event card waits. */
-export function FlightControls({ compact = false }: { compact?: boolean }) {
+/**
+ * Month buttons during the flight; "See report" once it is over. Hidden while an event card waits.
+ * `monthPlan` shows the in-orbit "This month" science chooser above the buttons (off on the base map:
+ * the craft keeps the last choice, full science by default).
+ */
+export function FlightControls({ compact = false, monthPlan = true }: { compact?: boolean; monthPlan?: boolean }) {
   const simState = useGameStore((s) => s.simState)
   const advanceTurn = useGameStore((s) => s.advanceTurn)
   const autoFly = useGameStore((s) => s.autoFly)
@@ -190,7 +194,7 @@ export function FlightControls({ compact = false }: { compact?: boolean }) {
   if (simState.pendingDecision) return null
   return (
     <div>
-      {simState.phase === 'orbit' && <ThisMonth simState={simState} compact={compact} />}
+      {monthPlan && simState.phase === 'orbit' && <ThisMonth simState={simState} compact={compact} />}
       <div className="flex flex-wrap items-stretch gap-2">
         <button
           type="button"

@@ -28,10 +28,13 @@ export interface WorldState extends World {
   speed: Speed
   /** The player chose a mission to work on (New mission) */
   missionOpen: boolean
+  /** The finished mission whose result pop-up the player already closed (by seed) */
+  resultSeenSeed: number | null
   setSpeed: (speed: Speed) => void
   /** Advance the clock by real seconds at the current speed */
   tick: (seconds: number) => void
   openMission: () => void
+  markResultSeen: (seed: number) => void
   resetWorld: () => void
 }
 
@@ -77,6 +80,7 @@ export const useWorldStore = create<WorldState>()(
       ...initialWorld(),
       speed: 'normal' as Speed,
       missionOpen: false,
+      resultSeenSeed: null as number | null,
       setSpeed: (speed) => set({ speed }),
       tick: (seconds) => {
         const rate = SPEEDS[get().speed]
@@ -85,13 +89,14 @@ export const useWorldStore = create<WorldState>()(
         runUntil(get().day + rate * seconds)
       },
       openMission: () => set({ missionOpen: true }),
-      resetWorld: () => set({ ...initialWorld(), missionOpen: false }),
+      markResultSeen: (seed) => set({ resultSeenSeed: seed }),
+      resetWorld: () => set({ ...initialWorld(), missionOpen: false, resultSeenSeed: null }),
     }),
     {
       name: 'moonshot-agency-world',
       version: 2,
       migrate: (persisted) => ({ ...(persisted as object), speed: 'normal', missionOpen: false }) as never,
-      partialize: (s) => ({ ...pickWorld(s), speed: s.speed, missionOpen: s.missionOpen }),
+      partialize: (s) => ({ ...pickWorld(s), speed: s.speed, missionOpen: s.missionOpen, resultSeenSeed: s.resultSeenSeed }),
     }
   )
 )
