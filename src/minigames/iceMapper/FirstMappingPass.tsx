@@ -88,9 +88,10 @@ function DesignRows({ sim }: { sim: SimState }) {
     [instruments.map((i) => short(i.name)).join(' + ') || 'No instrument', STEP_NAMES.instruments],
     [battery ? short(battery.name) : 'No battery', STEP_NAMES.spacecraft],
   ]
-  if (orbit && lowest) {
-    const ok = orbit.altitude <= lowest.maxAltitudeKm!
-    rows.push([`${orbit.altitude} km up · ${short(lowest.name)} ${ok ? 'works below' : 'is blind above'} ${lowest.maxAltitudeKm} km`, STEP_NAMES.orbit])
+  // The Orbit line is there for every design: its height, and what the lowest-reaching instrument makes of it
+  if (orbit) {
+    const reach = lowest ? ` · ${short(lowest.name)} ${orbit.altitude <= lowest.maxAltitudeKm! ? 'works below' : 'is blind above'} ${lowest.maxAltitudeKm} km` : ''
+    rows.push([`${orbit.altitude} km up${reach}`, STEP_NAMES.orbit])
   }
   return (
     <ul className="mt-3 space-y-1 border-t border-rule pt-2 text-xs">

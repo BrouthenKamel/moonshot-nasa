@@ -21,3 +21,14 @@ describe('TitleLine', () => {
     expect(renderToString(<TitleLine />)).toContain('RESEARCH LAB · LUNAR ICE MAPPER · INSTRUMENTS')
   })
 })
+
+describe('ForecastPanel for a design that cannot map ice', () => {
+  const ir = { ...flashlightDesign, instruments: ['inst-ir-spec'] }
+  const m = stageModel(ir, 'engineer')
+  const html = renderToString(<ForecastPanel forecast={m.forecast} altitudeKm={m.altitudeKm} />).replace(/<!-- -->/g, '')
+  it('names the instrument cause first and does not point at the orbit', () => {
+    expect(m.forecast.reasons[0]).toBe('IR maps sunlit ground, not ice: pick the laser or the neutron spectrometer.')
+    expect(html).toContain('IR maps sunlit ground, not ice')
+    expect(html).not.toContain('change it in Orbit')
+  })
+})

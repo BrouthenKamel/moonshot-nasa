@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { computeBudgets, createDefaultDesign } from '../../sim/budgets'
 import { COVERAGE_TARGET } from '../../sim/evaluate'
 import type { Design } from '../../sim/types'
-import { AREAS, TARGET_PCT, autoplay, botAim, craterState, newPass, passHours, passWhy, setupFromDesign, step, summarize } from './logic'
+import { AREAS, TARGET_PCT, autoplay, botAim, craterState, newPass, passHours, noSignalReason, passWhy, setupFromDesign, step, summarize } from './logic'
 
 const design = (patch: Partial<Design>): Design => ({ ...createDefaultDesign(), ...patch })
 /** Sees only sunlit ground: nothing aboard reads permanently shadowed craters */
@@ -109,5 +109,14 @@ describe('the autopilot goes to the craters the payload can read', () => {
     const r = summarize(autoplay(setupFromDesign(high)))
     expect(r.mapped).toBe(0)
     expect(r.perArea.every((a) => a.blocked !== null)).toBe(true)
+  })
+})
+
+describe('the overlay says why a crater reads no ice', () => {
+  it('names the instrument, not the crater', () => {
+    expect(noSignalReason(setupFromDesign(blind))).toBe('IR needs sunlight')
+    expect(noSignalReason(setupFromDesign(design({ instruments: ['inst-camera'] })))).toBe('camera takes pictures only')
+    const high = design({ instruments: ['inst-laser'], orbit: 'orbit-polar-100' })
+    expect(noSignalReason(setupFromDesign(high))).toBe('laser too high here')
   })
 })

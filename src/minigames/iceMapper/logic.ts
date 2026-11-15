@@ -152,6 +152,21 @@ export function scanAbility(setup: PassSetup, area: Area): { rate: number; block
   return { rate: Math.max(...usable.map((s) => s.rate)), blocked: null }
 }
 
+/**
+ * Why a crater reads no ice, in a few words, for the overlay: "IR needs sunlight", "laser too high here".
+ * Says the instrument's cause, so the overlay never seems to contradict "ICE LIVES HERE".
+ */
+export function noSignalReason(setup: PassSetup): string {
+  if (setup.scanners.length === 0) return 'no instrument aboard'
+  const short = (n: string) => (/infrared|\bIR\b/i.test(n) ? 'IR' : n.split(' ')[0].toLowerCase())
+  const high = setup.scanners.find((sc) => sc.tooHigh)
+  if (high) return `${short(high.name)} too high here`
+  return setup.scanners
+    .map((sc) => (sc.seesDark ? null : /camera/i.test(sc.name) ? 'camera takes pictures only' : `${short(sc.name)} needs sunlight`))
+    .filter((t): t is string => t !== null)
+    .join(' · ')
+}
+
 /** The reach of the widest scanner (the camera counts for the picture even though it reads no ice) */
 export function beamRadius(setup: PassSetup): number {
   return setup.scanners.length ? Math.max(...setup.scanners.map((s) => s.beam)) : BEAM_AT_REFERENCE

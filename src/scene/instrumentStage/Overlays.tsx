@@ -66,7 +66,8 @@ export function ForecastPanel({ forecast, altitudeKm, inline = false }: { foreca
           </Eng>
         </div>
       </div>
-      <div className="mt-2 text-[11px] text-paper-faint">Tested at your planned orbit, {altitudeKm} km over the pole: change it in Orbit</div>
+      {/* The orbit is only the thing to change when something aboard can read ice */}
+      {forecast.canMapIce && <div className="mt-2 text-[11px] text-paper-faint">Tested at your planned orbit, {altitudeKm} km over the pole: change it in Orbit</div>}
       {forecast.reasons.length > 0 && (
         <ul className="mt-2 space-y-1 border-t border-rule pt-2 text-xs text-caution">
           {forecast.reasons.map((r) => (
