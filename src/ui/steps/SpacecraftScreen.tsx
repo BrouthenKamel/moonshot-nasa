@@ -15,6 +15,8 @@ import { Btn, Eng, STEP_NAMES, Sheet, Stamp, nextLabel, stepTitle } from '../kit
 import { normalizeRocket, rocketExplainer, type ExplainerItem } from '../../viz/rocket/rocketView'
 import type { RocketFocus } from '../../scene/rocket/RocketBay'
 import { prefersReducedMotion } from '../../scene/space/quality'
+import { interceptStepLeave } from '../interaction/stepLeave'
+import type { DesignStep } from '../../sim/types'
 import { hasSeenRocketLoad, markRocketLoadSeen } from './spacecraft/rocketLoadSeen'
 import { PartsTray, FactStrip, type ActiveOption } from './spacecraft/PartsTray'
 import { BoardText } from './spacecraft/BoardText'
@@ -341,18 +343,62 @@ export function SpacecraftScreen() {
   const [phase, setPhase] = useState<Phase>('build')
   const [focus, setFocus] = useState<RocketFocus>('payload')
   const [seen, setSeen] = useState(hasSeenRocketLoad)
+  /** Where the player is headed once the craft is in the rocket */
+  const [exitTo, setExitTo] = useState<DesignStep>('orbit')
 
-  const loadIntoRocket = () => {
+  /**
+   * Leaving the Craft step loads the craft into the rocket on the way out, then shows the rocket
+   * explained, before the next step opens. The first time it plays in full, whichever way the
+   * player leaves. After that, "Next" plays a quicker carry that one click or Esc skips, and a tab
+   * jump goes straight through, so moving between tabs never gets in the way.
+   */
+  const leave = (to: DesignStep, via: 'next' | 'tab'): boolean => {
+    if (seen && via === 'tab') return false
     audio.play('sfx.select')
+    setExitTo(to)
     setFocus('payload')
-    // No 3D, or the player asked for less motion: go straight to the craft inside the rocket
+    // No 3D, or the player asked for less motion: straight to the craft inside the rocket
     setPhase(room && !prefersReducedMotion() ? 'loading' : 'inside')
+    return true
   }
+  const goOn = () => setDesignStep(exitTo)
   const loaded = () => {
     markRocketLoadSeen()
     setSeen(true)
     setPhase('inside')
   }
+
+  // The dock's tabs ask this step before they move on (see stepLeave.ts); refs keep the latest state
+  const leaveRef = useRef(leave)
+  const phaseRef = useRef(phase)
+  useEffect(() => {
+    leaveRef.current = leave
+    phaseRef.current = phase
+  })
+  useEffect(
+    () =>
+      interceptStepLeave((to) => {
+        if (to === 'spacecraft' || to === 'rocket') return false
+        // Already in the carry or the explainer: a tab goes straight there
+        if (phaseRef.current !== 'build') return false
+        return leaveRef.current(to, 'tab')
+      }),
+    [],
+  )
+
+  // Esc skips straight on: during a repeat carry, or from the explainer
+  const goOnRef = useRef(goOn)
+  useEffect(() => {
+    goOnRef.current = goOn
+  })
+  useEffect(() => {
+    if (phase === 'build' || (phase === 'loading' && !seen)) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') goOnRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [phase, seen])
 
   const togglePanels = () => {
     const closing = !panels
@@ -407,6 +453,7 @@ export function SpacecraftScreen() {
                   onSlotHover={() => {}}
                   onSlotClick={(slot) => !loading && setFocus(slot)}
                   payload={loading ? 'loading' : 'inside'}
+                  speed={seen ? 2.5 : 1}
                   focus={focus}
                   onLoaded={loaded}
                 />
@@ -431,13 +478,13 @@ export function SpacecraftScreen() {
           <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-2">
             {loading ? (
               seen && (
-                <Btn variant="secondary" type="button" onClick={loaded} className="bg-ink-1" data-testid="skip-load">
-                  Skip ▸▸
+                <Btn variant="secondary" type="button" onClick={goOn} className="bg-ink-1" data-testid="skip-load" title="Skip (Esc)">
+                  Skip to {STEP_NAMES[exitTo]} ▸▸
                 </Btn>
               )
             ) : (
-              <button type="button" onClick={() => setDesignStep('orbit')} className="tactical-btn-next">
-                {nextLabel('spacecraft')}
+              <button type="button" onClick={goOn} className="tactical-btn-next" data-testid="explainer-next">
+                {`Next: ${STEP_NAMES[exitTo]} →`}
               </button>
             )}
           </div>
@@ -518,8 +565,8 @@ export function SpacecraftScreen() {
         </div>
 
         <div className="absolute top-3 right-3 z-10 flex w-64 flex-col items-end gap-3">
-          <button type="button" onClick={loadIntoRocket} className="tactical-btn-next" data-testid="load-into-rocket">
-            Load it into the rocket →
+          <button type="button" onClick={() => leave('orbit', 'next')} className="tactical-btn-next" data-testid="craft-next">
+            {nextLabel('spacecraft')}
           </button>
           {room && (
             <div className="w-full">

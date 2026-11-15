@@ -4,6 +4,7 @@ import type { DesignStep } from '../../sim/types'
 import { audio } from '../../assets/audio'
 import { STEP_NAMES, TAB_STEPS, stepNumber } from '../kit/stepNumbers'
 import { buildingForStep, buildingName } from '../../viz/missionMap'
+import { goToStep } from '../interaction/stepLeave'
 
 /** One tab per step, in play order, named as everywhere else; the tooltip says which building holds it */
 const STATIONS = TAB_STEPS.map((id) => ({
@@ -52,7 +53,8 @@ export function StepDock({ className = '' }: { className?: string }) {
             aria-current={isCurrent ? 'step' : undefined}
             onClick={() => {
               audio.play('sfx.click')
-              setDesignStep(station.id)
+              // the step on screen may play its way out first (the Craft step's carry into the rocket)
+              goToStep(station.id, setDesignStep)
             }}
             className={`group relative flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono transition-all duration-150 ${
               isCurrent

@@ -49,6 +49,8 @@ interface ViewProps {
   onSlotClick: (slot: RocketSlot) => void
   /** 'loading' plays the carry into the fairing, then calls onLoaded; 'inside' shows it seated */
   payload: 'loading' | 'inside'
+  /** How fast the carry plays: 1 the first time, faster on a repeat */
+  speed?: number
   focus: RocketFocus
   onLoaded: () => void
 }
@@ -534,6 +536,7 @@ function payloadAt(t: number, start: THREE.Vector3, high: number, seat: THREE.Ve
 
 function Payload({
   loading,
+  speed,
   seat,
   high,
   wideY,
@@ -544,6 +547,7 @@ function Payload({
   onLoaded,
 }: {
   loading: boolean
+  speed: number
   seat: THREE.Vector3
   high: number
   /** The whole-rocket shot the carry starts from */
@@ -575,7 +579,7 @@ function Payload({
   useFrame(({ camera, size }, dt) => {
     if (loading) {
       // a slow or hidden frame must not skip the carry
-      time.current += Math.min(dt, 1 / 20)
+      time.current += Math.min(dt, 1 / 20) * speed
       const t = time.current
       payloadAt(t, start, high, seat, pos)
       // the camera follows: the whole rocket while the craft waits on the floor, close as it goes in
@@ -637,6 +641,7 @@ function Rocket({
   onSlotHover,
   onSlotClick,
   payload,
+  speed,
   focus,
   onLoaded,
   tagEls,
@@ -682,6 +687,7 @@ function Rocket({
       <Suspense fallback={null}>
         <Payload
           loading={payload === 'loading'}
+          speed={speed ?? 1}
           seat={seat}
           high={high}
           wideY={(lift + ((layout.top + layout.bottom) / 2) * S) * 0.75}
