@@ -25,6 +25,9 @@ import { useWorldStore } from '../state/worldStore'
 import { flashlightDesign } from '../sim/fixtures'
 import { initSim, flyUntilDecision, getDefaultAction } from '../sim/simulate'
 import type { DesignStep } from '../sim/types'
+
+// These checks cover the classic step-screen game (?classic=1) until WP-6 removes it
+vi.mock('../world/mode', () => ({ isClassicMode: () => true }))
 import { clearOddsCache, estimateSuccess, planningOdds } from '../sim/odds'
 
 /** Every screen renders with the ported model, without throwing. */

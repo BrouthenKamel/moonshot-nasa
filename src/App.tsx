@@ -18,6 +18,8 @@ import { EventCard } from './ui/flight/EventCard'
 import { FlightControls } from './ui/flight/FlightControls'
 import { Narrator } from './ui/narrator/Narrator'
 import { Eng, Flap, Sheet } from './ui/kit'
+import { CampusScreen } from './world/CampusScreen'
+import { isClassicMode } from './world/mode'
 
 const PHASE_TEXT: Record<string, string> = {
   build: 'Building',
@@ -171,6 +173,15 @@ export default function App() {
   if (screen === 'base' || screen === 'title') {
     // The opening curtain covers the base once per session (only where the 3D picture can be drawn)
     if (!openingDone && canUseWebGL()) return <Opening onBegin={() => audio.play('sfx.reveal')} />
+    if (!isClassicMode()) {
+      return (
+        <main className="h-screen text-slate-100">
+          <CampusScreen />
+          <Captions />
+          <InteractionLayer />
+        </main>
+      )
+    }
     return (
       <main className="h-screen text-slate-100">
         {/* No mentor over the base: the mission panel says what comes next */}
