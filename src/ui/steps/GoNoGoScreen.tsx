@@ -10,12 +10,23 @@ import { useGameStore } from '../../state/gameStore'
 import { checkFigures } from '../../viz/checkMargin'
 import { SynergyStrip } from '../../viz/DesignDeltaLine'
 import { POLL_ORDER, ROLE_INFO, stations, type Role, type Station } from '../../viz/gonogo/stations'
+import { POLL_TIMING, pollEnd } from '../../viz/gonogo/pollEnd'
+import { InlineCaptions } from '../kit/Captions'
 import { fixLocation } from '../../viz/missionMap'
 import { checkHeadline } from '../../viz/gonogo/checkHeadline'
-import { Details, Eng, Stamp, StepHeader, Tag, type StampVerdict, type TagTone } from '../kit'
+import { Details, Eng, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
 import { Tooltip } from '../Tooltip'
 import { goCall } from './gonogo/headline'
 import { useSuccessEstimate } from '../useOdds'
+import { PlanPanel, PlanRow, PlanRows } from './plan/PlanPanel'
+
+/*
+ * Step 08 · Launch: the Go / No-Go poll on one screen. On the left the four stations as lamps
+ * and only what needs attention, one line each with its Fix link; on the right one panel with
+ * the verdict, the chance of full success and the launch key. Screen budget (Jakob, 15 Nov): the
+ * poll runs on entry, the stamp stands alone, at most three numbers show before Details, and every
+ * check in full waits behind Details. Every status comes from goNoGo(); this step changes nothing.
+ */
 
 const POLL_VOICE: Record<Role, AudioId> = {
   ground: 'voice.poll-ground',
@@ -24,14 +35,80 @@ const POLL_VOICE: Record<Role, AudioId> = {
   launch: 'voice.poll-launch',
 }
 
-/** The poll's three answers, as rubber stamps and inventory tags */
+/** The poll's three answers */
 const VERDICT = {
   green: { label: 'GO', stamp: 'go', tag: 'go' },
   yellow: { label: 'CAUTION', stamp: 'caution', tag: 'caution' },
   red: { label: 'NO-GO', stamp: 'nogo', tag: 'nogo' },
 } as const satisfies Record<CheckResult['status'], { label: string; stamp: StampVerdict; tag: TagTone }>
 
+const DOT = { green: 'bg-go', yellow: 'bg-caution', red: 'bg-nogo' } as const
 const RULE = { green: 'border-l-go', yellow: 'border-l-caution', red: 'border-l-nogo' } as const
+const GLOW = {
+  green: 'shadow-[0_0_14px_var(--color-go)]',
+  yellow: 'shadow-[0_0_14px_var(--color-caution)]',
+  red: 'shadow-[0_0_14px_var(--color-nogo)]',
+} as const
+
+/**
+ * One station of the poll as a lamp (screen budget): its name, its building and its answer, nothing
+ * else; hover it for the checks it answers for. stamp: 'static' shows the answer at rest, 'thunk'
+ * stamps it down as the station answers, 'none' leaves it open while the poll has not reached it.
+ */
+function PollLamp({ station, stamp, active, run }: { station: Station; stamp: 'static' | 'thunk' | 'none'; active: boolean; run: number }) {
+  const v = VERDICT[station.status]
+  const lit = stamp !== 'none'
+  return (
+    <div
+      data-testid="poll-lamp"
+      title={`${ROLE_INFO[station.role].buildingName}: ${station.checks.map((c) => c.resource).join(', ') || 'nothing to check'}`}
+      className={`flex min-w-0 flex-col items-center gap-2 rounded-lg border bg-ink-1/70 px-3 py-3 text-center transition-colors ${active ? 'border-kapton' : 'border-rule'}`}
+    >
+      <span
+        aria-hidden
+        className={`h-4 w-4 rounded-full transition-all ${lit ? `${DOT[station.status]} ${GLOW[station.status]}` : active ? 'animate-pulse bg-kapton' : 'bg-ink-3'}`}
+      />
+      <div className="min-w-0">
+        <div className="font-display text-base font-bold leading-tight text-paper">{station.title}</div>
+        <div className="truncate fp-label text-[0.6rem] text-paper-faint">{station.building}</div>
+      </div>
+      <div className="flex h-7 items-center">
+        {lit ? (
+          <Stamp key={run} verdict={v.stamp} size="sm" animate={stamp === 'thunk'}>
+            {v.label}
+          </Stamp>
+        ) : (
+          <span className="fp-label inline-block border border-dashed border-rule px-2 py-0.5 text-[0.6rem] text-paper-faint">{active ? 'Polling' : 'Awaiting'}</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** A red or yellow check as one line and its Fix link (screen budget); the full card waits behind Details */
+function CheckLine({ check }: { check: CheckResult }) {
+  const setDesignStep = useGameStore((s) => s.setDesignStep)
+  return (
+    <div data-testid="check-line" className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-r-md border-l-2 bg-ink-1/70 px-3 py-2 ${RULE[check.status]}`}>
+      <div className="flex min-w-0 items-center gap-3">
+        <Tag tone={VERDICT[check.status].tag}>{VERDICT[check.status].label}</Tag>
+        <span className="text-sm text-paper">
+          <span className="fp-label mr-2 text-paper-dim">{check.resource}</span>
+          {checkHeadline(check)}
+        </span>
+      </div>
+      {check.fixStep && (
+        <button
+          type="button"
+          onClick={() => setDesignStep(check.fixStep!)}
+          className="text-sm font-semibold text-kapton underline decoration-2 underline-offset-4 hover:text-paper"
+        >
+          Fix at {fixLocation(check.fixStep)}
+        </button>
+      )}
+    </div>
+  )
+}
 
 function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) {
   const fig = checkFigures(check, budgets)
@@ -69,73 +146,24 @@ function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) 
   )
 }
 
-/** A red or yellow check as one line and its Fix link (screen budget); the full card waits behind Details */
-function CheckLine({ check }: { check: CheckResult }) {
-  const setDesignStep = useGameStore((s) => s.setDesignStep)
-  const v = VERDICT[check.status]
-  return (
-    <div className={`fp-sheet flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-l-2 px-4 py-2.5 ${RULE[check.status]}`} data-tone="raised" data-testid="check-line">
-      <div className="flex min-w-0 items-center gap-3">
-        <Tag tone={v.tag}>{v.label}</Tag>
-        <span className="text-sm text-paper">
-          <span className="fp-label mr-2 text-paper-dim">{check.resource}</span>
-          {checkHeadline(check)}
-        </span>
-      </div>
-      {check.fixStep && (
-        <button
-          type="button"
-          onClick={() => setDesignStep(check.fixStep!)}
-          className="text-sm font-semibold text-kapton underline decoration-2 underline-offset-4 hover:text-paper"
-        >
-          Fix at {fixLocation(check.fixStep)}
-        </button>
-      )}
-    </div>
-  )
-}
-
 /** F2 (Jakob, 14 Nov): the honest chance of full success, from many flights of this design */
 function SuccessOdds() {
   const design = useGameStore((s) => s.design)
   const difficulty = useGameStore((s) => s.difficulty)
   const odds = useSuccessEstimate(design, difficulty)
-  const total = odds ? odds.success + odds.partial + odds.failed : 1
-  const sPct = odds && total > 0 ? (odds.success / total) * 100 : 0
-  const pPct = odds && total > 0 ? (odds.partial / total) * 100 : 0
-  const fPct = odds && total > 0 ? (odds.failed / total) * 100 : 0
-
+  if (!odds) return <div className="fp-data text-[0.74rem] text-paper-faint">Working out the chance of full success…</div>
+  const total = odds.success + odds.partial + odds.failed || 1
+  const parts = [
+    { pct: (odds.success / total) * 100, cls: 'bg-go', title: `Full success: ${percent(odds.success)}` },
+    { pct: (odds.partial / total) * 100, cls: 'bg-caution', title: `Part of the science: ${percent(odds.partial)}` },
+    { pct: (odds.failed / total) * 100, cls: 'bg-nogo', title: `Failed: ${percent(odds.failed)}` },
+  ]
   return (
-    <div className="fp-sheet mt-4 p-4 text-paper" data-tone="inset" aria-live="polite">
-      {odds ? (
-        <>
-          <div className="fp-data text-base font-semibold text-paper">{`Chance of full success: about ${percent(odds.success)}`}</div>
-          <div className="relative mt-2.5 h-3 overflow-hidden border border-rule bg-ink-0">
-            <div className="flex h-full">
-              {sPct > 0 && (
-                <div style={{ width: `${sPct}%` }} className="bg-go transition-all duration-300" title={`Full Success: ${percent(odds.success)}`} />
-              )}
-              {pPct > 0 && (
-                <div
-                  style={{ width: `${pPct}%` }}
-                  className="border-l border-ink-0 bg-caution transition-all duration-300"
-                  title={`Partial Science: ${percent(odds.partial)}`}
-                />
-              )}
-              {fPct > 0 && (
-                <div
-                  style={{ width: `${fPct}%` }}
-                  className="border-l border-ink-0 bg-nogo transition-all duration-300"
-                  title={`Failed: ${percent(odds.failed)}`}
-                />
-              )}
-            </div>
-            <div className="hud-bar-segments pointer-events-none absolute inset-0" />
-          </div>
-        </>
-      ) : (
-        <div className="fp-data text-sm text-paper-faint">Working out the chance of full success…</div>
-      )}
+    <div aria-live="polite">
+      <div className="fp-data text-[0.86rem] text-paper">{`Chance of full success: about ${percent(odds.success)}`}</div>
+      <div className="mt-1.5 flex h-1.5 w-full overflow-hidden bg-ink-1">
+        {parts.map((p) => p.pct > 0 && <div key={p.cls} title={p.title} className={p.cls} style={{ width: `${p.pct}%` }} />)}
+      </div>
     </div>
   )
 }
@@ -158,40 +186,13 @@ function OddsBreakdown() {
   )
 }
 
-/**
- * One station's poll slip: its name, building and the checks it answers for.
- * stamp: 'static' shows the verdict at rest, 'thunk' stamps it down as the station answers,
- * 'none' leaves the box empty while the poll has not reached it.
- */
-function PollSlip({ station, stamp, active, run }: { station: Station; stamp: 'static' | 'thunk' | 'none'; active: boolean; run: number }) {
-  const v = VERDICT[station.status]
-  // A lamp (screen budget): the station and its answer, nothing else
-  return (
-    <div
-      className={`fp-sheet flex items-center justify-between gap-2 px-3 py-2 transition-colors ${active ? 'border-kapton' : ''}`}
-      data-tone="raised"
-      data-testid="poll-lamp"
-      title={`${ROLE_INFO[station.role].buildingName}: ${station.checks.map((c) => c.resource).join(', ') || 'nothing to check'}`}
-    >
-      <span className="fp-display text-sm text-paper">{station.title}</span>
-      {stamp === 'none' ? (
-        <span className="fp-label inline-block border border-dashed border-rule px-2 py-0.5 text-paper-faint">{active ? 'Polling' : 'Awaiting'}</span>
-      ) : (
-        <Stamp key={run} verdict={v.stamp} animate={stamp === 'thunk'}>
-          {v.label}
-        </Stamp>
-      )}
-    </div>
-  )
-}
-
 /** Before the poll: -1 = poll open, nobody answered yet */
 const POLL_OPEN = -1
 
 const HOLD_NEED_MS = 1500
 const KEY_TURN_RAD = Math.PI / 2
 
-/** Turn the launch key in a circle, then hold for 1.5 s to launch */
+/** Turn the launch key in a circle (or click it), then hold the button for 1.5 s to launch */
 function LaunchKey({ canGo, onLaunch }: { canGo: boolean; onLaunch: () => void }) {
   const [angle, setAngle] = useState(0)
   const [heldMs, setHeldMs] = useState(0)
@@ -214,9 +215,12 @@ function LaunchKey({ canGo, onLaunch }: { canGo: boolean; onLaunch: () => void }
     }
   }, [canGo])
 
-  useEffect(() => () => {
-    if (holdTimer.current !== null) cancelAnimationFrame(holdTimer.current)
-  }, [])
+  useEffect(
+    () => () => {
+      if (holdTimer.current !== null) cancelAnimationFrame(holdTimer.current)
+    },
+    [],
+  )
 
   const onKeyPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!canGo || e.button !== 0) return
@@ -290,7 +294,7 @@ function LaunchKey({ canGo, onLaunch }: { canGo: boolean; onLaunch: () => void }
 
   const circ = 2 * Math.PI * 19
   return (
-    <div className="flex flex-wrap items-center gap-3 border border-rule bg-ink-2 px-3 py-2">
+    <div className="flex items-center gap-2.5">
       <button
         ref={dialRef}
         type="button"
@@ -312,25 +316,14 @@ function LaunchKey({ canGo, onLaunch }: { canGo: boolean; onLaunch: () => void }
         className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors ${
           !canGo ? 'cursor-not-allowed border-rule opacity-40' : armed ? 'border-kapton bg-ink-3' : 'cursor-grab border-rule-strong bg-ink-1 hover:border-kapton'
         }`}
-        title={canGo ? 'Drag in a circle or press Enter to arm the launch key' : 'Fix red checks first'}
+        title={canGo ? 'Turn the key (drag in a circle or click) to arm the launch' : 'Fix the no-go checks first'}
       >
         <span
           aria-hidden="true"
           className="block h-6 w-1.5 rounded-[1px] transition-transform"
-          style={{
-            background: armed ? 'var(--color-kapton)' : 'var(--color-paper-dim)',
-            transform: `rotate(${deg}deg)`,
-          }}
+          style={{ background: armed ? 'var(--color-kapton)' : 'var(--color-paper-dim)', transform: `rotate(${deg}deg)` }}
         />
       </button>
-
-      <div className="flex flex-col gap-0.5">
-        <span className="fp-label text-[10px] text-paper-faint">{armed ? 'Key armed' : 'Turn the key'}</span>
-        <Eng as="span" className="fp-data text-[10px] text-paper-faint">
-          Key: {deg}° / 90° · Hold: {(Math.min(heldMs, HOLD_NEED_MS) / 1000).toFixed(1)} / 1.5 s
-        </Eng>
-      </div>
-
       <button
         type="button"
         data-testid="launch-hold"
@@ -350,22 +343,13 @@ function LaunchKey({ canGo, onLaunch }: { canGo: boolean; onLaunch: () => void }
         onKeyUp={(e) => {
           if (e.key === ' ' || e.key === 'Enter') stopHold()
         }}
-        className="fp-btn-primary relative flex min-w-[14.5rem] items-center justify-center gap-2.5 disabled:opacity-40"
+        className="tactical-btn-next relative flex flex-1 items-center justify-center gap-2 whitespace-nowrap disabled:opacity-40"
       >
-        <svg className="h-5 w-5 -rotate-90" viewBox="0 0 44 44" aria-hidden="true">
-          <circle cx="22" cy="22" r="19" fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
-          <circle
-            cx="22"
-            cy="22"
-            r="19"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeDasharray={circ}
-            strokeDashoffset={circ * (1 - progress)}
-          />
+        <svg className="h-4 w-4 -rotate-90" viewBox="0 0 44 44" aria-hidden="true">
+          <circle cx="22" cy="22" r="19" fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4" />
+          <circle cx="22" cy="22" r="19" fill="none" stroke="currentColor" strokeWidth="4" strokeDasharray={circ} strokeDashoffset={circ * (1 - progress)} />
         </svg>
-        <span>{holding ? 'Holding to launch…' : armed ? 'Hold to launch' : 'Arm key first'}</span>
+        <span>{!canGo ? 'Fix the no-go first' : holding ? 'Holding to launch…' : armed ? 'Hold to launch' : 'Turn the key'}</span>
       </button>
     </div>
   )
@@ -381,9 +365,6 @@ export function GoNoGoScreen() {
   const budgets = getBudgets()
   // getGoNoGo reads the design and difficulty from the store
   const result = useMemo(() => getGoNoGo(), [getGoNoGo, design, difficulty])
-  // The launch is allowed, but the craft cannot meet the brief: say so, with the reason
-  const doomed = cannotMeetBrief(result)
-  const scienceCheck = result.checks.find((c) => c.resource === 'Science')
   const st = useMemo(() => stations(result.checks), [result])
 
   // The poll: stations answer one by one (null = not started, -1 = poll open, POLL_ORDER.length = finished).
@@ -392,31 +373,42 @@ export function GoNoGoScreen() {
   const [step, setStep] = useState<number | null>(null)
   // Each run of the poll remounts the stamps so they thunk down again
   const [run, setRun] = useState(0)
+  // Only the first poll on entry plays at full length, with every station's voice; a re-poll after a
+  // design change runs about 3× faster with snaps only, so the new lamps show almost at once.
+  // Keyed on the result itself: React's StrictMode runs this effect twice for the same result in dev
+  const lastPolled = useRef<typeof result | null>(null)
   useEffect(() => {
+    const end = pollEnd(result, cannotMeetBrief(result), st)
+    const full = lastPolled.current === null || lastPolled.current === result
+    lastPolled.current = result
+    const t = full ? POLL_TIMING.full : POLL_TIMING.fast
     const timers: number[] = []
     setRun((r) => r + 1)
     setStep(POLL_OPEN)
-    audio.say('voice.poll-open')
-    const gap = 1700
+    if (full) audio.say('voice.poll-open')
     st.forEach((s, i) => {
       timers.push(
         window.setTimeout(() => {
           // The station's stamp thunks onto its lamp as its answer is spoken
           setStep(i)
-          audio.say(POLL_VOICE[s.role])
-          audio.say(s.status === 'red' ? 'voice.no-go' : i === st.length - 1 ? 'voice.go-flight' : 'voice.go')
+          if (full) {
+            audio.say(POLL_VOICE[s.role])
+            audio.say(s.status === 'red' ? 'voice.no-go' : i === st.length - 1 ? 'voice.go-flight' : 'voice.go')
+          }
           audio.play(s.status === 'red' ? 'sfx.error' : 'sfx.select')
           audio.play('sfx.snap')
-        }, 2600 + i * gap),
+        }, t.open + i * t.gap),
       )
     })
     timers.push(
       window.setTimeout(() => {
         setStep(POLL_ORDER.length)
-        audio.say(result.canGo ? 'voice.poll-all-go' : 'voice.poll-hold')
-        audio.play(result.canGo ? 'sfx.go' : 'sfx.alarm')
+        // The closing line matches the stamp: never "all stations are go" over a caution (QC, 15 Nov)
+        if (end.kind === 'caution') audio.note(end.text)
+        else audio.say(end.voice)
+        audio.play(end.kind === 'nogo' ? 'sfx.alarm' : 'sfx.go')
         audio.play('sfx.snap')
-      }, 2600 + st.length * gap + 600),
+      }, t.open + st.length * t.gap + t.end),
     )
     return () => timers.forEach(window.clearTimeout)
   }, [result, st])
@@ -424,95 +416,109 @@ export function GoNoGoScreen() {
   const polling = step !== null && step < POLL_ORDER.length
   const polled = step === POLL_ORDER.length
 
-  // Honest wording: GO, OVER A LIMIT / GO, BELOW TARGET / GO WITH CAUTION, with the row it is about
+  // Honest wording: GO, OVER A LIMIT / GO, BELOW TARGET / GO WITH CAUTION, with the row it is about.
+  // A Go must not read as an endorsement of a craft that cannot meet the brief (Jakob, 14 Nov)
   const call = goCall(result)
-  const finalStamp: { verdict: StampVerdict; text: string; size: 'md' | 'lg' } = result.canGo
-    ? doomed
-      ? { verdict: 'caution', text: 'GO, BUT IT CANNOT MEET THE BRIEF', size: 'md' }
-      : result.warnings.length
-        ? { verdict: 'caution', text: call.label, size: 'md' }
-        : { verdict: 'go', text: 'GO FOR LAUNCH', size: 'lg' }
-    : { verdict: 'nogo', text: 'NO-GO', size: 'lg' }
+  const doomed = cannotMeetBrief(result)
+  const verdict: StampVerdict = !result.canGo ? 'nogo' : result.warnings.length ? 'caution' : 'go'
+  const label = !result.canGo ? 'NO-GO' : doomed ? 'GO, BUT IT CANNOT MEET THE BRIEF' : result.warnings.length ? call.label : 'GO FOR LAUNCH'
 
   const critical = result.checks.filter((c) => c.status === 'red')
   const warnings = result.checks.filter((c) => c.status === 'yellow')
   const passed = result.checks.filter((c) => c.status === 'green')
-  // The science line already sits at the top when the craft cannot meet the brief
-  const issues = [...critical, ...warnings].filter((c) => !(doomed && c === scienceCheck))
+  const issues = [...critical, ...warnings]
+  const transfer = budgets.transferTurns === null ? 'no way there' : budgets.transferTurns === 0 ? 'about 5 days' : `${budgets.transferTurns} months`
 
+  // One screen: lamps and issues on the left, the call on the right, every check in full behind
+  // Details under the issues (the Details panel comes last in the page: the screen-budget rule)
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <StepHeader
-        step="go-nogo"
-        kicker="COMMS CENTER · GO / NO-GO"
-        title="Go / No-Go poll"
-        question="Before every launch the flight director asks each station, one by one, whether it is go. A station is no-go when a check fixed in its building is red."
-      >
-        <div className="flex min-h-[5.5rem] min-w-[14rem] flex-col items-end justify-center gap-2 text-right">
-          {polling ? (
-            <span className="fp-label inline-block border border-dashed border-rule px-3 py-2 text-paper-faint">Poll in progress</span>
-          ) : (
-            <Stamp key={run} verdict={finalStamp.verdict} size={finalStamp.size} animate={polled}>
-              {finalStamp.text}
-            </Stamp>
-          )}
-          {!polling && result.canGo && call.reason && <div className="fp-data text-xs text-caution">{call.reason}</div>}
-        </div>
-      </StepHeader>
-
-      <div className="fp-sheet p-5" data-tone="flat">
-        {/* The first issue, in one line with its Fix link (screen budget); its full text is under Details */}
-        {doomed && scienceCheck && <CheckLine check={scienceCheck} />}
-        <SuccessOdds />
-
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid h-full min-h-[560px] grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_minmax(0,1fr)] gap-x-4 gap-y-3 overflow-hidden p-4">
+      <div className="col-start-1 row-start-1 flex min-w-0 flex-col gap-3">
+        <h2 className="fp-label text-[0.7rem] tracking-[0.16em] text-paper">Go / No-Go poll · each station answers for its checks</h2>
+        <div className="grid grid-cols-4 gap-3">
           {st.map((s, i) => (
-            <PollSlip key={s.role} station={s} run={run} active={step === i} stamp={step === null ? 'static' : step >= i ? 'thunk' : 'none'} />
+            <PollLamp key={s.role} station={s} run={run} active={step === i} stamp={step === null ? 'static' : step >= i ? 'thunk' : 'none'} />
           ))}
         </div>
-
-        <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <LaunchKey canGo={result.canGo} onLaunch={startSimulation} />
-            <button type="button" data-testid="launch-accessible" onClick={() => result.canGo && startSimulation()} disabled={!result.canGo} className="fp-btn-secondary">
-              {result.canGo ? 'Launch Mission' : 'Fix Issues First'}
-            </button>
+        {/* The poll's voice loop, under the lamps it narrates instead of over the header and the step tabs */}
+        <InlineCaptions />
+        <h2 className={`mt-1 fp-label text-[0.7rem] tracking-[0.16em] ${issues.length ? 'text-paper' : 'text-go'}`}>
+          {issues.length ? 'Needs attention' : 'Nothing needs attention: every check is go'}
+        </h2>
+        {issues.length > 0 && (
+          <div className="flex flex-col gap-2" data-testid="check-issues">
+            {issues.map((c) => (
+              <CheckLine key={c.resource} check={c} />
+            ))}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Red and yellow checks: one line each with its Fix link */}
-      {issues.length > 0 && (
-        <div className="space-y-2" data-testid="check-issues">
-          {issues.map((check) => (
-            <CheckLine key={check.resource} check={check} />
-          ))}
-        </div>
-      )}
+      <div className="col-start-2 row-span-2 row-start-1 flex min-h-0">
+        <PlanPanel>
+          <div>
+            <div className="fp-label text-[0.66rem] tracking-[0.16em] text-kapton">Launch · the flight director's call</div>
+            <div className="mt-3 flex min-h-[3.25rem] items-center justify-center px-2">
+              {polling ? (
+                <span className="fp-label inline-block border border-dashed border-rule px-3 py-2 text-paper-faint">Poll in progress</span>
+              ) : (
+                <Stamp key={run} verdict={verdict} size={label.length > 14 ? 'md' : 'lg'} animate={polled} className="max-w-full whitespace-normal text-center leading-tight">
+                  {label}
+                </Stamp>
+              )}
+            </div>
+            {!polling && result.canGo && call.reason && <p className="mt-3 text-center text-[0.76rem] leading-snug text-caution">{call.reason}</p>}
+          </div>
+          <SuccessOdds />
+          <div className="mt-auto flex flex-col gap-2">
+            <LaunchKey canGo={result.canGo} onLaunch={startSimulation} />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                data-testid="launch-accessible"
+                onClick={() => result.canGo && startSimulation()}
+                disabled={!result.canGo}
+                className="tactical-btn-back flex-1 whitespace-nowrap bg-ink-1 disabled:opacity-40"
+                title="Launch without the key"
+              >
+                {result.canGo ? 'Launch now' : 'Fix issues first'}
+              </button>
+            </div>
+          </div>
+        </PlanPanel>
+      </div>
 
       {/* Everything else stays reachable behind the shared Details control (checklist: every resource check) */}
-      <Details id="gonogo" label="Details: every check in full">
-        <div className="mt-4 space-y-6">
-          <OddsBreakdown />
-          <SynergyStrip step="go-nogo" />
-          {[
-            { list: critical, title: `Critical Issues (${critical.length})`, cls: 'text-nogo' },
-            { list: warnings, title: `Warnings (${warnings.length})`, cls: 'text-caution' },
-            { list: passed, title: `Passed (${passed.length})`, cls: 'text-go' },
-          ]
-            .filter((g) => g.list.length > 0)
-            .map((g) => (
-              <div key={g.title}>
-                <h2 className={`mb-3 border-b border-rule pb-1 fp-label ${g.cls}`}>{g.title}</h2>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {g.list.map((check, i) => (
-                    <CheckRow key={i} check={check} budgets={budgets} />
-                  ))}
+      <div className="col-start-1 row-start-2 min-h-0 overflow-y-auto pr-1">
+        <Details id="gonogo" label="Details: every check in full">
+          <div className="mt-3 space-y-5">
+            <PlanRows>
+              <PlanRow label="Ready" value={`month ${budgets.totalPrepTurns}`} sub={`build ${budgets.buildTurns} · test ${budgets.testTurns}`} />
+              <PlanRow label="Ride leaves" value={`month ${budgets.rideTurn}`} tone={budgets.timeMarginTurns < 0 ? 'red' : undefined} />
+              <PlanRow label="To the Moon" value={transfer} tone={budgets.transferTurns === null ? 'red' : undefined} />
+              <PlanRow label="Budget left" value={`$${budgets.budgetMargin.toFixed(1)}M`} tone={budgets.budgetMargin < 0 ? 'red' : undefined} />
+            </PlanRows>
+            <OddsBreakdown />
+            <SynergyStrip step="go-nogo" />
+            {[
+              { list: critical, title: `Critical Issues (${critical.length})`, cls: 'text-nogo' },
+              { list: warnings, title: `Warnings (${warnings.length})`, cls: 'text-caution' },
+              { list: passed, title: `Passed (${passed.length})`, cls: 'text-go' },
+            ]
+              .filter((g) => g.list.length > 0)
+              .map((g) => (
+                <div key={g.title}>
+                  <h2 className={`mb-3 border-b border-rule pb-1 fp-label ${g.cls}`}>{g.title}</h2>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {g.list.map((check, i) => (
+                      <CheckRow key={i} check={check} budgets={budgets} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-        </div>
-      </Details>
+              ))}
+          </div>
+        </Details>
+      </div>
     </div>
   )
 }

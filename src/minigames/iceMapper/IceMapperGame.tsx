@@ -23,12 +23,16 @@ import {
   step,
   summarize,
   type BotMind,
+  craterState,
   passHours,
+  passWhy,
+  type CraterState,
   type PassResult,
   type PassState,
   type Reticle,
 } from './logic'
 import { generateTerrain } from './terrain'
+import { Details } from '../../ui/kit'
 
 /**
  * Ice Mapper: the screen. A strip of shaded-relief Moon scrolls past the craft; aim the scanner at
@@ -412,6 +416,30 @@ function drawFrame(canvas: HTMLCanvasElement, terrain: HTMLCanvasElement | null,
 
 /* ---------------- the component ---------------- */
 
+const CRATER_BAR: Record<CraterState, string> = { reached: 'bg-ice', missed: 'bg-caution', locked: 'bg-ink-3' }
+
+/** Each crater's share of its ice mapped: reached, missed (partly or not at all), or locked */
+function CraterBars({ result }: { result: PassResult }) {
+  return (
+    <ul className="space-y-1" data-testid="ice-pass-craters">
+      {result.perArea.map((a) => {
+        const state = craterState(a)
+        return (
+          <li key={a.name} className="flex items-center gap-2 text-[11px]" data-state={state}>
+            <span className="w-28 truncate text-paper">{a.name}</span>
+            <span className="h-1 flex-1 bg-ink-3">
+              <span className={`block h-full ${CRATER_BAR[state]}`} style={{ width: `${state === 'locked' ? 0 : a.pct}%` }} />
+            </span>
+            <span className={`w-14 text-right fp-data ${state === 'locked' ? 'text-paper-faint' : state === 'missed' ? 'text-caution' : 'text-ice'}`}>
+              {state === 'locked' ? 'locked' : `${a.pct}%`}
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 /** How the pass was taken: flown by the player, watched on autopilot, or skipped (no result) */
 export interface PassOutcome {
   how: 'flown' | 'autopilot' | 'skipped'
@@ -438,6 +466,7 @@ export function IceMapperGame({
   design,
   intro,
   skippable = false,
+  toBeat,
   lineAfter,
   onDone,
 }: {
@@ -446,6 +475,8 @@ export function IceMapperGame({
   intro?: ReactNode
   /** After the first pass ever flown, the pass can be skipped */
   skippable?: boolean
+  /** The bar to beat, shown in the briefing: the autopilot's result, the floor */
+  toBeat?: string
   /** The one line after the pass */
   lineAfter: (o: PassOutcome) => string
   onDone: (o: PassOutcome) => void
@@ -727,6 +758,11 @@ export function IceMapperGame({
                 <p className="mt-1 text-xs text-paper-dim">
                   A {passHours(setup)}-hour pass, shown in {setup.duration} seconds. A better pass maps more of month 1, up to what this design can do.
                 </p>
+                {toBeat && (
+                  <p className="mt-2 fp-data text-sm text-paper" data-testid="ice-pass-to-beat">
+                    {toBeat}
+                  </p>
+                )}
                 {intro}
                 <p className="mt-2 text-[11px] text-paper-faint">Real craters; how much ice each holds is a game estimate.</p>
                 <div className="mt-4 flex gap-2">
@@ -750,6 +786,16 @@ export function IceMapperGame({
                 <p className="fp-data text-sm text-paper" data-testid="ice-pass-line">
                   {lineAfter(outcome)}
                 </p>
+                {phase === 'result' && result && (
+                  <>
+                    <p className="mt-2 text-xs text-paper-dim" data-testid="ice-pass-why">
+                      {passWhy(setup, result)}
+                    </p>
+                    <Details id="ice-pass" label="Crater by crater" className="mt-2" panelClassName="pt-2">
+                      <CraterBars result={result} />
+                    </Details>
+                  </>
+                )}
                 <button type="button" autoFocus onClick={() => onDone(outcome)} className="fp-btn-primary mt-4 w-full justify-center py-2">
                   Continue
                 </button>
