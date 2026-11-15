@@ -50,40 +50,30 @@ Every step screen carries this header (PR 63 already removed the Sequence rail, 
 
 | Element | Verdict | Reason |
 |---|---|---|
-| Step dock "1. Plan 2. Science 3. Craft 4. Rocket 5. Orbit 6. Launch" | **keep, rename** | see *Naming* below |
+| Step dock "1. Plan 2. Science 3. Craft 4. Rocket 5. Orbit 6. Launch" | **keep, renamed** | to the decided scheme, see *Naming* below |
 | Resource pill `M: 12.0/14kg P: 30/120W Δv: … $$: …` | **keep, change** | becomes the six-resource line. Today 4 of 6, with Δv instead of data, comms, time: **checklist gap**. (PT) proposes folding the chips into one HUD popover; the budget's resource exception says the line stays visible, so: the line stays, the popover replaces the HUD modal |
 | `1 RISK` chip | keep | one chip that says whether Go/No-Go would pass; it links to the drawer's *Checks* |
 | `📊 HUD` button + Mission Vitality modal (`H`) | **delete** (→ popover) | a bigger copy of the pill; only `Header.tsx` and `Shell.tsx` use it |
 | `← Agency base`, engineer view, mute, settings | one ☰ menu | not decisions |
 | Brand "MOONSHOT · LUNAR ICE MAPPER" | keep | one line |
 | Capcom Rosa Vega tip (bottom left) | on pick / on red | the explanation that stands open on every step; otherwise just the avatar |
-| Step header "0N TITLE / question" | keep | the decision as a question; drop its numeral, see *Naming* |
+| Step header "0N TITLE / question" | keep | the decision as a question; numbered by `stepNumbers.ts`, see *Naming* |
 | `← Back` on Instruments, Orbit, Ride, Comms, Go/No-Go | **delete** | the dock does it |
 
 **Cross-cutting (SL)**: `SynergyStrip` (Comms, Go/No-Go, Spacecraft, Instruments) and `DesignDeltaLine`
 (Spacecraft, Comms, Instruments, Ride, Go/No-Go, Planning) put two commentary strips under nearly every
 decision (checked: those files import them). Keep one, shown only on a conflict or warning.
 
-### Naming (one scheme)
+### Naming (decided)
 
-Three schemes disagree today (checked in `StepDock.tsx`, the step headers and the next-buttons):
+Jakob decided the naming; its single source is `src/ui/kit/stepNumbers.ts` in PR 72:
 
-| Step (headers, play order) | Dock today | Next-button that leads here |
-|---|---|---|
-| 00 Brief | – | – |
-| 01 Mission planning | 1. Plan | Commence mission planning |
-| 02 Instruments | 2. Science | Select instruments |
-| 03 Rocket | 4. Rocket | Choose the rocket |
-| 04 Spacecraft | 3. Craft | Build the spacecraft |
-| 05 Orbit | 5. Orbit | Select orbit |
-| 06 Ride (+ transfer stage) | – | Choose ride |
-| 07 Communications | – | Setup communications |
-| 08 Go / No-Go | 6. Launch | Go/No-Go review |
+**Brief (0, no tab) · 1 Plan · 2 Science · 3 Craft · 4 Orbit · 5 Ride · 6 Comms · 7 Launch**
 
-The dock also puts Craft before Rocket while play goes Rocket → Spacecraft. **Proposal**: one word per step,
-used by dock, header and button alike, in play order, no numerals: **Brief · Plan · Instruments · Rocket ·
-Craft · Orbit · Ride · Comms · Launch** (next-buttons read "Instruments →", "Rocket →" …). The steps-rocket-craft
-session is renaming Ride: align with whatever it lands.
+Dock, step headers and next-buttons all read from that file. Rocket has no number of its own: it is part of
+Craft (PR 72). This baseline still shows the old names (dock "6. Launch" with no Ride or Comms tab, headers
+"00 … 08", buttons like "Choose ride →"), so the next audit run after PR 72 will show the change. The audit
+labels steps by their headers today ("Step 03: Rocket") and will follow once those headers do.
 
 ## Per screen, worst first
 
@@ -172,19 +162,13 @@ Must stay compatible with the session capping a failed mission's grade at C and 
 
 ### 5. Step 03: Rocket — score **105.3** · 19 numbers · 36 buttons · 9 panels · 170 words · 8 scene items
 
-- **Decision**: none that changes the mission: its own caption says nothing here changes mission numbers.
-- **3 numbers**: rocket height only.
-- **Main action**: **Build the spacecraft →**.
-
-**Options for Jakob (not decided):** (a) make the step optional, a "Customise rocket" link from Ride (PT); (b) make it matter via the launch-vehicle capacity check the checklist names; (c) keep it as is but as the quietest screen. Until decided, the keep/hide below applies.
+**Decided (Jakob): folded into Craft (PR 72).** A small rocket shows while you build the craft, an animation
+loads the craft into the fairing, then a parts explainer. This screen goes away as a step; its counts stay in the
+baseline until PR 72 merges, then the next audit run drops it.
 
 | Element | Verdict | Reason |
 |---|---|---|
-| 3D rocket with 5 part labels | keep | the fun part |
-| Test fire, Exploded view, Board fairing | one "Try it" menu | three view toys |
-| "Your rocket" panel | hide behind details | facts about a choice that changes nothing |
-| Instruction paragraph | delete | the bins say it |
-| 6 bins, 24 options with heights | keep bins, hide heights | heights are noise |
+| The whole Rocket step | folded into Craft (PR 72) | Jakob's decision; it changed no mission number |
 
 ### 6. Step 05: Orbit — score **94.7** · 23 numbers · 17 buttons · 9 panels · 188 words
 
@@ -262,7 +246,7 @@ Must stay compatible with the session capping a failed mission's grade at C and 
 | Flight-plan sheet (8 readouts) | keep ice, data, health | phase repeats the timeline label, the month shows twice (SL) |
 | "Point at a month for its log entry" | delete | permanent help row (SL) |
 | Mission card repeating the red caution + empty "Mission log: Nothing yet" | hide the log until it has entries | (PT) |
-| Notifications | collapsed (already on main) | the timing-traps session collapsed it; funds/popularity changes need a one-line reason (PT) |
+| Notifications | real events only (PR 75) | Jakob decided the feed shows real events only; collapsed on a fresh game (timing-traps). Funds/popularity changes need a one-line reason (PT) |
 | "Fly until something happens" stops with no message | say why it stopped | (PT) |
 | Start over, engineer view, mute, settings | menu |  |
 
@@ -274,7 +258,7 @@ Must stay compatible with the session capping a failed mission's grade at C and 
 
 | Element | Verdict | Reason |
 |---|---|---|
-| Notifications column (10 items, open again once a mission is chosen) | collapsed, as on a fresh base | the 10-item panel is back here (screenshot); collapse it the same way |
+| Notifications column (10 items, open again once a mission is chosen) | real events only (PR 75) | Jakob decided the feed shows real events only, which empties the 10 invented items seen here |
 | Mission panel: phase strip, "Next: Brief at the Communications Center", budget / gov pays / you pay | keep next + you pay | 3 money numbers for one fact |
 | Continue + New mission | keep Continue, menu New mission | one main action |
 | "Next: Brief" tag on the Comms Center + yellow ring | keep | the start cue; the green Research Lab ring competes (J) |
@@ -392,7 +376,7 @@ Must stay compatible with the session capping a failed mission's grade at C and 
 - **3 numbers**: day, funds, popularity.
 - **Main action**: **New mission**.
 
-Jakob on a fresh base "doesn't know where to start": two rings, New mission and a 10-item notifications panel competed. Main now has a single "Start here: pick your first mission" cue and collapsed notifications (timing-traps session; not duplicated here), which took this screen from 59.8 to its current score. What is left:
+Jakob on a fresh base "doesn't know where to start": two rings, New mission and a 10-item notifications panel competed. The feed now shows real events only (PR 75, Jakob's decision). Main now has a single "Start here: pick your first mission" cue and collapsed notifications (timing-traps session; not duplicated here), which took this screen from 59.8 to its current score. What is left:
 
 | Element | Verdict | Reason |
 |---|---|---|
@@ -445,7 +429,7 @@ checklist information; these may only be hidden:
 4. **Report traces**: "understand why a mission succeeds or fails". First item visible, rest one click away.
 5. **Run history**: "simulate it multiple times". Hidden, kept. **Share code** is under *Additional features*
    (optional): hiding is safe; deleting it is Jakob's call.
-6. **Rocket** changes no mission number, so the launch-vehicle trade lives in Ride only (options above).
+6. **Rocket** changed no mission number and is folded into Craft (PR 72, decided); the launch-vehicle trade (capacity "14 kg max") lives in Ride.
 
 ## What other sessions' work will move
 
@@ -463,4 +447,4 @@ checklist information; these may only be hidden:
 2. **Step 08: Go/No-Go** (171.3): 24 panels for a yes/no decision; the same verdict shown four ways.
 3. **Step 04: Spacecraft** (135.3): most numbers of any step; the power/propulsion trade drowns in part stats.
 
-Next after these: Step 07: Comms (121.5), Step 03: Rocket (105.3).
+Next after these: Step 07: Comms (121.5), then Step 05: Orbit (94.7). Rocket (105.3) is not redesigned: it is folded into Craft (PR 72).
