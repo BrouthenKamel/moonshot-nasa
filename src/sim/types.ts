@@ -1,3 +1,4 @@
+import type { FirstPass } from './firstPass'
 import type { Difficulty } from '../data/brief'
 import type { EventType } from '../data/events'
 
@@ -261,6 +262,9 @@ export interface SimState {
 
   // Event card waiting for the player; the turn is replayed with the same dice once answered
   pendingDecision?: Decision
+
+  /** How the first mapping pass went (src/sim/firstPass.ts); absent until it is taken, and then month 1 runs as the autopilot */
+  firstPass?: FirstPass
 
   // Internal flight state of the Lunar Ice Mapper model
   flight: FlightState
