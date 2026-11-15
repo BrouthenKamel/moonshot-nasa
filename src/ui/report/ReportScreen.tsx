@@ -8,7 +8,7 @@ import { getRideById } from '../../data/rides'
 import type { Report, RequirementResult } from '../../sim/types'
 import { useGameStore } from '../../state/gameStore'
 import { STEP_NAMES, buildingForStep, buildingName } from '../../viz/missionMap'
-import { Eng, Flap, Sheet, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
+import { DetailsPanel, DetailsToggle, Eng, Flap, Sheet, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
 import { FixItPanel, RelaunchButton } from './FixItPanel'
 import { ArtemisDebrief } from './ArtemisDebrief'
 import { classifyCause } from './fixIt'
@@ -179,7 +179,6 @@ export function ReportScreen() {
   const openReplay = useGameStore((s) => s.openReplay)
   const reviseAt = useGameStore((s) => s.reviseAt)
   const simState = useGameStore((s) => s.simState)
-  const [showDetails, setShowDetails] = useState(false)
   const report = currentReport ?? runHistory[0]?.report
 
   useEffect(() => {
@@ -305,19 +304,11 @@ export function ReportScreen() {
         <button type="button" onClick={newGame} className="fp-btn-secondary flex-1 justify-center py-3">
           New Mission
         </button>
-        <button
-          type="button"
-          onClick={() => setShowDetails((v) => !v)}
-          aria-expanded={showDetails}
-          aria-controls="report-details"
-          className="fp-btn-secondary justify-center px-6 py-3"
-        >
-          {showDetails ? 'Hide details' : 'Details'}
-        </button>
+        <DetailsToggle id="report" />
       </div>
 
-      {showDetails && (
-        <div id="report-details" className="space-y-6">
+      <DetailsPanel id="report">
+        <div className="space-y-6">
           <Sheet className="p-5">
           <div>
             <div className="fp-label">Medals</div>
@@ -507,7 +498,7 @@ export function ReportScreen() {
         </Sheet>
       )}
         </div>
-      )}
+      </DetailsPanel>
     </div>
   )
 }
