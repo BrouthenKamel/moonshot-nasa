@@ -42,6 +42,8 @@ interface CampaignState {
   progress: CampaignProgress
   /** The ladder overlay is showing */
   ladderOpen: boolean
+  /** The mission whose flight just opened the next rung (the ladder says "Unlocked!"), until the ladder closes */
+  unlockedBy: CampaignMissionId | null
   active: ActiveMission | null
   /** A payoff to play over the base (mission 1's ice map) */
   pendingPayoff: { kind: PayoffKind; outcome: Outcome } | null
@@ -49,6 +51,8 @@ interface CampaignState {
   bookedSeeds: number[]
 
   openLadder: () => void
+  /** Open the ladder after a flight of `missionId`: the rung it unlocked says so */
+  openLadderAfter: (missionId: CampaignMissionId) => void
   closeLadder: () => void
   /** Start a mission from the ladder: mission 1 goes to main's flow, 2-4 to the campaign flow */
   startMission: (id: CampaignMissionId) => void
@@ -78,18 +82,20 @@ export const useCampaignStore = create<CampaignState>()(
     (set, get) => ({
       progress: emptyProgress(),
       ladderOpen: false,
+      unlockedBy: null,
       active: null,
       pendingPayoff: null,
       bookedSeeds: [],
 
       openLadder: () => set({ ladderOpen: true }),
-      closeLadder: () => set({ ladderOpen: false }),
+      openLadderAfter: (missionId) => set({ ladderOpen: true, unlockedBy: missionId }),
+      closeLadder: () => set({ ladderOpen: false, unlockedBy: null }),
 
       startMission: (id) => {
         const w = useWorldStore.getState()
         const mission = missionById(id)
         if (!isOpen(get().progress, mission, w.funds, w.popularity)) return
-        set((s) => ({ progress: markOpened(s.progress, id), ladderOpen: false }))
+        set((s) => ({ progress: markOpened(s.progress, id), ladderOpen: false, unlockedBy: null }))
         if (id === 'ice-mapper') {
           // Main's own flow: a finished flight goes to the history, the new mission starts at the Comms Center
           const game = useGameStore.getState()
@@ -144,10 +150,10 @@ export const useCampaignStore = create<CampaignState>()(
         }))
       },
 
-      finish: () => set({ active: null, ladderOpen: true }),
+      finish: () => set((s) => ({ active: null, ladderOpen: true, unlockedBy: s.active?.missionId ?? null })),
       abandon: () => set((s) => (s.active && !s.active.flight ? { active: null, ladderOpen: true } : {})),
       clearPayoff: () => set({ pendingPayoff: null }),
-      resetCampaign: () => set({ progress: emptyProgress(), active: null, pendingPayoff: null, ladderOpen: false, bookedSeeds: [] }),
+      resetCampaign: () => set({ progress: emptyProgress(), active: null, pendingPayoff: null, ladderOpen: false, unlockedBy: null, bookedSeeds: [] }),
     }),
     {
       name: 'moonshot-campaign-proto',
