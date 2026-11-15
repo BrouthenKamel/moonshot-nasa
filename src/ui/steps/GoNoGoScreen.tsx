@@ -3,7 +3,7 @@ import { audio } from '../../assets/audio'
 import type { AudioId } from '../../assets/manifest'
 import { holdProgress, sweptAngle } from '../../scene/interaction/reactions'
 import { glossaryKeyForLabel } from '../../data/glossary'
-import { cannotMeetBrief, getGoNoGoSummary } from '../../sim/checks'
+import { cannotMeetBrief } from '../../sim/checks'
 import { percent } from '../../sim/odds'
 import type { Budgets, CheckResult } from '../../sim/types'
 import { useGameStore } from '../../state/gameStore'
@@ -11,6 +11,7 @@ import { checkFigures } from '../../viz/checkMargin'
 import { SynergyStrip } from '../../viz/DesignDeltaLine'
 import { POLL_ORDER, ROLE_INFO, stations, type Role, type Station } from '../../viz/gonogo/stations'
 import { fixLocation } from '../../viz/missionMap'
+import { checkHeadline } from '../../viz/gonogo/checkHeadline'
 import { Eng, Stamp, StepHeader, Tag, type StampVerdict, type TagTone } from '../kit'
 import { Tooltip } from '../Tooltip'
 import { goCall } from './gonogo/headline'
@@ -68,6 +69,32 @@ function CheckRow({ check, budgets }: { check: CheckResult; budgets: Budgets }) 
   )
 }
 
+/** A red or yellow check as one line and its Fix link (screen budget); the full card waits behind Details */
+function CheckLine({ check }: { check: CheckResult }) {
+  const setDesignStep = useGameStore((s) => s.setDesignStep)
+  const v = VERDICT[check.status]
+  return (
+    <div className={`fp-sheet flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-l-2 px-4 py-2.5 ${RULE[check.status]}`} data-tone="raised" data-testid="check-line">
+      <div className="flex min-w-0 items-center gap-3">
+        <Tag tone={v.tag}>{v.label}</Tag>
+        <span className="text-sm text-paper">
+          <span className="fp-label mr-2 text-paper-dim">{check.resource}</span>
+          {checkHeadline(check)}
+        </span>
+      </div>
+      {check.fixStep && (
+        <button
+          type="button"
+          onClick={() => setDesignStep(check.fixStep!)}
+          className="text-sm font-semibold text-kapton underline decoration-2 underline-offset-4 hover:text-paper"
+        >
+          Fix at {fixLocation(check.fixStep)}
+        </button>
+      )}
+    </div>
+  )
+}
+
 /** F2 (Jakob, 14 Nov): the honest chance of full success, from many flights of this design */
 function SuccessOdds() {
   const design = useGameStore((s) => s.design)
@@ -82,14 +109,7 @@ function SuccessOdds() {
     <div className="fp-sheet mt-4 p-4 text-paper" data-tone="inset" aria-live="polite">
       {odds ? (
         <>
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <div className="fp-data text-base font-semibold text-paper">{`Chance of full success: about ${percent(odds.success)}`}</div>
-            <div className="fp-data text-[11px] text-paper-faint">
-              <span className="text-go">Full {percent(odds.success)}</span> ·{' '}
-              <span className="text-caution">Partial {percent(odds.partial)}</span> ·{' '}
-              <span className="text-nogo">Mission Lost {percent(odds.failed)}</span>
-            </div>
-          </div>
+          <div className="fp-data text-base font-semibold text-paper">{`Chance of full success: about ${percent(odds.success)}`}</div>
           <div className="relative mt-2.5 h-3 overflow-hidden border border-rule bg-ink-0">
             <div className="flex h-full">
               {sPct > 0 && (
@@ -106,15 +126,12 @@ function SuccessOdds() {
                 <div
                   style={{ width: `${fPct}%` }}
                   className="border-l border-ink-0 bg-nogo transition-all duration-300"
-                  title={`Mission Lost: ${percent(odds.failed)}`}
+                  title={`Failed: ${percent(odds.failed)}`}
                 />
               )}
             </div>
             <div className="hud-bar-segments pointer-events-none absolute inset-0" />
           </div>
-          <Eng as="div" className="mt-2 fp-data text-xs text-paper-faint">
-            {`From ${odds.runs} test flights of this design on standing orders: ${percent(odds.partial)} return only part of the science, ${percent(odds.failed)} fail.`}
-          </Eng>
         </>
       ) : (
         <div className="fp-data text-sm text-paper-faint">Working out the chance of full success…</div>
@@ -123,36 +140,47 @@ function SuccessOdds() {
   )
 }
 
+/** The odds in full, for Details: what the bar's three colours are */
+function OddsBreakdown() {
+  const design = useGameStore((s) => s.design)
+  const difficulty = useGameStore((s) => s.difficulty)
+  const odds = useSuccessEstimate(design, difficulty)
+  if (!odds) return null
+  return (
+    <p className="fp-data text-xs text-paper-dim">
+      {`From ${odds.runs} test flights of this design on standing orders: `}
+      <span className="text-go">full success {percent(odds.success)}</span>
+      {', '}
+      <span className="text-caution">part of the science {percent(odds.partial)}</span>
+      {', '}
+      <span className="text-nogo">failed {percent(odds.failed)}</span>.
+    </p>
+  )
+}
+
 /**
  * One station's poll slip: its name, building and the checks it answers for.
  * stamp: 'static' shows the verdict at rest, 'thunk' stamps it down as the station answers,
  * 'none' leaves the box empty while the poll has not reached it.
  */
-function PollSlip({ station, n, stamp, active, run }: { station: Station; n: number; stamp: 'static' | 'thunk' | 'none'; active: boolean; run: number }) {
-  const info = ROLE_INFO[station.role]
+function PollSlip({ station, stamp, active, run }: { station: Station; stamp: 'static' | 'thunk' | 'none'; active: boolean; run: number }) {
   const v = VERDICT[station.status]
+  // A lamp (screen budget): the station and its answer, nothing else
   return (
-    <div className={`fp-sheet relative min-h-[9.5rem] p-4 transition-colors ${active ? 'border-kapton' : ''}`} data-tone="raised">
-      <div className="flex items-baseline justify-between gap-2 border-b border-rule pb-1.5">
-        <span className="fp-label text-paper-faint">Poll slip</span>
-        <span className="fp-data text-[11px] text-paper-faint">
-          {String(n).padStart(2, '0')} / {String(POLL_ORDER.length).padStart(2, '0')}
-        </span>
-      </div>
-      <div className="mt-2 fp-display text-lg text-paper">{station.title}</div>
-      <div className="truncate fp-label">{info.buildingName}</div>
-      <div className="mt-2 pr-16 text-xs text-paper-dim">
-        {station.checks.length === 0 ? 'Nothing to check here' : station.checks.map((c) => c.resource).join(' · ')}
-      </div>
-      <div className="absolute bottom-3 right-3">
-        {stamp === 'none' ? (
-          <span className="fp-label inline-block border border-dashed border-rule px-2 py-1 text-paper-faint">{active ? 'Polling' : 'Awaiting'}</span>
-        ) : (
-          <Stamp key={run} verdict={v.stamp} animate={stamp === 'thunk'}>
-            {v.label}
-          </Stamp>
-        )}
-      </div>
+    <div
+      className={`fp-sheet flex items-center justify-between gap-2 px-3 py-2 transition-colors ${active ? 'border-kapton' : ''}`}
+      data-tone="raised"
+      data-testid="poll-lamp"
+      title={`${ROLE_INFO[station.role].buildingName}: ${station.checks.map((c) => c.resource).join(', ') || 'nothing to check'}`}
+    >
+      <span className="fp-display text-sm text-paper">{station.title}</span>
+      {stamp === 'none' ? (
+        <span className="fp-label inline-block border border-dashed border-rule px-2 py-0.5 text-paper-faint">{active ? 'Polling' : 'Awaiting'}</span>
+      ) : (
+        <Stamp key={run} verdict={v.stamp} animate={stamp === 'thunk'}>
+          {v.label}
+        </Stamp>
+      )}
     </div>
   )
 }
@@ -297,7 +325,7 @@ function LaunchKey({ canGo, onLaunch }: { canGo: boolean; onLaunch: () => void }
       </button>
 
       <div className="flex flex-col gap-0.5">
-        <span className="fp-label text-[10px] text-paper-faint">{armed ? 'Key armed' : '1. Turn key'}</span>
+        <span className="fp-label text-[10px] text-paper-faint">{armed ? 'Key armed' : 'Turn the key'}</span>
         <Eng as="span" className="fp-data text-[10px] text-paper-faint">
           Key: {deg}° / 90° · Hold: {(Math.min(heldMs, HOLD_NEED_MS) / 1000).toFixed(1)} / 1.5 s
         </Eng>
@@ -337,7 +365,7 @@ function LaunchKey({ canGo, onLaunch }: { canGo: boolean; onLaunch: () => void }
             strokeDashoffset={circ * (1 - progress)}
           />
         </svg>
-        <span>{holding ? 'Holding 1.5s to Launch…' : armed ? '2. Hold 1.5s to Launch' : 'Arm key first'}</span>
+        <span>{holding ? 'Holding to launch…' : armed ? 'Hold to launch' : 'Arm key first'}</span>
       </button>
     </div>
   )
@@ -354,32 +382,27 @@ export function GoNoGoScreen() {
   const budgets = getBudgets()
   // getGoNoGo reads the design and difficulty from the store
   const result = useMemo(() => getGoNoGo(), [getGoNoGo, design, difficulty])
-  const summary = getGoNoGoSummary(result)
   // The launch is allowed, but the craft cannot meet the brief: say so, with the reason
   const doomed = cannotMeetBrief(result)
-  const scienceReason = result.checks.find((c) => c.resource === 'Science')?.reason
+  const scienceCheck = result.checks.find((c) => c.resource === 'Science')
   const st = useMemo(() => stations(result.checks), [result])
 
-  // The poll: stations answer one by one (null = not started, -1 = poll open, POLL_ORDER.length = finished)
+  // The poll: stations answer one by one (null = not started, -1 = poll open, POLL_ORDER.length = finished).
+  // It runs when the screen opens and after any change (screen budget: no "Run the poll" button;
+  // the launch is gated on canGo only, never on the poll)
   const [step, setStep] = useState<number | null>(null)
   // Each run of the poll remounts the stamps so they thunk down again
   const [run, setRun] = useState(0)
-  const timers = useRef<number[]>([])
-  useEffect(() => () => timers.current.forEach(window.clearTimeout), [])
-  // A changed design means a new poll
-  useEffect(() => setStep(null), [result])
-
-  const runPoll = () => {
-    timers.current.forEach(window.clearTimeout)
-    timers.current = []
+  useEffect(() => {
+    const timers: number[] = []
     setRun((r) => r + 1)
     setStep(POLL_OPEN)
     audio.say('voice.poll-open')
     const gap = 1700
     st.forEach((s, i) => {
-      timers.current.push(
+      timers.push(
         window.setTimeout(() => {
-          // The station's stamp thunks onto its slip as its answer is spoken
+          // The station's stamp thunks onto its lamp as its answer is spoken
           setStep(i)
           audio.say(POLL_VOICE[s.role])
           audio.say(s.status === 'red' ? 'voice.no-go' : i === st.length - 1 ? 'voice.go-flight' : 'voice.go')
@@ -388,7 +411,7 @@ export function GoNoGoScreen() {
         }, 2600 + i * gap),
       )
     })
-    timers.current.push(
+    timers.push(
       window.setTimeout(() => {
         setStep(POLL_ORDER.length)
         audio.say(result.canGo ? 'voice.poll-all-go' : 'voice.poll-hold')
@@ -396,7 +419,8 @@ export function GoNoGoScreen() {
         audio.play('sfx.snap')
       }, 2600 + st.length * gap + 600),
     )
-  }
+    return () => timers.forEach(window.clearTimeout)
+  }, [result, st])
 
   const polling = step !== null && step < POLL_ORDER.length
   const polled = step === POLL_ORDER.length
@@ -414,6 +438,8 @@ export function GoNoGoScreen() {
   const critical = result.checks.filter((c) => c.status === 'red')
   const warnings = result.checks.filter((c) => c.status === 'yellow')
   const passed = result.checks.filter((c) => c.status === 'green')
+  // The science line already sits at the top when the craft cannot meet the brief
+  const issues = [...critical, ...warnings].filter((c) => !(doomed && c === scienceCheck))
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -432,24 +458,17 @@ export function GoNoGoScreen() {
             </Stamp>
           )}
           {!polling && result.canGo && call.reason && <div className="fp-data text-xs text-caution">{call.reason}</div>}
-          <div className="fp-data text-xs text-paper-dim">{summary}</div>
         </div>
       </StepHeader>
 
       <div className="fp-sheet p-5" data-tone="flat">
-        {doomed && scienceReason && <div className="fp-sheet border-l-2 border-l-caution p-3 text-sm text-paper">{scienceReason}</div>}
+        {/* The first issue, in one line with its Fix link (screen budget); its full text is under Details */}
+        {doomed && scienceCheck && <CheckLine check={scienceCheck} />}
         <SuccessOdds />
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {st.map((s, i) => (
-            <PollSlip
-              key={s.role}
-              station={s}
-              n={i + 1}
-              run={run}
-              active={step === i}
-              stamp={step === null ? 'static' : step >= i ? 'thunk' : 'none'}
-            />
+            <PollSlip key={s.role} station={s} run={run} active={step === i} stamp={step === null ? 'static' : step >= i ? 'thunk' : 'none'} />
           ))}
         </div>
 
@@ -458,9 +477,6 @@ export function GoNoGoScreen() {
             ← Back to Design
           </button>
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" onClick={runPoll} disabled={polling} className="fp-btn-secondary disabled:opacity-50">
-              {polled ? 'Poll again' : 'Run the poll'}
-            </button>
             <LaunchKey canGo={result.canGo} onLaunch={startSimulation} />
             <button type="button" data-testid="launch-accessible" onClick={() => result.canGo && startSimulation()} disabled={!result.canGo} className="fp-btn-secondary">
               {result.canGo ? 'Launch Mission' : 'Fix Issues First'}
@@ -469,24 +485,43 @@ export function GoNoGoScreen() {
         </div>
       </div>
 
-      <SynergyStrip step="go-nogo" />
+      {/* Red and yellow checks: one line each with its Fix link */}
+      {issues.length > 0 && (
+        <div className="space-y-2" data-testid="check-issues">
+          {issues.map((check) => (
+            <CheckLine key={check.resource} check={check} />
+          ))}
+        </div>
+      )}
 
-      {[
-        { list: critical, title: `Critical Issues (${critical.length})`, cls: 'text-nogo' },
-        { list: warnings, title: `Warnings (${warnings.length})`, cls: 'text-caution' },
-        { list: passed, title: `Passed (${passed.length})`, cls: 'text-go' },
-      ]
-        .filter((g) => g.list.length > 0)
-        .map((g) => (
-          <div key={g.title}>
-            <h2 className={`mb-3 border-b border-rule pb-1 fp-label ${g.cls}`}>{g.title}</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {g.list.map((check, i) => (
-                <CheckRow key={i} check={check} budgets={budgets} />
-              ))}
-            </div>
-          </div>
-        ))}
+      {/* Everything else stays reachable behind one Details control (checklist: every resource check).
+          A plain disclosure until the shared Details control (PR 70) is on main; swap for <Details id="gonogo">. */}
+      <details className="group" data-testid="gonogo-details">
+        <summary className="fp-label cursor-pointer select-none text-paper-dim hover:text-paper">
+          <span className="group-open:hidden">Details: every check in full ({result.checks.length})</span>
+          <span className="hidden group-open:inline">Hide details</span>
+        </summary>
+        <div className="mt-4 space-y-6">
+          <OddsBreakdown />
+          <SynergyStrip step="go-nogo" />
+          {[
+            { list: critical, title: `Critical Issues (${critical.length})`, cls: 'text-nogo' },
+            { list: warnings, title: `Warnings (${warnings.length})`, cls: 'text-caution' },
+            { list: passed, title: `Passed (${passed.length})`, cls: 'text-go' },
+          ]
+            .filter((g) => g.list.length > 0)
+            .map((g) => (
+              <div key={g.title}>
+                <h2 className={`mb-3 border-b border-rule pb-1 fp-label ${g.cls}`}>{g.title}</h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {g.list.map((check, i) => (
+                    <CheckRow key={i} check={check} budgets={budgets} />
+                  ))}
+                </div>
+              </div>
+            ))}
+        </div>
+      </details>
     </div>
   )
 }
