@@ -126,6 +126,7 @@ export interface Budgets {
   batteryUsableWh: number
   batteryNeedWh: number // Wh to get through one eclipse
   batteryOk: boolean
+  batteryLongNeedWh: number // Wh for the bus alone through a long (3-hour) eclipse
   batteryLongOk: boolean // survives a 3-hour long eclipse on the bus alone
   captureDeltaV: number | null // m/s from the drop-off into orbit (ride extra included); null = impossible
   thrustPower: number // W left for an electric engine while thrusting

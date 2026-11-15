@@ -346,7 +346,7 @@ export function missionTurned(world: World, now: MissionSnapshot): { world: Worl
           ? `${name}: full success`
           : now.outcome === 'partial'
             ? `${name}: partial success`
-            : `${name}: mission lost`,
+            : `${name}: mission failed`,
       detail: refund > 0 ? `Unspent budget returned` : undefined,
       tone: now.outcome === 'failed' ? 'bad' : 'good',
       money: refund > 0 ? round2(refund) : undefined,

@@ -3,7 +3,11 @@ import { getTransferById, isTransferCompatible } from '../data/transfers'
 import { getPartById, type InstrumentPart, type PropulsionPart, type RadioPart } from '../data/parts'
 import { lunarIceMapperBrief, modelConstants as C } from '../data/brief'
 import { buildings, instrumentLabLevel, researchLabLevel } from '../data/agency'
+import { fillWhen, linkLoss } from './budgets'
 import type { Design, Budgets, CheckResult, GoNoGoResult, BarStatus, DesignStep } from './types'
+
+/** Where the reserve is set: the Planning step's building (viz/missionMap BUILDING_STEPS; numberTruth.test checks they agree) */
+export const PLANNING_BUILDING = buildings.find((x) => x.id === 'comms-center')?.name ?? 'Communications Center'
 
 export type { GoNoGoResult }
 
@@ -158,7 +162,7 @@ export function goNoGo(
     reason = `Power only lets the instruments run ${Math.round(b.scienceDuty * 100)}% of the time they could.`
   } else if (!b.batteryLongOk) {
     status = 'yellow'
-    reason = 'The battery cannot carry the bus through a long eclipse: science stops in those months.'
+    reason = `The battery cannot carry the bus through a long eclipse: ${C.longEclipseHours} hours of shadow need ${b.batteryLongNeedWh.toFixed(0)} Wh, the battery gives ${b.batteryUsableWh.toFixed(0)} Wh. Science stops in those months.`
   } else {
     status = 'green'
     reason = `Instruments can run all the time; the battery covers the eclipses.`
@@ -194,7 +198,8 @@ export function goNoGo(
     reason = `The link carries ${b.downlinkPerTurn.toFixed(0)} MB a month; the instruments make ${b.dataPerTurn.toFixed(0)}.`
   } else if (b.downlinkPerTurn < b.dataPerTurn) {
     status = 'yellow'
-    reason = `The instruments make ${b.dataPerTurn.toFixed(0)} MB a month but the link carries ${b.downlinkPerTurn.toFixed(0)}: ${(b.dataPerTurn - b.downlinkPerTurn).toFixed(0)} MB a month is lost once the ${b.storageCapacity} MB storage is full, and its coverage with it.`
+    const loss = linkLoss(b.dataPerTurn, b.downlinkPerTurn, b.storageCapacity)
+    reason = `The instruments make ${b.dataPerTurn.toFixed(0)} MB a month but the link carries ${b.downlinkPerTurn.toFixed(0)}: the ${b.storageCapacity} MB storage fills ${fillWhen(loss)}, then ${loss.lostPerMonth.toFixed(0)} MB a month (${Math.round(loss.lostShare * 100)}% of the science) is lost, and its coverage with it.`
   } else {
     status = 'yellow'
     reason = `The link carries ${b.downlinkPerTurn.toFixed(0)} MB a month and the instruments make ${b.dataPerTurn.toFixed(0)}: less than ${spare}% to spare. What cannot be sent waits in storage (${b.storageCapacity} MB); overflow is lost, and its coverage with it.`
@@ -208,7 +213,7 @@ export function goNoGo(
     reason = `${(b.spendable - b.totalCost).toFixed(1)} M to spare, with ${b.reserveAmount.toFixed(1)} M reserve held back for fixes in flight.`
   } else if (b.totalCost <= b.budgetCap) {
     status = 'red'
-    reason = `The plan costs ${b.totalCost.toFixed(1)} M but only ${b.spendable.toFixed(1)} M is spendable: the ${b.reserveAmount.toFixed(1)} M reserve is locked for fixes in flight. Lower the reserve at the Comms Center, or choose cheaper parts.`
+    reason = `The plan costs ${b.totalCost.toFixed(1)} M but only ${b.spendable.toFixed(1)} M is spendable: the ${b.reserveAmount.toFixed(1)} M reserve is locked for fixes in flight. Lower the reserve at the ${PLANNING_BUILDING} (Planning), or choose cheaper parts.`
   } else {
     status = 'red'
     reason = `The plan costs ${b.totalCost.toFixed(1)} M; the budget is ${b.budgetCap} M. Cheaper parts, a shorter transfer or less ground time bring it down.`

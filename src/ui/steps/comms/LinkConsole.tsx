@@ -5,6 +5,7 @@ import { choiceArt } from '../../../assets/catalogueArt'
 import { groundStations } from '../../../data/ground'
 import { prefersReducedMotion } from '../../../scene/space/quality'
 import { storageFlow } from '../../../scene/interaction/reactions'
+import { fillWhen } from '../../../sim/budgets'
 import { useDropTarget } from '../../interaction/drag'
 import type { Budgets, CheckResult, BarStatus } from '../../../sim/types'
 import { Eng, LineItem, Stamp, stepNumber, type StampVerdict } from '../../kit'
@@ -345,7 +346,7 @@ export function LinkConsole({
 
       {flow.spill > 0 && (
         <div data-testid="data-spill" className="mt-2 border-l-2 border-nogo bg-ink-2 px-3 py-1.5 text-xs text-nogo">
-          Storage tray overflowing — {Math.round(flow.spill * 100)}% of monthly science spills overboard.
+          Storage tray overflowing — it fills {fillWhen(flow)}, then {Math.round(flow.lostPerMonth)} MB a month ({Math.round(flow.spill * 100)}% of the science) spills overboard.
         </div>
       )}
       <Eng as="div" className="mt-1.5 fp-data text-[11px] text-paper-faint">

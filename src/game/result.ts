@@ -4,6 +4,7 @@
  */
 import { popularityEffects } from './economy'
 import type { World } from './world'
+import { craftWasLost, endingSentence } from '../sim/evaluate'
 
 export interface MissionResult {
   name: string
@@ -55,4 +56,19 @@ export function missionResult(world: Pick<World, 'mission' | 'research'>): Missi
     popularityNet: popularity.reduce((s, r) => s + r.amount, 0),
     papers,
   }
+}
+
+/**
+ * The mission-result dialog's line for a failed mission. It names the same end as the report's
+ * verdict (endingSentence), and only says "the spacecraft was lost" when it was: a mission that
+ * ran out of money in orbit still had a working craft (number truth, 15 Nov).
+ */
+export function failedLine(end: string, simFailed: boolean, coverage: number): string {
+  if (simFailed)
+    return craftWasLost(end)
+      ? `${endingSentence(end)} The spacecraft was lost. The report shows what went wrong.`
+      : `${endingSentence(end)} The spacecraft still worked, but the mission had to stop. The report shows what went wrong.`
+  return coverage < 1
+    ? 'The spacecraft flew, but mapped no ice. The report shows why.'
+    : 'The spacecraft flew, but the ice map fell short. The report shows why.'
 }
