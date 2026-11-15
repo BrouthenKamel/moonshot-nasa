@@ -16,6 +16,7 @@ import { difficultyPresets } from './data/brief'
 import { EventCard } from './ui/flight/EventCard'
 import { FlightControls } from './ui/flight/FlightControls'
 import { Narrator } from './ui/narrator/Narrator'
+import { Eng, Flap, Sheet } from './ui/kit'
 
 const PHASE_TEXT: Record<string, string> = {
   build: 'Building',
@@ -30,11 +31,11 @@ const PHASE_TEXT: Record<string, string> = {
 
 function SimStat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone: string }) {
   return (
-    <div className="hud-panel rounded-xl p-4">
-      <div className="font-mono text-[11px] uppercase tracking-wider text-slate-400">{label}</div>
-      <div className={`mt-1 font-mono text-2xl font-bold tabular-nums ${tone}`}>{value}</div>
-      {sub && <div className="mt-1 font-mono text-xs text-slate-400 tabular-nums">{sub}</div>}
-    </div>
+    <Sheet tone="raised" className="p-4">
+      <div className="fp-label">{label}</div>
+      <Flap value={value} className={`mt-1 block text-2xl font-semibold ${tone}`} />
+      {sub && <div className="mt-1 fp-data text-xs text-paper-faint">{sub}</div>}
+    </Sheet>
   )
 }
 
@@ -51,18 +52,16 @@ function SimulationPlaceholder() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="hud-step-header rounded-2xl p-6">
-        <div className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--role-accent)]">
-          FLIGHT OPERATIONS · LUNAR ICE MAPPER · LIVE TELEMETRY
-        </div>
-        <h1 className="mt-1 font-display text-2xl font-bold text-white">Mission Simulation</h1>
-        <p className="mt-2 font-mono text-sm text-slate-300 tabular-nums">
+      <div className="hud-step-header p-6">
+        <div className="fp-label text-[var(--role-accent)]">Flight operations · Lunar Ice Mapper · Live telemetry</div>
+        <h1 className="mt-1 fp-display text-2xl text-paper">Mission Simulation</h1>
+        <p className="mt-2 fp-data text-sm text-paper-dim">
           Month {simState.currentTurn}: {PHASE_TEXT[simState.phase] ?? simState.phase}
           {simState.phase === 'build' || simState.phase === 'test' || simState.phase === 'wait'
             ? `. The ride leaves in month ${f.launchTurn}.`
             : ''}
         </p>
-        {lastNotes.length > 0 && <p className="mt-1.5 text-sm text-slate-400">{lastNotes.join(' ')}</p>}
+        {lastNotes.length > 0 && <p className="mt-1.5 text-sm text-paper-dim">{lastNotes.join(' ')}</p>}
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -70,33 +69,35 @@ function SimulationPlaceholder() {
           label="Ice mapped (data home)"
           value={`${simState.coveragePercent.toFixed(1)}%`}
           sub="need 70%"
-          tone={simState.coveragePercent >= 70 ? 'text-[#22d3ee]' : 'text-blue-400'}
+          tone={simState.coveragePercent >= 70 ? 'text-ice' : 'text-ice/70'}
         />
         <SimStat
           label="Science data home"
           value={`${simState.totalDataReturned.toFixed(0)} MB`}
           sub={`need ${dataTarget} MB${f.science.stored >= 1 ? `, ${f.science.stored.toFixed(0)} MB waiting on board` : ''}`}
-          tone={simState.totalDataReturned >= dataTarget ? 'text-emerald-400' : 'text-blue-400'}
+          tone={simState.totalDataReturned >= dataTarget ? 'text-go' : 'text-paper'}
         />
         <SimStat
           label="Months in orbit"
           value={`${simState.turnsInOrbit}`}
           sub="need 12"
-          tone={simState.turnsInOrbit >= 12 ? 'text-emerald-400' : 'text-purple-400'}
+          tone={simState.turnsInOrbit >= 12 ? 'text-go' : 'text-paper'}
         />
-        <SimStat
-          label="Delta-v left"
-          value={`${Math.max(0, simState.fuelRemaining).toFixed(0)} m/s`}
-          sub={f.captured ? `${b.deltaVStationKeeping} m/s a month to hold the orbit` : `capture needs ${(b.captureDeltaV ?? 0).toFixed(0)} m/s`}
-          tone="text-orange-400"
-        />
-        <SimStat label="Money" value={`${f.main.toFixed(1)} M`} sub="main budget" tone="text-slate-100" />
-        <SimStat
-          label="Reserve"
-          value={`${f.reserve.toFixed(1)} M`}
-          sub={f.reserve < 0 ? 'overdrawn' : 'pays for fixes and overruns'}
-          tone={f.reserve < 0 ? 'text-rose-400' : 'text-purple-400'}
-        />
+        <Eng className="contents">
+          <SimStat
+            label="Delta-v left"
+            value={`${Math.max(0, simState.fuelRemaining).toFixed(0)} m/s`}
+            sub={f.captured ? `${b.deltaVStationKeeping} m/s a month to hold the orbit` : `capture needs ${(b.captureDeltaV ?? 0).toFixed(0)} m/s`}
+            tone="text-paper"
+          />
+          <SimStat label="Money" value={`${f.main.toFixed(1)} M`} sub="main budget" tone="text-paper" />
+          <SimStat
+            label="Reserve"
+            value={`${f.reserve.toFixed(1)} M`}
+            sub={f.reserve < 0 ? 'overdrawn' : 'pays for fixes and overruns'}
+            tone={f.reserve < 0 ? 'text-nogo' : 'text-paper'}
+          />
+        </Eng>
       </div>
 
       <EventCard />
@@ -119,7 +120,7 @@ function ReplayScreen() {
   const replayEntryId = useGameStore((s) => s.replayEntryId)
   const showReport = useGameStore((s) => s.showReport)
 
-  let content: React.ReactNode = <div className="text-slate-400">Nothing to replay.</div>
+  let content: React.ReactNode = <div className="fp-label">Nothing to replay.</div>
   if (replayEntryId) {
     const entry = runHistory.find((r) => r.id === replayEntryId)
     if (entry?.run) {
@@ -145,14 +146,12 @@ function ReplayScreen() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <div className="hud-step-header flex items-center justify-between gap-4 rounded-2xl p-4">
+      <div className="hud-step-header flex items-center justify-between gap-4 p-4">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.22em] text-[var(--role-accent)]">
-            FLIGHT ARCHIVE · LUNAR ICE MAPPER · REPLAY
-          </div>
-          <h1 className="mt-0.5 font-display text-xl font-bold text-white">Mission Replay</h1>
+          <div className="fp-label text-kapton">Flight archive · Lunar Ice Mapper · Replay</div>
+          <h1 className="mt-0.5 fp-display text-xl text-paper">Mission Replay</h1>
         </div>
-        <button onClick={() => showReport()} className="tactical-btn-back">
+        <button type="button" onClick={() => showReport()} className="fp-btn-secondary">
           Back to report
         </button>
       </div>

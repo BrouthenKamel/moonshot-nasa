@@ -18,10 +18,10 @@ export interface Station {
 }
 
 export const ROLE_INFO: Record<Role, { title: string; building: BuildingId; buildingName: string; color: string }> = {
-  ground: { title: 'Ground', building: 'comms-center', buildingName: 'Communications Center', color: '#3b82f6' },
-  science: { title: 'Science', building: 'research-lab', buildingName: 'Research Lab', color: '#22c55e' },
-  space: { title: 'Spacecraft', building: 'factory', buildingName: 'Factory', color: '#a855f7' },
-  launch: { title: 'Launch', building: 'launch-site', buildingName: 'Launch Site', color: '#f97316' },
+  ground: { title: 'Ground', building: 'comms-center', buildingName: 'Communications Center', color: '#7c9cc9' },
+  science: { title: 'Science', building: 'research-lab', buildingName: 'Research Lab', color: '#a3b865' },
+  space: { title: 'Spacecraft', building: 'factory', buildingName: 'Factory', color: '#a394cc' },
+  launch: { title: 'Launch', building: 'launch-site', buildingName: 'Launch Site', color: '#d98e55' },
 }
 
 export const POLL_ORDER: Role[] = ['ground', 'science', 'space', 'launch']
