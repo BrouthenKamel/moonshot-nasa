@@ -155,12 +155,26 @@ describe('the clock waits while the player reads', () => {
     expect(useWorldStore.getState().funds).toBe(start.funds)
   })
 
-  it('choosing the first mission starts the clock at normal speed', () => {
+  it('choosing a mission leaves the clock paused until the player presses Play', () => {
     const start = useWorldStore.getState().day
     useWorldStore.getState().openMission()
-    expect(useWorldStore.getState().speed).toBe('normal')
+    expect(useWorldStore.getState().speed).toBe('paused')
+    for (let i = 0; i < 5; i++) useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBe(start)
+    useWorldStore.getState().setSpeed('normal')
     useWorldStore.getState().tick(1)
     expect(useWorldStore.getState().day).toBeCloseTo(start + 1, 5)
+  })
+
+  it('a paused clock stays paused when a modal opens and closes', () => {
+    const start = useWorldStore.getState().day
+    let modal: object | null = {}
+    vi.stubGlobal('document', { querySelector: (sel: string) => (sel === '[aria-modal="true"]' ? modal : null) })
+    useWorldStore.getState().tick(1)
+    modal = null // the player closed the dialog
+    for (let i = 0; i < 5; i++) useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBe(start)
+    expect(useWorldStore.getState().speed).toBe('paused')
   })
 
   it('Play starts it too, and a later mission keeps the speed the player chose', () => {

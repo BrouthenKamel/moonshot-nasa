@@ -6,7 +6,6 @@ import { lunarPapers } from '../../game/research'
 import { failedLine, missionResult, type MissionResult } from '../../game/result'
 import { useUiStore } from '../../state/uiStore'
 import { campaign, phaseProgress } from '../../game/campaign'
-import { backgroundNews } from '../../game/news'
 import type { FeedItem } from '../../game/world'
 import { difficultyPresets } from '../../data/brief'
 import { computeBudgets } from '../../sim/budgets'
@@ -620,18 +619,28 @@ function ago(day: number, today: number): string {
   return `${m} month${m === 1 ? '' : 's'} ago`
 }
 
-export function Notifications() {
+/** The real events of the agency and its mission, newest first. No events: nothing shown. */
+export function useRealNews(): FeedItem[] {
   const feed = useWorldStore((s) => s.feed)
+  return useMemo(() => feed.filter((e) => !e.quiet).slice(0, 12), [feed])
+}
+
+export function Notifications({ onHide }: { onHide?: () => void } = {}) {
+  const items = useRealNews()
   const day = useWorldStore((s) => s.day)
   const today = Math.floor(day)
-  const items = useMemo(() => {
-    const real = feed.filter((e) => !e.quiet)
-    return [...real, ...backgroundNews(today - 60, today)].sort((a, b) => b.day - a.day).slice(0, 12)
-  }, [feed, today])
+  if (items.length === 0) return null
 
   return (
     <Sheet as="section" tone="inset" aria-label="Notifications" className="flex min-h-0 flex-col text-paper">
-      <h2 className="fp-label border-b border-rule-strong px-3 py-2">Notifications</h2>
+      <div className="flex items-center justify-between border-b border-rule-strong px-3 py-2">
+        <h2 className="fp-label">Notifications</h2>
+        {onHide && (
+          <button type="button" onClick={onHide} aria-label="Hide notifications" className="fp-label text-paper-dim hover:text-paper">
+            Hide ◂
+          </button>
+        )}
+      </div>
       <ul className="scroll-quiet fade-bottom flex min-h-0 flex-col overflow-y-auto pb-8">
         {items.map((e, i) => {
           const look = kindLook[kindOf(e)]
