@@ -19,6 +19,7 @@ import { EventCard } from './ui/flight/EventCard'
 import { FlightControls } from './ui/flight/FlightControls'
 import { Narrator } from './ui/narrator/Narrator'
 import { Eng, Flap, Sheet } from './ui/kit'
+import { CampaignLab, wantsCampaignLab } from './campaign/scenes/Lab'
 
 const PHASE_TEXT: Record<string, string> = {
   build: 'Building',
@@ -163,6 +164,12 @@ function ReplayScreen() {
 }
 
 export default function App() {
+  // Prototype (proto/campaign): the dev-only scene lab for the campaign's shows
+  if (typeof window !== 'undefined' && import.meta.env.DEV && wantsCampaignLab(window.location.search)) return <CampaignLab />
+  return <MainApp />
+}
+
+function MainApp() {
   const screen = useGameStore((s) => s.screen)
   const openingDone = useUiStore((s) => s.openingDone)
   useAudioDirector()

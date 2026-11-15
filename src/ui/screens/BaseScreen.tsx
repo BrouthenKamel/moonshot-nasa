@@ -23,16 +23,16 @@ import { newsDrawerOpen } from '../agency/newsDrawer'
 import {
   AgencyClock,
   AgencyWallet,
-  CampaignDialog,
   MissionPanel,
   MissionResultDialog,
-  NewMissionDialog,
   Notifications,
   useAgencyClock,
   useCampaignProgress,
   useRealNews,
 } from '../agency/AgencyPanels'
 import { useWorldStore } from '../../state/worldStore'
+import { useCampaignStore } from '../../state/campaignStore'
+import { CampaignLayer } from '../campaign/CampaignLayer'
 
 /*
  * The agency base. The map is the menu: walk into a building to plan the mission, and the flight
@@ -194,23 +194,16 @@ export function BaseScreen() {
   useAgencyClock()
   const spaceShowing = useSpaceShowing(simState)
   const missionOpen = useWorldStore((s) => s.missionOpen) || !!simState || visitedSteps.length > 0
-  const openMission = useWorldStore((s) => s.openMission)
-  const startNewMission = useGameStore((s) => s.startNewMission)
-  const [dialog, setDialog] = useState<'new-mission' | 'campaign' | null>(null)
+  // The campaign: New mission and Headquarters both open the ladder (src/ui/campaign)
+  const openLadder = useCampaignStore((s) => s.openLadder)
   const campaignProgress = useCampaignProgress()
-  const hq = useMemo(() => ({ ...campaignProgress, onClick: () => setDialog('campaign') }), [campaignProgress, setDialog])
+  const hq = useMemo(() => ({ ...campaignProgress, onClick: openLadder }), [campaignProgress, openLadder])
   // A fresh base has one start: New mission. No building rings and the notifications folded
   // to a badge until a mission is chosen, so nothing competes with it.
   const mapLabels = missionOpen ? labels : quietLabels(labels)
   const [newsOpen, setNewsOpen] = useState(false)
   const showNews = newsDrawerOpen({ openedByPlayer: newsOpen, decisionWaiting: !!simState?.pendingDecision })
   const hasNews = useRealNews().length > 0
-  const startMission = () => {
-    // A finished flight goes to the history; the new mission starts at the Comms Center
-    if (simState) startNewMission()
-    openMission()
-    setDialog(null)
-  }
 
   // Walking into a building. While the craft flies, the design is fixed and the buildings only show its state.
   // After the flight, a building opens its step to revise the design and fly again.
@@ -219,7 +212,7 @@ export function BaseScreen() {
   const onBuildingClick = flying
     ? undefined
     : !missionOpen
-      ? () => setDialog('new-mission')
+      ? () => openLadder()
       : (id: BuildingId) => (simState ? reviseAt(BUILDING_STEPS[id][0]) : openBuilding(id))
 
   return (
@@ -274,16 +267,15 @@ export function BaseScreen() {
                   log={logEntries}
                   sim={simState}
                   missionOpen={missionOpen}
-                  onNewMission={() => setDialog('new-mission')}
+                  onNewMission={openLadder}
                 />
               </div>
             </div>
           </>
         )}
       </div>
-      {dialog === 'new-mission' && <NewMissionDialog onClose={() => setDialog(null)} onStart={startMission} />}
-      {dialog === 'campaign' && <CampaignDialog onClose={() => setDialog(null)} />}
-      <MissionResultDialog sim={simState} onReport={currentReport ? () => showReport() : undefined} onNewMission={() => setDialog('new-mission')} />
+      <MissionResultDialog sim={simState} onReport={currentReport ? () => showReport() : undefined} onNewMission={openLadder} />
+      <CampaignLayer />
     </div>
   )
 }

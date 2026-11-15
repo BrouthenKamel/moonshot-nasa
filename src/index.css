@@ -503,3 +503,56 @@ body { margin: 0; font-family: var(--font-sans); background: var(--color-ink-1);
 @media (prefers-reduced-motion: reduce) {
   .bounce-back { animation: none; }
 }
+
+/* ------------------------------------------------------------------ */
+/* Campaign prototype (proto/campaign): ladder and mission overlays    */
+/* ------------------------------------------------------------------ */
+.campaign-backdrop {
+  background:
+    radial-gradient(1px 1px at 12% 18%, #ede6d6aa 50%, transparent 51%),
+    radial-gradient(1px 1px at 72% 12%, #ede6d688 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 38% 72%, #ede6d666 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 64%, #ede6d699 50%, transparent 51%),
+    radial-gradient(1px 1px at 55% 40%, #ede6d655 50%, transparent 51%),
+    radial-gradient(1px 1px at 22% 88%, #ede6d677 50%, transparent 51%),
+    radial-gradient(120% 80% at 50% 110%, #1a2234 0%, transparent 60%),
+    var(--color-ink-0);
+  animation: campaign-fade 0.35s ease-out;
+}
+.campaign-theme-moon { background-color: #080b12; }
+.campaign-theme-base {
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, #ede6d6aa 50%, transparent 51%),
+    radial-gradient(1px 1px at 72% 12%, #ede6d688 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 64%, #ede6d699 50%, transparent 51%),
+    radial-gradient(90% 60% at 50% 115%, #3a2c18 0%, transparent 60%);
+}
+.campaign-theme-mars {
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, #ede6d688 50%, transparent 51%),
+    radial-gradient(1px 1px at 72% 12%, #ede6d666 50%, transparent 51%),
+    radial-gradient(100% 70% at 50% 120%, #6a2a14 0%, #2a120a 35%, transparent 65%);
+}
+@keyframes campaign-fade { from { opacity: 0; } to { opacity: 1; } }
+.campaign-enter { animation: campaign-rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes campaign-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.campaign-card { animation: campaign-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.campaign-option:active { transform: scale(0.985); }
+.campaign-draw { stroke-dashoffset: 0; animation: campaign-draw 1.6s ease-out; }
+@keyframes campaign-draw { from { stroke-dasharray: 0 100; } }
+.campaign-pulse { animation: campaign-pulse 1.8s ease-in-out infinite; }
+@keyframes campaign-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.12); opacity: 0.35; }
+}
+.campaign-cruise-trail { stroke-dasharray: 100 100; stroke-dashoffset: 100; animation: campaign-trail 4.4s cubic-bezier(0.45, 0, 0.55, 1) forwards; }
+@keyframes campaign-trail { to { stroke-dashoffset: 0; } }
+.campaign-cruise-dot { filter: drop-shadow(0 0 6px #e8a33d); }
+@media (prefers-reduced-motion: reduce) {
+  .campaign-backdrop, .campaign-enter, .campaign-card, .campaign-draw, .campaign-pulse { animation: none; }
+}
+.campaign-float { animation: campaign-float 9s ease-in-out infinite; }
+@keyframes campaign-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.campaign-window { animation: campaign-blink 2.6s ease-in-out infinite; }
+@keyframes campaign-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .campaign-float, .campaign-window { animation: none; } }
