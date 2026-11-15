@@ -32,7 +32,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     steps: ['brief', 'planning'],
     requires: [],
     lockedReason: '',
-    component: Placeholder,
+    component: lazy(() => import('../../minigames/shadowHunt')),
   },
   'science-lab': {
     id: 'science-lab',
@@ -42,7 +42,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     steps: ['instruments'],
     requires: ['briefing'],
     lockedReason: 'Get your mission brief first',
-    component: Placeholder,
+    component: lazy(() => import('../../minigames/darkCraterBench')),
   },
   'clean-room': {
     id: 'clean-room',
@@ -52,7 +52,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     steps: ['spacecraft'],
     requires: ['science-lab'],
     lockedReason: 'The Clean Room needs a payload first',
-    component: Placeholder,
+    component: lazy(() => import('../../minigames/packTheSix')),
   },
   'thermal-vac': {
     id: 'thermal-vac',
@@ -62,7 +62,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     steps: ['planning'],
     requires: ['clean-room', 'flight-dynamics'],
     lockedReason: 'Build the spacecraft and pick an orbit before testing it',
-    component: Placeholder,
+    component: lazy(() => import('../../minigames/eclipseSurvival')),
   },
   'flight-dynamics': {
     id: 'flight-dynamics',
@@ -72,7 +72,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     steps: ['orbit'],
     requires: ['briefing'],
     lockedReason: 'Get your mission brief first',
-    component: Placeholder,
+    component: lazy(() => import('../../minigames/orbitSling')),
   },
   'ground-station': {
     id: 'ground-station',
@@ -82,7 +82,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     steps: ['comms'],
     requires: ['clean-room'],
     lockedReason: 'Install a radio in the Clean Room first',
-    component: Placeholder,
+    component: lazy(() => import('../../minigames/catchThePass')),
   },
   'launch-hangar': {
     id: 'launch-hangar',
@@ -92,7 +92,7 @@ export const ROOMS: Record<RoomId, RoomDef> = {
     steps: ['rocket', 'ride'],
     requires: ['clean-room', 'flight-dynamics'],
     lockedReason: 'Finish the spacecraft and the orbit plan first',
-    component: Placeholder,
+    component: lazy(() => import('../../minigames/rideshareManifest')),
   },
   'mission-control': {
     id: 'mission-control',
