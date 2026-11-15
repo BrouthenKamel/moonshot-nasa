@@ -45,9 +45,15 @@ function radioNote(radio: RadioPart, design: Design, b: Budgets): { text: string
   return undefined
 }
 
+/** A dish's note, in words only: the tile's one number is its data home (the hours limit is on hover) */
 function stationNote(s: GroundStation): { text: string; tone?: PickTone } {
   const outages = s.outageChance >= 0.08 ? 'often' : s.outageChance >= 0.04 ? 'sometimes' : 'rarely'
-  return { text: `Up to ${s.contactHoursPerDay} h a day · outages ${outages}`, tone: s.outageChance >= 0.08 ? 'yellow' : undefined }
+  return { text: `Outages ${outages}`, tone: s.outageChance >= 0.08 ? 'yellow' : undefined }
+}
+
+/** What a dish tile keeps off its face, for the hover: "64 kbps · $30k a month · up to 2 h a day" */
+function stationDetail(s: GroundStation, costPerMonth: number): string {
+  return `${s.rateKbps} kbps · ${money(costPerMonth)} a month · up to ${s.contactHoursPerDay} h a day`
 }
 
 /** Dish time booked a day: a slider inside the dashboard */
@@ -163,7 +169,7 @@ export function CommsScreen() {
                 name={s.name}
                 figure={whatIf.downlinkPerTurn > 0 ? mb(whatIf.downlinkPerTurn) : 'No link home'}
                 figureTone={homeTone(whatIf)}
-                detail={`${s.rateKbps} kbps · ${money(whatIf.groundCostPerTurn)} a month`}
+                detail={stationDetail(s, whatIf.groundCostPerTurn)}
                 note={note.text}
                 noteTone={note.tone}
                 selected={design.groundStation === s.id}
