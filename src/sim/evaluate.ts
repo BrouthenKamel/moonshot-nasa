@@ -19,7 +19,7 @@ import type { Budgets, SimState, Report, RequirementResult, ScoreBreakdown, Chan
 
 const NEVER_ARRIVED = 'The craft never reached its science orbit.'
 const BAD_LUCK = 'Bad luck stacked up over the mission; the margins were too thin to absorb it.'
-/** Ice coverage the mission needs, in percent: the report and the Ice Mapper pass read this one number */
+/** Ice coverage the mission needs, in percent: the report, the go/no-go checks, the flight and the Ice Mapper pass read this one number */
 export const COVERAGE_TARGET = 70
 
 function countOf(n: number, word: string): string {

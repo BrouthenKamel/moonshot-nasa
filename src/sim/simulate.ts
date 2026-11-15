@@ -1,4 +1,5 @@
 import type { Difficulty } from '../data/brief'
+import { COVERAGE_TARGET } from './evaluate'
 import { firstPassRates } from './firstPass'
 import { difficultyPresets, lunarIceMapperBrief, modelConstants as C, programmeHorizonTurns } from '../data/brief'
 import { getEventById, type EventType } from '../data/events'
@@ -435,7 +436,7 @@ function scienceTurnStep(ctx: TurnContext) {
   if (!f.alive) return
   const turnsNeeded = brief.missionDurationTurns
   const dataTarget = difficultyPresets[s.difficulty]?.dataTarget ?? 300
-  const coverageTarget = 70
+  const coverageTarget = COVERAGE_TARGET
   if (f.scienceTurns >= turnsNeeded) {
     if (f.coverage >= coverageTarget && f.data >= dataTarget) {
       f.done = true
