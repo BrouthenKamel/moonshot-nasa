@@ -54,3 +54,21 @@ export function* pageContent(exclude: Element | null): Generator<Box> {
     yield { left: r.left, top: r.top, right: r.right, bottom: r.bottom }
   }
 }
+
+export type Corner = 'bl' | 'br' | 'tr' | 'tl'
+
+/**
+ * Where a small icon can sit without covering anything: the first free corner of the window, in
+ * the order bottom-left, bottom-right, top-right, top-left. Bottom-left when every corner is busy.
+ */
+export function quietCorner(content: Box[], view: { width: number; height: number }, size: number, margin = 8): Corner {
+  const { width: w, height: h } = view
+  const spots: [Corner, Box][] = [
+    ['bl', { left: margin, top: h - margin - size, right: margin + size, bottom: h - margin }],
+    ['br', { left: w - margin - size, top: h - margin - size, right: w - margin, bottom: h - margin }],
+    ['tr', { left: w - margin - size, top: margin, right: w - margin, bottom: margin + size }],
+    ['tl', { left: margin, top: margin, right: margin + size, bottom: margin + size }],
+  ]
+  for (const [corner, box] of spots) if (!coversContent(box, content)) return corner
+  return 'bl'
+}

@@ -4,7 +4,7 @@ import { computeBudgets } from '../../sim/budgets'
 import { getPartById, type InstrumentPart } from '../../data/parts'
 import { NARRATOR_NAME, NARRATOR_ROLE, beatKey, pickBeat, type InstrumentFacts } from './beats'
 import { useNarratorPrefs } from './narratorPrefs'
-import { coversContent, pageContent } from './overlap'
+import { coversContent, pageContent, quietCorner, type Corner } from './overlap'
 import { Portrait } from './Portrait'
 
 /**
@@ -19,6 +19,16 @@ import { Portrait } from './Portrait'
 
 /** How often the page is re-checked while a line waits (content moves as screens load and resize) */
 const RECHECK_MS = 400
+
+/** Size of the folded portrait, in pixels */
+const FOLDED_PX = 30
+
+const CORNER_STYLE: Record<Corner, React.CSSProperties> = {
+  bl: { left: 8, bottom: 8 },
+  br: { right: 8, bottom: 8 },
+  tr: { right: 8, top: 8 },
+  tl: { left: 8, top: 8 },
+}
 
 export function Narrator() {
   const screen = useGameStore((s) => s.screen)
@@ -50,6 +60,8 @@ export function Narrator() {
   const [opened, setOpened] = useState(false)
   // The slip would sit on text or a control
   const [crowded, setCrowded] = useState(false)
+  // Where the folded icon sits: the first window corner with no text or control under it
+  const [corner, setCorner] = useState<Corner>('bl')
   const rootRef = useRef<HTMLDivElement>(null)
   const slipRef = useRef<HTMLElement>(null)
 
@@ -79,7 +91,10 @@ export function Narrator() {
       if (!slip) return
       const r = slip.getBoundingClientRect()
       if (r.width === 0 || r.height === 0) return
-      setCrowded(coversContent({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }, pageContent(rootRef.current)))
+      const content = Array.from(pageContent(rootRef.current))
+      const crowdedNow = coversContent({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }, content)
+      setCrowded(crowdedNow)
+      if (crowdedNow) setCorner(quietCorner(content, { width: window.innerWidth, height: window.innerHeight }, FOLDED_PX))
     }
     const later = () => {
       window.clearTimeout(timer)
@@ -170,10 +185,12 @@ export function Narrator() {
           onClick={() => setOpened(true)}
           aria-label={`New tip from ${NARRATOR_NAME}`}
           data-testid="narrator-folded"
-          className="pointer-events-auto relative block"
+          data-corner={corner}
+          style={CORNER_STYLE[corner]}
+          className="pointer-events-auto fixed block"
         >
-          <Portrait size={40} />
-          <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-ink-0 bg-kapton" />
+          <Portrait size={FOLDED_PX} />
+          <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-ink-0 bg-kapton" />
         </button>
       )}
       {tipsOff && (
