@@ -56,6 +56,16 @@ function stationDetail(s: GroundStation, costPerMonth: number): string {
   return `${s.rateKbps} kbps · ${money(costPerMonth)} a month · up to ${s.contactHoursPerDay} h a day`
 }
 
+/**
+ * The dish row's heading: the dish choice is a trade, so the row says what the chosen (or hovered)
+ * dish gives, what it limits and what it costs: "Deep Space Network, 34 m: 128 kbps, 1 hour a day
+ * at most · $0.10M a month". A bigger dish carries more data but books fewer hours and costs more.
+ */
+function dishTrade(s: GroundStation, costPerMonth: number): string {
+  const hours = s.contactHoursPerDay <= 1 ? '1 hour a day at most' : `up to ${s.contactHoursPerDay} h a day`
+  return `${s.name}: ${s.rateKbps} kbps, ${hours} · ${money(costPerMonth)} a month`
+}
+
 /** Dish time booked a day: a slider inside the dashboard */
 function ContactTime({ hours, maxHours, onChange }: { hours: number; maxHours: number; onChange: (h: number) => void }) {
   const min = 0.25
@@ -156,7 +166,7 @@ export function CommsScreen() {
           })}
         </PickRow>
 
-        <PickRow title="Dish on Earth">
+        <PickRow title="Dish on Earth" hint={station ? dishTrade(station, b.groundCostPerTurn) : undefined}>
           {groundStations.map((s) => {
             const whatIf = computeBudgets({ ...design, ...stationPatch(s) }, difficulty)
             const note = stationNote(s)

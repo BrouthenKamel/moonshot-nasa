@@ -58,6 +58,13 @@ describe('Comms screen cuts', () => {
     expect(iris.title).toMatch(/kg · .* U · \$/)
   })
 
+  it('names the chosen dish trade-off and monthly price on the dish row', () => {
+    const html = render()
+    const row = html.slice(html.indexOf('Dish on Earth'), html.indexOf('data-choice-id="ground-small"'))
+    // The new design books the Partner 21 m dish for 1 h a day
+    expect(row).toMatch(/Partner 21 m Dish: 64 kbps, up to 2 h a day · \$\d+k a month/)
+  })
+
   it('has one control for the dish hours', () => {
     const html = render()
     expect(html.match(/id="contact-hours"/g)).toHaveLength(1)
