@@ -458,7 +458,12 @@ function paintRisk(ctx: Ctx, view: PlanningView, anim: ScreenAnim, detail: boole
  * `detail` follows the Plan screen's Details control. Off, the wall keeps one line per panel: the money
  * free (or short), spare months (or late), and the risk gauge; legends, scales and GO checks wait.
  */
-export function paintScreen(ctx: Ctx, view: PlanningView, anim: ScreenAnim, { detail = true }: { detail?: boolean } = {}): void {
+export function paintScreen(
+  ctx: Ctx,
+  view: PlanningView,
+  anim: ScreenAnim,
+  { detail = true, header = 'COMMS CENTER' }: { detail?: boolean; header?: string } = {}
+): void {
   ctx.save()
   ctx.fillStyle = '#07090d'
   ctx.fillRect(0, 0, SCREEN_W, SCREEN_H)
@@ -476,7 +481,7 @@ export function paintScreen(ctx: Ctx, view: PlanningView, anim: ScreenAnim, { de
   ctx.fillStyle = '#9fb5d6'
   // Only the room's name: the step's title card floats over the middle of this header (it named the
   // mission and the step too, and ran under the card)
-  ctx.fillText('COMMS CENTER', 30, 37)
+  ctx.fillText(header, 30, 37)
   const level = view.status.level
   const blink = level === 'alert' && !anim.reducedMotion ? (Math.sin(anim.time * 8) > 0 ? 1 : 0.35) : 1
   ctx.font = font(800, 34)

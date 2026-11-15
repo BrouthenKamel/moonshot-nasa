@@ -11,6 +11,7 @@ import { Effects } from './space/Effects'
 import { usePlanningOdds } from '../ui/useOdds'
 import { useDetailsOpen } from '../ui/kit/detailsState'
 import { buildPlanningView, PLAN_DETAILS_ID, type PlanningView } from '../viz/planning/planningView'
+import { OLD_PLAN_HEADER, wantsOldPlan } from '../viz/planning/oldPlanDemo'
 import { paintScreen, SCREEN_W, SCREEN_H, type ScreenAnim } from '../viz/planning/screenPainter'
 import { paintConsole, CONSOLE, STEP_LAMPS } from '../viz/planning/consolePainter'
 import {
@@ -226,6 +227,7 @@ function Room() {
 const ALERT_LEVEL = { nominal: 0, caution: 1, alert: 2 } as const
 
 function BigScreen({ view, reduced, detail }: { view: PlanningView; reduced: boolean; detail: boolean }) {
+  const old = useMemo(() => wantsOldPlan(), [])
   const screen = useMemo(() => makeCanvasTexture(SCREEN_W, SCREEN_H), [])
   const anim = useRef<ScreenAnim>({
     time: 0,
@@ -287,7 +289,7 @@ function BigScreen({ view, reduced, detail }: { view: PlanningView; reduced: boo
 
     // Repaint only while something on the screen changes
     if (moving || blinking || dirty.current) {
-      paintScreen(screen.ctx, view, a, { detail })
+      paintScreen(screen.ctx, view, a, { detail, header: old ? OLD_PLAN_HEADER : undefined })
       screen.texture.needsUpdate = true
       dirty.current = false
     }
@@ -562,7 +564,8 @@ export function ControlRoom({ focus }: { focus: ControlFocus }) {
   const dragging = useRef(false)
   const reduced = useMemo(() => prefersReducedMotion(), [])
   // The Plan screen's Details control also decides how much the big screen shows
-  const detail = useDetailsOpen(PLAN_DETAILS_ID)
+  const detailsOpen = useDetailsOpen(PLAN_DETAILS_ID)
+  const detail = detailsOpen || wantsOldPlan()
   return (
     <Canvas
       className="!absolute inset-0"
