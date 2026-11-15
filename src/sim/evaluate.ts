@@ -8,6 +8,7 @@ import { getPartById, type InstrumentPart, type PropulsionPart, type AttitudePar
 import { getOrbitById } from '../data/orbits'
 import { missedRideWaitTurns } from '../data/rides'
 import { computeBudgets } from './budgets'
+import { firstPassLine } from './firstPass'
 import type { Budgets, SimState, Report, RequirementResult, ScoreBreakdown, ChangeHint } from './types'
 
 /**
@@ -18,7 +19,8 @@ import type { Budgets, SimState, Report, RequirementResult, ScoreBreakdown, Chan
 
 const NEVER_ARRIVED = 'The craft never reached its science orbit.'
 const BAD_LUCK = 'Bad luck stacked up over the mission; the margins were too thin to absorb it.'
-const COVERAGE_TARGET = 70
+/** Ice coverage the mission needs, in percent: the report, the go/no-go checks, the flight and the Ice Mapper pass read this one number */
+export const COVERAGE_TARGET = 70
 
 function countOf(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`
@@ -274,7 +276,8 @@ export function buildReport(state: SimState): Report {
       f.captured ? `Captured into the science orbit in month ${f.captureTurn}.` : 'Never captured into lunar orbit.',
       () => whyNoCapture(state, b)),
     req('coverage', 'Ice Coverage', f.coverage >= COVERAGE_TARGET, COVERAGE_TARGET, Math.round(f.coverage * 10) / 10, '%',
-      `${f.coverage.toFixed(1)}% of the south polar region mapped by an instrument that sees into shadow, with its data home.`,
+      `${f.coverage.toFixed(1)}% of the south polar region mapped by an instrument that sees into shadow, with its data home.` +
+        (state.firstPass ? ` ${firstPassLine(state.design, b, state.firstPass)}.` : ''),
       () => whyCoverageShort(state, b)),
     req('data', 'Science Data Return', f.data >= dataTarget, dataTarget, Math.round(f.data), 'MB',
       `${f.data.toFixed(0)} MB of science data on the ground.`,

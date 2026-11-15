@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { audio } from '../../assets/audio'
 import { SeededRNG } from '../../sim/rng'
 import type { Design } from '../../sim/types'
@@ -23,6 +23,7 @@ import {
   step,
   summarize,
   type BotMind,
+  passHours,
   type PassResult,
   type PassState,
   type Reticle,
@@ -41,7 +42,7 @@ const TS = 0.75
 const STRIP_H = PASS_LENGTH + VIEW_H + 400
 const WORLD_MARGIN = 140
 
-type Phase = 'loading' | 'briefing' | 'playing' | 'result'
+type Phase = 'loading' | 'briefing' | 'playing' | 'result' | 'skipped'
 
 interface Floater {
   x: number
@@ -57,15 +58,6 @@ interface Spark {
   vy: number
   born: number
   life: number
-}
-
-export interface IceMapperDemo {
-  /** Skip the briefing */
-  start?: boolean
-  /** Let the autopilot fly it */
-  auto?: boolean
-  /** Fast-forward this many seconds into the pass before showing it */
-  skip?: number
 }
 
 function play(id: Parameters<typeof audio.play>[0]) {
@@ -420,37 +412,54 @@ function drawFrame(canvas: HTMLCanvasElement, terrain: HTMLCanvasElement | null,
 
 /* ---------------- the component ---------------- */
 
-function Stars({ n }: { n: number }) {
-  return (
-    <div className="flex justify-center gap-2 text-4xl" aria-label={`${n} of 3 stars`}>
-      {[1, 2, 3].map((i) => (
-        <span key={i} className={i <= n ? 'text-sky-300 drop-shadow-[0_0_14px_rgba(125,211,252,0.9)]' : 'text-slate-700'}>
-          ★
-        </span>
-      ))}
-    </div>
-  )
+/** How the pass was taken: flown by the player, watched on autopilot, or skipped (no result) */
+export interface PassOutcome {
+  how: 'flown' | 'autopilot' | 'skipped'
+  result: PassResult | null
 }
 
+/** Reticle speed for the arrow keys, nominal pixels a second */
+const KEY_SPEED = 620
+const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
+
+/** A touch screen with no mouse: the pass is watched on autopilot there */
+function touchOnly(): boolean {
+  if (typeof window === 'undefined' || !window.matchMedia) return false
+  return window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(any-pointer: fine)').matches
+}
+
+/**
+ * The first mapping pass, over the whole base while the flight holds (it is a modal, so the agency
+ * clock waits). Three moments: the briefing (what the pass is flown with, fly it or watch the
+ * autopilot), the pass with a two-gauge HUD, then one line on what it mapped and Continue.
+ * Mouse, touch or arrow keys steer; on a touch-only screen the autopilot flies.
+ */
 export function IceMapperGame({
   design,
-  onExit,
-  onComplete,
-  demo,
+  intro,
+  skippable = false,
+  lineAfter,
+  onDone,
 }: {
-  design?: Design
-  onExit: () => void
-  onComplete?: (r: PassResult) => void
-  demo?: IceMapperDemo
+  design: Design
+  /** What the pass is flown with, shown in the briefing */
+  intro?: ReactNode
+  /** After the first pass ever flown, the pass can be skipped */
+  skippable?: boolean
+  /** The one line after the pass */
+  lineAfter: (o: PassOutcome) => string
+  onDone: (o: PassOutcome) => void
 }) {
   const setup = useMemo(() => setupFromDesign(design), [design])
   const [phase, setPhase] = useState<Phase>('loading')
   const [result, setResult] = useState<PassResult | null>(null)
-  const [auto, setAuto] = useState(false)
   const [hud, setHud] = useState({ t: 0, mapped: 0 })
   const [hint, setHint] = useState(true)
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [paused, setPaused] = useState(false)
+  const [autopilot, setAutopilot] = useState(false)
+  const [touch] = useState(touchOnly)
+  const keys = useRef(new Set<string>())
   const pausedRef = useRef(false)
   pausedRef.current = paused
 
@@ -464,11 +473,9 @@ export function IceMapperGame({
   const floaters = useRef<Floater[]>([])
   const sparks = useRef<Spark[]>([])
   const phaseRef = useRef<Phase>('loading')
-  const autoRef = useRef(false)
-  const onCompleteRef = useRef(onComplete)
-  onCompleteRef.current = onComplete
   phaseRef.current = phase
-  autoRef.current = auto
+  const autoRef = useRef(autopilot)
+  autoRef.current = autopilot
 
   // the Moon is drawn once, off screen, a moment after the screen appears
   useEffect(() => {
@@ -496,58 +503,28 @@ export function IceMapperGame({
   }, [size])
 
   const finish = useCallback(() => {
+    if (phaseRef.current !== 'playing') return
     const r = summarize(st.current)
     setResult(r)
     setPhase('result')
-    onCompleteRef.current?.(r)
     play(r.win ? 'sfx.reveal' : 'sfx.error')
   }, [])
 
-  const begin = useCallback(
-    (withAuto: boolean) => {
-      st.current = newPass(setup)
-      mind.current = { target: null, idleUntil: 0 }
-      floaters.current = []
-      sparks.current = []
-      ret.current = { x: CRAFT_X, y: CRAFT_Y - 220 }
-      scanning.current = false
-      setResult(null)
-      setAuto(withAuto)
-      setHint(true)
-      setPaused(false)
-      // for demos and screenshots: play ahead with the bot so the pass is already under way
-      if (demo?.skip) {
-        const dt = 1 / 60
-        while (!st.current.done && st.current.t < demo.skip) {
-          const aim = botAim(st.current, mind.current)
-          if (aim.target) {
-            const dx = aim.target.x - ret.current.x
-            const dy = aim.target.y - ret.current.y
-            const d = Math.hypot(dx, dy)
-            const move = Math.min(d, AUTOPILOT.speed * dt)
-            if (d > 0) {
-              ret.current.x += (dx / d) * move
-              ret.current.y += (dy / d) * move
-            }
-          }
-          step(st.current, { x: ret.current.x, y: ret.current.y, scanning: aim.scanning }, dt)
-        }
-        scanning.current = true
-      }
-      setPhase('playing')
-      play('sfx.go')
-    },
-    [setup, demo?.skip]
-  )
-
-  // demos skip the briefing
-  const started = useRef(false)
-  useEffect(() => {
-    if (phase === 'briefing' && demo?.start && !started.current) {
-      started.current = true
-      begin(!!demo.auto)
-    }
-  }, [phase, demo, begin])
+  const begin = useCallback((withAuto: boolean) => {
+    st.current = newPass(setup)
+    mind.current = { target: null, idleUntil: 0 }
+    floaters.current = []
+    sparks.current = []
+    ret.current = { x: CRAFT_X, y: CRAFT_Y - 220 }
+    scanning.current = false
+    setResult(null)
+    setHint(true)
+    setPaused(false)
+    setAutopilot(withAuto)
+    autoRef.current = withAuto
+    setPhase('playing')
+    play('sfx.go')
+  }, [setup])
 
   // the frame loop: advances the pass while it is being played, and always draws
   useEffect(() => {
@@ -565,6 +542,20 @@ export function IceMapperGame({
       last = now
       const state = st.current
       if (phaseRef.current === 'playing' && !pausedRef.current) {
+        if (!autoRef.current && keys.current.size) {
+          let dx = 0
+          let dy = 0
+          for (const k of keys.current) {
+            dx += ARROWS[k][0]
+            dy += ARROWS[k][1]
+          }
+          const len = Math.hypot(dx, dy) || 1
+          ret.current = {
+            x: Math.min(VIEW_W, Math.max(0, ret.current.x + (dx / len) * KEY_SPEED * dt)),
+            y: Math.min(VIEW_H, Math.max(0, ret.current.y + (dy / len) * KEY_SPEED * dt)),
+          }
+          scanning.current = true
+        }
         let input = { x: ret.current.x, y: ret.current.y, scanning: scanning.current }
         if (autoRef.current) {
           const aim = botAim(state, mind.current)
@@ -624,191 +615,146 @@ export function IceMapperGame({
   }
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.code === 'KeyP') {
+      if (phaseRef.current !== 'playing') return
+      if (e.key in ARROWS) {
         e.preventDefault()
-        if (phaseRef.current === 'playing') setPaused((p) => !p)
-      } else if (e.code === 'Escape') onExit()
+        keys.current.add(e.key)
+      } else if (e.code === 'Space' || e.code === 'KeyP') {
+        e.preventDefault()
+        setPaused((p) => !p)
+      } else if (e.code === 'Escape') finish() // ends the pass early: the result is what was mapped
     }
+    const up = (e: KeyboardEvent) => keys.current.delete(e.key)
     window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
     return () => {
       window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
     }
-  }, [onExit])
+  }, [finish])
 
   const secondsLeft = Math.max(0, Math.ceil(setup.duration - hud.t))
   const batteryShare = Math.max(0, 1 - hud.t / setup.duration)
-  const batteryColor = batteryShare > 0.5 ? '#4ade80' : batteryShare > 0.22 ? '#fbbf24' : '#f87171'
-  const unreachable = setup.areas.reduce((sum, a) => sum + (scanAbility(setup, a).blocked ? a.value : 0), 0)
-  const hopeless = unreachable > 100 - setup.target
-  const noIce = !setup.scanners.some((s) => s.mapsIce)
-
-  const btn = 'rounded-xl px-6 py-3 font-semibold transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70'
+  const batteryTone = batteryShare > 0.5 ? 'bg-go' : batteryShare > 0.22 ? 'bg-caution' : 'bg-nogo'
+  const steer = phase === 'playing' && !autopilot
+  const outcome: PassOutcome = phase === 'result' ? { how: autopilot ? 'autopilot' : 'flown', result } : { how: 'skipped', result: null }
 
   return (
-    <div className="fixed inset-0 z-50 select-none overflow-hidden bg-[#04060b] text-slate-100" style={{ touchAction: 'none' }}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="First mapping pass"
+      data-testid="ice-pass"
+      data-phase={phase}
+      className="fixed inset-0 z-50 select-none overflow-hidden bg-ink-0 text-paper"
+      style={{ touchAction: 'none' }}
+    >
       <div
         ref={wrap}
         className="absolute inset-0"
-        style={{ cursor: phase === 'playing' && !auto ? 'none' : 'default' }}
+        style={{ cursor: steer ? 'none' : 'default' }}
         onPointerMove={(e) => {
-          if (phase === 'playing' && !auto) {
-            ret.current = toNominal(e)
-            scanning.current = true
-          }
+          if (!steer) return
+          ret.current = toNominal(e)
+          scanning.current = true
         }}
         onPointerDown={(e) => {
-          if (phase === 'playing' && !auto) {
-            ret.current = toNominal(e)
-            scanning.current = true
-          }
+          if (!steer) return
+          ret.current = toNominal(e)
+          scanning.current = true
         }}
         onPointerLeave={() => {
-          if (!auto) scanning.current = false
+          if (!autopilot) scanning.current = false
         }}
       >
         <canvas ref={canvas} style={{ width: '100%', height: '100%', display: 'block' }} />
       </div>
 
-      {phase === 'loading' && <div className="absolute inset-0 flex items-center justify-center text-slate-400">Mapping the south pole…</div>}
+      {phase === 'loading' && <div className="absolute inset-0 flex items-center justify-center fp-label">Mapping the south pole…</div>}
 
       {phase === 'playing' && (
         <>
-          <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-4">
-            <div className="w-64 rounded-2xl border border-white/10 bg-slate-950/60 p-3 backdrop-blur">
-              <div className="flex items-baseline justify-between text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                <span>Battery</span>
-                <span className="font-mono text-sm tabular-nums" style={{ color: batteryColor }}>
-                  {secondsLeft} s
+          {/* Two gauges, three numbers: battery seconds, ice mapped, the target */}
+          <div className="pointer-events-none absolute inset-x-3 top-3 flex justify-center gap-3">
+            <div className="fp-sheet w-44 px-3 py-2" data-tone="raised">
+              <div className="flex items-baseline justify-between">
+                <span className="fp-label text-[0.62rem]">Battery</span>
+                <span className="fp-data text-sm text-paper">{secondsLeft} s</span>
+              </div>
+              <div className="mt-1.5 h-1 bg-ink-3">
+                <div className={`h-full ${batteryTone}`} style={{ width: `${batteryShare * 100}%` }} />
+              </div>
+            </div>
+            <div className="fp-sheet w-60 px-3 py-2" data-tone="raised">
+              <div className="flex items-baseline justify-between">
+                <span className="fp-label text-[0.62rem] text-ice">Ice mapped</span>
+                <span className="fp-data text-sm text-paper">
+                  {Math.round(hud.mapped)}% <span className="text-paper-dim">/ {setup.target}%</span>
                 </span>
               </div>
-              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full rounded-full transition-[width] duration-100" style={{ width: `${batteryShare * 100}%`, background: batteryColor, boxShadow: `0 0 10px ${batteryColor}` }} />
-              </div>
-            </div>
-            <div className="w-80 rounded-2xl border border-white/10 bg-slate-950/60 p-3 text-center backdrop-blur">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-300">Ice mapped</div>
-              <div className="font-mono text-3xl font-bold tabular-nums text-white">
-                {Math.round(hud.mapped)}%<span className="ml-2 text-base font-normal text-slate-400">of {setup.target}% needed</span>
-              </div>
-              <div className="relative mt-2 h-2.5 rounded-full bg-white/10">
-                <div className="h-full rounded-full bg-sky-300 shadow-[0_0_12px_rgba(125,211,252,0.8)] transition-[width] duration-100" style={{ width: `${Math.min(100, hud.mapped)}%` }} />
-                <div className="absolute -top-1 h-4.5 w-0.5 bg-white" style={{ left: `${setup.target}%`, height: 18 }} />
-              </div>
-            </div>
-            <div className="pointer-events-auto flex flex-col items-end gap-2">
-              <button onClick={onExit} className="rounded-lg border border-white/10 bg-slate-950/60 px-3 py-1.5 text-xs text-slate-300 backdrop-blur hover:text-white">
-                Exit
-              </button>
-              <div className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-right text-xs backdrop-blur">
-                {setup.scanners.map((s) => (
-                  <div key={s.id} className="font-semibold text-slate-200">
-                    {s.name}
-                  </div>
-                ))}
-                {auto && <div className="mt-1 text-[10px] uppercase tracking-widest text-amber-300">Autopilot</div>}
+              <div className="relative mt-1.5 h-1 bg-ink-3">
+                <div className="h-full bg-ice" style={{ width: `${Math.min(100, hud.mapped)}%` }} />
+                <div className="absolute -top-1 h-3 w-px bg-paper" style={{ left: `${setup.target}%` }} />
               </div>
             </div>
           </div>
           {paused && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
-              <div className="rounded-2xl border border-white/10 bg-slate-950/85 px-8 py-6 text-center">
-                <div className="text-2xl font-semibold text-white">Paused</div>
-                <div className="mt-1 text-sm text-slate-400">The battery is holding. Press P or SPACE to carry on.</div>
-                <button onClick={() => setPaused(false)} className="mt-4 rounded-xl bg-sky-500 px-5 py-2 font-semibold text-slate-950 hover:brightness-110">Resume</button>
+            <div className="absolute inset-0 flex items-center justify-center bg-ink-0/60">
+              <div className="fp-sheet px-6 py-4 text-center" data-tone="raised">
+                <div className="fp-display text-lg text-paper">Paused</div>
+                <button type="button" onClick={() => setPaused(false)} className="fp-btn-primary mt-3 justify-center">
+                  Resume
+                </button>
               </div>
             </div>
           )}
-          {hint && !auto && (
+          {hint && !autopilot && (
             <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
-              <div className="rounded-full border border-white/10 bg-slate-950/70 px-5 py-2 text-sm text-slate-100 backdrop-blur">Move the scanner over a crater to map it: no clicking. P or SPACE pauses</div>
+              <div className="fp-sheet px-4 py-1.5 text-sm text-paper" data-tone="raised">
+                Steer the scanner over a crater to map it (mouse or arrow keys) · P pauses · Esc ends the pass
+              </div>
             </div>
           )}
         </>
       )}
 
-      {phase === 'briefing' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]">
-          <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-slate-950/85 p-7 shadow-2xl">
-            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-300">Lunar south pole</div>
-            <h1 className="mt-1 font-display text-4xl font-bold text-white">Map the ice</h1>
-            <p className="mt-3 text-slate-300">
-              The craft flies on and the craters slip away. Scan each one before it is gone, and map <b className="text-white">{setup.target}%</b> of the ice before the battery dies.
-            </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl bg-white/5 p-4">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Battery</div>
-                <div className="mt-1 font-mono text-3xl font-bold text-white">{setup.duration} s</div>
-                <div className="text-xs text-slate-400">
-                  {Math.round(setup.batteryWh)} Wh at {setup.watts} W
+      {(phase === 'briefing' || phase === 'result' || phase === 'skipped') && (
+        <div className="absolute inset-0 flex items-center justify-center bg-ink-0/60 p-4">
+          <div className="fp-sheet w-full max-w-md p-5" data-tone="raised">
+            {phase === 'briefing' ? (
+              <>
+                <h2 className="fp-display text-lg text-paper">First pass over the south pole: map the ice</h2>
+                <p className="mt-1 text-xs text-paper-dim">
+                  A {passHours(setup)}-hour pass, shown in {setup.duration} seconds. A better pass maps more of month 1, up to what this design can do.
+                </p>
+                {intro}
+                <p className="mt-2 text-[11px] text-paper-faint">Real craters; how much ice each holds is a game estimate.</p>
+                <div className="mt-4 flex gap-2">
+                  {!touch && (
+                    <button type="button" autoFocus onClick={() => begin(false)} className="fp-btn-secondary flex-1 justify-center py-2">
+                      Fly it myself
+                    </button>
+                  )}
+                  <button type="button" autoFocus={touch} onClick={() => begin(true)} className="fp-btn-secondary flex-1 justify-center py-2">
+                    Watch the autopilot
+                  </button>
+                  {skippable && (
+                    <button type="button" onClick={() => setPhase('skipped')} className="fp-btn-ghost justify-center px-4">
+                      Skip
+                    </button>
+                  )}
                 </div>
-              </div>
-              <div className="rounded-2xl bg-white/5 p-4">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Scanner</div>
-                {setup.scanners.length === 0 && <div className="mt-1 text-sm text-red-300">No instrument on board</div>}
-                {setup.scanners.map((s) => (
-                  <div key={s.id} className="mt-1">
-                    <div className="text-sm font-semibold text-white">{s.name}</div>
-                    <div className="text-xs text-slate-400">{s.blurb}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {(hopeless || noIce) && (
-              <div className="mt-4 rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm text-red-200">
-                {noIce
-                  ? 'This craft carries nothing that can read ice.'
-                  : `With this instrument ${Math.round(unreachable)}% of the ice is out of reach: it cannot see into permanent shadow, so ${setup.target}% is not possible. You can still fly it and see why.`}
-              </div>
+              </>
+            ) : (
+              <>
+                <p className="fp-data text-sm text-paper" data-testid="ice-pass-line">
+                  {lineAfter(outcome)}
+                </p>
+                <button type="button" autoFocus onClick={() => onDone(outcome)} className="fp-btn-primary mt-4 w-full justify-center py-2">
+                  Continue
+                </button>
+              </>
             )}
-            <div className="mt-6 flex flex-wrap gap-3">
-              <button onClick={() => begin(false)} className={`${btn} bg-gradient-to-r from-sky-400 to-blue-600 text-white shadow-[0_0_28px_rgba(56,189,248,0.35)]`}>
-                Start the pass
-              </button>
-              <button onClick={() => begin(true)} className={`${btn} border border-white/15 bg-white/5 text-slate-200`}>
-                Watch the autopilot
-              </button>
-              <button onClick={onExit} className="px-3 py-3 text-sm text-slate-400 hover:text-slate-200">
-                Back
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {phase === 'result' && result && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]">
-          <div className="w-full max-w-xl rounded-3xl border border-white/10 bg-slate-950/90 p-7 shadow-2xl">
-            <div className={`text-center text-xs font-semibold uppercase tracking-[0.35em] ${result.win ? 'text-sky-300' : 'text-amber-300'}`}>{result.win ? 'Target reached' : 'Pass over'}</div>
-            <h2 className="mt-1 text-center font-display text-4xl font-bold text-white">{result.win ? 'Ice mapped!' : 'Not enough ice mapped'}</h2>
-            <div className="mt-3">
-              <Stars n={result.stars} />
-            </div>
-            <div className="mt-3 text-center font-mono text-5xl font-bold text-white">
-              {Math.round(result.mapped)}%<span className="ml-2 text-lg font-normal text-slate-400">of {result.target}% needed</span>
-            </div>
-            <ul className="mt-4 grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2">
-              {result.perArea.map((a) => (
-                <li key={a.name} className="flex items-center gap-2 text-xs text-slate-300">
-                  <span className="w-28 truncate">{a.name}</span>
-                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
-                    <span className="block h-full rounded-full bg-sky-300" style={{ width: `${a.pct}%` }} />
-                  </span>
-                  <span className="w-9 text-right font-mono tabular-nums text-slate-400">{a.blocked ? '🔒' : `${a.pct}%`}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-4 rounded-2xl bg-white/5 p-3 text-sm leading-relaxed text-slate-200">{result.insight}</p>
-            <div className="mt-5 flex flex-wrap justify-center gap-3">
-              <button onClick={() => begin(false)} className={`${btn} bg-gradient-to-r from-sky-400 to-blue-600 text-white`}>
-                Fly it again
-              </button>
-              <button onClick={() => begin(true)} className={`${btn} border border-white/15 bg-white/5 text-slate-200`}>
-                Watch the autopilot
-              </button>
-              <button onClick={onExit} className="px-3 py-3 text-sm text-slate-400 hover:text-slate-200">
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
