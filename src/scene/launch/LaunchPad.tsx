@@ -4,11 +4,13 @@ import * as THREE from 'three'
 import type { ModelId } from '../../assets/manifest'
 import { useModel } from '../../assets/models'
 import { Effects } from '../space/Effects'
+import { Moon } from '../space/Moon'
 import { useRideView, chooseRide, chooseTransfer } from '../../viz/ride/useRideView'
 import type { DropKind, RideView } from '../../viz/ride/rideView'
 import {
   CAPTURE,
   GROUND_Y,
+  MOON,
   NOSE,
   ROCKET_X,
   SIGN_RECT,
@@ -77,7 +79,7 @@ function makeCanvasTexture(w: number, h: number) {
 /** Matte pad concrete at night, just catching the sodium light */
 const GROUND = '#0e0d0b'
 
-function Sky({ view, hover }: { view: RideView; hover: Hover }) {
+function Sky({ view, hover, launchOnly = false }: { view: RideView; hover: Hover; launchOnly?: boolean }) {
   const sky = useMemo(() => makeCanvasTexture(SKY_W * SKY_CANVAS_SCALE, SKY_H * SKY_CANVAS_SCALE), [])
   // A wide backdrop with the same horizon gradient, so the sway never shows an edge
   const backdrop = useMemo(() => {
@@ -98,11 +100,11 @@ function Sky({ view, hover }: { view: RideView; hover: Hover }) {
   useEffect(() => {
     const { ctx } = sky
     ctx.setTransform(SKY_CANVAS_SCALE, 0, 0, SKY_CANVAS_SCALE, 0, 0)
-    paintSky(ctx, view, hover)
+    paintSky(ctx, view, hover, { launchOnly })
     ctx.fillStyle = GROUND
     ctx.fillRect(0, GROUND_Y, SKY_W, SKY_H - GROUND_Y)
     sky.texture.needsUpdate = true
-  }, [sky, view, hover])
+  }, [sky, view, hover, launchOnly])
   useEffect(
     () => () => {
       sky.texture.dispose()
@@ -127,12 +129,12 @@ function Sky({ view, hover }: { view: RideView; hover: Hover }) {
 }
 
 /** The craft travelling along its path, and the pulsing capture marker */
-function SkySprites({ view, reduced }: { view: RideView; reduced: boolean }) {
+function SkySprites({ view, reduced, launchOnly = false }: { view: RideView; reduced: boolean; launchOnly?: boolean }) {
   const dot = useRef<THREE.Group>(null)
   const ring = useRef<THREE.Mesh>(null)
   const route = useMemo(
-    () => rideLeg(view.path.drop).concat(craftLeg(view.path.drop, view.path.transferType)),
-    [view.path.drop, view.path.transferType]
+    () => (launchOnly ? rideLeg(view.path.drop) : rideLeg(view.path.drop).concat(craftLeg(view.path.drop, view.path.transferType))),
+    [view.path.drop, view.path.transferType, launchOnly]
   )
   const ok = view.reach === 'ok'
   const u = unit(D_SKY)
@@ -140,14 +142,14 @@ function SkySprites({ view, reduced }: { view: RideView; reduced: boolean }) {
   useFrame((state) => {
     const t = state.clock.elapsedTime
     if (dot.current) {
-      dot.current.visible = ok && !reduced
+      dot.current.visible = (ok || launchOnly) && !reduced
       if (dot.current.visible) {
         const p = pointAlong(route, (t / 8) % 1)
         dot.current.position.set(...at(p.x, p.y, D_SKY - 0.2))
       }
     }
     if (ring.current) {
-      ring.current.visible = ok
+      ring.current.visible = ok && !launchOnly
       const s = reduced ? 1 : 1 + 0.18 * Math.sin(t * 4)
       ring.current.scale.set(s, s, 1)
     }
@@ -169,6 +171,23 @@ function SkySprites({ view, reduced }: { view: RideView; reduced: boolean }) {
         <meshBasicMaterial color={colour} toneMapped={false} />
       </mesh>
     </>
+  )
+}
+
+/** The real Moon (NASA LRO colour and relief) where the painted one would be, lit by its own short-range light */
+function SkyMoon() {
+  const depth = D_SKY - 2
+  const r = MOON.r * unit(depth) * 1.15
+  const [x, y, z] = at(MOON.x, MOON.y, depth)
+  return (
+    <group position={[x, y, z]}>
+      <pointLight position={[-r * 2.2, r * 1.2, r * 3]} intensity={6} distance={r * 9} decay={0} color="#fff4e6" />
+      <Suspense fallback={null}>
+        <group rotation={[0.2, -0.4, 0]}>
+          <Moon radius={r} segments={64} />
+        </group>
+      </Suspense>
+    </group>
   )
 }
 
@@ -609,7 +628,11 @@ function PadCamera({ reduced }: { reduced: boolean }) {
 
 /* ---------------- the scene ---------------- */
 
-export function LaunchPad({ focus }: { focus: RideFocus }) {
+/**
+ * The launch site at night. `clean` shows only the launch: the rocket's climb to the drop-off,
+ * without the transfer signs, the propellant tank and the departures board.
+ */
+export function LaunchPad({ focus, clean = false }: { focus: RideFocus; clean?: boolean }) {
   const view = useRideView()
   const reduced = useMemo(() => prefersReducedMotion(), [])
   const [pointerHover, setPointerHover] = useState<Hover>(null)
@@ -632,12 +655,13 @@ export function LaunchPad({ focus }: { focus: RideFocus }) {
       <ambientLight intensity={0.45} color="#b8a88e" />
       <directionalLight position={[20, 30, 10]} intensity={0.55} color="#c9d1dc" />
       <PadCamera reduced={reduced} />
-      <Sky view={view} hover={stableHover} />
-      <SkySprites view={view} reduced={reduced} />
-      <Signs view={view} setHover={setPointerHover} />
+      <Sky view={view} hover={stableHover} launchOnly={clean} />
+      <SkySprites view={view} reduced={reduced} launchOnly={clean} />
+      {clean && <SkyMoon />}
+      {!clean && <Signs view={view} setHover={setPointerHover} />}
       <Pad view={view} reduced={reduced} />
-      <Tank view={view} reduced={reduced} />
-      <Board view={view} hover={stableHover} setHover={setPointerHover} />
+      {!clean && <Tank view={view} reduced={reduced} />}
+      {!clean && <Board view={view} hover={stableHover} setHover={setPointerHover} />}
       <Effects preset="night" />
     </Canvas>
   )

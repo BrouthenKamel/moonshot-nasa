@@ -36,24 +36,46 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 export function insertionDeltaV(
   propulsion: PropulsionPart | undefined,
   transferType: 'direct' | 'low_energy',
-  orbit: LunarOrbit | undefined
+  orbit: LunarOrbit | undefined,
+  /** A worked-out transfer: its arrival speed over escape (km/s) and course corrections (m/s) */
+  arrival?: { excessKms: number; correction: number }
 ): number | null {
   if (!propulsion || !orbit) return null
   const engineKey = propulsion.impulsive ? 'chemical' : 'electric'
   const listed = orbit.insertionDeltaV[`${engineKey}_${transferType}`]
   if (listed !== undefined) return listed
-  if (!propulsion.impulsive) return null // too little thrust to brake on a fast fly-by
+  // An ion engine has too little thrust to brake on a fast fly-by; a slow low-energy arrival it can spiral down from
+  if (!propulsion.impulsive && (transferType === 'direct' || (arrival?.excessKms ?? 0) > 0.05)) return null
   // Vis-viva: arrival speed at the low point minus orbit speed there, plus course corrections.
   const r = C.moonRadiusKm + orbit.altitude
   const far = orbit.farPointKm ?? orbit.altitude
   const a = far === orbit.altitude ? r : (2 * C.moonRadiusKm + orbit.altitude + far) / 2
   const vOrbit = Math.sqrt(C.moonMu * (2 / r - 1 / a))
   const vEscape = Math.sqrt((2 * C.moonMu) / r)
+  // A low-thrust spiral down from capture costs about the circular speed at the orbit's mean radius (Edelbaum), not one quick burn:
+  // this is why the listed ion figures are so much higher (1,700 m/s into 100 km)
+  if (!propulsion.impulsive) return Math.round(Math.sqrt(C.moonMu / a) * 1000 + (arrival?.correction ?? C.courseCorrectionLowEnergy))
+  if (arrival) {
+    const vArrival = Math.sqrt(arrival.excessKms ** 2 + vEscape ** 2)
+    return Math.round((vArrival - vOrbit) * 1000 + arrival.correction)
+  }
   if (transferType === 'direct') {
     const vArrival = Math.sqrt(C.arrivalExcessSpeedKms ** 2 + vEscape ** 2)
     return Math.round((vArrival - vOrbit) * 1000 + C.courseCorrectionDirect)
   }
   return Math.round((vEscape - vOrbit) * 1000 + C.courseCorrectionLowEnergy)
+}
+
+/**
+ * Share of an instrument's ice signal left at a height: full up to its limit, then fading
+ * exponentially (a quarter of the limit per e-fold), cut to none below 0.1%. Because the orbit
+ * passes the pole about 150 times a month, even a weak signal maps a lot: the fade is steep so
+ * that the ice map shrinks steadily over 1 to 3 times the limit instead of all at once.
+ */
+export function iceSignal(limitKm: number | null, altitudeKm: number): number {
+  if (limitKm === null || altitudeKm <= limitKm) return 1
+  const q = Math.exp(-(altitudeKm - limitKm) / (limitKm / 4))
+  return q < 0.001 ? 0 : q
 }
 
 /** Hours a day booked on the ground station */
@@ -230,7 +252,11 @@ export function computeBudgets(design: Design, difficulty: Difficulty): Budgets 
   const deltaVAvailable =
     propulsion && propellantMass > 0 ? propulsion.isp * C.g0 * Math.log(totalMass / dryMass) : 0
   const transferType = transfer?.type ?? 'low_energy'
-  const baseInsert = insertionDeltaV(propulsion, transferType, orbit)
+  const arrival =
+    transfer?.arrivalExcessKms !== undefined
+      ? { excessKms: transfer.arrivalExcessKms, correction: transfer.courseCorrection ?? C.courseCorrectionLowEnergy }
+      : undefined
+  const baseInsert = insertionDeltaV(propulsion, transferType, orbit, arrival)
   const rideAllows = ride
     ? propulsion?.type === 'electric'
       ? ride.electricCompatible
@@ -246,7 +272,11 @@ export function computeBudgets(design: Design, difficulty: Difficulty): Budgets 
   else if (propulsion && thrustPower >= propulsion.minThrustPower) thrustLevel = Math.min(1, thrustPower / propulsion.thrustPower)
   let transferTurns: number | null = null
   if (captureDeltaV !== null && thrustLevel > 0 && propulsion) {
-    const cruise = ride?.cruiseTurns ?? C.cruiseTurns
+    // A worked-out transfer sets its own months of cruise, scaled by the ride (a lander near the Moon halves it)
+    const cruise =
+      transfer?.days !== undefined
+        ? Math.round(transfer.durationTurns * ((ride?.cruiseTurns ?? C.cruiseTurns) / C.cruiseTurns))
+        : (ride?.cruiseTurns ?? C.cruiseTurns)
     if (propulsion.impulsive) {
       transferTurns = transferType === 'direct' ? 0 : cruise
     } else {
@@ -288,8 +318,9 @@ export function computeBudgets(design: Design, difficulty: Difficulty): Budgets 
   for (const inst of instruments) {
     const limit = inst.maxAltitudeKm
     const altitude = orbit?.altitude ?? 0
-    // Above its altitude limit an ice instrument maps nothing (its signal is lost)
-    let q = limit === null || altitude <= limit ? 1 : 0
+    // Above its altitude limit an ice instrument's signal fades (fewer laser returns, blurrier neutron counts):
+    // it maps less the higher it flies, and nothing from about three times its limit
+    let q = iceSignal(limit, altitude)
     if (!precise) q *= inst.qualityWithoutPrecisePointing
     quality[inst.id] = q
     coverageRate[inst.id] = 1 - Math.exp(-(orbit?.passesPerTurn ?? 0) * inst.footprint * q * scienceDuty)

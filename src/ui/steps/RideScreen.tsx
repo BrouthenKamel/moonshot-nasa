@@ -1,24 +1,52 @@
-import { Component, lazy, Suspense, useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
-import { useUiStore } from '../../state/uiStore'
-import { useDragStore } from '../interaction/dragStore'
-import { useDropTarget } from '../interaction/drag'
-import { chooseRide, chooseTransfer } from '../../viz/ride/useRideView'
-import { useDesignPreview } from '../useDesignPreview'
-import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { canUseWebGL } from '../../scene/webgl'
-import { BoardingPass, RideOverlay, RideTimeline, RideVerdict } from './RideOverlay'
-import { Eng, Sheet, StepHeader, nextLabel, stepTitle } from '../kit'
-import { getPartById, type PropulsionPart } from '../../data/parts'
-import { EngineNote, RideCardTray, TransferCardTray } from './launch/RideCards'
-import { choiceBriefing } from './launch/briefing'
-import { playPick } from './launch/radioKeys'
-import { rideDock, transferDock } from './launch/skyLayout'
+import { STEP_NAMES, nextLabel, stepTitle } from '../kit/stepNumbers'
+import { timedTransferDays, timedTransferId } from '../../data/transfers'
+import { getRideById } from '../../data/rides'
+import { choiceArt } from '../../assets/catalogueArt'
+import { assetUrl } from '../../assets/url'
+import { chooseRide, useRideView } from '../../viz/ride/useRideView'
+import type { BoardRow } from '../../viz/ride/rideView'
+import {
+  TRANSFER_MAX_DAYS,
+  TRANSFER_MIN_DAYS,
+  daysAt,
+  designDays,
+  minDaysFor,
+  positionOfDays,
+  transferPlan,
+  type TransferPlan,
+} from '../../viz/ride/transferPlan'
+import {
+  PANEL_PX,
+  SLIDER_PX,
+  PlanChecks,
+  PlanHeadline,
+  PlanNav,
+  PlanNote,
+  PlanOdds,
+  PlanPanel,
+  PlanRow,
+  PlanRows,
+  PlanVSlider,
+  type Tone,
+} from './plan/PlanPanel'
 
 const LaunchPad = lazy(() => import('../../scene/launch/LaunchPad').then((m) => ({ default: m.LaunchPad })))
+const TransferPlannerScene = lazy(() =>
+  import('../../scene/transferPlanner/TransferPlannerScene').then((m) => ({ default: m.TransferPlannerScene }))
+)
 
-/** Falls back to the plain cards if the 3D launch pad throws. */
-class PadBoundary extends Component<{ children: ReactNode; onError: () => void }, { failed: boolean }> {
+/*
+ * Step 06 · Ride & transfer, in two views:
+ * 1. Launch: the rocket from the pad to the drop-off, the real Moon in the sky; the rides on the left.
+ * 2. Transfer: from the drop-off to the Moon in space. A tall slider on the right sets the path,
+ *    from a quick direct shot to a long low-energy loop; one dashboard on the right says when it
+ *    leaves, how long it flies and what fuel it needs. Every number is the logic core's.
+ */
+
+class SceneBoundary extends Component<{ children: ReactNode; onError: () => void }, { failed: boolean }> {
   state = { failed: false }
   static getDerivedStateFromError() {
     return { failed: true }
@@ -31,309 +59,230 @@ class PadBoundary extends Component<{ children: ReactNode; onError: () => void }
   }
 }
 
-/** The delta-v budget in figures: Engineer view on the plain screen, read by screen readers over the 3D pad */
-function BudgetSummary({ hidden }: { hidden: boolean }) {
-  const { budgets, previewBudgets } = useDesignPreview()
-  const active = previewBudgets ?? budgets
-  const body = (
-    <>
-      <div className="fp-label text-kapton">Delta-v budget</div>
-      <div className="mt-2.5 grid grid-cols-2 gap-4 fp-data text-xs text-paper-dim">
-        <div>
-          On board: <span className="font-bold text-paper">{active.deltaVAvailable.toFixed(0)} m/s</span>
-          <span className="text-paper-faint"> ({active.propellantMass} kg propellant)</span>
-        </div>
-        <div>
-          Capture + 12 months of upkeep:{' '}
-          <span className={active.captureDeltaV !== null && active.deltaVMargin >= 0 ? 'font-bold text-go' : 'font-bold text-nogo'}>
-            {active.captureDeltaV === null ? 'not possible' : `${active.deltaVTotal.toFixed(0)} m/s`}
-          </span>
-        </div>
-        <div>
-          Climbing out from the drop-off: <span className="font-bold text-paper">{active.deltaVTransfer.toFixed(0)} m/s</span>
-        </div>
-        <div>
-          Arrival: <span className="font-bold text-paper">{active.arrivalTurn === null ? '-' : `month ${active.arrivalTurn}`}</span>
-          {active.transferTurns !== null && active.transferTurns > 0 && (
-            <span className="text-paper-faint"> ({active.transferTurns} months of running the team in transit)</span>
-          )}
-        </div>
-      </div>
-    </>
-  )
-  if (hidden) return <div className="sr-only">{body}</div>
+const KIND_LINE: Record<TransferPlan['kind'], string> = {
+  direct: 'A direct shot: there in days, then one big braking burn.',
+  phasing: 'A few loops round Earth first: a smaller burn, more months on the way.',
+  'low-energy': 'A long loop out past the Moon: the Sun does most of the braking.',
+}
+
+const months = (n: number) => `${n} month${n === 1 ? '' : 's'}`
+
+/** Room the slider and the dashboard take on the right, with their margins */
+const RIGHT_PX = PANEL_PX + SLIDER_PX + 40
+
+/* ------------------------------------------------------------------ */
+/* Transfer                                                            */
+/* ------------------------------------------------------------------ */
+
+function TransferDashboard({ plan, onBack }: { plan: TransferPlan; onBack: () => void }) {
+  const fuelTone: Tone = plan.capture === null || plan.capture > plan.tank ? 'red' : plan.capture > plan.tank * 0.85 ? 'yellow' : 'green'
+  const holdTone: Tone = plan.monthsHeld >= 12 ? 'green' : plan.monthsHeld >= 6 ? 'yellow' : 'red'
   return (
-    <Eng as="div" className="border border-rule bg-ink-2 p-4 text-sm">
-      {body}
-    </Eng>
+    <PlanPanel>
+      <PlanHeadline kicker={`${STEP_NAMES.ride}: the transfer to the Moon`} value={plan.days} unit="days of flight" line={KIND_LINE[plan.kind]} />
+      {plan.ionEngine &&
+        (plan.days < plan.minDays ? (
+          <PlanNote tone="red">An ion engine cannot brake from a fast arrival: it needs {plan.minDays} days or more.</PlanNote>
+        ) : (
+          <PlanNote tone="yellow">An ion engine can only brake from a slow arrival: {plan.minDays} days or more.</PlanNote>
+        ))}
+      <PlanRows>
+        <PlanRow label="Leaves Earth" value={`Month ${plan.departureMonth}`} sub={`in ${months(plan.departureMonth)}`} />
+        <PlanRow
+          label="Reaches the Moon"
+          value={plan.cruiseMonths === null ? 'never' : `Month ${plan.cruiseMonths === 0 ? plan.departureMonth : plan.arrivalMonth}`}
+          tone={plan.cruiseMonths === null ? 'red' : undefined}
+          sub={plan.cruiseMonths === null ? 'cannot capture' : plan.cruiseMonths === 0 ? 'same month' : `${months(plan.cruiseMonths)} on the way`}
+        />
+        <PlanRow label="Arrives at" value={`${plan.arrivalKms.toFixed(2)} km/s`} sub="over escape speed" />
+        <PlanRow
+          label="Brake into orbit"
+          value={plan.capture === null ? 'cannot' : `${Math.round(plan.capture)} m/s`}
+          tone={fuelTone}
+          sub={`tank ${Math.round(plan.tank)} m/s`}
+        />
+        <PlanRow
+          label="Fuel left"
+          value={plan.leftAfter === null ? '—' : `${Math.round(plan.leftAfter)} m/s`}
+          tone={plan.leftAfter === null || plan.leftAfter < 0 ? 'red' : holdTone}
+          sub={
+            plan.capture === null
+              ? 'never gets there'
+              : plan.monthsHeld > 0
+                ? `holds orbit ${plan.monthsHeld > 120 ? '10+ yrs' : months(plan.monthsHeld)}`
+                : 'not enough'
+          }
+        />
+        <PlanRow label="Ride" value={plan.rideName} />
+      </PlanRows>
+      <PlanChecks checks={plan.checks} />
+      <PlanOdds />
+      <PlanNav back={{ label: '← Back', to: onBack }} next={{ label: nextLabel('ride'), to: 'comms' }} />
+    </PlanPanel>
   )
 }
 
-function Briefing({ id, className = '' }: { id: string; className?: string }) {
-  const b = choiceBriefing(id)
-  if (!b) return null
-  return (
-    <p className={`text-[11.5px] leading-snug text-paper-dim ${className}`}>
-      <b className="font-semibold text-paper">{b.name}.</b> {b.text}
-    </p>
-  )
-}
-
-/** The plain screen: no 3D (tests, server rendering, no WebGL, or the pad failed) */
-function PlainRide() {
+function useTransferControl() {
   const design = useGameStore((s) => s.design)
-  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
-  const [hover, setHover] = useState<string | null>(null)
-  const propulsion = getPartById(design.propulsion) as PropulsionPart | undefined
-  const propType = propulsion?.type ?? 'chemical'
+  const updateDesign = useGameStore((s) => s.updateDesign)
 
-  const onHoverRide = useCallback(
-    (id: string | null) => {
-      if (!id && useDragStore.getState().held) return
-      setHover(id)
-      setPreviewPatch(id ? { ride: id } : null)
-    },
-    [setPreviewPatch],
-  )
+  // The view offers one adjustable path: a named transfer from before becomes the same flight time
+  useEffect(() => {
+    const d = useGameStore.getState().design
+    if (timedTransferDays(d.transfer) !== null) return
+    updateDesign({ transfer: timedTransferId(Math.max(minDaysFor(d), designDays(d))) })
+  }, [updateDesign])
 
-  const onHoverTransfer = useCallback(
-    (id: string | null) => {
-      if (!id && useDragStore.getState().held) return
-      setHover(id)
-      setPreviewPatch(id ? { transfer: id } : null)
-    },
-    [setPreviewPatch],
-  )
-
-  return (
-    <div className="mx-auto max-w-4xl space-y-5">
-      <StepHeader step="ride" title={stepTitle('ride')} />
-      <Sheet className="p-4">
-        <RideVerdict />
-      </Sheet>
-      <BoardingPass />
-      <BudgetSummary hidden={false} />
-      <SynergyStrip step="ride" />
-      <DesignDeltaLine />
-      <Sheet as="section" className="p-4">
-        <h2 className="fp-label mb-3 text-paper">Departures</h2>
-        <div
-          className="pt-2 pl-2"
-          onBlurCapture={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onHoverRide(null)
-          }}
-        >
-          <RideCardTray size="xs" onHover={onHoverRide} />
-        </div>
-        <Briefing id={hover && hover.startsWith('ride-') ? hover : design.ride} className="mt-3" />
-      </Sheet>
-      <Sheet as="section" className="p-4">
-        <h2 className="fp-label mb-1 text-paper">Transfer to the Moon</h2>
-        <p className="mb-4 text-sm text-paper-dim">
-          Your engine limits your transfer options:{' '}
-          <b className="font-semibold text-paper">{propulsion ? propulsion.name : 'none'}</b> ({propType === 'electric' ? 'ion' : propType}, chosen at
-          the Factory).
-        </p>
-        <div
-          className="max-w-xl"
-          onBlurCapture={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onHoverTransfer(null)
-          }}
-        >
-          <TransferCardTray size="xs" onHover={onHoverTransfer} />
-        </div>
-        <Briefing id={hover && hover.startsWith('transfer-') ? hover : design.transfer} className="mt-3" />
-      </Sheet>
-    </div>
-  )
+  // The whole range is open to every craft: a path this engine cannot fly shows as such in the
+  // dashboard and the Go / No-Go, instead of the slider refusing to move
+  const setDays = (t: number) => {
+    const id = timedTransferId(daysAt(Math.min(1, Math.max(0, t))))
+    if (id !== useGameStore.getState().design.transfer) updateDesign({ transfer: id })
+  }
+  // The position always comes from the design, so a change made elsewhere never desyncs the slider
+  return { pos: positionOfDays(designDays(design)), setDays }
 }
 
-/** Size of an element (its border box), followed as it changes */
-function useSize(el: HTMLElement | null) {
-  const [size, setSize] = useState<{ w: number; h: number } | null>(null)
-  useLayoutEffect(() => {
-    if (!el) return
-    const read = () => setSize({ w: el.offsetWidth, h: el.offsetHeight })
-    read()
-    if (typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(read)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [el])
-  return size
-}
-
-const DOCK = 'fp-sheet pointer-events-auto absolute p-2.5'
-const DOCK_TITLE = 'fp-label mb-1.5 flex items-baseline justify-between gap-2 px-1 text-[0.68rem] text-kapton'
-
-/** The title line at the top left is about 360 px wide: keep the transfer dock clear of it */
-const TITLE_RIGHT = 380
-function clearOfTitle<T extends { left: number; width: number }>(d: T): T {
-  return d.left >= TITLE_RIGHT ? d : { ...d, left: TITLE_RIGHT, width: d.width - (TITLE_RIGHT - d.left) }
-}
-
-/** The ride and transfer cards laid over the pad, exactly where its board and signs are */
-function PadDocks() {
+function TransferView({ onBack, webgl, onSceneError }: { onBack: () => void; webgl: boolean; onSceneError: () => void }) {
   const design = useGameStore((s) => s.design)
-  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
-  const [wrap, setWrap] = useState<HTMLDivElement | null>(null)
-  const size = useSize(wrap)
-  const [hover, setHover] = useState<string | null>(null)
-  const [transferEl, setTransferEl] = useState<HTMLElement | null>(null)
-  const transferSize = useSize(transferEl)
-  const ride = size && rideDock(size.w, size.h)
-  const transfer = size && clearOfTitle(transferDock(size.w, size.h))
-  // Short screens: the transfer dock would grow past the top edge, so it hangs from the top instead
-  const transferPos =
-    transfer && size && transferSize && size.h - transfer.bottom - transferSize.h < 8 ? { top: 8 } : { bottom: transfer ? transfer.bottom : 0 }
-  // Each panel describes its own choice: the hovered one, else the picked one
-  const rideBriefing = hover?.startsWith('ride-') ? hover : design.ride
-  const transferBriefing = hover?.startsWith('transfer-') ? hover : design.transfer
-  const roomy = !!size && size.h >= 760
-
-  const handleRideHover = useCallback(
-    (id: string | null) => {
-      if (!id && useDragStore.getState().held) return
-      setHover(id)
-      setPreviewPatch(id ? { ride: id } : null)
-    },
-    [setPreviewPatch],
+  const difficulty = useGameStore((s) => s.difficulty)
+  const plan = transferPlan(design, difficulty)
+  const { pos, setDays } = useTransferControl()
+  const slider = (
+    <PlanVSlider
+      label="Flight time to the Moon"
+      value={pos}
+      onChange={setDays}
+      valueText={`${plan.days} days`}
+      topText={`${TRANSFER_MAX_DAYS} days`}
+      bottomText={`${TRANSFER_MIN_DAYS} days`}
+    />
   )
-
-  const handleTransferHover = useCallback(
-    (id: string | null) => {
-      if (!id && useDragStore.getState().held) return
-      setHover(id)
-      setPreviewPatch(id ? { transfer: id } : null)
-    },
-    [setPreviewPatch],
-  )
-
-  return (
-    <div ref={setWrap} className="pointer-events-none absolute inset-0">
-      <RideOverlay maxWidth={transfer ? Math.max(260, transfer.left - 32) : undefined} />
-      {transfer && (
-        <section
-          ref={setTransferEl}
-          className={DOCK}
-          style={{ left: transfer.left, width: transfer.width, ...transferPos }}
-          aria-labelledby="transfer-dock-title"
-          onBlurCapture={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) handleTransferHover(null)
-          }}
-        >
-          <div className="flex gap-2">
-            <div className="flex w-[88px] shrink-0 flex-col justify-between px-1 py-0.5">
-              <h2 id="transfer-dock-title" className="fp-label text-[0.68rem] leading-snug text-kapton">
-                Transfer to the Moon
-              </h2>
-              <EngineNote />
-            </div>
-            <div className="min-w-0 flex-1">
-              <TransferCardTray size="xs" onHover={handleTransferHover} />
-            </div>
-          </div>
-          {roomy && <Briefing id={transferBriefing} className="mt-2 line-clamp-2 px-1" />}
-        </section>
-      )}
-      {ride && (
-        <section
-          className={DOCK}
-          style={{ left: ride.left, width: ride.width, bottom: ride.bottom }}
-          aria-labelledby="ride-dock-title"
-          onBlurCapture={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) handleRideHover(null)
-          }}
-        >
-          <h2 id="ride-dock-title" className={DOCK_TITLE}>
-            Departures <span className="text-paper-faint">Pick your ride</span>
-          </h2>
-          <div className="pt-2 pl-1.5">
-            <RideCardTray size="xs" onHover={handleRideHover} />
-          </div>
-          {roomy && <Briefing id={rideBriefing} className="mt-2 line-clamp-3 px-0.5" />}
-        </section>
-      )}
-    </div>
-  )
-}
-
-function StepButtons({ overlay }: { overlay: boolean }) {
-  const setDesignStep = useGameStore((s) => s.setDesignStep)
-  const back = (
-    <button
-      type="button"
-      onClick={() => setDesignStep('orbit')}
-      className="tactical-btn-back bg-ink-1"
-    >
-      ← Back
-    </button>
-  )
-  const next = (
-    <button
-      type="button"
-      onClick={() => setDesignStep('comms')}
-      className="tactical-btn-next"
-    >
-      {nextLabel('ride')}
-    </button>
-  )
-  if (overlay)
+  const dashboard = <TransferDashboard plan={plan} onBack={onBack} />
+  if (!webgl)
     return (
-      <>
-        <div className="absolute top-3 left-3">{back}</div>
-        <div className="absolute top-3 right-3">{next}</div>
-      </>
+      <div className="flex justify-center gap-3">
+        {slider}
+        {dashboard}
+      </div>
     )
   return (
-    <div className="mx-auto mt-6 flex max-w-4xl justify-between">
-      {back}
-      {next}
+    <div className="relative h-full min-h-[480px] w-full overflow-hidden bg-black">
+      <SceneBoundary onError={onSceneError}>
+        <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Plotting the way to the Moon…</div>}>
+          <TransferPlannerScene days={plan.days} rightPx={RIGHT_PX} />
+        </Suspense>
+      </SceneBoundary>
+      <div className="pointer-events-none absolute inset-y-4 right-4 flex gap-3">
+        {slider}
+        {dashboard}
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Launch                                                              */
+/* ------------------------------------------------------------------ */
+
+const STATUS_TONE: Record<BoardRow['status'], string> = {
+  onTime: 'text-go border-go/50',
+  tooEarly: 'text-nogo border-nogo/50',
+  tooHeavy: 'text-nogo border-nogo/50',
+  wrongEngine: 'text-nogo border-nogo/50',
+  cantReach: 'text-nogo border-nogo/50',
+  overBudget: 'text-nogo border-nogo/50',
+}
+
+/** One ride as a compact card: picture, name, when it leaves and arrives, and whether it works */
+function RideOption({ row }: { row: BoardRow }) {
+  const ride = getRideById(row.id)
+  const art = choiceArt(row.id)
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={row.selected}
+      onClick={() => chooseRide(row.id)}
+      className={`flex w-full gap-2.5 rounded-lg border p-2 text-left transition ${
+        row.selected ? 'border-kapton bg-kapton/10' : 'border-rule bg-ink-2/90 hover:border-rule-strong'
+      }`}
+    >
+      {art?.card && <img src={assetUrl(art.card)} alt="" className="h-[68px] w-[92px] shrink-0 rounded object-cover" />}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate font-display text-sm font-bold text-paper">{ride?.name ?? row.name}</span>
+        <span className="truncate text-[0.68rem] text-paper-faint">
+          {row.dropWords} · {row.limitKg} kg max
+        </span>
+        <span className="fp-data mt-0.5 text-[0.72rem] text-paper-dim">
+          Leaves M{row.turn} · arrives {row.arrivalTurn === null ? <span className="text-nogo">never</span> : `M${row.arrivalTurn}`}
+        </span>
+        <span className={`mt-1 self-start border px-1.5 text-[0.6rem] font-semibold uppercase tracking-wider ${STATUS_TONE[row.status]}`}>
+          {row.statusLabel}
+        </span>
+      </span>
+    </button>
+  )
+}
+
+function RideList({ onNext }: { onNext: () => void }) {
+  const view = useRideView()
+  const setDesignStep = useGameStore((s) => s.setDesignStep)
+  return (
+    <div className="hud-panel pointer-events-auto flex w-[320px] flex-col gap-2 rounded-xl p-3">
+      <div className="fp-label text-[0.66rem] tracking-[0.16em] text-kapton">{stepTitle('ride')}</div>
+      <div className="text-[0.76rem] text-paper-dim">Pick a launch that drops the craft on its way.</div>
+      <div role="radiogroup" aria-label="Rideshare launch" className="flex flex-col gap-2">
+        {view.rows.map((r) => (
+          <RideOption key={r.id} row={r} />
+        ))}
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button type="button" onClick={() => setDesignStep('orbit')} className="tactical-btn-back flex-1 bg-ink-1">
+          ← Back
+        </button>
+        <button type="button" onClick={onNext} className="tactical-btn-next flex-[2]">
+          Plan the transfer →
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function LaunchView({ onNext, webgl, onSceneError }: { onNext: () => void; webgl: boolean; onSceneError: () => void }) {
+  if (!webgl) return <RideList onNext={onNext} />
+  return (
+    <div className="relative h-full min-h-[480px] w-full overflow-hidden bg-ink-0">
+      <SceneBoundary onError={onSceneError}>
+        <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Opening the launch site…</div>}>
+          <LaunchPad focus={null} clean />
+        </Suspense>
+      </SceneBoundary>
+      <div className="pointer-events-none absolute inset-y-4 left-4 flex items-center">
+        <RideList onNext={onNext} />
+      </div>
     </div>
   )
 }
 
 export function RideScreen() {
-  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
-  useEffect(() => () => setPreviewPatch(null), [setPreviewPatch])
-  // The 3D launch pad starts only in a browser with WebGL; server rendering and tests take the plain path
-  const [pad, setPad] = useState(canUseWebGL)
-  const chartDrop = useDropTarget({
-    id: 'ride:chart',
-    accepts: ['transfer', 'ride'],
-    onDrop: (p) => {
-      playPick(p.value)
-      if (p.field === 'transfer') chooseTransfer(p.value)
-      else chooseRide(p.value)
-    },
-  })
+  const [view, setView] = useState<'launch' | 'transfer'>('launch')
+  // The 3D views start only in a browser with WebGL; server rendering and tests take the plain path
+  const [webgl, setWebgl] = useState(canUseWebGL)
 
-  if (!pad)
+  if (!webgl)
     return (
       <div className="h-full overflow-auto p-4">
-        <PlainRide />
-        <StepButtons overlay={false} />
+        <div className="mx-auto flex max-w-3xl flex-col items-center gap-6">
+          <LaunchView onNext={() => setView('transfer')} webgl={false} onSceneError={() => setWebgl(false)} />
+          <TransferView onBack={() => setView('launch')} webgl={false} onSceneError={() => setWebgl(false)} />
+        </div>
       </div>
     )
 
-  return (
-    <div className="relative h-full min-h-[480px] w-full overflow-hidden bg-ink-0">
-      <div
-        {...chartDrop.handlers}
-        className={`absolute inset-0 transition-colors ${
-          chartDrop.state.over ? 'outline outline-1 -outline-offset-2 outline-kapton' : ''
-        }`}
-      >
-        <PadBoundary onError={() => setPad(false)}>
-          <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Opening the launch site…</div>}>
-            <LaunchPad focus={null} />
-          </Suspense>
-        </PadBoundary>
-      </div>
-      <BudgetSummary hidden />
-      <RideTimeline />
-      <PadDocks />
-      <StepButtons overlay />
-    </div>
+  return view === 'launch' ? (
+    <LaunchView onNext={() => setView('transfer')} webgl onSceneError={() => setWebgl(false)} />
+  ) : (
+    <TransferView onBack={() => setView('launch')} webgl onSceneError={() => setWebgl(false)} />
   )
 }
