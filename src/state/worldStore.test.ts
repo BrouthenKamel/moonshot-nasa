@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useGameStore } from './gameStore'
 import { useWorldStore } from './worldStore'
+import { useUiStore } from './uiStore'
 import { flashlightDesign } from '../sim/fixtures'
 import { missionFunding } from '../game/economy'
 
@@ -96,5 +97,40 @@ describe('agency clock', () => {
     const w = useWorldStore.getState()
     expect(w.mission?.last.ended).toBe(true)
     expect(w.mission?.settled).toBe(true)
+  })
+})
+
+describe('agency clock and the launch', () => {
+  beforeEach(() => {
+    useGameStore.getState().resetDemo()
+    useWorldStore.getState().resetWorld()
+    useUiStore.setState({ launchAt: null })
+    useGameStore.setState({ design: flashlightDesign })
+    useWorldStore.getState().setSpeed('fast')
+  })
+
+  it('stops at liftoff and holds while the launch animation plays', () => {
+    useGameStore.getState().startSimulation()
+    // Fly the build months on the clock until the craft launches
+    for (let i = 0; i < 200 && useGameStore.getState().simState!.flight.launchedTurn === null; i++) {
+      const sim = useGameStore.getState().simState!
+      if (sim.pendingDecision) useGameStore.getState().answerEvent(sim.pendingDecision.options[0].id)
+      else useWorldStore.getState().tick(1)
+    }
+    const sim = useGameStore.getState().simState!
+    const w = useWorldStore.getState()
+    const launchDay = w.mission!.approvedDay + sim.flight.launchedTurn! * 30
+    // The tick that launched stopped on the launch day: no day of the trip has passed yet
+    expect(w.day).toBeCloseTo(launchDay, 5)
+
+    // While the rocket lifts off on the island, the clock waits
+    useUiStore.getState().startLaunch()
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBeCloseTo(launchDay, 5)
+
+    // Once it has gone, the trip starts
+    useUiStore.getState().endLaunch()
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBeGreaterThan(launchDay)
   })
 })
