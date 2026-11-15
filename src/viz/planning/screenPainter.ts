@@ -128,13 +128,15 @@ function frame(ctx: Ctx, x: number, w: number, title: string, color: string) {
 const money = (x: number) => `$${x.toFixed(1)}M`
 
 /* ---------------- budget tank ---------------- */
-function paintBudget(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
+function paintBudget(ctx: Ctx, view: PlanningView, anim: ScreenAnim, detail: boolean) {
   const X = 20, W = 680
   frame(ctx, X, W, 'BUDGET', '#f0c070')
-  ctx.textAlign = 'right'
-  ctx.font = font(600, 34)
-  ctx.fillStyle = '#a29b8c'
-  ctx.fillText(`cap ${money(view.cap)}`, X + W - 24, 128)
+  if (detail) {
+    ctx.textAlign = 'right'
+    ctx.font = font(600, 34)
+    ctx.fillStyle = '#a29b8c'
+    ctx.fillText(`cap ${money(view.cap)}`, X + W - 24, 128)
+  }
 
   const TX = X + 34, TW = 150, TT = 170, TB = 664, H = TB - TT
   const cap = Math.max(view.cap, 0.001)
@@ -182,13 +184,18 @@ function paintBudget(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   ctx.textAlign = 'left'
   ctx.font = font(700, 34)
   ctx.fillStyle = view.reservePercent === 0 ? '#dc7563' : '#f0c070'
-  ctx.fillText(view.reservePercent === 0 ? 'NO RESERVE' : `RESERVE ${money(view.reserve)}`, LX, Math.max(limitY - 24, TT + 14))
-  ctx.font = font(600, 34)
-  ctx.fillStyle = '#a29b8c'
-  ctx.fillText(`spend up to ${money(view.spendable)}`, LX, Math.max(limitY, TT + 30) + 30)
+  // Without details the reserve is named, not priced: the fader already shows how much
+  const reserveLabel = view.reservePercent === 0 ? 'NO RESERVE' : detail ? `RESERVE ${money(view.reserve)}` : 'RESERVE'
+  ctx.fillText(reserveLabel, LX, Math.max(limitY - 24, TT + 14))
+  if (detail) {
+    ctx.font = font(600, 34)
+    ctx.fillStyle = '#a29b8c'
+    ctx.fillText(`spend up to ${money(view.spendable)}`, LX, Math.max(limitY, TT + 30) + 30)
+  }
 
-  const legendRows = blocks.filter((b) => b.amount > 0.0001 || b.key === 'testing')
-  const legendTop = TB - (legendRows.length - 1) * 42 - 18
+  // The colour legend (what each band of the tank is) waits behind Details; the one line that matters stays
+  const legendRows = detail ? blocks.filter((b) => b.amount > 0.0001 || b.key === 'testing') : []
+  const legendTop = detail ? TB - (legendRows.length - 1) * 42 - 18 : TB + 46
   const stateY = Math.min(Math.max(limitY + 92, TT + 130), legendTop - 46)
   ctx.font = font(800, 40)
   if (view.budgetState === 'free') {
@@ -216,10 +223,23 @@ function paintBudget(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
 }
 
 /* ---------------- road to launch ---------------- */
-function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
+function paintRoad(ctx: Ctx, view: PlanningView, anim: ScreenAnim, detail: boolean) {
   const X = 720, W = 1020
   frame(ctx, X, W, 'ROAD TO LAUNCH', '#9fb5d6')
   const missed = view.marginMonths < 0
+  if (!detail) {
+    // The answer only: spare months or late. The month-by-month schedule waits behind Details.
+    ctx.textAlign = 'center'
+    ctx.font = font(800, 84)
+    ctx.fillStyle = missed ? '#dc7563' : view.marginMonths === 0 ? '#e8a33d' : '#8cc196'
+    ctx.fillText(view.headline, X + W / 2, 360)
+    ctx.font = font(600, 34)
+    ctx.fillStyle = missed ? '#dc7563' : '#a29b8c'
+    ctx.fillText(missed ? 'Not ready when the ride leaves: launch is blocked.' : 'Ready before the ride leaves.', X + W / 2, 440)
+    ctx.fillStyle = '#5a5650'
+    ctx.fillText('The month-by-month schedule is under Details.', X + W / 2, 640)
+    return
+  }
   ctx.textAlign = 'left'
   ctx.font = font(800, 58)
   ctx.fillStyle = missed ? '#dc7563' : view.marginMonths === 0 ? '#e8a33d' : '#8cc196'
@@ -357,14 +377,16 @@ export function checkLine(ctx: Ctx, reason: string, width: number): string {
 
 const CHECK_WORD = { green: 'GO', yellow: 'CAUTION', red: 'NO-GO' } as const
 
-function paintChecks(ctx: Ctx, view: PlanningView) {
+function paintChecks(ctx: Ctx, view: PlanningView, detail: boolean) {
   const top = 700
   ctx.fillStyle = '#0b0e14'
   ctx.fillRect(0, top, SCREEN_W, SCREEN_H - top)
   ctx.font = font(800, 34)
-  const labels = view.checks.map((c) => `${CHECK_WORD[c.status]} · ${c.resource.toUpperCase()}`)
+  // Without details only the checks that need the player are listed; a GO says nothing new
+  const checks = detail ? view.checks : view.checks.filter((c) => c.status !== 'green')
+  const labels = checks.map((c) => `${CHECK_WORD[c.status]} · ${c.resource.toUpperCase()}`)
   const x = 66 + Math.max(0, ...labels.map((l) => ctx.measureText(l).width)) + 30
-  view.checks.forEach((c, i) => {
+  checks.forEach((c, i) => {
     const y = top + 24 + i * 42
     ctx.fillStyle = CHECK_COLORS[c.status]
     ctx.beginPath(); ctx.arc(42, y, 11, 0, Math.PI * 2); ctx.fill()
@@ -379,7 +401,7 @@ function paintChecks(ctx: Ctx, view: PlanningView) {
 
 /* ---------------- flight risk ---------------- */
 const RISK_MARKS = [2.0, 1.4, 1.0, 0.7]
-function paintRisk(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
+function paintRisk(ctx: Ctx, view: PlanningView, anim: ScreenAnim, detail: boolean) {
   const X = 1760, W = 620
   frame(ctx, X, W, 'FLIGHT RISK', '#d9b98a')
   const GX = X + W / 2, GY = 410, GR = 165
@@ -392,7 +414,7 @@ function paintRisk(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   ctx.textAlign = 'center'
   ctx.font = font(700, 34)
   ctx.fillStyle = '#c4bcac'
-  for (const f of RISK_MARKS) {
+  for (const f of detail ? RISK_MARKS : []) {
     const a = fa(f)
     ctx.fillText(`×${f.toFixed(1)}`, GX + Math.cos(a) * (GR + 62), GY + Math.sin(a) * (GR + 44))
   }
@@ -432,7 +454,11 @@ function paintRisk(ctx: Ctx, view: PlanningView, anim: ScreenAnim) {
   }
 }
 
-export function paintScreen(ctx: Ctx, view: PlanningView, anim: ScreenAnim): void {
+/**
+ * `detail` follows the Plan screen's Details control. Off, the wall keeps one line per panel: the money
+ * free (or short), spare months (or late), and the risk gauge; legends, scales and GO checks wait.
+ */
+export function paintScreen(ctx: Ctx, view: PlanningView, anim: ScreenAnim, { detail = true }: { detail?: boolean } = {}): void {
   ctx.save()
   ctx.fillStyle = '#07090d'
   ctx.fillRect(0, 0, SCREEN_W, SCREEN_H)
@@ -448,7 +474,9 @@ export function paintScreen(ctx: Ctx, view: PlanningView, anim: ScreenAnim): voi
   ctx.textAlign = 'left'
   ctx.font = font(700, 36)
   ctx.fillStyle = '#9fb5d6'
-  ctx.fillText('COMMS CENTER  ·  LUNAR ICE MAPPER  ·  MISSION PLANNING', 30, 37)
+  // Only the room's name: the step's title card floats over the middle of this header (it named the
+  // mission and the step too, and ran under the card)
+  ctx.fillText('COMMS CENTER', 30, 37)
   const level = view.status.level
   const blink = level === 'alert' && !anim.reducedMotion ? (Math.sin(anim.time * 8) > 0 ? 1 : 0.35) : 1
   ctx.font = font(800, 34)
@@ -462,9 +490,9 @@ export function paintScreen(ctx: Ctx, view: PlanningView, anim: ScreenAnim): voi
   ctx.fillStyle = '#07090d'
   ctx.fillText(view.status.chip, SCREEN_W - 30 - chipW / 2, 37)
 
-  paintBudget(ctx, view, anim)
-  paintRoad(ctx, view, anim)
-  paintRisk(ctx, view, anim)
-  paintChecks(ctx, view)
+  paintBudget(ctx, view, anim, detail)
+  paintRoad(ctx, view, anim, detail)
+  paintRisk(ctx, view, anim, detail)
+  paintChecks(ctx, view, detail)
   ctx.restore()
 }

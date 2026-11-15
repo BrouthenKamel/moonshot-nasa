@@ -12,7 +12,8 @@ import { prefersReducedMotion } from '../../scene/space/quality'
 import type { ControlFocus } from '../../scene/ControlRoom'
 import { useDragStore } from '../interaction/dragStore'
 import { useDragPart, useDropTarget } from '../interaction/drag'
-import { Btn, Eng, LineItem, Sheet, STEP_QUESTION, StepHeader, stepNumber } from '../kit'
+import { Btn, Details, DetailsPanel, DetailsToggle, Eng, LineItem, Sheet, STEP_QUESTION, StepHeader, stepNumber } from '../kit'
+import { PLAN_DETAILS_ID } from '../../viz/planning/planningView'
 
 const ControlRoom = lazy(() => import('../../scene/ControlRoom').then((m) => ({ default: m.ControlRoom })))
 
@@ -350,7 +351,11 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
         </Sheet>
       </Eng>
 
-      {!hidden && <ScheduleAndReserveVisuals testMonths={p.testTurns} />}
+      {!hidden && (
+        <Details id={PLAN_DETAILS_ID} panelClassName="pt-3">
+          <ScheduleAndReserveVisuals testMonths={p.testTurns} />
+        </Details>
+      )}
 
       <Sheet className="p-5">
         <LineItem n={`${N}.4`} label={<label htmlFor="planning-test">Test time</label>} aside={<Eng>0.4 M per test month</Eng>} />
@@ -459,15 +464,15 @@ function PlanningQuickHudOverlay({ onFocus }: { onFocus: (f: ControlFocus) => vo
   const set = (patch: Partial<typeof p>) => updateDesign({ planning: { ...p, ...patch } })
   const chance = odds?.test?.[p.testTurns]
 
+  // Screen budget: two decisions, the chance of full success, one Details toggle. The schedule wall and
+  // the reserve box (and the big screen's legend and scales) open above the controls on request.
+  // DOM order is controls → delta line → panel, so the toggle comes before its panel when tabbing;
+  // flex-col-reverse draws the panel on top.
   return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-3 flex flex-col items-center gap-2">
-      <div className="pointer-events-auto w-full max-w-4xl">
-        <ScheduleAndReserveVisuals testMonths={p.testTurns} compact />
-      </div>
-      <DesignDeltaLine className="pointer-events-auto max-w-3xl" />
+    <div className="pointer-events-none absolute inset-x-3 bottom-3 flex flex-col-reverse items-center gap-2">
       <Sheet className="pointer-events-auto flex w-full max-w-4xl flex-wrap items-end justify-between gap-4 px-4 py-3">
         <div className="space-y-1.5">
-          <div className="fp-label text-[10px] text-paper-faint">{N}.4 Test blocks (drag onto schedule)</div>
+          <div className="fp-label text-[10px] text-paper-faint">{N}.4 Test months</div>
           <Segmented
             field="test"
             ariaLabel="Test months"
@@ -482,7 +487,7 @@ function PlanningQuickHudOverlay({ onFocus }: { onFocus: (f: ControlFocus) => vo
           />
         </div>
         <div className="space-y-1.5">
-          <div className="fp-label text-[10px] text-paper-faint">{N}.5 Reserve coins (drag into box)</div>
+          <div className="fp-label text-[10px] text-paper-faint">{N}.5 Budget reserve</div>
           <Segmented
             field="reserve"
             ariaLabel="Budget reserve"
@@ -497,12 +502,19 @@ function PlanningQuickHudOverlay({ onFocus }: { onFocus: (f: ControlFocus) => vo
             onFocusField={onFocus}
           />
         </div>
-        {chance !== undefined && (
-          <div aria-hidden="true" className="fp-data text-sm text-paper">
-            {`Chance of full success: about ${percent(chance)}`}
-          </div>
-        )}
+        <div className="flex flex-col items-end gap-2">
+          {chance !== undefined && (
+            <div aria-hidden="true" className="fp-data text-sm text-paper">
+              {`Chance of full success: about ${percent(chance)}`}
+            </div>
+          )}
+          <DetailsToggle id={PLAN_DETAILS_ID} />
+        </div>
       </Sheet>
+      <DesignDeltaLine className="pointer-events-auto max-w-3xl" />
+      <DetailsPanel id={PLAN_DETAILS_ID} className="pointer-events-auto w-full max-w-4xl">
+        <ScheduleAndReserveVisuals testMonths={p.testTurns} compact />
+      </DetailsPanel>
     </div>
   )
 }

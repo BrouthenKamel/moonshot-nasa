@@ -87,4 +87,55 @@ describe('paintScreen', () => {
       expect(y + Math.max(0, h)).toBeLessThanOrEqual(SCREEN_H)
     }
   })
+
+  it('names only the room in the header, clear of the step title card (playtest, 15 Nov)', () => {
+    const all = texts(cases.nominal, true)
+    expect(all).toContain('COMMS CENTER')
+    expect(all.some((t) => t.includes('MISSION PLANNING'))).toBe(false)
+  })
+})
+
+function texts(v: PlanningView, detail: boolean) {
+  const { ctx, calls } = fakeContext()
+  paintScreen(ctx, v, animFromView(v), { detail })
+  return calls.filter((c) => c.name === 'fillText').map((c) => String(c.args[0]))
+}
+
+// Screen budget (Jakob, 15 Nov): with the Plan screen's Details closed the wall keeps one line per panel
+describe('paintScreen without details', () => {
+  it('keeps the money free and drops the colour legend, cap and spend line', () => {
+    const v = cases.nominal
+    const full = texts(v, true)
+    const lean = texts(v, false)
+    expect(lean).toContain(`$${v.budgetGap.toFixed(1)}M free`)
+    for (const b of v.costBlocks.filter((b) => b.amount > 0)) {
+      expect(full.some((t) => t.startsWith(`${b.label} $`))).toBe(true)
+      expect(lean.some((t) => t.startsWith(`${b.label} $`))).toBe(false)
+    }
+    expect(lean.some((t) => t.startsWith('cap ') || t.startsWith('spend up to'))).toBe(false)
+  })
+
+  it('says spare months or late, without the month-by-month schedule', () => {
+    for (const v of [cases.nominal, cases.missed]) {
+      const lean = texts(v, false)
+      expect(lean).toContain(v.headline)
+      expect(lean.some((t) => t.startsWith('RIDE · END OF MONTH'))).toBe(false)
+      expect(lean).not.toContain('1')
+    }
+  })
+
+  it('keeps the risk gauge reading but not its scale', () => {
+    const v = cases.nominal
+    const lean = texts(v, false)
+    expect(lean).toContain(`×${v.riskFactor.toFixed(1)}`)
+    expect(texts(v, true)).toContain('×2.0')
+    if (v.riskFactor.toFixed(1) !== '2.0') expect(lean).not.toContain('×2.0')
+  })
+
+  it('lists only the Go/No-Go checks that need the player', () => {
+    const v = cases.missed
+    const lean = texts(v, false)
+    const word = { green: 'GO', yellow: 'CAUTION', red: 'NO-GO' } as const
+    for (const c of v.checks) expect(lean.includes(`${word[c.status]} · ${c.resource.toUpperCase()}`)).toBe(c.status !== 'green')
+  })
 })

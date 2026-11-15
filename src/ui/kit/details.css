@@ -1,0 +1,66 @@
+/* The shared Details control (src/ui/kit/Details.tsx). Flight Plan tokens from src/index.css. */
+
+.fp-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.65rem 0.3rem 0.5rem;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 2px;
+  background: var(--color-ink-1);
+  font-family: var(--font-sans);
+  font-stretch: 85%;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-paper-dim);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+}
+.fp-details-toggle:hover {
+  color: var(--color-paper);
+  border-color: var(--color-paper-dim);
+  background: var(--color-ink-3);
+}
+.fp-details-toggle[aria-expanded="true"] {
+  color: var(--color-paper);
+  border-color: var(--color-kapton-dim);
+}
+.fp-details-toggle:focus-visible {
+  outline: 2px solid var(--color-kapton);
+  outline-offset: 2px;
+}
+
+.fp-details-chevron {
+  width: 0.7rem;
+  height: 0.7rem;
+  color: var(--color-kapton);
+  transition: transform 180ms ease;
+}
+.fp-details-chevron[data-open="true"] { transform: rotate(90deg); }
+
+/* Height animates through a 0fr → 1fr grid row; the closed panel takes no space and no clicks */
+.fp-details-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition: grid-template-rows 200ms ease, opacity 160ms ease, visibility 0s linear 200ms;
+}
+.fp-details-panel[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition: grid-template-rows 200ms ease, opacity 200ms ease 40ms, visibility 0s;
+}
+.fp-details-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-details-panel,
+  .fp-details-panel[data-open="true"],
+  .fp-details-chevron { transition: none; }
+}
