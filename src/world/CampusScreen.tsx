@@ -1,16 +1,15 @@
 import { Suspense } from 'react'
 import { useCampusStore } from '../state/campusStore'
 import { useGameStore } from '../state/gameStore'
-import { ROOMS, ROOM_IDS, isUnlocked, nextRoom } from './rooms/registry'
+import { WorldRoot } from './WorldRoot'
+import { ROOMS, nextRoom } from './rooms/registry'
 
 /**
- * The Ice Hunters campus. Wave 0: a plain door list so the whole flow works end to end.
- * WP-1A replaces the door list with the 3D miniature campus (WorldRoot); WP-1B adds the astronaut.
+ * The Ice Hunters campus: a 3D miniature (WorldRoot) with one objective line, or the active room.
  */
 export function CampusScreen() {
   const currentRoom = useCampusStore((s) => s.currentRoom)
   const completed = useCampusStore((s) => s.completedRooms)
-  const enterRoom = useCampusStore((s) => s.enterRoom)
   const leaveRoom = useCampusStore((s) => s.leaveRoom)
   const completeRoom = useCampusStore((s) => s.completeRoom)
   const design = useGameStore((s) => s.design)
@@ -40,28 +39,17 @@ export function CampusScreen() {
 
   const suggested = nextRoom(completed)
   return (
-    <div className="h-screen overflow-auto bg-ink-0 p-8 text-paper" data-testid="campus">
-      <h1 className="fp-display text-2xl">Campus</h1>
-      <div className="mt-6 grid max-w-3xl grid-cols-2 gap-3">
-        {ROOM_IDS.map((id) => {
-          const room = ROOMS[id]
-          const open = isUnlocked(id, completed)
-          return (
-            <button
-              key={id}
-              type="button"
-              disabled={!open}
-              data-testid={`door-${id}`}
-              onClick={() => enterRoom(id)}
-              className={`rounded-lg border p-4 text-left ${id === suggested ? 'border-kapton' : 'border-rule'} disabled:opacity-40`}
-            >
-              <div className="fp-display">
-                {room.title} {completed.includes(id) ? '✓' : ''}
-              </div>
-              <div className="text-sm text-paper-dim">{open ? room.tagline : room.lockedReason}</div>
-            </button>
-          )
-        })}
+    <div className="relative h-screen overflow-hidden bg-ink-0" data-testid="campus">
+      <WorldRoot />
+      <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
+        <div
+          data-testid="objective"
+          className="rounded-full bg-ink-0/75 px-4 py-1.5 text-sm text-paper shadow"
+        >
+          {suggested
+            ? `${ROOMS[suggested].title}: ${ROOMS[suggested].tagline}`
+            : 'Every room is done. Walk back to Mission Control.'}
+        </div>
       </div>
     </div>
   )
