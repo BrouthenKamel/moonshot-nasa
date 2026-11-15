@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { useCampusStore } from '../state/campusStore'
 import { useGameStore } from '../state/gameStore'
+import { PlayerDemo } from './player/PlayerDemo'
 import { ROOMS, ROOM_IDS, isUnlocked, nextRoom } from './rooms/registry'
 
 /**
@@ -15,6 +16,9 @@ export function CampusScreen() {
   const completeRoom = useCampusStore((s) => s.completeRoom)
   const design = useGameStore((s) => s.design)
   const difficulty = useGameStore((s) => s.difficulty)
+
+  // Temporary sandbox for WP-1B: remove when WP-1A's world mounts the astronaut
+  if (new URLSearchParams(window.location.search).get('player-demo') === '1') return <PlayerDemo />
 
   if (currentRoom) {
     const room = ROOMS[currentRoom]
