@@ -3,7 +3,7 @@
  *
  * - An event card waits for an answer.
  * - The launch animation plays on the island.
- * - A modal is open over the base (New mission, Headquarters, the result, the vitality dial…).
+ * - A modal is open over the base (New mission, Headquarters, the result…).
  *
  * Building interiors need no rule here: they replace the base screen, and the clock only runs
  * while the base screen is open (useAgencyClock).
@@ -19,8 +19,8 @@ export function clockHeld({ decisionWaiting, launching, modalOpen }: ClockHoldIn
 }
 
 /**
- * Every modal in the game marks itself `aria-modal="true"` (the kit Modal, the result dialog,
- * the HUD dial), so one look at the page covers them all without each dialog reporting in.
+ * Every modal in the game marks itself `aria-modal="true"` (the kit Modal, the result dialog),
+ * so one look at the page covers them all without each dialog reporting in.
  * No page (tests, server render): nothing is open.
  */
 export function modalOpenOnPage(): boolean {
