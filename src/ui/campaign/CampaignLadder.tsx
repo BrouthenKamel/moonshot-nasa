@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CAMPAIGN, type CampaignMission, type Picks } from '../../campaign/missions'
-import { retryCost } from '../../campaign/why'
+import { retryCost, shortfallText } from '../../campaign/why'
 import { buildUpMission, gateDistance, gateProgress, ladder, minimumShare, nextMission, unlockNote, type Rung } from '../../campaign/progress'
 import { useCampaignStore } from '../../state/campaignStore'
 import { useWorldStore } from '../../state/worldStore'
@@ -200,7 +200,7 @@ export function CampaignLadder() {
     action = {
       label: `Build up: fly the ${buildUp.name} again`,
       onClick: () => start(buildUp.id),
-      why: `Your share at Go would be at least ${money(minimumShare(m, popularity))}; you have ${money(funds)}. Another flight earns money and popularity.`,
+      why: shortfallText(minimumShare(m, popularity) - funds),
     }
   else if (rung.open) action = { label: rung.state === 'flown' ? `Fly the ${m.name} again` : `Plan the ${m.name} →`, onClick: () => start(m.id) }
   else if (isNext && gate && gate.previousFlown)

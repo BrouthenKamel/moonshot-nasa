@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { missionById, pickedOption, planOf, type CampaignMission } from '../../campaign/missions'
 import { outcomeOdds } from '../../campaign/flight'
-import { chanceParts, riskSentence } from '../../campaign/why'
+import { chanceBase, chanceParts, chancePercent, riskSentence, shortfallText } from '../../campaign/why'
+import { minimumShare } from '../../campaign/progress'
 import { agencyShare, canAfford } from '../../campaign/ledger'
 import { useCampaignStore, type ActiveMission } from '../../state/campaignStore'
 import { useWorldStore } from '../../state/worldStore'
@@ -306,7 +307,7 @@ function Go({ a, mission }: { a: ActiveMission; mission: CampaignMission }) {
               launch()
             }
           : undefined,
-        why: ok ? undefined : `You have ${money(funds)}. Fly a cheaper mission first, or choose cheaper options.`,
+        why: ok ? undefined : shortfallText(share - funds, minimumShare(mission, popularity) <= funds),
       }}
       details={
         <div className="space-y-1">
@@ -327,14 +328,20 @@ function Go({ a, mission }: { a: ActiveMission; mission: CampaignMission }) {
       <div className="max-w-xl border-l-2 border-kapton/60 pl-3">
         <div className="fp-label text-[0.62rem] text-paper-faint">Where your chance comes from</div>
         <p data-testid="chance-line" className="fp-data mt-1 text-lg text-paper">
-          {chanceParts(mission, a.picks).map((p, i) => (
+          {/* It adds up: the mission's base chance, then each choice in order, then the total */}
+          <span>Base {chanceBase(mission, a.picks)}</span>
+          {chanceParts(mission, a.picks).map((p) => (
             <span key={p.choiceId}>
-              {i > 0 && <span className="text-paper-faint"> · </span>}
+              <span className="text-paper-faint"> · </span>
               {p.short} <span className={p.points < 0 ? 'text-nogo' : p.points > 0 ? 'text-go' : 'text-paper-dim'}>{signedPoints(p.points)}</span>
             </span>
           ))}
+          <span className="text-paper-faint"> = </span>
+          <span className="font-semibold">{chancePercent(mission, a.picks)}%</span>
         </p>
-        <p className="mt-1 text-xs text-paper-dim">Points of your chance of success, from each choice. Click a choice above to change it.</p>
+        <p className="mt-1 text-xs text-paper-dim">
+          The base is the mission's own risk; each choice adds or takes points. Click a choice above to change it.
+        </p>
       </div>
     </Frame>
   )
