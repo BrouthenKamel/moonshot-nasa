@@ -149,7 +149,7 @@ export function PlanNav({
   back,
   next,
 }: {
-  back: { label: string; to: DesignStep | (() => void) }
+  back?: { label: string; to: DesignStep | (() => void) }
   next: { label: string; to: DesignStep | (() => void); blockedBy?: string }
 }) {
   const setDesignStep = useGameStore((s) => s.setDesignStep)
@@ -162,9 +162,11 @@ export function PlanNav({
         </p>
       )}
       <div className="flex gap-2 pt-1">
-        <button type="button" onClick={() => go(back.to)} className="tactical-btn-back flex-1 whitespace-nowrap bg-ink-1">
-          {back.label}
-        </button>
+        {back && (
+          <button type="button" onClick={() => go(back.to)} className="tactical-btn-back flex-1 whitespace-nowrap bg-ink-1">
+            {back.label}
+          </button>
+        )}
         <button
           type="button"
           disabled={!!next.blockedBy}

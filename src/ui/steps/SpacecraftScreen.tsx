@@ -423,12 +423,6 @@ export function SpacecraftScreen() {
           </div>
         )}
 
-        <div className="absolute top-3 left-3 z-10 flex flex-col items-start gap-2">
-          <button type="button" onClick={() => setDesignStep('instruments')} className="tactical-btn-back bg-ink-1">
-            ← Back
-          </button>
-        </div>
-
         <div className="absolute top-3 right-3 z-10 flex w-64 flex-col items-end gap-3">
           <button type="button" onClick={() => leave('orbit', 'next')} className="tactical-btn-next" data-testid="craft-next">
             {nextLabel('spacecraft')}
