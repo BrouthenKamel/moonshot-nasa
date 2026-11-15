@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { cuesFor, musicFor, type FlightSnapshot, type Snapshot } from './cues'
+import { ROOM_IDS } from '../world/rooms/ids'
+import { cuesFor, musicFor, trackForLocation, type FlightSnapshot, type Snapshot } from './cues'
 
 const base: Snapshot = { screen: 'base', designStep: 'brief', design: { solar: 'a', radio: 'x' }, canGo: false, flight: null, outcome: null }
 const flight = (over: Partial<FlightSnapshot> = {}): FlightSnapshot => ({
@@ -79,5 +80,15 @@ describe('audio cues', () => {
     expect(
       ids(before, { ...base, outcome: 'failed', flight: flight({ launched: true, ended: true, end: 'not enough delta-v left to capture' }) }),
     ).toEqual(expect.arrayContaining(['voice.capture-fail', 'voice.end-failed']))
+  })
+})
+
+describe('trackForLocation', () => {
+  it('maps null to the campus theme and every room to its own track', () => {
+    expect(trackForLocation(null)).toBe('music.ih-campus')
+    const ids = ROOM_IDS.map((r) => trackForLocation(r))
+    expect(new Set(ids).size).toBe(ROOM_IDS.length)
+    expect(ids).not.toContain('music.ih-campus')
+    expect(trackForLocation('briefing')).toBe('music.ih-briefing')
   })
 })

@@ -1,4 +1,5 @@
 import type { EventType } from '../data/events'
+import type { RoomId } from '../world/rooms/ids'
 import type { AudioId } from './manifest'
 
 /**
@@ -56,6 +57,23 @@ export function musicFor(s: Snapshot): AudioId {
   if (s.screen === 'design' || s.screen === 'setup') return 'music.atelier'
   if (s.flight && s.flight.launched && !s.flight.ended) return 'music.voyage'
   return 'music.theme'
+}
+
+/** Ice Hunters campus music: one track per location; null (walking the campus) is the campus theme */
+export const LOCATION_TRACKS: Record<RoomId | 'campus', AudioId> = {
+  campus: 'music.ih-campus',
+  briefing: 'music.ih-briefing',
+  'science-lab': 'music.ih-science-lab',
+  'clean-room': 'music.ih-clean-room',
+  'thermal-vac': 'music.ih-thermal-vac',
+  'flight-dynamics': 'music.ih-flight-dynamics',
+  'ground-station': 'music.ih-ground-station',
+  'launch-hangar': 'music.ih-launch-hangar',
+  'mission-control': 'music.ih-mission-control',
+}
+
+export function trackForLocation(room: RoomId | null): AudioId {
+  return (room && LOCATION_TRACKS[room]) || LOCATION_TRACKS.campus
 }
 
 const hasNote = (log: { notes: string[] }, prefix: string) => log.notes.some((n) => n.startsWith(prefix))
