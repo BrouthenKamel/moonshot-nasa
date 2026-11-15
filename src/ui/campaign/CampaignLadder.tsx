@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { CAMPAIGN, type CampaignMission } from '../../campaign/missions'
+import { CAMPAIGN, type CampaignMission, type Picks } from '../../campaign/missions'
+import { retryCost } from '../../campaign/why'
 import { buildUpMission, gateDistance, gateProgress, ladder, minimumShare, nextMission, unlockNote, type Rung } from '../../campaign/progress'
 import { useCampaignStore } from '../../state/campaignStore'
 import { useWorldStore } from '../../state/worldStore'
@@ -147,6 +148,16 @@ function Bar({ label, short, share, fmt }: { label: string; short: number; share
   )
 }
 
+/** "You can afford to try again" or why not, for the mission just flown (same choices, then the cheapest) */
+function RetryLine({ mission, picks, funds, popularity }: { mission: CampaignMission; picks: Picks; funds: number; popularity: number }) {
+  const r = retryCost(mission, picks, funds, popularity)
+  return (
+    <p data-testid="retry-line" className={`mt-3 text-xs ${r.canSame ? 'text-go' : r.canCheapest ? 'text-caution' : 'text-nogo'}`}>
+      {r.text}
+    </p>
+  )
+}
+
 const OUTCOME_STAMP = { success: ['Success', 'go'], partial: ['Partial', 'caution'], failed: ['Failed', 'nogo'] } as const
 
 export function CampaignLadder() {
@@ -167,6 +178,8 @@ export function CampaignLadder() {
   // "Unlocked!" on the rung the last flight opened (after a report or a campaign mission's result)
   const unlockedBy = useCampaignStore((s) => s.unlockedBy)
   const note = unlockNote(progress, unlockedBy, funds, popularity)
+  // After a campaign mission's result: can the agency afford to fly it again?
+  const lastPicks = useCampaignStore((s) => s.lastPicks)
   const iceFlying = !!simState && !isSimComplete(simState)
 
   useEffect(() => {
@@ -234,6 +247,10 @@ export function CampaignLadder() {
             <p data-testid="unlock-note" className={`campaign-enter mt-3 border-l-2 pl-2 text-sm ${note.met ? 'border-go text-go' : 'border-kapton text-kapton'}`}>
               {note.text}
             </p>
+          )}
+
+          {unlockedBy === m.id && lastPicks[m.id] && m.choices.length > 0 && (
+            <RetryLine mission={m} picks={lastPicks[m.id]!} funds={funds} popularity={popularity} />
           )}
 
           {/* A locked rung: how far the agency is from its gate */}

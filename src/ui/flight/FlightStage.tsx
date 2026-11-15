@@ -14,6 +14,7 @@ import { useInsideStore } from '../interaction/insideStore'
 import { flightShot, type FlightShot } from '../../viz/flight/flightDirector'
 import type { FlightTimeline } from '../../scene/flight/FlightView'
 import { useWorldStore } from '../../state/worldStore'
+import { useCampaignStore } from '../../state/campaignStore'
 import { DAYS_PER_TURN } from '../../game/world'
 import { audio } from '../../assets/audio'
 import { prefersReducedMotion, useGraphics } from '../../scene/space/quality'
@@ -363,7 +364,10 @@ const ALERT_TEXT: Record<FlightAlert['tone'], string> = {
 function FlightAlertBanner({ sim }: { sim: SimState }) {
   const [dismissedKey, setDismissedKey] = useState<string | null>(null)
   const alert = useMemo(() => latestFlightAlert(sim), [sim])
-  if (!alert || dismissedKey === alert.key) return null
+  // Live telemetry is for a flight in progress: once it is over (the result and the mission panel
+  // say how it ended) or the player opens New mission, the last card would only be stale
+  const ladderOpen = useCampaignStore((s) => s.ladderOpen)
+  if (!alert || dismissedKey === alert.key || isSimComplete(sim) || ladderOpen) return null
 
   return (
     <div
