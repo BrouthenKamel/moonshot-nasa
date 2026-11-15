@@ -1,5 +1,6 @@
 import { computeBudgets } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
+import { COVERAGE_TARGET } from '../../sim/evaluate'
 import { lunarOrbits } from '../../data/orbits'
 import { getPartById, type InstrumentPart } from '../../data/parts'
 import type { Difficulty } from '../../data/brief'
@@ -65,13 +66,14 @@ export interface OrbitView {
   storedIsKnown: boolean
 }
 
-export const COVERAGE_GOAL = 70
+/** The sim's one ice target (sim/evaluate.ts) */
+export const COVERAGE_GOAL = COVERAGE_TARGET
 export const MISSION_MONTHS = 12
 
 export const ORBIT_LOOK: Record<string, { shortName: string; color: string }> = {
   'orbit-halo': { shortName: 'Halo Loop', color: '#a78bfa' },
   'orbit-elliptical': { shortName: 'Elliptical Polar', color: '#a3e635' },
-  'orbit-100km': { shortName: 'Low Circular', color: '#38bdf8' },
+  'orbit-100km': { shortName: 'Circular 100 km', color: '#38bdf8' },
 }
 
 const SHOWN_ALWAYS = ['Delta-v', 'Power', 'Science'] as const

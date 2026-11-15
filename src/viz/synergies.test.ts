@@ -34,6 +34,16 @@ describe('computeSynergies', () => {
     expect(ids).toContain('ion-power-ready')
   })
 
+  it('names the orbit and its closest pass instead of a lock', () => {
+    const at = (orbit: string) => {
+      const design = { ...createDefaultDesign(), instruments: ['inst-laser'], orbit }
+      return computeSynergies(design, computeBudgets(design, FIXED_DIFFICULTY)).find((b) => b.id === 'altitude-match')?.title
+    }
+    expect(at('orbit-elliptical')).toBe('Elliptical Polar: closest pass 15 km')
+    expect(at('orbit-polar-15')).toBe('Elliptical Polar: closest pass 15 km')
+    expect(at('orbit-polar-15')).not.toMatch(/lock/i)
+  })
+
   it('warns when camera crowds downlink beside an ice instrument', () => {
     const design = {
       ...createDefaultDesign(),
