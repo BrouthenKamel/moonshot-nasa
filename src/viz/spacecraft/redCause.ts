@@ -47,7 +47,7 @@ export function redCause(row: BoardRow): string {
       case 'money':
         return say(`the craft costs ${money(row.value)}; the budget is ${money(row.limit)}`)
       case 'deltav':
-        return say(`this engine has ${about(row.limit)} m/s of braking; the trip to the Moon needs ${about(row.value)}`)
+        return say(`this engine has ${about(row.limit)} m/s of braking; the mission needs ${about(row.value)} (capture plus station-keeping)`)
       case 'time':
         return say(`the craft is ready in month ${Math.round(row.value)}; the ride leaves in month ${Math.round(row.limit)}`)
     }

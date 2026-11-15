@@ -2,6 +2,7 @@ import { getOrbitById } from '../data/orbits'
 import type { Design, DesignStep } from '../sim/types'
 import { computeBudgets } from '../sim/budgets'
 import { useGameStore } from '../state/gameStore'
+import { tripTime } from './numbers'
 
 interface MissionStripProps {
   step: DesignStep
@@ -46,7 +47,7 @@ export function MissionStrip({ step, design, failingSteps }: MissionStripProps) 
       <circle cx={350} cy={65} r={ringR} fill="none" stroke={colour('orbit')} strokeWidth={width('orbit')} strokeDasharray="4 3" />
       <path d="M 61 60 Q 200 -5 336 58" fill="none" stroke={colour('ride')} strokeWidth={width('ride')} />
       <text x={200} y={20} textAnchor="middle" className="fp-label" style={{ fontSize: 8 }} fill={label('ride')}>
-        {duration === null ? 'no way to the Moon' : duration === 0 ? 'transfer about 5 days' : `transfer ${duration} month${duration === 1 ? '' : 's'}`}
+        {duration === null ? 'no way to the Moon' : `transfer ${tripTime(budgets)}`}
       </text>
       <line x1={337} y1={72} x2={62} y2={72} stroke={colour('comms')} strokeWidth={width('comms')} strokeDasharray="2 4" />
       <text x={200} y={86} textAnchor="middle" className="fp-label" style={{ fontSize: 8 }} fill={label('comms')}>

@@ -19,6 +19,7 @@ import { Tooltip } from '../Tooltip'
 import { goCall } from './gonogo/headline'
 import { useSuccessEstimate } from '../useOdds'
 import { PlanPanel, PlanRow, PlanRows } from './plan/PlanPanel'
+import { CAPTURE_LABEL, budgetLeft, moneyLeft, tripTime } from '../../viz/numbers'
 
 /*
  * Step 08 · Launch: the Go / No-Go poll on one screen. On the left the four stations as lamps
@@ -443,7 +444,7 @@ export function GoNoGoScreen() {
   const warnings = result.checks.filter((c) => c.status === 'yellow')
   const passed = result.checks.filter((c) => c.status === 'green')
   const issues = [...critical, ...warnings]
-  const transfer = budgets.transferTurns === null ? 'no way there' : budgets.transferTurns === 0 ? 'about 5 days' : `${budgets.transferTurns} months`
+  const transfer = tripTime(budgets)
 
   // One screen: lamps and issues on the left, the call on the right, every check in full behind
   // Details under the issues (the Details panel comes last in the page: the screen-budget rule)
@@ -512,7 +513,9 @@ export function GoNoGoScreen() {
               <PlanRow label="Ready" value={`month ${budgets.totalPrepTurns}`} sub={`build ${budgets.buildTurns} · test ${budgets.testTurns}`} />
               <PlanRow label="Ride leaves" value={`month ${budgets.rideTurn}`} tone={budgets.timeMarginTurns < 0 ? 'red' : undefined} />
               <PlanRow label="To the Moon" value={transfer} tone={budgets.transferTurns === null ? 'red' : undefined} />
-              <PlanRow label="Budget left" value={`$${budgets.budgetMargin.toFixed(1)}M`} tone={budgets.budgetMargin < 0 ? 'red' : undefined} />
+              <PlanRow label={CAPTURE_LABEL} value={budgets.captureDeltaV === null ? 'cannot' : `${Math.round(budgets.captureDeltaV)} m/s`} tone={budgets.captureDeltaV === null ? 'red' : undefined} />
+              {/* Spendable (cap − reserve), the same base as the Budget check */}
+              <PlanRow label="Budget left" value={moneyLeft(budgetLeft(budgets))} sub="of spendable" tone={budgetLeft(budgets) < 0 ? 'red' : undefined} />
             </PlanRows>
             <OddsBreakdown />
             <SynergyStrip step="go-nogo" />

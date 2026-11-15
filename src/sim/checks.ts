@@ -8,7 +8,17 @@ import { COVERAGE_TARGET } from './evaluate'
 import type { Design, Budgets, CheckResult, GoNoGoResult, BarStatus, DesignStep } from './types'
 
 /** Where the reserve is set: the Planning step's building (viz/missionMap BUILDING_STEPS; numberTruth.test checks they agree) */
-export const PLANNING_BUILDING = buildings.find((x) => x.id === 'comms-center')?.name ?? 'Communications Center'
+/**
+ * What the Delta-v check means by "needs": the capture burn plus station-keeping for the whole mission.
+ * The Craft line shows the same parts (QC, 16 Nov: "needs" meant two things).
+ */
+export function deltaVNeed(b: Budgets): { capture: number; keeping: number; total: number } {
+  const capture = b.captureDeltaV ?? 0
+  const keeping = b.deltaVStationKeeping * lunarIceMapperBrief.missionDurationTurns
+  return { capture, keeping, total: capture + keeping }
+}
+
+export const PLANNING_BUILDING =buildings.find((x) => x.id === 'comms-center')?.name ?? 'Communications Center'
 
 /**
  * Why the instruments get no power, naming the real cause (QC, 15 Nov). budgets.ts takes the lower of
@@ -153,7 +163,7 @@ export function goNoGo(
   )
 
   // Propulsion, ride and transfer: can the craft get into the science orbit at all?
-  const need = (b.captureDeltaV ?? 0) + b.deltaVStationKeeping * turns
+  const need = deltaVNeed(b).total
   let reason = ''
   let headline: string | undefined
   let fix: DesignStep = 'spacecraft'
@@ -269,7 +279,8 @@ export function goNoGo(
     reason = `The plan costs ${b.totalCost.toFixed(dp)} M but only ${b.spendable.toFixed(dp)} M is spendable${dp === 2 ? ` (${(b.totalCost - b.spendable).toFixed(2)} M over)` : ''}: the ${b.reserveAmount.toFixed(1)} M reserve is locked for fixes in flight. Lower the reserve at the ${PLANNING_BUILDING} (Planning), or choose cheaper parts.`
   } else {
     status = 'red'
-    reason = `The plan costs ${b.totalCost.toFixed(1)} M; the budget is ${b.budgetCap} M. Cheaper parts, a shorter transfer or less ground time bring it down.`
+    // Always against spendable, the same base as the review's "Budget left" (QC, 16 Nov)
+    reason = `The plan costs ${b.totalCost.toFixed(1)} M but only ${b.spendable.toFixed(1)} M is spendable: the ${b.budgetCap} M budget less the ${b.reserveAmount.toFixed(1)} M reserve. Cheaper parts, a shorter transfer or less ground time bring it down.`
   }
   checks.push(check('Budget', status, b.totalCost, b.budgetCap, '$M', reason, 'spacecraft'))
 

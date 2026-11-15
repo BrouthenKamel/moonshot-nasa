@@ -136,6 +136,8 @@ export interface Budgets {
   thrustPower: number // W left for an electric engine while thrusting
   thrustLevel: number // 0-1 share of nominal thrust
   transferTurns: number | null // turns from launch to capture; null = cannot get there
+  /** The same trip in days: a direct shot's own days, otherwise transferTurns × 30 (null = cannot get there). The one trip-time figure the screens show */
+  transferDays: number | null
   arrivalTurn: number | null
   deltaVAfterCapture: number
   upkeepTurns: number // turns of holding the orbit the propellant allows after capture

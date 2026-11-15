@@ -17,7 +17,7 @@ import {
 } from '../data/parts'
 import { getOrbitById, polarOrbitId, type LunarOrbit } from '../data/orbits'
 import { getRideById } from '../data/rides'
-import { getTransferById } from '../data/transfers'
+import { getTransferById, ION_MAX_ARRIVAL_EXCESS_KMS } from '../data/transfers'
 import { getGroundStationById } from '../data/ground'
 import type { Design, Budgets, ScienceState } from './types'
 
@@ -45,7 +45,7 @@ export function insertionDeltaV(
   const listed = orbit.insertionDeltaV[`${engineKey}_${transferType}`]
   if (listed !== undefined) return listed
   // An ion engine has too little thrust to brake on a fast fly-by; a slow low-energy arrival it can spiral down from
-  if (!propulsion.impulsive && (transferType === 'direct' || (arrival?.excessKms ?? 0) > 0.05)) return null
+  if (!propulsion.impulsive && (transferType === 'direct' || (arrival?.excessKms ?? 0) > ION_MAX_ARRIVAL_EXCESS_KMS)) return null
   // Vis-viva: arrival speed at the low point minus orbit speed there, plus course corrections.
   const r = C.moonRadiusKm + orbit.altitude
   const far = orbit.farPointKm ?? orbit.altitude
@@ -426,6 +426,7 @@ export function computeBudgets(design: Design, difficulty: Difficulty): Budgets 
     thrustPower,
     thrustLevel,
     transferTurns,
+    transferDays: transferTurns === null ? null : transferTurns === 0 ? (transfer?.days ?? 30) : transferTurns * 30,
     arrivalTurn: transferTurns === null ? null : rideTurn + transferTurns,
     deltaVAfterCapture,
     upkeepTurns,

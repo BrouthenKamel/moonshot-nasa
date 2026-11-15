@@ -10,6 +10,7 @@ import {
   type RadioPart,
 } from '../../data/parts'
 import type { Budgets, CheckResult, Design } from '../../sim/types'
+import { deltaVNeedText } from '../numbers'
 
 /**
  * Everything the assembly bay draws, worked out from the design, the budgets
@@ -163,7 +164,7 @@ function rowText(key: RowKey, b: Budgets, check: CheckResult | undefined): { tex
       const need = fin(check?.value ?? 0)
       if (b.captureDeltaV === null || b.deltaVAvailable <= 0)
         return { text: 'cannot get there', value: Math.max(1, need), limit: 0 }
-      return { text: `needs ${Math.round(need)}, has ${Math.round(fin(b.deltaVAvailable))} m/s`, value: need, limit: fin(b.deltaVAvailable) }
+      return { text: `needs ${deltaVNeedText(b)}, has ${Math.round(fin(b.deltaVAvailable))} m/s`, value: need, limit: fin(b.deltaVAvailable) }
     }
     case 'time':
       return {

@@ -6,6 +6,7 @@ import type { Difficulty } from '../../data/brief'
 import { getPartById, type PropulsionPart } from '../../data/parts'
 import { getRideById } from '../../data/rides'
 import {
+  ION_MIN_DAYS,
   DIRECT_MAX_DAYS,
   LOW_ENERGY_DAYS,
   TRANSFER_MAX_DAYS,
@@ -18,6 +19,7 @@ import {
 import { computeBudgets } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
 import type { Design } from '../../sim/types'
+import { tripParts, tripTime } from '../numbers'
 
 const LOG_MIN = Math.log(TRANSFER_MIN_DAYS)
 const LOG_MAX = Math.log(TRANSFER_MAX_DAYS)
@@ -25,7 +27,8 @@ const LOG_MAX = Math.log(TRANSFER_MAX_DAYS)
 /** The shortest flight this engine can fly: an ion engine needs the slow, low-energy end */
 export function minDaysFor(design: Design): number {
   const engine = getPartById(design.propulsion) as PropulsionPart | undefined
-  return engine && !engine.impulsive ? LOW_ENERGY_DAYS : TRANSFER_MIN_DAYS
+  // From the sim's own capture rule (ionCanBrake), so 'cannot brake' shows exactly when the sim refuses capture
+  return engine && !engine.impulsive ? ION_MIN_DAYS : TRANSFER_MIN_DAYS
 }
 
 /** Drag position 0..1 to days, logarithmic (the quick paths differ most) */
@@ -63,6 +66,10 @@ export interface TransferPlan {
   monthsHeld: number
   /** Months between the drop-off and the capture (an ion engine adds its slow spiral); null = cannot get there */
   cruiseMonths: number | null
+  /** The sim's trip time, as every screen shows it: "5 days", "4 months", "no way to the Moon" */
+  trip: string
+  /** The same, split for the headline */
+  tripHeadline: { value: string; unit: string }
   minDays: number
   ionEngine: boolean
   checks: { label: string; status: 'green' | 'yellow' | 'red'; reason: string }[]
@@ -92,6 +99,8 @@ export function transferPlan(design: Design, difficulty: Difficulty): TransferPl
     leftAfter: b.captureDeltaV === null ? null : b.deltaVAfterCapture,
     monthsHeld: b.upkeepTurns,
     cruiseMonths: b.transferTurns,
+    trip: tripTime(b),
+    tripHeadline: tripParts(b),
     minDays: minDaysFor(design),
     ionEngine: !!engine && !engine.impulsive,
     checks: g.checks.filter((c) => ROWS[c.resource]).map((c) => ({ label: ROWS[c.resource], status: c.status, reason: c.reason })),

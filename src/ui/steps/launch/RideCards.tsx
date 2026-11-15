@@ -3,7 +3,7 @@ import { useGameStore } from '../../../state/gameStore'
 import { useRideView, chooseRide, chooseTransfer } from '../../../viz/ride/useRideView'
 import type { BoardRow, RowStatus, TransferSign } from '../../../viz/ride/rideView'
 import { getRideById } from '../../../data/rides'
-import { transfers, getTransferById } from '../../../data/transfers'
+import { transfers, getTransferById, transferDays } from '../../../data/transfers'
 import { getPartById, type PropulsionPart } from '../../../data/parts'
 import { computeBudgets } from '../../../sim/budgets'
 import { useDropTarget } from '../../interaction/drag'
@@ -12,6 +12,7 @@ import type { ChoiceStat } from '../../kit/ChoiceCard'
 import { Flap } from '../../kit'
 import { LaunchCard, type Plaque } from './LaunchCard'
 import { playPick, useRadioKeys } from './radioKeys'
+import { tripTime } from '../../../viz/numbers'
 
 /**
  * The ride and transfer choices as painted cards. Every number comes from the ride view
@@ -197,7 +198,7 @@ function useTransferTrials() {
 function transferStats(s: TransferSign, b: ReturnType<typeof computeBudgets>): ChoiceStat[] {
   if (!s.selectable) return []
   const takes =
-    b.captureDeltaV === null ? 'never' : b.transferTurns === null ? 'no power' : b.transferTurns === 0 ? '5 days' : `${b.transferTurns} months`
+    b.captureDeltaV === null ? 'never' : b.transferTurns === null ? 'no power' : tripTime(b)
   const left = b.captureDeltaV === null ? null : b.deltaVAfterCapture
   return [
     { label: 'Takes', value: takes, tone: b.transferTurns === null ? 'bad' : undefined },
@@ -206,7 +207,7 @@ function transferStats(s: TransferSign, b: ReturnType<typeof computeBudgets>): C
 }
 
 function transferSubtitle(s: TransferSign, b: ReturnType<typeof computeBudgets>, rideTakesEngine: boolean): string {
-  if (!s.selectable) return s.type === 'direct' ? 'About 5 days, one big braking burn' : cap(s.sub)
+  if (!s.selectable) return s.type === 'direct' ? `${transferDays(getTransferById(s.id)!)} days, one big braking burn` : cap(s.sub)
   if (b.captureDeltaV !== null) return `Capture burn ${ms(b.captureDeltaV)}`
   // Why the craft never gets there: the ride, the tank, or the orbit
   if (!rideTakesEngine) return 'Wrong engine for this ride'
