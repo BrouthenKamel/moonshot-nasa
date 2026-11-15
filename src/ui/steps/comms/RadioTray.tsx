@@ -7,6 +7,9 @@ import type { Budgets, Design } from '../../../sim/types'
 import type { Difficulty } from '../../../data/brief'
 import { Inspector, type InspectorNote } from './Inspector'
 import { hoverSound, useCardRadioGroup } from './useCardRadioGroup'
+import { stepNumber } from '../../kit'
+
+const N = stepNumber('comms')
 
 const TAG: Record<string, string> = {
   'radio-uhf': 'Low orbit',
@@ -60,10 +63,11 @@ export function RadioTray({
   return (
     <section aria-labelledby="radio-tray-title">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 id="radio-tray-title" className="font-display text-xl font-bold text-white">
-          Spacecraft radio
+        <h2 id="radio-tray-title" className="flex items-baseline gap-2">
+          <span className="fp-data text-[11px] text-paper-faint">{`${N}.2`}</span>
+          <span className="fp-label text-paper">Spacecraft radio</span>
         </h2>
-        <span className="text-xs text-slate-500">Arrow keys to switch</span>
+        <span className="text-xs text-paper-faint">Arrow keys to switch</span>
       </div>
       <div
         role="radiogroup"
@@ -75,6 +79,7 @@ export function RadioTray({
           const selected = design.radio === radio.id
           const stats: ChoiceStat[] = [
             { label: 'Moon', value: radio.reachesMoon ? 'Reaches' : 'No reach', tone: radio.reachesMoon ? 'good' : 'bad' },
+            { label: 'Pointing', value: radio.needsPrecisePointing ? 'Precise' : 'Any' },
             { label: 'Link', value: whatIf.linkKbps > 0 ? `${whatIf.linkKbps} kbps` : 'none', tone: whatIf.linkKbps > 0 ? undefined : 'bad' },
             { label: 'Mass', value: `${radio.mass} kg` },
             { label: 'Power', value: `${radio.listenPower} / ${radio.transmitPower} W` },
@@ -104,9 +109,7 @@ export function RadioTray({
               {worst && (
                 <div
                   aria-hidden="true"
-                  className={`rounded-lg border px-2 py-1 text-[11px] leading-snug ${
-                    worst.tone === 'bad' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'
-                  }`}
+                  className={`border-l-2 pl-2 text-[11px] leading-snug text-paper ${worst.tone === 'bad' ? 'border-nogo' : 'border-caution'}`}
                 >
                   {worst.tone === 'bad' ? '✕ ' : '! '}
                   {worst.text}
@@ -117,7 +120,7 @@ export function RadioTray({
         })}
       </div>
       <Inspector
-        accent={choiceArt(shown.radio.id)?.accent ?? '#38bdf8'}
+        accent={choiceArt(shown.radio.id)?.accent ?? 'var(--color-paper-faint)'}
         kicker={shown.radio.id === design.radio ? 'Fitted radio' : 'If you fit this radio'}
         title={shown.radio.name}
         description={shown.radio.description}
