@@ -30,6 +30,10 @@ describe('old saved games load safely (QC #70)', () => {
     expect(out.design?.rocket?.nose).toBe('nose_ogive')
   })
 
+  it('a game saved on the old Rocket step opens on the Craft step', () => {
+    expect(sanitizeSavedGame({ designStep: 'rocket' }).designStep).toBe('spacecraft')
+  })
+
   it('a design saved before the Rocket step still loads, with no rocket', () => {
     expect(sanitizeSavedGame({ design: createDefaultDesign() }).design?.rocket).toBeUndefined()
   })

@@ -1,4 +1,4 @@
-import { Component, Suspense, useEffect, useMemo, useRef, type ComponentRef, type ReactNode, type RefObject } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode, type RefObject } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
@@ -6,17 +6,16 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import type { ModelId } from '../../assets/manifest'
 import { preloadModel, useModel } from '../../assets/models'
 import { rocketParts, rocketSlots, type RocketConfig, type RocketSlot } from '../../data/rocket'
-import { layoutRocket, pick, type PlacedPart } from '../../viz/rocket/rocketView'
-import { useDragStore } from '../../ui/interaction/dragStore'
-import { DropSlot } from '../interaction/DropSlot'
-import { HoldStillWhileDragging, SnapNudge, SnapPuff } from '../interaction/snap'
+import { layoutRocket, type PlacedPart } from '../../viz/rocket/rocketView'
 import { prefersReducedMotion } from '../space/quality'
 import { Effects } from '../space/Effects'
 
 /**
- * The Rocket step's assembly hall: the player's rocket stands on a pad, built from the kit parts.
- * A part that is picked drops in from the crane; the stack settles under it. Clicking a part
- * (or its tag) picks that slot in the tray. Everything drawn comes from layoutRocket().
+ * The Craft step's rocket hall: the standard launch rocket stands on its pad, and the player's
+ * CubeSat, sealed in its 6U deployer, is carried up and lowered into the payload fairing. Once it
+ * is inside, the fairing turns see-through so the craft shows, and each part of the rocket can be
+ * picked to fly the camera to it. It explains; nothing here is chosen. Everything drawn comes from
+ * layoutRocket(); the deployer is drawn larger than life so it can be seen at all.
  */
 
 /** Scene units per body radius */
@@ -28,40 +27,45 @@ const ACCENT_DIM = '#9a6b26'
 const TABLE_Y = 3
 /** Clearance between the engine bells and the table top */
 const GAP = 0.2
-/** How far above its place a new part starts, in body radii */
-const DROP = 12
+/** Metres per scene unit: one body radius is BODY_RADIUS_M (1.85 m) and S scene units */
+const M_PER_UNIT = 1.85 / S
+/** The deployer the CubeSat rides in, closed. Drawn three times life size (about a metre long), or it would vanish beside a 34 m rocket */
+const DEPLOYER: ModelId = 'model.sc-deployer_6u_closed'
+const DEPLOYER_SCALE = 3
+preloadModel(DEPLOYER)
 
 for (const p of rocketParts) if (p.model) preloadModel(p.model)
 
 const slotColor = Object.fromEntries(rocketSlots.map((s) => [s.id, s.color])) as Record<RocketSlot, string>
 const slotTitle = Object.fromEntries(rocketSlots.map((s) => [s.id, s.title])) as Record<RocketSlot, string>
-const SLOT_INDEX = Object.fromEntries(rocketSlots.map((s, i) => [s.id, i])) as Record<RocketSlot, number>
 
-/** How far each slot moves apart in the exploded view, in body radii (up is positive) */
-const EXPLODE: Record<RocketSlot, number> = { engine: -3.2, stage1: 0, stage2: 3.5, nose: 7, fins: -1.6, boosters: 0 }
+/** What the camera looks at once the craft is inside: one part, the payload, or the whole rocket */
+export type RocketFocus = RocketSlot | 'payload' | 'whole'
 
 interface ViewProps {
   config: RocketConfig
-  exploded: boolean
-  firing: boolean
   activeSlot: RocketSlot | null
   onSlotHover: (slot: RocketSlot | null) => void
   onSlotClick: (slot: RocketSlot) => void
-  onPartDrop?: (slot: RocketSlot, id: string) => void
+  /** 'loading' plays the carry into the fairing, then calls onLoaded; 'inside' shows it seated */
+  payload: 'loading' | 'inside'
+  focus: RocketFocus
+  onLoaded: () => void
 }
 
 /* ---------------- one part ---------------- */
 
 function PartModel({
   placed,
-  exploded,
+  ghost,
   highlighted,
   reduced,
   onHover,
   onClick,
 }: {
   placed: PlacedPart
-  exploded: boolean
+  /** See-through, so the payload inside shows (the fairing once the craft is in) */
+  ghost: boolean
   highlighted: boolean
   reduced: boolean
   onHover: (slot: RocketSlot | null) => void
@@ -69,44 +73,55 @@ function PartModel({
 }) {
   const { part, slot } = placed
   const root = useModel(part.model!)
-  // Own copies of the materials, so highlighting one part never tints another
-  const { obj, materials } = useMemo(() => {
-    const mats: THREE.MeshStandardMaterial[] = []
+  // Own copies of the materials, so highlighting or fading one part never touches another
+  const obj = useMemo(() => {
     root.traverse((o) => {
       const mesh = o as THREE.Mesh
       if (!mesh.isMesh) return
       mesh.castShadow = true
       mesh.receiveShadow = true
-      const own = (m: THREE.Material) => {
-        const c = m.clone() as THREE.MeshStandardMaterial
-        mats.push(c)
-        return c
-      }
+      const own = (m: THREE.Material) => m.clone()
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map(own) : own(mesh.material)
     })
-    return { obj: root, materials: mats }
+    return root
   }, [root])
+  // Read back what the meshes actually wear: in development React runs the memo above twice, and
+  // only the second set of copies ends up on the meshes
+  const materials = useRef<THREE.MeshStandardMaterial[]>([])
+  useEffect(() => {
+    const mats: THREE.MeshStandardMaterial[] = []
+    obj.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (mesh.isMesh) mats.push(...((Array.isArray(mesh.material) ? mesh.material : [mesh.material]) as THREE.MeshStandardMaterial[]))
+    })
+    materials.current = mats
+  }, [obj])
 
   const group = useRef<THREE.Group>(null)
-  const state = useRef({ y: placed.y, drop: reduced ? 0 : DROP, wait: reduced ? 0 : 0.14 * SLOT_INDEX[slot], explode: 0 })
+  const state = useRef({ y: placed.y, opacity: 1 })
   const color = useMemo(() => new THREE.Color(ACCENT), [])
 
   useFrame((frame, dt) => {
     const s = state.current
     const k = reduced ? 1 : 1 - Math.exp(-dt * 8)
     s.y += (placed.y - s.y) * k
-    s.explode += ((exploded ? EXPLODE[slot] : 0) - s.explode) * (reduced ? 1 : 1 - Math.exp(-dt * 5))
-    if (s.wait > 0) s.wait -= dt
-    else s.drop += (0 - s.drop) * (reduced ? 1 : 1 - Math.exp(-dt * 4.5))
+    s.opacity += ((ghost ? 0.2 : 1) - s.opacity) * (reduced ? 1 : 1 - Math.exp(-dt * 3))
     const g = group.current
     if (g) {
-      g.position.y = (s.y + s.explode + s.drop) * S
-      g.visible = s.wait <= 0
+      g.position.y = s.y * S
     }
     const glow = highlighted ? 0.3 + 0.18 * Math.sin(frame.clock.elapsedTime * 5) : 0
-    for (const m of materials) {
+    const see = s.opacity < 0.98
+    for (const m of materials.current) {
       m.emissive.copy(color)
       m.emissiveIntensity = glow
+      if (m.transparent !== see) {
+        // switching blending needs a new shader
+        m.transparent = see
+        m.depthWrite = !see
+        m.needsUpdate = true
+      }
+      m.opacity = s.opacity
     }
   })
 
@@ -114,15 +129,11 @@ function PartModel({
     <group
       ref={group}
       scale={S}
-      visible={false}
       onPointerOver={(e) => {
-        if (useDragStore.getState().held) return
         e.stopPropagation()
         onHover(slot)
       }}
-      onPointerOut={() => {
-        if (!useDragStore.getState().held) onHover(null)
-      }}
+      onPointerOut={() => onHover(null)}
       onClick={(e) => {
         e.stopPropagation()
         onClick(slot)
@@ -261,7 +272,8 @@ function Hangar({ topY }: { topY: number }) {
         </mesh>
       ))}
       {/* NASA launch gantry framing the vehicle bay + astronaut technician for scale */}
-      <SafeHangarModel id="model.env-launch-gantry" position={[0, 0, -4.5]} scale={0.9} fallback={<ServiceTowersFallback />} />
+      {/* the plain service towers, not the full gantry: its platforms would hide the fairing in the close-ups */}
+      <ServiceTowersFallback />
       <SafeHangarModel id="model.env-astronaut" position={[4.35, 0, 2.6]} rotation={[0, -0.55, 0]} scale={1.15} />
       {/* the crane rail and hook above the rocket */}
       <mesh position={[0, Math.max(18, topY + 4), 0]}>
@@ -307,45 +319,6 @@ function Lights() {
       <pointLight position={[-9, 5, 6]} intensity={60} distance={28} color="#cfdde6" />
       <pointLight position={[8, 3, -6]} intensity={40} distance={24} color="#ffb060" />
     </>
-  )
-}
-
-/* ---------------- engine test ---------------- */
-
-function Plume({ firing, bottom, width }: { firing: boolean; bottom: number; width: number }) {
-  const outer = useRef<THREE.Group>(null)
-  const inner = useRef<THREE.Group>(null)
-  const light = useRef<THREE.PointLight>(null)
-  const power = useRef(0)
-  useFrame((st, dt) => {
-    power.current += ((firing ? 1 : 0) - power.current) * (1 - Math.exp(-dt * 9))
-    const p = power.current
-    const flick = 1 + 0.12 * Math.sin(st.clock.elapsedTime * 45) + 0.06 * Math.sin(st.clock.elapsedTime * 71)
-    for (const m of [outer.current, inner.current]) {
-      if (!m) continue
-      m.visible = p > 0.02
-      m.scale.set(p, p * flick, p)
-    }
-    if (light.current) light.current.intensity = p * 200 * flick
-  })
-  const len = 7 * S
-  return (
-    <group position={[0, bottom * S, 0]}>
-      {/* each cone hangs from a group at the nozzle, so the flame grows down from the engine */}
-      <group ref={outer} visible={false}>
-        <mesh position-y={-len / 2} rotation-x={Math.PI}>
-          <coneGeometry args={[width * S, len, 32, 1, true]} />
-          <meshBasicMaterial color="#ff8a3a" transparent opacity={0.55} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} />
-        </mesh>
-      </group>
-      <group ref={inner} visible={false}>
-        <mesh position-y={-(len * 0.7) / 2} rotation-x={Math.PI}>
-          <coneGeometry args={[width * S * 0.55, len * 0.7, 32, 1, true]} />
-          <meshBasicMaterial color="#fff2c9" transparent opacity={0.9} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} />
-        </mesh>
-      </group>
-      <pointLight ref={light} position-y={-1.2} color="#ffb067" distance={22} intensity={0} />
-    </group>
   )
 }
 
@@ -406,7 +379,6 @@ function TagOverlay({
   onHover: (s: RocketSlot | null) => void
   onClick: (s: RocketSlot) => void
 }) {
-  const dragging = useDragStore((s) => !!s.held)
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {placed.map((p, idx) => {
@@ -426,7 +398,7 @@ function TagOverlay({
               onMouseEnter={() => onHover(p.slot)}
               onMouseLeave={() => onHover(null)}
               onClick={() => onClick(p.slot)}
-              className={`${dragging ? 'pointer-events-none' : 'pointer-events-auto'} flex items-center gap-2 whitespace-nowrap rounded-[2px] border px-2 py-1 font-mono text-[11px] font-medium transition-colors`}
+              className={`pointer-events-auto flex items-center gap-2 whitespace-nowrap rounded-[2px] border px-2 py-1 font-mono text-[11px] font-medium transition-colors`}
               style={{
                 borderColor: active ? ACCENT : '#3a4254',
                 color: active ? '#ede6d6' : '#b9b2a3',
@@ -480,29 +452,46 @@ function SafetyMarkings() {
 
 type Controls = ComponentRef<typeof OrbitControls>
 
-function CameraRig({ top, bottom, lift }: { top: number; bottom: number; lift: number }) {
+/** Where the camera looks and how far it stands back, in scene units */
+interface Goal {
+  target: THREE.Vector3
+  dist: number
+}
+
+/** The carry is filmed from the front left, the side the deployer comes from: the gantry stands on the right */
+const CARRY_VIEW = new THREE.Vector3(-1.6, 0.35, 0.9).normalize()
+
+/**
+ * Orbit controls that glide to a goal: the moving payload while it is carried in (every frame,
+ * from a fixed side), else the focused part for a moment after the focus changes, then the
+ * player's to turn and zoom.
+ */
+function CameraRig({ follow, still }: { follow: RefObject<Goal | null>; still: Goal }) {
   const controls = useRef<Controls>(null)
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
-  const dragging = useDragStore((s) => !!s.held)
-  const settle = useRef(1.4)
-  const midY = lift + ((top + bottom) / 2) * S
-  const fit = Math.max(16, ((top - bottom) * S * 1.3) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))))
+  const settle = useRef(1.6)
+  const key = `${still.target.x.toFixed(2)},${still.target.y.toFixed(2)},${still.dist.toFixed(2)}`
 
   useEffect(() => {
-    settle.current = 1.4
-  }, [midY, fit])
+    settle.current = 1.6
+  }, [key])
 
   useFrame((_, dt) => {
     const c = controls.current
     if (!c) return
-    if (settle.current > 0) {
-      settle.current -= dt
-      const k = 1 - Math.exp(-dt * 5)
-      c.target.y += (midY - c.target.y) * k
-      const dir = camera.position.clone().sub(c.target)
-      const d = dir.length()
-      dir.setLength(d + (fit - d) * k)
-      camera.position.copy(c.target).add(dir)
+    const goal = follow.current ?? (settle.current > 0 ? still : null)
+    if (!follow.current && settle.current > 0) settle.current -= dt
+    if (goal) {
+      const k = 1 - Math.exp(-dt * (follow.current ? 4.5 : 4))
+      c.target.lerp(goal.target, k)
+      if (follow.current) {
+        camera.position.lerp(c.target.clone().addScaledVector(CARRY_VIEW, goal.dist), k)
+      } else {
+        const dir = camera.position.clone().sub(c.target)
+        const d = dir.length()
+        dir.setLength(d + (goal.dist - d) * k)
+        camera.position.copy(c.target).add(dir)
+      }
     }
     c.update()
   })
@@ -514,14 +503,119 @@ function CameraRig({ top, bottom, lift }: { top: number; bottom: number; lift: n
       enablePan={false}
       enableDamping
       dampingFactor={0.08}
-      autoRotate={!dragging}
-      autoRotateSpeed={0.55}
       minPolarAngle={0.5}
       maxPolarAngle={Math.PI / 2 - 0.04}
-      minDistance={7}
+      minDistance={1.2}
       maxDistance={60}
-      target={[0, midY, 0]}
     />
+  )
+}
+
+/* ---------------- the payload ---------------- */
+
+/** The carry, in seconds: wait on the floor, rise beside the rocket, swing over, lower into the fairing */
+const LOAD = { hold: 0.8, rise: 3.4, over: 4.6, lower: 6.0, end: 6.6, open: 4.0 }
+
+const ease = (x: number) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x))
+
+/** Where the deployer is `t` seconds into the carry */
+function payloadAt(t: number, start: THREE.Vector3, high: number, seat: THREE.Vector3, out: THREE.Vector3): THREE.Vector3 {
+  if (t < LOAD.rise) {
+    const k = ease((t - LOAD.hold) / (LOAD.rise - LOAD.hold))
+    return out.set(start.x, start.y + (high - start.y) * k, start.z)
+  }
+  if (t < LOAD.over) {
+    const k = ease((t - LOAD.rise) / (LOAD.over - LOAD.rise))
+    return out.set(start.x * (1 - k), high, start.z * (1 - k))
+  }
+  const k = ease((t - LOAD.over) / (LOAD.lower - LOAD.over))
+  return out.set(0, high + (seat.y - high) * k, 0)
+}
+
+function Payload({
+  loading,
+  seat,
+  high,
+  wideY,
+  wideDist,
+  follow,
+  tagEl,
+  onOpen,
+  onLoaded,
+}: {
+  loading: boolean
+  seat: THREE.Vector3
+  high: number
+  /** The whole-rocket shot the carry starts from */
+  wideY: number
+  wideDist: number
+  follow: RefObject<Goal | null>
+  tagEl: RefObject<HTMLDivElement | null>
+  onOpen: () => void
+  onLoaded: () => void
+}) {
+  const root = useModel(DEPLOYER)
+  const group = useRef<THREE.Group>(null)
+  const time = useRef(0)
+  const fired = useRef({ open: false, end: false })
+  // on the hangar floor, front left of the launch table
+  const start = useMemo(() => new THREE.Vector3(-3.6, 0.12, 3.2), [])
+  const pos = useMemo(() => new THREE.Vector3(), [])
+  const v = useMemo(() => new THREE.Vector3(), [])
+  const goal = useMemo<Goal>(() => ({ target: new THREE.Vector3(), dist: 14 }), [])
+
+  useEffect(() => {
+    time.current = 0
+    fired.current = { open: false, end: false }
+    return () => {
+      follow.current = null
+    }
+  }, [loading, follow])
+
+  useFrame(({ camera, size }, dt) => {
+    if (loading) {
+      // a slow or hidden frame must not skip the carry
+      time.current += Math.min(dt, 1 / 20)
+      const t = time.current
+      payloadAt(t, start, high, seat, pos)
+      // the camera follows: the whole rocket while the craft waits on the floor, close as it goes in
+      const near = ease((t - LOAD.hold) / (LOAD.over - LOAD.hold))
+      const wide = Math.max(0, 1 - near)
+      goal.target.set(pos.x * near, pos.y * near + wideY * wide, pos.z * near)
+      goal.dist = wideDist + (4.2 - wideDist) * near
+      follow.current = goal
+      if (t >= LOAD.open && !fired.current.open) {
+        fired.current.open = true
+        onOpen()
+      }
+      if (t >= LOAD.end && !fired.current.end) {
+        fired.current.end = true
+        follow.current = null
+        onLoaded()
+      }
+    } else {
+      pos.copy(seat)
+    }
+    group.current?.position.copy(pos)
+    const el = tagEl.current
+    if (el) {
+      v.set(pos.x, pos.y + 0.32, pos.z).project(camera)
+      const x = ((v.x + 1) / 2) * size.width
+      const y = ((1 - v.y) / 2) * size.height
+      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`
+      el.style.visibility = v.z > 1 ? 'hidden' : 'visible'
+    }
+  })
+
+  return (
+    <group ref={group}>
+      {/* the deployer stands upright, door up, as it rides on the adapter */}
+      <group scale={DEPLOYER_SCALE / M_PER_UNIT} rotation-x={-Math.PI / 2}>
+        <primitive object={root} />
+      </group>
+      {/* a warm work light so the small box reads against the big rocket */}
+      <pointLight position={[0.25, 0.3, 0.25]} intensity={3} distance={2.2} color={ACCENT} />
+    </group>
   )
 }
 
@@ -531,56 +625,52 @@ type Layout = ReturnType<typeof layoutRocket>
 /** The engine bells hang below the core's base: lift the whole rocket so they clear the table */
 const liftOf = (layout: Layout) => TABLE_Y + 0.26 + GAP - layout.bottom * S
 
+/** Height the camera looks at for one part, in body radii above the core's base */
+function focusHeight(p: PlacedPart): number {
+  if (p.slot === 'engine') return 0
+  return tagHeight(p)
+}
+
 function Rocket({
-  config,
   layout,
-  exploded,
-  firing,
   activeSlot,
   onSlotHover,
   onSlotClick,
-  onPartDrop,
+  payload,
+  focus,
+  onLoaded,
   tagEls,
-}: ViewProps & { layout: Layout; tagEls: RefObject<(HTMLDivElement | null)[]> }) {
+  payloadTag,
+}: ViewProps & { layout: Layout; tagEls: RefObject<(HTMLDivElement | null)[]>; payloadTag: RefObject<HTMLDivElement | null> }) {
   const reduced = useMemo(() => prefersReducedMotion(), [])
   const lift = liftOf(layout)
   const anchors = useMemo(() => layout.placed.map((p) => tagPosition(p, lift)), [layout, lift])
-  const engineWidth = layout.placed.find((p) => p.slot === 'engine')!.part.engines === 9 ? 1 : 0.95
-  const stackMidY = lift + ((layout.top + layout.bottom) / 2) * S
-  const stackH = Math.max(10, (layout.top - layout.bottom + 6) * S)
-  const parsePart = (v: string): [RocketSlot, string] => {
-    const [slot, id] = v.split(':')
-    return [slot as RocketSlot, id]
-  }
+  const nose = layout.placed.find((p) => p.slot === 'nose')
+  const seat = useMemo(() => new THREE.Vector3(0, lift + (nose ? nose.y : layout.top - 3) * S + 0.12, 0), [lift, nose, layout.top])
+  const high = lift + layout.top * S + 1.2
+  const follow = useRef<Goal | null>(null)
+  const wholeDist = Math.max(16, ((layout.top - layout.bottom + 2) * S * 1.3) / (2 * Math.tan(THREE.MathUtils.degToRad(35 / 2))))
+  // the fairing turns see-through as the craft goes in, and stays so once it is inside
+  const [opened, setOpened] = useState(false)
+  const open = payload === 'inside' || opened
+
+  const still = useMemo<Goal>(() => {
+    if (focus === 'payload') return { target: new THREE.Vector3(0, seat.y + 0.4, 0), dist: 4.2 }
+    const part = focus === 'whole' ? undefined : layout.placed.find((p) => p.slot === focus)
+    if (part) return { target: new THREE.Vector3(0, lift + focusHeight(part) * S, 0), dist: Math.max(6, part.part.height * S * 2.6) }
+    return { target: new THREE.Vector3(0, lift + ((layout.top + layout.bottom) / 2) * S, 0), dist: wholeDist }
+  }, [focus, seat, layout, lift, wholeDist])
+
   return (
     <>
-      <Hangar topY={lift + (layout.top + (exploded ? EXPLODE.nose : 0)) * S} />
-      <CameraRig top={exploded ? layout.top + EXPLODE.nose : layout.top} bottom={exploded ? layout.bottom + EXPLODE.engine : layout.bottom} lift={lift} />
-      <HoldStillWhileDragging />
-      <SnapNudge />
-      <SnapPuff at={[0, stackMidY, 0]} scale={16} slots={['rocket:hook']} />
-      <DropSlot
-        id="rocket:hook"
-        accepts={['rocket-part']}
-        position={[0, stackMidY, 0]}
-        size={[7, stackH, 7]}
-        preview={false}
-        refuse={(p) => {
-          const [slot, id] = parsePart(p.value)
-          const r = pick(config, slot, id)
-          return r.config[slot] === id ? null : (r.notes[0] ?? 'Does not fit on this rocket')
-        }}
-        onDrop={(p) => {
-          const [slot, id] = parsePart(p.value)
-          onPartDrop?.(slot, id)
-        }}
-      />
+      <Hangar topY={lift + layout.top * S} />
+      <CameraRig follow={follow} still={still} />
       <group position-y={lift}>
         {layout.placed.map((p) => (
           <Suspense key={`${p.slot}:${p.part.id}`} fallback={null}>
             <PartModel
               placed={p}
-              exploded={exploded}
+              ghost={p.slot === 'nose' && open}
               highlighted={activeSlot === p.slot}
               reduced={reduced}
               onHover={onSlotHover}
@@ -588,8 +678,20 @@ function Rocket({
             />
           </Suspense>
         ))}
-        <Plume firing={firing} bottom={layout.bottom} width={engineWidth} />
       </group>
+      <Suspense fallback={null}>
+        <Payload
+          loading={payload === 'loading'}
+          seat={seat}
+          high={high}
+          wideY={(lift + ((layout.top + layout.bottom) / 2) * S) * 0.75}
+          wideDist={wholeDist}
+          follow={follow}
+          tagEl={payloadTag}
+          onOpen={() => setOpened(true)}
+          onLoaded={onLoaded}
+        />
+      </Suspense>
       <TagProjector anchors={anchors} elements={tagEls} />
     </>
   )
@@ -598,12 +700,13 @@ function Rocket({
 export function RocketBay(props: ViewProps) {
   const layout = useMemo(() => layoutRocket(props.config), [props.config])
   const tagEls = useRef<(HTMLDivElement | null)[]>([])
+  const payloadTag = useRef<HTMLDivElement | null>(null)
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       <Canvas
         shadows
         dpr={[1, 2]}
-        camera={{ fov: 35, position: [14, 9, 24], near: 0.1, far: 200 }}
+        camera={{ fov: 35, position: [-14, 9, 24], near: 0.05, far: 200 }}
         gl={{ antialias: true }}
         onCreated={({ scene, gl }) => {
           scene.background = new THREE.Color('#0d0e10')
@@ -615,10 +718,21 @@ export function RocketBay(props: ViewProps) {
         }}
       >
         <Lights />
-        <Rocket {...props} layout={layout} tagEls={tagEls} />
+        <Rocket {...props} layout={layout} tagEls={tagEls} payloadTag={payloadTag} />
         <Effects preset="interior" />
       </Canvas>
       <TagOverlay placed={layout.placed} activeSlot={props.activeSlot} elements={tagEls} onHover={props.onSlotHover} onClick={props.onSlotClick} />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div ref={payloadTag} className="invisible absolute left-0 top-0">
+          <span
+            className="flex items-center gap-2 whitespace-nowrap rounded-[2px] border px-2 py-1 font-mono text-[11px] font-medium"
+            style={{ borderColor: ACCENT, color: '#ede6d6', background: 'rgba(42,30,12,0.94)' }}
+          >
+            <span className="h-2 w-2 flex-none" style={{ background: ACCENT }} />
+            Your CubeSat, in its deployer
+          </span>
+        </div>
+      </div>
     </div>
   )
 }
