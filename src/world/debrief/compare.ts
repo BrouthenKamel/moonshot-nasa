@@ -132,7 +132,9 @@ const joinAnd = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0,
 const measure = (i: Insight | undefined): Measure | null => (i ? { value: i.metric.value, unit: i.metric.unit } : null)
 /** Rooms named like departments read without "the": "In Flight Dynamics you…" */
 const NO_ARTICLE: RoomId[] = ['flight-dynamics', 'mission-control']
-const inRoom = (room: RoomId) => `In ${NO_ARTICLE.includes(room) ? '' : 'the '}${ROOM_TITLES[room]}`
+/** "the Clean Room", "Flight Dynamics" */
+export const theRoom = (room: RoomId) => `${NO_ARTICLE.includes(room) ? '' : 'the '}${ROOM_TITLES[room]}`
+const inRoom = (room: RoomId) => `In ${theRoom(room)}`
 const skipped = (room: RoomId, what: string) => `You did not run the ${ROOM_TITLES[room]} experiment, so there was no prediction for ${what}.`
 
 /* ---------------- one builder per subsystem ---------------- */
@@ -171,7 +173,12 @@ function powerLine(insights: Insight[], f: FlightFacts): SubsystemLine {
 function fuelLine(insights: Insight[], f: FlightFacts): SubsystemLine {
   const pick = byId(insights, 'orbit-dv-margin', 'delta-v-margin')
   const room: RoomId = pick?.room === 'clean-room' ? 'clean-room' : 'flight-dynamics'
-  const said = pick ? `${inRoom(room)} you predicted ${pick.metric.value} m/s of fuel to spare after the capture burn.` : skipped(room, 'the fuel')
+  const said = !pick
+    ? skipped(room, 'the fuel')
+    : pick.metric.value >= 0
+      ? `${inRoom(room)} you predicted ${pick.metric.value} m/s of fuel to spare after the capture burn.`
+      : `${inRoom(room)} you saw the tank would be ${-pick.metric.value} m/s short of the capture burn.`
+  const warned = pick !== undefined && pick.metric.value < 0
   const base = { id: 'fuel' as const, name: 'Fuel (Δv)', room, predicted: measure(pick) }
   if (!f.launched || f.fuelAfterCapture === null)
     return { ...base, verdict: 'untested', actual: null, line: `${said} The craft never reached the Moon, so the engine was never put to the test.`, why: 'The capture burn happens only on arrival at the Moon.' }
@@ -184,7 +191,7 @@ function fuelLine(insights: Insight[], f: FlightFacts): SubsystemLine {
       verdict: 'worse',
       actual: { value: left, unit: 'm/s' },
       line: `${said} At the Moon the tank was ${-left} m/s short, so the craft could not brake into orbit.`,
-      why: `The capture burn needs more Δv than the tank held.${thruster} A bigger engine or tank (Clean Room) or a cheaper orbit (Flight Dynamics) fixes it.`,
+      why: `${warned ? 'Your experiment warned you: ' : ''}the capture burn needs more Δv than the tank held.${thruster} A bigger engine or tank (Clean Room) or a cheaper orbit (Flight Dynamics) fixes it.`.replace(/^./, (c) => c.toUpperCase()),
     }
   const short = pick !== undefined && left < pick.metric.value - 5
   return {
@@ -249,14 +256,14 @@ function scheduleLine(insights: Insight[], f: FlightFacts, report: Report): Subs
     return {
       ...base,
       verdict: 'held',
-      actual: { value: f.launchTurn, unit: 'launch month' },
+      actual: { value: 0, unit: 'months late' },
       line: `${said} It launched on time, in month ${f.launchTurn}.`,
       why: delays > 0 ? `${plural(delays, 'late part')} ate into your slack, but the slack was enough.` : 'The build finished in time for the ride.',
     }
   return {
     ...base,
     verdict: 'worse',
-    actual: { value: f.launchTurn, unit: 'launch month' },
+    actual: { value: slip, unit: 'months late' },
     line: `${said} It missed the ride and launched ${plural(slip, 'month')} late, in month ${f.launchTurn}.`,
     why: `${delays > 0 ? `${plural(delays, 'late part')} pushed the build past the departure. ` : ''}Waiting for the next ride costs money every month. More slack (an earlier build or a later ride) protects the date.`,
   }
@@ -415,13 +422,11 @@ export function explainOutcome(report: Report, lines: SubsystemLine[]): Explanat
   const worse = lines.filter((l) => l.verdict === 'worse')
   const held = lines.filter((l) => l.verdict === 'held')
   if (report.outcome === 'success') {
-    const strengths = HEADLINE_ORDER.map((id) => held.find((l) => l.id === id))
-      .filter((l): l is SubsystemLine => l !== undefined)
-      .slice(0, 3)
-      .map((l) => SHORT_NAMES[l.id])
+    const ranked = HEADLINE_ORDER.map((id) => held.find((l) => l.id === id)).filter((l): l is SubsystemLine => l !== undefined)
+    const strengths = ranked.slice(0, 3).map((l) => SHORT_NAMES[l.id])
     return {
       headline: `It worked: the ${strengths.length > 0 ? joinAnd(strengths) : 'design'} came out the way your experiments said.`,
-      reasons: [...held.map((l) => `${l.name}: ${l.why}`), ...worse.map((l) => `${l.name}: ${l.why} It cost points, but not the mission.`)],
+      reasons: [...ranked.map((l) => `${l.name}: ${l.why}`), ...worse.map((l) => `${l.name}: ${l.why} It cost points, but not the mission.`)],
     }
   }
   const missed = report.requirements.filter((r) => !r.met)

@@ -3,7 +3,7 @@ import type { Insight } from '../../minigames/contract'
 import type { Report } from '../../sim/types'
 import { useCampusStore } from '../../state/campusStore'
 import { isClassicMode } from '../../world/mode'
-import { ROOM_TITLES, compareFlight, explainOutcome, roomToRedesign, type FlightRecord, type SubsystemLine, type Verdict } from '../../world/debrief/compare'
+import { ROOM_TITLES, compareFlight, theRoom, explainOutcome, roomToRedesign, type FlightRecord, type SubsystemLine, type Verdict } from '../../world/debrief/compare'
 import { flyAgain } from '../../world/debrief/flyAgain'
 import type { RoomId } from '../../world/rooms/ids'
 import { Sheet, Tag, type TagTone } from '../kit'
@@ -24,13 +24,16 @@ const VERDICT: Record<Verdict, { label: string; tone: TagTone; edge: string }> =
 const REDESIGN_ROOMS: RoomId[] = ['briefing', 'science-lab', 'clean-room', 'thermal-vac', 'flight-dynamics', 'ground-station', 'launch-hangar']
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1))
+/** "1 months late" reads "1 month late" */
+const show = (m: { value: number; unit: string }) =>
+  m.unit === '%' ? `${fmt(m.value)}%` : `${fmt(m.value)} ${Math.abs(m.value) === 1 ? m.unit.replace(/^months\b/, 'month') : m.unit}`.trim()
 
 function Numbers({ line }: { line: SubsystemLine }) {
   return (
     <div className="flex shrink-0 items-baseline gap-2 fp-data text-xs" aria-label="Predicted, then actual">
-      <span className="text-paper-faint">{line.predicted ? `${fmt(line.predicted.value)} ${line.predicted.unit}`.trim() : 'no test'}</span>
+      <span className="text-paper-faint">{line.predicted ? show(line.predicted) : 'no test'}</span>
       <span className="text-paper-faint">→</span>
-      <span className="text-paper">{line.actual ? `${fmt(line.actual.value)} ${line.actual.unit}`.trim() : '—'}</span>
+      <span className="text-paper">{line.actual ? show(line.actual) : '—'}</span>
     </div>
   )
 }
@@ -98,7 +101,7 @@ export function Debrief({ report, record }: { report: Report; record: FlightReco
           <div className="mt-3 flex flex-wrap gap-2">
             {target && (
               <button type="button" onClick={() => flyAgain(target)} className="fp-btn-primary" data-room={target}>
-                {`Redesign in the ${ROOM_TITLES[target]}`}
+                {`Redesign in ${theRoom(target)}`}
               </button>
             )}
             {REDESIGN_ROOMS.filter((r) => r !== target).map((r) => (
