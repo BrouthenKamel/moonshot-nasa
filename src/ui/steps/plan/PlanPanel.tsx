@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { useGameStore } from '../../../state/gameStore'
 import { useSuccessEstimate } from '../../useOdds'
 import type { DesignStep } from '../../../sim/types'
@@ -126,11 +126,16 @@ export function PlanChecks({ checks }: { checks: { label: string; status: Tone; 
 export function PlanOdds() {
   const design = useGameStore((s) => s.design)
   const difficulty = useGameStore((s) => s.difficulty)
-  const odds = useSuccessEstimate(design, difficulty)
+  const fresh = useSuccessEstimate(design, difficulty)
+  // While a change is being worked out, keep showing the last estimate (dimmed) instead of a placeholder
+  const [last, setLast] = useState(fresh)
+  if (fresh && fresh !== last) setLast(fresh)
+  const odds = fresh ?? last
+  const stale = !fresh && !!last
   const pct = odds ? odds.success * 100 : null
   const tone: Tone = pct === null ? 'yellow' : pct >= 60 ? 'green' : pct >= 30 ? 'yellow' : 'red'
   return (
-    <div title={`Share of ${odds?.runs ?? 200} simulated flights that meet every goal`}>
+    <div title={`Share of ${odds?.runs ?? 200} simulated flights that meet every goal`} aria-busy={stale} className={stale ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
       <PlanMeter label="Mission success" pct={pct} tone={tone} />
     </div>
   )
@@ -200,8 +205,8 @@ export function PlanVSlider({
   topText: string
   bottomText: string
   min?: number
-  /** Labelled ticks along the track; a click on one snaps the slider to its position (0..1) */
-  marks?: { at: number; label: string }[]
+  /** Labelled ticks beside the track; a click on one snaps the slider to its position (0..1). `title` is the full name. */
+  marks?: { at: number; label: string; title?: string }[]
 }) {
   const track = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
@@ -238,39 +243,45 @@ export function PlanVSlider({
   return (
     <div style={{ width: SLIDER_PX }} className="pointer-events-auto flex h-full flex-col items-center gap-2 py-1 select-none">
       <span className="fp-data text-center text-[0.68rem] text-paper-dim">{topText}</span>
-      <div
-        ref={track}
-        role="slider"
-        tabIndex={0}
-        aria-label={label}
-        aria-orientation="vertical"
-        aria-valuemin={Math.round(min * 1000)}
-        aria-valuemax={1000}
-        aria-valuenow={Math.round(value * 1000)}
-        aria-valuetext={valueText}
-        onPointerDown={onDown}
-        onPointerMove={onMove}
-        onPointerUp={onUp}
-        onPointerCancel={onUp}
-        onKeyDown={onKey}
-        className="group relative w-10 flex-1 cursor-ns-resize touch-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-kapton"
-      >
-        {/* Track; the part nothing can reach (below min) is hatched out */}
-        <div className="absolute inset-y-0 left-1/2 w-1.5 -translate-x-1/2 rounded-full bg-ink-3 ring-1 ring-rule" />
-        {min > 0 && (
-          <div className="absolute inset-x-[42%] bottom-0 rounded-full bg-nogo/30" style={{ height: `${min * 100}%` }} title="Out of reach for this craft" />
-        )}
-        <div className="absolute bottom-0 left-1/2 w-1.5 -translate-x-1/2 rounded-full bg-kapton/80" style={{ height: `${value * 100}%` }} />
+      <div className="relative w-10 flex-1">
+        <div
+          ref={track}
+          role="slider"
+          tabIndex={0}
+          aria-label={label}
+          aria-orientation="vertical"
+          aria-valuemin={Math.round(min * 1000)}
+          aria-valuemax={1000}
+          aria-valuenow={Math.round(value * 1000)}
+          aria-valuetext={valueText}
+          onPointerDown={onDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerCancel={onUp}
+          onKeyDown={onKey}
+          className="group absolute inset-0 cursor-ns-resize touch-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-kapton"
+        >
+          {/* Track; the part nothing can reach (below min) is hatched out */}
+          <div className="absolute inset-y-0 left-1/2 w-1.5 -translate-x-1/2 rounded-full bg-ink-3 ring-1 ring-rule" />
+          {min > 0 && (
+            <div className="absolute inset-x-[42%] bottom-0 rounded-full bg-nogo/30" style={{ height: `${min * 100}%` }} title="Out of reach for this craft" />
+          )}
+          <div className="absolute bottom-0 left-1/2 w-1.5 -translate-x-1/2 rounded-full bg-kapton/80" style={{ height: `${value * 100}%` }} />
+          {/* Thumb with the value */}
+          <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ top: `${pct}%` }}>
+            <div className="h-5 w-5 rounded-full border-2 border-kapton bg-ink-0 shadow-[0_0_12px_rgba(232,163,61,0.6)] transition-transform group-active:scale-110" />
+          </div>
+        </div>
+        {/* Beside the track, not inside the slider: a mark is its own button and its click starts no drag */}
         {marks.map((m) => (
           <button
             key={m.label}
             type="button"
             tabIndex={-1}
-            aria-label={`Set ${m.label}`}
+            title={m.title ?? m.label}
+            aria-label={`Set ${m.title ?? m.label}`}
             data-testid="slider-mark"
-            // The tick belongs to the button, not the track: its click must not start a drag
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => onChange(Math.max(min, m.at))}
+            onClick={() => onChange(Math.max(min, Math.min(1, m.at)))}
             style={{ top: `${(1 - m.at) * 100}%` }}
             className="absolute right-1/2 mr-2.5 flex -translate-y-1/2 cursor-pointer items-center gap-1.5 text-right"
           >
@@ -280,10 +291,6 @@ export function PlanVSlider({
             <span aria-hidden className="h-px w-3 bg-kapton" />
           </button>
         ))}
-        {/* Thumb with the value */}
-        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ top: `${pct}%` }}>
-          <div className="h-5 w-5 rounded-full border-2 border-kapton bg-ink-0 shadow-[0_0_12px_rgba(232,163,61,0.6)] transition-transform group-active:scale-110" />
-        </div>
       </div>
       <span className="fp-data text-center text-[0.68rem] text-paper-dim">{bottomText}</span>
     </div>

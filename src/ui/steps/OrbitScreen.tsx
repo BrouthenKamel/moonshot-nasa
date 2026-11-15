@@ -2,6 +2,7 @@ import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from '
 import { useGameStore } from '../../state/gameStore'
 import { getOrbitById, polarOrbitId, polarOrbitKm } from '../../data/orbits'
 import { canUseWebGL } from '../../scene/webgl'
+import { Details } from '../kit'
 import { COVERAGE_TARGET } from '../../sim/evaluate'
 import { ORBIT_MAX_KM, ORBIT_MIN_KM, kmAt, orbitPlan, positionOf, type OrbitPlan } from '../../viz/orbit/orbitPlan'
 import {
@@ -32,6 +33,19 @@ const OrbitPlannerScene = lazy(() =>
  */
 
 const GOAL = COVERAGE_TARGET // % of the ice map the brief asks for: the sim's one target
+/**
+ * Real missions' orbits on the slider (its height is the low point over the south pole); a click snaps to one.
+ * - Lunar Prospector: 100 km circular polar mapping orbit, 1998-99 (NASA NSSDCA 1998-001A).
+ * - LunaH-Map: planned elliptical polar orbit, 15 km low point over the south pole, 3,150 km far
+ *   point (ASU / NASA mission plan; the same orbit as data/orbits.ts 'orbit-elliptical').
+ * Lunar Flashlight's near-rectilinear halo orbit is not a low-point/far-point polar orbit this slider
+ * draws, so it has no tick.
+ */
+const MISSION_TICKS = [
+  { at: positionOf(100), label: 'Lunar Prospector', title: 'Lunar Prospector, 1998-99: 100 km circular polar orbit' },
+  { at: positionOf(15), label: 'LunaH-Map', title: 'LunaH-Map (planned): 15 x 3,150 km elliptical polar orbit' },
+]
+
 /** Room on the right the slider and the dashboard take, with their margins */
 const RIGHT_PX = PANEL_PX + SLIDER_PX + 40
 
@@ -68,9 +82,6 @@ function OrbitDashboard({ plan }: { plan: OrbitPlan }) {
       <PlanNote tone={ice.tone}>{ice.text}</PlanNote>
       <PlanMeter label="Ice mapped in 12 months" pct={plan.iceMapped} tone={iceTone} goal={GOAL / 100} />
       <PlanRows>
-        <PlanRow label="Once round" value={hours(plan.periodHours)} />
-        <PlanRow label="Pole passes" value={`${plan.passesPerMonth} / month`} />
-        <PlanRow label="Longest shadow" value={hours(plan.eclipseHours)} sub="on the battery" />
         <PlanRow
           label="Brake into it"
           value={plan.capture === null ? 'cannot' : `${Math.round(plan.capture)} m/s`}
@@ -89,8 +100,16 @@ function OrbitDashboard({ plan }: { plan: OrbitPlan }) {
                 : 'nothing left'
           }
         />
-        <PlanRow label="Far side" value={`${fmtKm(plan.farKm)} km`} sub={plan.circular ? 'a circle' : 'over the north pole'} />
       </PlanRows>
+      {/* Screen budget: the orbit's shape waits behind the shared Details control */}
+      <Details id="orbit" panelClassName="pt-2">
+        <PlanRows>
+          <PlanRow label="Once round" value={hours(plan.periodHours)} />
+          <PlanRow label="Pole passes" value={`${plan.passesPerMonth} / month`} />
+          <PlanRow label="Longest shadow" value={hours(plan.eclipseHours)} sub="on the battery" />
+          <PlanRow label="Far side" value={`${fmtKm(plan.farKm)} km`} sub={plan.circular ? 'a circle' : 'over the north pole'} />
+        </PlanRows>
+      </Details>
       <PlanChecks checks={plan.checks} />
       <PlanOdds />
       <PlanNav back={{ label: '← Back', to: 'spacecraft' }} next={{ label: 'Choose ride →', to: 'ride' }} />
@@ -136,6 +155,7 @@ export function OrbitScreen() {
       valueText={`${fmtKm(plan.km)} km`}
       topText={`${fmtKm(ORBIT_MAX_KM)} km`}
       bottomText={`${ORBIT_MIN_KM} km`}
+      marks={MISSION_TICKS}
     />
   )
 
