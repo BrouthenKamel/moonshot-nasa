@@ -9,6 +9,7 @@ import { getOrbitById } from '../../data/orbits'
 import { getPartById, instruments as catalogue, type AttitudePart, type InstrumentPart } from '../../data/parts'
 import { computeBudgets } from '../../sim/budgets'
 import type { Design } from '../../sim/types'
+import { computeSynergies } from '../../viz/synergies'
 
 export const COVERAGE_TARGET = 70
 const MAX_INSTRUMENTS = 2
@@ -35,17 +36,6 @@ export function toggleInstrument(current: string[], id: string): string[] {
   return current.includes(id) ? current.filter((i) => i !== id) : [...current, id].slice(-MAX_INSTRUMENTS)
 }
 
-/** The other buildings' choices the simulator lets the player try. */
-export interface WhatIf {
-  orbit: string
-  precise: boolean
-}
-
-export function whatIfFromDesign(design: Design): WhatIf {
-  const attitude = getPartById(design.attitude) as AttitudePart | undefined
-  return { orbit: design.orbit, precise: attitude?.precise ?? false }
-}
-
 export interface InstrumentView {
   id: string
   name: string
@@ -70,7 +60,6 @@ export interface StageForecast {
   outreachMB: number
   passesPerTurn: number
   meetsTarget: boolean
-  isWhatIf: boolean
   reasons: string[]
 }
 
@@ -80,16 +69,13 @@ export interface StageModel {
   forecast: StageForecast
 }
 
-export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatIf): StageModel {
-  const tried: Design = {
-    ...design,
-    orbit: whatIf.orbit,
-    attitude: whatIf.precise ? 'attitude-precision' : 'attitude-basic',
-  }
-  const b = computeBudgets(tried, difficulty)
-  const orbit = getOrbitById(whatIf.orbit)
+/** The lab tests the instruments at the design's own orbit and pointing: those are decided in their own steps. */
+export function stageModel(design: Design, difficulty: Difficulty): StageModel {
+  const b = computeBudgets(design, difficulty)
+  const orbit = getOrbitById(design.orbit)
   const altitudeKm = orbit?.altitude ?? FALLBACK_ALTITUDE_KM
   const duty = b.scienceDuty
+  const precise = (getPartById(design.attitude) as AttitudePart | undefined)?.precise ?? false
 
   const chosen = design.instruments
     .map((id) => catalogue.find((c) => c.id === id))
@@ -98,7 +84,7 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
   const views = chosen.map((p): InstrumentView => {
     const strength = b.quality[p.id] ?? 0
     const heightIsCause = p.maxAltitudeKm !== null && altitudeKm > p.maxAltitudeKm
-    const shaky = !whatIf.precise && p.qualityWithoutPrecisePointing < 1
+    const shaky = !precise && p.qualityWithoutPrecisePointing < 1
     const problems: string[] = []
     if (heightIsCause) problems.push(`too high at ${altitudeKm} km: works below ${p.maxAltitudeKm} km`)
     if (shaky) problems.push('shaky aim: needs precise pointing')
@@ -140,9 +126,11 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
       `The link is too slow: ${Math.round(b.dataPerTurn)} MB a turn is made, ${Math.round(b.downlinkPerTurn)} MB gets home, and coverage only counts once its data is home. Link: Comms Center.`
     )
   }
-  if (!chosen.some((p) => p.kind === 'ice')) reasons.push('Nothing aboard sees into shadow: no ice is mapped.')
+  // The Synergy strip on this step already says it, and names the fix, when it shows the 'shadow-blind'
+  // conflict card: that card is the one source, so the panel repeats the cause only when no card covers it.
+  const shadowCardShown = computeSynergies(design, b).some((c) => c.id === 'shadow-blind' && c.steps.includes('instruments'))
+  if (!chosen.some((p) => p.kind === 'ice') && !shadowCardShown) reasons.push('Nothing aboard sees into shadow: no ice is mapped.')
 
-  const fromDesign = whatIfFromDesign(design)
   return {
     altitudeKm,
     instruments: views,
@@ -153,7 +141,6 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
       outreachMB: b.projectedOutreach,
       passesPerTurn: orbit?.passesPerTurn ?? 0,
       meetsTarget: b.projectedCoverage >= COVERAGE_TARGET,
-      isWhatIf: fromDesign.orbit !== whatIf.orbit || fromDesign.precise !== whatIf.precise,
       reasons,
     },
   }
@@ -172,23 +159,7 @@ export function activityText(view: InstrumentView, overShadow: boolean): string 
   return overShadow ? 'Reading the dark crater floor' : 'Reading sunlit ground'
 }
 
-/** 0..1 visibility of cyan ice glints inside shadowed craters when looking through the optical bench. */
+/** 0..1 visibility of cyan ice glints inside shadowed craters over the shadowed craters. */
 export function iceSparkleStrength(views: readonly InstrumentView[]): number {
   return views.reduce((best, v) => (v.seesShadow && !v.outOfRange ? Math.max(best, v.strength) : best), 0)
-}
-
-/** Instrument-specific caption inside the Lab look-through view. */
-export function lookThroughCaption(views: readonly InstrumentView[], altitudeKm: number): string {
-  if (views.length === 0) return 'Instrument bay is empty — drag or pick an instrument to look through its optics.'
-  const iceCapable = views.filter((v) => v.seesShadow)
-  if (iceCapable.length > 0) {
-    if (altitudeKm > 20 || iceCapable.every((v) => v.outOfRange)) {
-      return `At ${altitudeKm} km, the return fades to nothing — drop back to ≤20 km to spot cyan ice glints.`
-    }
-    return 'Looking down at 15 km — cyan ice sparkles glint across the dark crater floor.'
-  }
-  if (views.some((v) => v.id === 'inst-ir-spec')) {
-    return "I can't see into the dark — thermal glow dies inside the cold shadow."
-  }
-  return 'Camera view over the rim — sunlight only, no ice signal in the pitch-black crater.'
 }

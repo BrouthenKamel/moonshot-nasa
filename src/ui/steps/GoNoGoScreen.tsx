@@ -13,6 +13,7 @@ import { POLL_ORDER, ROLE_INFO, stations, type Role, type Station } from '../../
 import { fixLocation } from '../../viz/missionMap'
 import { Eng, Stamp, StepHeader, Tag, type StampVerdict, type TagTone } from '../kit'
 import { Tooltip } from '../Tooltip'
+import { goCall } from './gonogo/headline'
 import { useSuccessEstimate } from '../useOdds'
 
 const POLL_VOICE: Record<Role, AudioId> = {
@@ -400,10 +401,14 @@ export function GoNoGoScreen() {
   const polling = step !== null && step < POLL_ORDER.length
   const polled = step === POLL_ORDER.length
 
+  // Honest wording: GO, OVER A LIMIT / GO, BELOW TARGET / GO WITH CAUTION, with the row it is about
+  const call = goCall(result)
   const finalStamp: { verdict: StampVerdict; text: string; size: 'md' | 'lg' } = result.canGo
     ? doomed
       ? { verdict: 'caution', text: 'GO, BUT IT CANNOT MEET THE BRIEF', size: 'md' }
-      : { verdict: result.warnings.length ? 'caution' : 'go', text: 'GO FOR LAUNCH', size: 'lg' }
+      : result.warnings.length
+        ? { verdict: 'caution', text: call.label, size: 'md' }
+        : { verdict: 'go', text: 'GO FOR LAUNCH', size: 'lg' }
     : { verdict: 'nogo', text: 'NO-GO', size: 'lg' }
 
   const critical = result.checks.filter((c) => c.status === 'red')
@@ -414,7 +419,7 @@ export function GoNoGoScreen() {
     <div className="mx-auto max-w-5xl space-y-6">
       <StepHeader
         step="go-nogo"
-        kicker="COMMS CENTER · LUNAR ICE MAPPER · GO / NO-GO"
+        kicker="COMMS CENTER · GO / NO-GO"
         title="Go / No-Go poll"
         question="Before every launch the flight director asks each station, one by one, whether it is go. A station is no-go when a check fixed in its building is red."
       >
@@ -426,6 +431,7 @@ export function GoNoGoScreen() {
               {finalStamp.text}
             </Stamp>
           )}
+          {!polling && result.canGo && call.reason && <div className="fp-data text-xs text-caution">{call.reason}</div>}
           <div className="fp-data text-xs text-paper-dim">{summary}</div>
         </div>
       </StepHeader>

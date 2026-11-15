@@ -1,5 +1,6 @@
 import type { EventType } from '../data/events'
 import type { AudioId } from './manifest'
+import { craftWasLost } from '../sim/evaluate'
 
 /**
  * What the game sounds like, as a pure function: two snapshots of the game in, the music,
@@ -130,7 +131,10 @@ export function cuesFor(prev: Snapshot, next: Snapshot): Cue[] {
     if (f.newLogs.some((l) => l.dataSent > 0)) sfx('sfx.downlink')
     else if (f.newLogs.length > 0 && cues.length === 0) sfx('sfx.turn')
     if (f.ended && !was.ended && next.outcome) {
-      voice(next.outcome === 'success' ? 'voice.end-success' : next.outcome === 'partial' ? 'voice.end-partial' : 'voice.end-failed')
+      // "We have lost the mission." only when the craft is gone; another failure gets no voice line (QC, 15 Nov)
+      if (next.outcome === 'success') voice('voice.end-success')
+      else if (next.outcome === 'partial') voice('voice.end-partial')
+      else if (craftWasLost(f.end)) voice('voice.end-failed')
     }
   }
 

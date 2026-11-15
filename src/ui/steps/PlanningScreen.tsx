@@ -339,7 +339,7 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
 
   return (
     <div className={hidden ? 'sr-only' : 'mx-auto max-w-3xl space-y-4'}>
-      <StepHeader step="planning" kicker="Comms Center · Lunar Ice Mapper" title="Mission planning" />
+      <StepHeader step="planning" kicker="Comms Center" title="Mission planning" />
 
       <Eng as="div" className="block">
         <Sheet tone="flat" className="p-4">

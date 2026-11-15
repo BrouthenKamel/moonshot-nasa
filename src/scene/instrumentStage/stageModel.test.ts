@@ -2,18 +2,18 @@ import { describe, it, expect } from 'vitest'
 import { computeBudgets } from '../../sim/budgets'
 import { flashlightDesign, lunahMapDesign, iceCubeDesign } from '../../sim/fixtures'
 import type { Design } from '../../sim/types'
+import { computeSynergies } from '../../viz/synergies'
 import {
   activityText,
   stageModel,
   toggleInstrument,
-  whatIfFromDesign,
   INSTRUMENT_COLORS,
   INSTRUMENT_SHORT_NAMES,
   passesText,
   type StageModel,
 } from './stageModel'
 
-const base = (d: Design) => stageModel(d, 'engineer', whatIfFromDesign(d))
+const base = (d: Design) => stageModel(d, 'engineer')
 const view = (m: StageModel, id: string) => {
   const v = m.instruments.find((i) => i.id === id)
   if (!v) throw new Error(`no view for ${id}`)
@@ -33,16 +33,6 @@ describe('toggleInstrument', () => {
   })
 })
 
-describe('whatIfFromDesign', () => {
-  it('reads orbit and pointing from the design', () => {
-    expect(whatIfFromDesign(flashlightDesign)).toEqual({ orbit: 'orbit-halo', precise: true })
-    expect(whatIfFromDesign(lunahMapDesign)).toEqual({ orbit: 'orbit-elliptical', precise: false })
-  })
-  it('treats an unknown attitude as basic pointing', () => {
-    expect(whatIfFromDesign({ ...flashlightDesign, attitude: 'nope' }).precise).toBe(false)
-  })
-})
-
 describe('catalogue labels', () => {
   it('has a colour and a short name for every instrument', () => {
     for (const id of ['inst-laser', 'inst-ir-spec', 'inst-neutron', 'inst-camera']) {
@@ -54,16 +44,17 @@ describe('catalogue labels', () => {
 })
 
 describe('stageModel', () => {
-  it('IR spectrometer alone maps no ice and says why', () => {
+  it('IR spectrometer alone maps no ice; the conflict card says why, so the panel does not repeat it', () => {
     const m = base(iceCubeDesign)
     expect(view(m, 'inst-ir-spec').countsAs).toBe('context')
     expect(m.forecast.coverage).toBe(0)
     expect(m.forecast.meetsTarget).toBe(false)
-    expect(m.forecast.reasons).toContain('Nothing aboard sees into shadow: no ice is mapped.')
+    expect(computeSynergies(iceCubeDesign, computeBudgets(iceCubeDesign, 'engineer')).some((c) => c.id === 'shadow-blind')).toBe(true)
+    expect(m.forecast.reasons).not.toContain('Nothing aboard sees into shadow: no ice is mapped.')
   })
 
   it('neutron spectrometer low down is at full strength', () => {
-    const v = view(stageModel(lunahMapDesign, 'engineer', { orbit: 'orbit-elliptical', precise: true }), 'inst-neutron')
+    const v = view(stageModel({ ...lunahMapDesign, orbit: 'orbit-elliptical', attitude: 'attitude-precision' }, 'engineer'), 'inst-neutron')
     expect(v.strength).toBe(1)
     expect(v.shaky).toBe(false)
     expect(v.problems).toEqual([])
@@ -71,14 +62,14 @@ describe('stageModel', () => {
   })
 
   it('laser with basic pointing is shaky at half strength', () => {
-    const v = view(stageModel(flashlightDesign, 'engineer', { orbit: 'orbit-halo', precise: false }), 'inst-laser')
+    const v = view(stageModel({ ...flashlightDesign, orbit: 'orbit-halo', attitude: 'attitude-basic' }, 'engineer'), 'inst-laser')
     expect(v.strength).toBe(0.5)
     expect(v.shaky).toBe(true)
     expect(v.problems).toContain('shaky aim: needs precise pointing')
   })
 
   it('laser at 100 km follows the core and names the height', () => {
-    const v = view(stageModel(flashlightDesign, 'engineer', { orbit: 'orbit-100km', precise: true }), 'inst-laser')
+    const v = view(stageModel({ ...flashlightDesign, orbit: 'orbit-100km', attitude: 'attitude-precision' }, 'engineer'), 'inst-laser')
     const b = computeBudgets({ ...flashlightDesign, orbit: 'orbit-100km' }, 'engineer')
     expect(v.strength).toBe(b.quality['inst-laser'])
     expect(v.outOfRange || v.veryWeak).toBe(true)
@@ -88,18 +79,17 @@ describe('stageModel', () => {
   })
 
   it('neutron spectrometer at 100 km names the 25 km limit', () => {
-    const v = view(stageModel(lunahMapDesign, 'engineer', { orbit: 'orbit-100km', precise: false }), 'inst-neutron')
+    const v = view(stageModel({ ...lunahMapDesign, orbit: 'orbit-100km', attitude: 'attitude-basic' }, 'engineer'), 'inst-neutron')
     expect(v.problems[0]).toBe('too high at 100 km: works below 25 km')
   })
 
-  it('dials equal to the design reproduce the dashboard forecast', () => {
+  it('the forecast is the dashboard forecast of the design', () => {
     const m = base(lunahMapDesign)
     const b = computeBudgets(lunahMapDesign, 'engineer')
     expect(m.forecast.coverage).toBe(b.projectedCoverage)
     expect(m.forecast.context).toBe(b.projectedContext)
     expect(m.forecast.dataMB).toBe(b.projectedData)
     expect(m.forecast.passesPerTurn).toBe(141)
-    expect(m.forecast.isWhatIf).toBe(false)
     expect(m.altitudeKm).toBe(15)
   })
 
@@ -115,9 +105,8 @@ describe('stageModel', () => {
   })
 
   it('an orbit the craft cannot hold maps nothing and says so', () => {
-    const m = stageModel(flashlightDesign, 'engineer', { orbit: 'orbit-elliptical', precise: true })
+    const m = stageModel({ ...flashlightDesign, orbit: 'orbit-elliptical' }, 'engineer')
     expect(m.forecast.coverage).toBe(0)
-    expect(m.forecast.isWhatIf).toBe(true)
     expect(m.forecast.reasons[0]).toBe(
       'This craft cannot reach and hold this orbit, so nothing is mapped. Engine: Factory. Orbit and ride: Launch Site.'
     )
@@ -159,7 +148,7 @@ describe('stageModel', () => {
   })
 
   it('empty bay and unknown orbit do not throw or produce NaN', () => {
-    const m = stageModel({ ...flashlightDesign, instruments: [], orbit: '' }, 'engineer', { orbit: '', precise: true })
+    const m = stageModel({ ...flashlightDesign, instruments: [], orbit: '' }, 'engineer')
     expect(m.instruments).toEqual([])
     expect(m.altitudeKm).toBe(15)
     expect(m.forecast.passesPerTurn).toBe(0)
@@ -196,5 +185,12 @@ describe('passesText', () => {
   it('keeps the catalogue figure instead of rounding it', () => {
     expect(passesText(4.5)).toBe('4.5 passes over the pole per month')
     expect(passesText(141)).toBe('141 passes over the pole per month')
+  })
+})
+
+describe('pointing and orbit come from the design', () => {
+  it('an unknown attitude counts as basic pointing', () => {
+    const v = view(stageModel({ ...flashlightDesign, attitude: 'nope' }, 'engineer'), 'inst-laser')
+    expect(v.shaky).toBe(true)
   })
 })

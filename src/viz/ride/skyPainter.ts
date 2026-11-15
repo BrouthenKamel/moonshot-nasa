@@ -52,7 +52,7 @@ function background(ctx: Ctx) {
   }
 }
 
-function moon(ctx: Ctx, orbitColour: string) {
+function moon(ctx: Ctx, orbitColour: string | null) {
   const glow = ctx.createRadialGradient(MOON.x, MOON.y, MOON.r * 0.3, MOON.x, MOON.y, MOON.r * 2.4)
   glow.addColorStop(0, 'rgba(237,230,214,.16)')
   glow.addColorStop(1, 'rgba(237,230,214,0)')
@@ -74,6 +74,7 @@ function moon(ctx: Ctx, orbitColour: string) {
   }
   text(ctx, 'THE MOON', MOON.x, MOON.y - MOON.r - 22, 20, DIM, 'center', 600, true)
   // The science orbit, decided in the Orbit step: only a thin ring here
+  if (!orbitColour) return
   ctx.save()
   ctx.globalAlpha = 0.8
   ctx.strokeStyle = orbitColour
@@ -172,7 +173,13 @@ function path(ctx: Ctx, view: RideView) {
     }
   }
 
-  // Drop-off
+  dropOff(ctx, view)
+}
+
+/** The drop-off point and its label */
+function dropOff(ctx: Ctx, view: RideView) {
+  const { drop } = view.path
+  const reach = view.reach
   const d = DROP[drop]
   ctx.fillStyle = INK
   circle(ctx, d.x, d.y, 8)
@@ -188,9 +195,24 @@ function path(ctx: Ctx, view: RideView) {
   }
 }
 
-export function paintSky(ctx: Ctx, view: RideView, hover: Hover): void {
+/** Launch only: the rocket's climb from the pad to the drop-off, nothing of the transfer */
+function launchPath(ctx: Ctx, view: RideView) {
+  ctx.save()
+  ctx.shadowColor = 'rgba(237,230,214,.35)'
+  ctx.shadowBlur = 8
+  polyline(ctx, rideLeg(view.path.drop), PATH, 4.5)
+  ctx.restore()
+  dropOff(ctx, view)
+}
+
+export function paintSky(ctx: Ctx, view: RideView, hover: Hover, opts: { launchOnly?: boolean } = {}): void {
   ctx.clearRect(0, 0, SKY_W, GROUND_Y + 2)
   background(ctx)
+  if (opts.launchOnly) {
+    // The Moon itself is a 3D body in the launch scene
+    launchPath(ctx, view)
+    return
+  }
   moon(ctx, view.orbit.colour)
   path(ctx, view)
   signs(ctx, view, hover)

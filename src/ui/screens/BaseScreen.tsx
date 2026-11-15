@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { BaseMap } from '../../scene/BaseMap'
+import { quietLabels } from '../../scene/mapCues'
 import type { BuildingId } from '../../data/agency'
 import { computeBudgets } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
@@ -207,7 +208,12 @@ export function BaseScreen() {
   const startNewMission = useGameStore((s) => s.startNewMission)
   const [dialog, setDialog] = useState<'new-mission' | 'campaign' | null>(null)
   const campaignProgress = useCampaignProgress()
-  const hq = useMemo(() => ({ ...campaignProgress, onClick: () => setDialog('campaign') }), [campaignProgress])
+  const hq = useMemo(() => ({ ...campaignProgress, onClick: () => setDialog('campaign') }), [campaignProgress, setDialog])
+  // A fresh base has one start: New mission. No building rings and the notifications folded
+  // to a badge until a mission is chosen, so nothing competes with it.
+  const mapLabels = missionOpen ? labels : quietLabels(labels)
+  const [newsOpen, setNewsOpen] = useState(false)
+  const showNews = missionOpen || newsOpen
   const startMission = () => {
     // A finished flight goes to the history; the new mission starts at the Comms Center
     if (simState) startNewMission()
@@ -234,14 +240,14 @@ export function BaseScreen() {
           {simState ? (
             <FlightStage
               sim={simState}
-              island={<BaseMap labels={labels} onBuildingClick={onBuildingClick} launchAt={launchAt} rocketGone={rocketGone} hq={hq} />}
+              island={<BaseMap labels={mapLabels} onBuildingClick={onBuildingClick} launchAt={launchAt} rocketGone={rocketGone} hq={hq} />}
             />
           ) : (
-            <BaseMap labels={labels} onBuildingClick={onBuildingClick} hq={hq} />
+            <BaseMap labels={mapLabels} onBuildingClick={onBuildingClick} hq={hq} />
           )}
           {!spaceShowing && (
             <div className="fp-label pointer-events-none absolute bottom-2 left-2 border border-rule bg-ink-1/85 px-2 py-1 text-[0.62rem] text-paper-dim lg:left-1/2 lg:-translate-x-1/2">
-              {onBuildingClick ? 'Click a building to walk in · drag to move · scroll to zoom' : 'Drag to move · scroll to zoom'}
+              {onBuildingClick && missionOpen ? 'Click a building to walk in · drag to move · scroll to zoom' : 'Drag to move · scroll to zoom'}
             </div>
           )}
         </div>
@@ -251,12 +257,34 @@ export function BaseScreen() {
             {/* Left: notifications */}
             <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:left-6 lg:top-6 lg:z-10 lg:w-72">
               <div className="flex min-h-0 flex-col lg:pointer-events-auto">
-                <Notifications />
+                {showNews ? (
+                  <Notifications />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setNewsOpen(true)}
+                    aria-expanded={false}
+                    className="fp-label self-start border border-rule-strong bg-ink-1/95 px-3 py-2 text-paper-dim hover:text-paper"
+                  >
+                    Notifications ▸
+                  </button>
+                )}
               </div>
             </div>
             {/* Right: the current mission and its log */}
             <div className="flex min-h-0 flex-col lg:pointer-events-none lg:absolute lg:bottom-6 lg:right-6 lg:top-6 lg:z-10 lg:w-80">
-              <div className="flex min-h-0 flex-col lg:pointer-events-auto">
+              <div className="relative flex min-h-0 flex-col lg:pointer-events-auto">
+                {!missionOpen && (
+                  <>
+                    <p data-testid="start-here" className="fp-label mb-1.5 self-end bg-kapton px-2 py-1 text-[0.68rem] text-kapton-ink">
+                      Start here: pick your first mission ↓
+                    </p>
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -inset-1 top-7 z-10 ring-2 ring-kapton/80 motion-safe:animate-pulse"
+                    />
+                  </>
+                )}
                 <MissionPanel
                   status={status}
                   onOpenStatus={onOpenStatus}

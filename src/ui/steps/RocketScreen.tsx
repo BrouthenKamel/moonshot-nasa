@@ -31,7 +31,7 @@ const TONE: Record<'green' | 'yellow', 'go' | 'caution'> = { green: 'go', yellow
 function RocketText({ rows }: { rows: Array<{ slot: string; label: string; stat: string }> }) {
   return (
     <div className="mx-auto max-w-2xl space-y-3 p-6 pt-16 text-paper">
-      <StepHeader step="rocket" title="Rocket" kicker="Launch Site · Lunar Ice Mapper" />
+      <StepHeader step="rocket" title="Rocket" kicker="Launch Site" />
       <Sheet className="space-y-2 p-4">
         <div className="fp-label text-kapton">Your rocket</div>
         {rows.map((r) => (

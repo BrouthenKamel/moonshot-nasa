@@ -7,6 +7,7 @@
  */
 import type { Budgets, DesignStep, GoNoGoResult, Report, SimState } from '../../sim/types'
 import type { Screen } from '../../state/gameStore'
+import { craftWasLost } from '../../sim/evaluate'
 
 export const NARRATOR_NAME = 'Commander Rosa Vega'
 export const NARRATOR_ROLE = 'Retired astronaut, now the agency’s mission mentor'
@@ -31,6 +32,7 @@ export const BEAT_IDS = [
   'end-partial',
   'end-failed',
   'end-lost',
+  'end-stopped',
 ] as const
 
 export type BeatId = (typeof BEAT_IDS)[number]
@@ -127,15 +129,27 @@ function stepBeat(step: DesignStep, i: NarratorInput): Beat {
   }
 }
 
+/** The ending line for a mission stopped with a working craft (out of money, or out of time) */
+function stoppedLine(end: string): string {
+  if (end === 'budget ran out before launch')
+    return 'The money ran out before launch: she never left the ground. A failed mission spends its whole budget. Read the report, then let’s plan again.'
+  if (end.startsWith('budget ran out'))
+    return 'The money ran out. She still works out there, but nobody can pay to fly her, and a failed mission spends its whole budget. Read the report, then let’s fly again.'
+  return `The mission had to stop: ${end || 'it was called off'}. She still works, but it counts as a failure. Read the report, then let’s fly again.`
+}
+
 function endBeat(sim: SimState, report: Report): Beat {
   const cov = n0(report.coverageAchieved)
   const data = n0(report.dataReturned)
   const run = (id: BeatId, text: string): Beat => ({ id, text, scope: 'run' })
-  if (!sim.flight.alive)
+  // Only a craft that is really gone is "lost"; one stopped for lack of money still works (QC, 15 Nov)
+  if (!sim.flight.alive && craftWasLost(sim.flight.end))
     return run(
       'end-lost',
       'We’ve lost her. It happened to real CubeSats too: Lunar Flashlight never reached its orbit. Read the report, then let’s fly again.'
     )
+  if (!sim.flight.alive)
+    return run('end-stopped', stoppedLine(sim.flight.end))
   switch (report.outcome) {
     case 'success':
       return run('end-success', `We did it. ${cov}% of the ice mapped and ${data} MB home. Future crews will land by your map.`)

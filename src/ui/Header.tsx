@@ -4,20 +4,14 @@ import { EngineerSwitch } from './kit/EngineerSwitch'
 import { useGameStore } from '../state/gameStore'
 import { useUiStore } from '../state/uiStore'
 import { lunarIceMapperBrief } from '../data/brief'
-import { buildingForStep, buildingName, STEP_NAMES } from '../viz/missionMap'
 import { StepDock } from './hud/StepDock'
 import { MissionVitalityPill } from './hud/MissionVitalityCluster'
 
 export function Header() {
   const screen = useGameStore((s) => s.screen)
-  const designStep = useGameStore((s) => s.designStep)
   const simState = useGameStore((s) => s.simState)
   const setScreen = useGameStore((s) => s.setScreen)
   const toggleHudModal = useUiStore((s) => s.toggleHudModal)
-
-  const building = buildingForStep(designStep)
-  const buildingLabel = buildingName(building)
-  const stepLabel = STEP_NAMES[designStep]
 
   // Global 'H' shortcut to toggle HUD modal during design
   useEffect(() => {
@@ -43,18 +37,13 @@ export function Header() {
             {lunarIceMapperBrief.name}
           </span>
         )}
-        {screen === 'design' && (
-          <span className="hidden items-center gap-1.5 border-l border-rule pl-3 fp-label text-[var(--role-accent)] 2xl:inline-flex">
-            {buildingLabel} · {stepLabel}
-          </span>
-        )}
       </div>
 
       {/* Center: Mission Sequencer & Vitality Telemetry Strip */}
       {screen === 'design' && (
         <div className="flex items-center gap-3">
           <div className="hidden md:flex">
-            <StepDock compact />
+            <StepDock />
           </div>
           <MissionVitalityPill />
         </div>

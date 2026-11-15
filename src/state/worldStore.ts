@@ -8,6 +8,7 @@ import { research } from '../game/research'
 import { MISSION_NAME, currentSim, missionBudget, onMissionChange, snapshotOf, stepMission } from '../game/missionLink'
 import { isSimComplete } from '../sim/simulate'
 import type { SimState } from '../sim/types'
+import { autoPauseReason, clockHeld, idleFor, modalOpenOnPage, pageHidden } from './clockHold'
 
 /**
  * The agency layer on top of the mission (rules in src/game): one clock in days,
@@ -22,6 +23,10 @@ import type { SimState } from '../sim/types'
  *   agency pays its share of the budget. The mission's own buttons ("Advance
  *   one month") still work: the clock catches up to the month they reach.
  * - "Reset demo" resets the agency too.
+ * - A fresh game starts paused, so nothing changes while the player looks around: the clock
+ *   starts with the first real action (New mission) or the Play button. It also holds while a
+ *   modal is open over the base (src/state/clockHold.ts), so reading never costs days. A hidden
+ *   tab or five minutes without input pauses it for real: only Play starts it again.
  */
 export const SPEEDS = { paused: 0, normal: 1, fast: 10 } as const
 export type Speed = keyof typeof SPEEDS
@@ -32,6 +37,8 @@ export interface WorldState extends World {
   missionOpen: boolean
   /** The finished mission whose result pop-up the player already closed (by seed) */
   resultSeenSeed: number | null
+  /** The player has started the clock (first New mission, or any speed button); false in a fresh game */
+  clockStarted: boolean
   setSpeed: (speed: Speed) => void
   /** Advance the clock by real seconds at the current speed */
   tick: (seconds: number) => void
@@ -82,27 +89,46 @@ export const useWorldStore = create<WorldState>()(
   persist(
     (set, get) => ({
       ...initialWorld(),
-      speed: 'normal' as Speed,
+      // A fresh game waits for the player (see clockStarted)
+      speed: 'paused' as Speed,
       missionOpen: false,
       resultSeenSeed: null as number | null,
-      setSpeed: (speed) => set({ speed }),
+      clockStarted: false,
+      setSpeed: (speed) => set({ speed, clockStarted: true }),
       tick: (seconds) => {
         const rate = SPEEDS[get().speed]
         if (rate === 0 || seconds <= 0) return
-        if (currentSim()?.pendingDecision) return // waits for the event card
-        // The launch plays on the island first: the craft leaves only once the rocket has gone
-        if (useUiStore.getState().launchAt !== null) return
+        // Nobody watching (hidden tab, or no input for minutes): pause for real, until Play
+        if (autoPauseReason({ hidden: pageHidden(), idleMs: idleFor() })) {
+          set({ speed: 'paused' })
+          return
+        }
+        const held = clockHeld({
+          decisionWaiting: !!currentSim()?.pendingDecision, // waits for the event card
+          // The launch plays on the island first: the craft leaves only once the rocket has gone
+          launching: useUiStore.getState().launchAt !== null,
+          modalOpen: modalOpenOnPage(),
+        })
+        if (held) return
         runUntil(get().day + rate * seconds)
       },
-      openMission: () => set({ missionOpen: true }),
+      // Choosing a mission is the first real action: a fresh game's clock starts here
+      openMission: () => set((s) => (s.clockStarted ? { missionOpen: true } : { missionOpen: true, speed: 'normal', clockStarted: true })),
       markResultSeen: (seed) => set({ resultSeenSeed: seed }),
-      resetWorld: () => set({ ...initialWorld(), missionOpen: false, resultSeenSeed: null }),
+      resetWorld: () => set({ ...initialWorld(), missionOpen: false, resultSeenSeed: null, speed: 'paused', clockStarted: false }),
     }),
     {
       name: 'moonshot-agency-world',
       version: 2,
-      migrate: (persisted) => ({ ...(persisted as object), speed: 'normal', missionOpen: false }) as never,
-      partialize: (s) => ({ ...pickWorld(s), speed: s.speed, missionOpen: s.missionOpen, resultSeenSeed: s.resultSeenSeed }),
+      // A save from before the paused start was already running: it keeps running
+      migrate: (persisted) => ({ ...(persisted as object), speed: 'normal', missionOpen: false, clockStarted: true }) as never,
+      partialize: (s) => ({
+        ...pickWorld(s),
+        speed: s.speed,
+        missionOpen: s.missionOpen,
+        resultSeenSeed: s.resultSeenSeed,
+        clockStarted: s.clockStarted,
+      }),
     }
   )
 )

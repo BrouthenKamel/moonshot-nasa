@@ -80,4 +80,12 @@ describe('audio cues', () => {
       ids(before, { ...base, outcome: 'failed', flight: flight({ launched: true, ended: true, end: 'not enough delta-v left to capture' }) }),
     ).toEqual(expect.arrayContaining(['voice.capture-fail', 'voice.end-failed']))
   })
+
+  it('says "we have lost the mission" only when the craft is gone, not when the money ran out (QC, 15 Nov)', () => {
+    const before = { ...base, flight: flight({ launched: true, captured: true }) }
+    const broke = { ...base, outcome: 'failed' as const, flight: flight({ launched: true, captured: true, ended: true, end: 'budget ran out in orbit' }) }
+    expect(ids(before, broke)).not.toContain('voice.end-failed')
+    const lost = { ...base, outcome: 'failed' as const, flight: flight({ launched: true, captured: true, ended: true, end: 'lost contact after deployment' }) }
+    expect(ids(before, lost)).toContain('voice.end-failed')
+  })
 })

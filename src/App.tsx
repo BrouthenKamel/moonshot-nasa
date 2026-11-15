@@ -12,12 +12,14 @@ import { Captions } from './ui/kit/Captions'
 import { InteractionLayer } from './ui/interaction/InteractionLayer'
 import { ReplayPanel } from './viz/ReplayPanel'
 import { isSimComplete } from './sim/simulate'
+import { failedLabel } from './sim/evaluate'
 import { computeBudgets } from './sim/budgets'
 import { difficultyPresets } from './data/brief'
 import { EventCard } from './ui/flight/EventCard'
 import { FlightControls } from './ui/flight/FlightControls'
 import { Narrator } from './ui/narrator/Narrator'
 import { Eng, Flap, Sheet } from './ui/kit'
+import { IceMapperRoute, wantsIceMapper } from './minigames/iceMapper'
 
 const PHASE_TEXT: Record<string, string> = {
   build: 'Building',
@@ -27,7 +29,7 @@ const PHASE_TEXT: Record<string, string> = {
   capture: 'Capture burn',
   orbit: 'Mapping in the science orbit',
   complete: 'Mission over',
-  failed: 'Mission lost',
+  failed: 'Mission failed',
 }
 
 function SimStat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone: string }) {
@@ -57,7 +59,7 @@ function SimulationPlaceholder() {
         <div className="fp-label text-[var(--role-accent)]">Flight operations · Lunar Ice Mapper · Live telemetry</div>
         <h1 className="mt-1 fp-display text-2xl text-paper">Mission Simulation</h1>
         <p className="mt-2 fp-data text-sm text-paper-dim">
-          Month {simState.currentTurn}: {PHASE_TEXT[simState.phase] ?? simState.phase}
+          Month {simState.currentTurn}: {simState.phase === 'failed' ? failedLabel(simState.flight.end) : (PHASE_TEXT[simState.phase] ?? simState.phase)}
           {simState.phase === 'build' || simState.phase === 'test' || simState.phase === 'wait'
             ? `. The ride leaves in month ${f.launchTurn}.`
             : ''}
@@ -161,7 +163,13 @@ function ReplayScreen() {
   )
 }
 
+/** The game; `?minigame=ice` opens the Ice Mapper on its own (see minigames/iceMapper) */
 export default function App() {
+  if (typeof window !== 'undefined' && wantsIceMapper(window.location.search)) return <IceMapperRoute />
+  return <MainApp />
+}
+
+function MainApp() {
   const screen = useGameStore((s) => s.screen)
   const openingDone = useUiStore((s) => s.openingDone)
   useAudioDirector()
