@@ -65,7 +65,7 @@ export function CommsScreen() {
     <div className="mx-auto max-w-5xl pb-6">
       <LinkRibbon budgets={activeBudgets} data={dataCheck} visible={consoleOut} />
       <div className="space-y-5">
-        <StepHeader step="comms" kicker="Comms Center · Lunar Ice Mapper" title="Communications" />
+        <StepHeader step="comms" kicker="Comms Center" title="Communications" />
         <p className="max-w-2xl px-1 text-sm text-paper-dim">
           Only data that reaches the ground counts. The Moon is a thousand times farther than low Earth orbit, so the radio and the ground
           station decide how much gets home.

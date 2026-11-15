@@ -107,7 +107,7 @@ function PlainRide() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <StepHeader step="ride" title="Ride & Transfer" kicker="Launch Site · Lunar Ice Mapper" />
+      <StepHeader step="ride" title="Ride & Transfer" kicker="Launch Site" />
       <Sheet className="p-4">
         <RideVerdict />
       </Sheet>

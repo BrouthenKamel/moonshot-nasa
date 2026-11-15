@@ -414,7 +414,7 @@ export function GoNoGoScreen() {
     <div className="mx-auto max-w-5xl space-y-6">
       <StepHeader
         step="go-nogo"
-        kicker="COMMS CENTER · LUNAR ICE MAPPER · GO / NO-GO"
+        kicker="COMMS CENTER · GO / NO-GO"
         title="Go / No-Go poll"
         question="Before every launch the flight director asks each station, one by one, whether it is go. A station is no-go when a check fixed in its building is red."
       >
