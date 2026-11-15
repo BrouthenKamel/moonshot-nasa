@@ -341,19 +341,7 @@ export function autoplay(setup: PassSetup, bot: Bot = AUTOPILOT): PassState {
   return st
 }
 
-/* ---------------- after the pass ---------------- */
-
-/**
- * The one line after the pass: what the player mapped next to the sim's forecast for the whole
- * mission (Budgets.projectedCoverage). The pass never changes that forecast; it only shows it.
- * `result` is null when the pass was skipped.
- */
-export function afterLine(setup: PassSetup, result: PassResult | null, forecast: number): string {
-  const blind = !setup.scanners.some((s) => s.mapsIce && s.seesDark)
-  const parts = [
-    result ? `Your pass mapped ${Math.round(result.mapped)}%` : null,
-    `${result ? 'full' : 'Full'}-mission forecast ${Math.round(forecast)}%`,
-    blind ? 'nothing aboard sees into shadow' : null,
-  ]
-  return parts.filter(Boolean).join(' · ')
+/** How many real hours of battery the pass stands for (the game shows them in `duration` seconds) */
+export function passHours(setup: PassSetup): number {
+  return Math.max(1, Math.round(setup.batteryWh / setup.watts))
 }

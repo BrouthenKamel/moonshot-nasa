@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { audio } from '../../assets/audio'
 import { SeededRNG } from '../../sim/rng'
 import type { Design } from '../../sim/types'
@@ -23,7 +23,7 @@ import {
   step,
   summarize,
   type BotMind,
-  afterLine,
+  passHours,
   type PassResult,
   type PassState,
   type Reticle,
@@ -412,27 +412,43 @@ function drawFrame(canvas: HTMLCanvasElement, terrain: HTMLCanvasElement | null,
 
 /* ---------------- the component ---------------- */
 
+/** How the pass was taken: flown by the player, watched on autopilot, or skipped (no result) */
+export interface PassOutcome {
+  how: 'flown' | 'autopilot' | 'skipped'
+  result: PassResult | null
+}
+
+/** Reticle speed for the arrow keys, nominal pixels a second */
+const KEY_SPEED = 620
+const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
+
+/** A touch screen with no mouse: the pass is watched on autopilot there */
+function touchOnly(): boolean {
+  if (typeof window === 'undefined' || !window.matchMedia) return false
+  return window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(any-pointer: fine)').matches
+}
+
 /**
  * The first mapping pass, over the whole base while the flight holds (it is a modal, so the agency
- * clock waits). Three moments, each with one action: a line and Start, the pass with a two-gauge
- * HUD, then the line pairing the pass with the sim's forecast and Continue. The pass never changes
- * the flight; `onDone` gets the result, or null when skipped.
+ * clock waits). Three moments: the briefing (what the pass is flown with, fly it or watch the
+ * autopilot), the pass with a two-gauge HUD, then one line on what it mapped and Continue.
+ * Mouse, touch or arrow keys steer; on a touch-only screen the autopilot flies.
  */
 export function IceMapperGame({
   design,
-  forecast,
+  intro,
   skippable = false,
-  autopilot = false,
+  lineAfter,
   onDone,
 }: {
   design: Design
-  /** The sim's forecast for the whole mission's ice coverage (Budgets.projectedCoverage) */
-  forecast: number
+  /** What the pass is flown with, shown in the briefing */
+  intro?: ReactNode
   /** After the first pass ever flown, the pass can be skipped */
   skippable?: boolean
-  /** Dev checks only: the autopilot flies */
-  autopilot?: boolean
-  onDone: (r: PassResult | null) => void
+  /** The one line after the pass */
+  lineAfter: (o: PassOutcome) => string
+  onDone: (o: PassOutcome) => void
 }) {
   const setup = useMemo(() => setupFromDesign(design), [design])
   const [phase, setPhase] = useState<Phase>('loading')
@@ -441,6 +457,9 @@ export function IceMapperGame({
   const [hint, setHint] = useState(true)
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [paused, setPaused] = useState(false)
+  const [autopilot, setAutopilot] = useState(false)
+  const [touch] = useState(touchOnly)
+  const keys = useRef(new Set<string>())
   const pausedRef = useRef(false)
   pausedRef.current = paused
 
@@ -491,7 +510,7 @@ export function IceMapperGame({
     play(r.win ? 'sfx.reveal' : 'sfx.error')
   }, [])
 
-  const begin = useCallback(() => {
+  const begin = useCallback((withAuto: boolean) => {
     st.current = newPass(setup)
     mind.current = { target: null, idleUntil: 0 }
     floaters.current = []
@@ -501,6 +520,8 @@ export function IceMapperGame({
     setResult(null)
     setHint(true)
     setPaused(false)
+    setAutopilot(withAuto)
+    autoRef.current = withAuto
     setPhase('playing')
     play('sfx.go')
   }, [setup])
@@ -521,6 +542,20 @@ export function IceMapperGame({
       last = now
       const state = st.current
       if (phaseRef.current === 'playing' && !pausedRef.current) {
+        if (!autoRef.current && keys.current.size) {
+          let dx = 0
+          let dy = 0
+          for (const k of keys.current) {
+            dx += ARROWS[k][0]
+            dy += ARROWS[k][1]
+          }
+          const len = Math.hypot(dx, dy) || 1
+          ret.current = {
+            x: Math.min(VIEW_W, Math.max(0, ret.current.x + (dx / len) * KEY_SPEED * dt)),
+            y: Math.min(VIEW_H, Math.max(0, ret.current.y + (dy / len) * KEY_SPEED * dt)),
+          }
+          scanning.current = true
+        }
         let input = { x: ret.current.x, y: ret.current.y, scanning: scanning.current }
         if (autoRef.current) {
           const aim = botAim(state, mind.current)
@@ -581,19 +616,28 @@ export function IceMapperGame({
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (phaseRef.current !== 'playing') return
-      if (e.code === 'Space' || e.code === 'KeyP') {
+      if (e.key in ARROWS) {
+        e.preventDefault()
+        keys.current.add(e.key)
+      } else if (e.code === 'Space' || e.code === 'KeyP') {
         e.preventDefault()
         setPaused((p) => !p)
       } else if (e.code === 'Escape') finish() // ends the pass early: the result is what was mapped
     }
+    const up = (e: KeyboardEvent) => keys.current.delete(e.key)
     window.addEventListener('keydown', down)
-    return () => window.removeEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+    }
   }, [finish])
 
   const secondsLeft = Math.max(0, Math.ceil(setup.duration - hud.t))
   const batteryShare = Math.max(0, 1 - hud.t / setup.duration)
   const batteryTone = batteryShare > 0.5 ? 'bg-go' : batteryShare > 0.22 ? 'bg-caution' : 'bg-nogo'
   const steer = phase === 'playing' && !autopilot
+  const outcome: PassOutcome = phase === 'result' ? { how: autopilot ? 'autopilot' : 'flown', result } : { how: 'skipped', result: null }
 
   return (
     <div
@@ -667,7 +711,7 @@ export function IceMapperGame({
           {hint && !autopilot && (
             <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
               <div className="fp-sheet px-4 py-1.5 text-sm text-paper" data-tone="raised">
-                Move the scanner over a crater to map it · P pauses · Esc ends the pass
+                Steer the scanner over a crater to map it (mouse or arrow keys) · P pauses · Esc ends the pass
               </div>
             </div>
           )}
@@ -680,10 +724,19 @@ export function IceMapperGame({
             {phase === 'briefing' ? (
               <>
                 <h2 className="fp-display text-lg text-paper">First pass over the south pole: map the ice</h2>
-                <p className="mt-1 text-[11px] text-paper-faint">Real craters; how much ice each holds is a game estimate.</p>
+                <p className="mt-1 text-xs text-paper-dim">
+                  A {passHours(setup)}-hour pass, shown in {setup.duration} seconds. A better pass maps more of month 1, up to what this design can do.
+                </p>
+                {intro}
+                <p className="mt-2 text-[11px] text-paper-faint">Real craters; how much ice each holds is a game estimate.</p>
                 <div className="mt-4 flex gap-2">
-                  <button type="button" autoFocus onClick={begin} className="fp-btn-primary flex-1 justify-center py-2">
-                    Start
+                  {!touch && (
+                    <button type="button" autoFocus onClick={() => begin(false)} className="fp-btn-secondary flex-1 justify-center py-2">
+                      Fly it myself
+                    </button>
+                  )}
+                  <button type="button" autoFocus={touch} onClick={() => begin(true)} className="fp-btn-secondary flex-1 justify-center py-2">
+                    Watch the autopilot
                   </button>
                   {skippable && (
                     <button type="button" onClick={() => setPhase('skipped')} className="fp-btn-ghost justify-center px-4">
@@ -695,9 +748,9 @@ export function IceMapperGame({
             ) : (
               <>
                 <p className="fp-data text-sm text-paper" data-testid="ice-pass-line">
-                  {afterLine(setup, phase === 'result' ? result : null, forecast)}
+                  {lineAfter(outcome)}
                 </p>
-                <button type="button" autoFocus onClick={() => onDone(phase === 'result' ? result : null)} className="fp-btn-primary mt-4 w-full justify-center py-2">
+                <button type="button" autoFocus onClick={() => onDone(outcome)} className="fp-btn-primary mt-4 w-full justify-center py-2">
                   Continue
                 </button>
               </>

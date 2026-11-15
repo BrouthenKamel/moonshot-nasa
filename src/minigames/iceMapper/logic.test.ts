@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { computeBudgets, createDefaultDesign } from '../../sim/budgets'
 import { COVERAGE_TARGET } from '../../sim/evaluate'
 import type { Design } from '../../sim/types'
-import { AREAS, TARGET_PCT, afterLine, autoplay, setupFromDesign, summarize } from './logic'
+import { AREAS, TARGET_PCT, passHours, autoplay, setupFromDesign, summarize } from './logic'
 
 const design = (patch: Partial<Design>): Design => ({ ...createDefaultDesign(), ...patch })
 /** Sees only sunlit ground: nothing aboard reads permanently shadowed craters */
@@ -36,15 +36,18 @@ describe('Ice Mapper agrees with the sim', () => {
   })
 })
 
-describe('afterLine', () => {
-  const r = (mapped: number) => ({ ...summarize(autoplay(setupFromDesign(seeing))), mapped })
-  it('pairs the pass with the forecast', () => {
-    expect(afterLine(setupFromDesign(seeing), r(62.4), 71.2)).toBe('Your pass mapped 62% · full-mission forecast 71%')
+describe('the pass on screen', () => {
+  it('says how many real hours of battery the pass stands for', () => {
+    const su = setupFromDesign(seeing)
+    expect(passHours(su)).toBe(Math.round(su.batteryWh / su.watts))
   })
-  it('shows only the forecast for a skipped pass', () => {
-    expect(afterLine(setupFromDesign(seeing), null, 71.2)).toBe('Full-mission forecast 71%')
-  })
-  it('says why a shadow-blind design is forecast at 0%', () => {
-    expect(afterLine(setupFromDesign(blind), r(18), 0)).toBe('Your pass mapped 18% · full-mission forecast 0% · nothing aboard sees into shadow')
+
+  it('laser and neutron designs can read every crater, and reach the target on autopilot with a large battery', () => {
+    for (const inst of ['inst-laser', 'inst-neutron']) {
+      const r = summarize(autoplay(setupFromDesign(design({ instruments: [inst], battery: 'battery-large' }))))
+      expect(r.unreachable).toBe(0)
+      expect(r.perArea.every((a) => a.blocked === null)).toBe(true)
+      expect(r.win).toBe(true)
+    }
   })
 })
