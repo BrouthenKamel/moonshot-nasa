@@ -10,6 +10,7 @@ import { useInsidePlaying } from '../../ui/interaction/insideStore'
 import { useInsidePath, type CamKey } from '../interaction/InsideCam'
 import { useJuice } from '../interaction/snap'
 import { CubeSat, Earth, Effects, prefersReducedMotion, Starfield, Sun } from '../space'
+import { craftOffset } from './ascentShots'
 
 class ModelBoundary extends Component<{ fallback?: ReactNode; children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -80,10 +81,35 @@ function FairingDust({ elapsed }: { elapsed: React.RefObject<number> }) {
 }
 
 function FairingStage({ engineScale }: { engineScale: number }) {
-  const design = useGameStore((s) => s.design)
   const keys = useMemo(() => fairingKeys(engineScale), [engineScale])
   const elapsed = useInsidePath('fairing-ride', keys, { still: 5, endAfterS: 11 })
   const reduced = useMemo(() => prefersReducedMotion(), [])
+  const clock = useRef(0)
+  useFrame(() => {
+    clock.current = reduced ? 9.5 : elapsed.current
+  })
+  return <FairingBay clock={clock} sounds dust={elapsed} />
+}
+
+/**
+ * The payload bay on its own clock (`clock.current`, seconds; the halves open at 7.5 and the deployer
+ * at 9.1): separation ring, 6U deployer, fairing halves, Earth, and the player's CubeSat with the
+ * parts they packed. The Rocket screen's preview drives it from its look-inside path; the launch
+ * ascent (Ascent.tsx) drives it from the mission clock with its own sounds (`sounds` false).
+ */
+export function FairingBay({
+  clock,
+  sounds = false,
+  wingsAt = 9.5,
+  dust,
+}: {
+  clock: React.RefObject<number>
+  sounds?: boolean
+  /** Bay time at which the solar wings unfold */
+  wingsAt?: number
+  dust?: React.RefObject<number>
+}) {
+  const design = useGameStore((s) => s.design)
 
   const leftHalf = useRef<THREE.Group>(null)
   const rightHalf = useRef<THREE.Group>(null)
@@ -100,31 +126,32 @@ function FairingStage({ engineScale }: { engineScale: number }) {
   }, [])
 
   useFrame(() => {
-    const t = reduced ? 9.5 : elapsed.current
+    const t = clock.current
     if (t < 0) return
 
     // Audio beats synced to the sequence (once per shot)
     const c = cues.current
-    if (!c.countdown && t >= 0.05) {
+    if (sounds && !c.countdown && t >= 0.05) {
       c.countdown = true
       audio.say('voice.countdown')
     }
-    if (!c.ignition && t >= 2.0) {
+    if (sounds && !c.ignition && t >= 2.0) {
       c.ignition = true
       audio.play('sfx.ignition')
+      // Liftoff is said at ignition, never at deployment
+      audio.say('voice.liftoff')
     }
-    if (!c.staging && t >= 6.2) {
+    if (sounds && !c.staging && t >= 6.2) {
       c.staging = true
       audio.play('sfx.snap')
     }
-    if (!c.sep && t >= 7.5) {
+    if (sounds && !c.sep && t >= 7.5) {
       c.sep = true
       audio.play('sfx.reveal')
     }
-    if (!c.deploy && t >= 9.15) {
+    if (sounds && !c.deploy && t >= 9.15) {
       c.deploy = true
       audio.play('sfx.go')
-      audio.say('voice.liftoff')
     }
 
     // Fairing separation after t = 7.5s
@@ -151,10 +178,10 @@ function FairingStage({ engineScale }: { engineScale: number }) {
     if (deployerOpen.current) deployerOpen.current.visible = deployed
 
     const springT = Math.max(0, t - 9.2)
-    live.current.deploy = t >= 9.5 ? 1 : 0
+    live.current.deploy = t >= wingsAt ? 1 : 0
     if (craftGroup.current) {
       craftGroup.current.visible = deployed
-      craftGroup.current.position.set(0, 0.14 + springT * 0.18, 0.16 + springT * 0.28)
+      craftGroup.current.position.set(...craftOffset(t))
       craftGroup.current.rotation.set(springT * 0.24, springT * 0.45, springT * 0.12)
     }
   })
@@ -200,7 +227,7 @@ function FairingStage({ engineScale }: { engineScale: number }) {
         </ModelBoundary>
       </group>
 
-      <FairingDust elapsed={elapsed} />
+      {dust && <FairingDust elapsed={dust} />}
     </>
   )
 }

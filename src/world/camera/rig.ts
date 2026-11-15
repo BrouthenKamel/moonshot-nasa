@@ -43,6 +43,35 @@ export function sampleShots(shots: readonly Shot[], t: number, out?: CameraPose)
   return pose
 }
 
+/* ---------------- shot list: fixed shots joined by cuts ---------------- */
+
+/**
+ * One shot of a cut-based shot list: it owns the camera from `from` until `to` (seconds on the
+ * sequence's own clock, which may start below zero, e.g. T-10). The pose inside a shot comes from
+ * the caller's pose function; between shots there is no blending, only a cut.
+ */
+export interface TimedShot<Id extends string = string> {
+  id: Id
+  from: number
+  to: number
+}
+
+/** The shot that owns time t (from <= t < to), or null before the first and from the last one's end */
+export function activeShot<S extends TimedShot>(shots: readonly S[], t: number): S | null {
+  for (const s of shots) if (t >= s.from && t < s.to) return s
+  return null
+}
+
+/** Shots cut into while the clock moved from prev to t (prev < from <= t): one sound accent each */
+export function cutsBetween<S extends TimedShot>(shots: readonly S[], prev: number, t: number): S[] {
+  return shots.filter((s) => s.from > prev && s.from <= t)
+}
+
+/** Shots must follow each other with no gap and no overlap (a gap would be a frame with no camera) */
+export function isContiguous(shots: readonly TimedShot[]): boolean {
+  return shots.every((s, i) => s.to > s.from && (i === 0 || shots[i - 1].to === s.from))
+}
+
 /** Critically damped spring step: moves `pos` toward `goal`, carrying `vel` */
 export function springStep(pos: Vector3, vel: Vector3, goal: Vector3, dt: number, stiffness = 28) {
   const damping = 2 * Math.sqrt(stiffness)
@@ -70,7 +99,8 @@ export interface ShotSequence {
 
 /**
  * Plays a scripted shot sequence on the default camera. Call `start()` to run it; when it ends
- * `onDone` fires and `playing` goes false. A later work package uses this for the launch.
+ * `onDone` fires and `playing` goes false. Keyframes ease into each other unless marked `cut`; the
+ * launch ascent uses the cut-only shot list above (`activeShot` / `cutsBetween`) instead.
  */
 export function useShotSequence(shots: readonly Shot[], onDone?: () => void): ShotSequence {
   const camera = useThree((s) => s.camera)

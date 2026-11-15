@@ -130,9 +130,7 @@ export function cuesFor(prev: Snapshot, next: Snapshot): Cue[] {
     }
 
     if (f.launched && !was.launched) {
-      sfx('sfx.ignition')
-      voice('voice.countdown')
-      voice('voice.liftoff')
+      // Ignition, countdown and liftoff are played by the ascent at its own T-0 (src/scene/launch/ascentShots.ts)
       cues.push({ kind: 'music', id: 'music.departure', then: 'music.voyage' })
     }
     if (f.captured && !was.captured) {

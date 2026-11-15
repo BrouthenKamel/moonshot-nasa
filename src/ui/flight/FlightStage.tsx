@@ -8,7 +8,7 @@ import { computeBudgets } from '../../sim/budgets'
 import { isSimComplete } from '../../sim/simulate'
 import type { SimState, TurnLog } from '../../sim/types'
 import { LAUNCH, useUiStore, type FlightCamMode } from '../../state/uiStore'
-import { useInsideStore } from '../interaction/insideStore'
+import { playAscent } from '../../scene/launch/ascentStore'
 import { flightShot, type FlightShot } from '../../viz/flight/flightDirector'
 import type { FlightTimeline } from '../../scene/flight/FlightView'
 import { useWorldStore } from '../../state/worldStore'
@@ -20,7 +20,7 @@ import { EventCard } from './EventCard'
 import { FlightControls } from './FlightControls'
 
 const FlightView = lazy(() => import('../../scene/flight/FlightView').then((m) => ({ default: m.FlightView })))
-const FairingRide = lazy(() => import('../../scene/launch/FairingRide').then((m) => ({ default: m.FairingRide })))
+const Ascent = lazy(() => import('../../scene/launch/Ascent').then((m) => ({ default: m.Ascent })))
 
 class ViewBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -622,19 +622,12 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   const endLaunch = useUiStore((s) => s.endLaunch)
   const launched = sim.flight.launchedTurn !== null
 
-  // The launch plays once, when the core reports liftoff: WebGL rides inside the fairing; non-WebGL falls back to the island countdown
+  // The launch plays once, when the core reports liftoff: WebGL plays the seven-shot ascent; non-WebGL falls back to the island countdown
   const wasLaunched = useRef(launched)
   useEffect(() => {
     if (launched && !wasLaunched.current) {
       startLaunch()
-      if (canUseWebGL()) {
-        useInsideStore.getState().play({
-          id: 'fairing-ride',
-          caption: 'T-minus 5… inside the payload fairing beside your 6U deployer.',
-          durationS: LAUNCH.durationS,
-          onEnd: () => useUiStore.getState().endLaunch(),
-        })
-      }
+      if (canUseWebGL()) playAscent({ onEnd: () => useUiStore.getState().endLaunch() })
     }
     wasLaunched.current = launched
   }, [launched, startLaunch])
@@ -679,10 +672,10 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
         </div>
       )}
       <Countdown />
-      {launchAt !== null && canUseWebGL() && (
+      {canUseWebGL() && (
         <ViewBoundary fallback={null}>
           <Suspense fallback={null}>
-            <FairingRide />
+            <Ascent />
           </Suspense>
         </ViewBoundary>
       )}

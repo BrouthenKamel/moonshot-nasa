@@ -37,12 +37,12 @@ describe('audio cues', () => {
     expect(ids(d, { ...d, canGo: true })).toEqual([]) // no design change, no chime
   })
 
-  it('liftoff: ignition, countdown, liftoff, then the departure music', () => {
+  it('liftoff: only the departure music; the ascent says liftoff at its own T-0', () => {
     const before = { ...base, flight: flight() }
     const after = { ...base, flight: flight({ launched: true }) }
     const cues = cuesFor(before, after)
-    expect(cues.map((c) => c.id)).toEqual(['sfx.ignition', 'voice.countdown', 'voice.liftoff', 'music.departure'])
-    expect(cues[3]).toMatchObject({ kind: 'music', then: 'music.voyage' })
+    expect(cues.map((c) => c.id)).toEqual(['music.departure'])
+    expect(cues[0]).toMatchObject({ kind: 'music', then: 'music.voyage' })
   })
 
   it('an event card speaks once: not again when the answered turn lands in the log', () => {

@@ -68,4 +68,5 @@ export const useUiStore = create<UiState>()((set) => ({
 }))
 
 /** The island launch: countdown, then the rocket climbs out of sight; then the view cuts to space */
-export const LAUNCH = { ignitionS: 5.2, durationS: 11 }
+/** The launch ascent's clock (src/scene/launch/ascentShots.ts): T-0 is 10 s in, the cut to flight at 52 s */
+export const LAUNCH = { ignitionS: 10, durationS: 52 }
