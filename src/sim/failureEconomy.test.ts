@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildReport, FAILED_SCORE_CAP } from './evaluate'
+import { buildReport, failedLabel, failedLabelOfNotes, FAILED_SCORE_CAP } from './evaluate'
 import { computeBudgets } from './budgets'
 import { runSimulation } from './simulate'
 import { archetypes } from './fixtures'
@@ -105,5 +105,19 @@ describe('the base mission panel says "lost" only for a lost craft', () => {
   })
   it('lost contact: the craft was lost', () => {
     expect(status(endedAs('lost contact after deployment')).next).toContain('the craft was lost: lost contact after deployment')
+  })
+})
+
+describe('the flight and replay labels say "Lost" only for a lost craft', () => {
+  it('a budget failure reads "Failed: budget ran out"; a lost craft reads "Lost"', () => {
+    expect(failedLabel('budget ran out in orbit')).toBe('Failed: budget ran out')
+    expect(failedLabel('lost contact after deployment')).toBe('Lost')
+    expect(failedLabel('this craft cannot reach the science orbit')).toBe('Failed')
+  })
+  it('the replay reads the same word from the failed month’s own note', () => {
+    const last = strong.turnLogs[strong.turnLogs.length - 1]
+    expect(last.notes).toContain('Budget ran out in orbit.')
+    expect(failedLabelOfNotes(last.notes)).toBe('Failed: budget ran out')
+    expect(failedLabelOfNotes(['Lost contact after deployment.'])).toBe('Lost')
   })
 })

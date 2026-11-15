@@ -210,6 +210,19 @@ function whyDataShort(state: SimState, b: Budgets, need: number): string[] {
   return out.length ? out : [BAD_LUCK]
 }
 
+/** The word for a failed flight: "Lost" only for a lost craft; a budget failure says so (QC, 15 Nov) */
+export function failedLabel(end: string): string {
+  if (craftWasLost(end)) return 'Lost'
+  if (end.startsWith('budget ran out')) return 'Failed: budget ran out'
+  return 'Failed'
+}
+
+/** The same word for a failed month in the replay: fail() writes the end as that month's note */
+export function failedLabelOfNotes(notes: string[]): string {
+  const ends = notes.map((n) => n.replace(/\.$/, '').toLowerCase())
+  return failedLabel(ends.find((e) => craftWasLost(e) || e.startsWith('budget ran out')) ?? '')
+}
+
 /** The most a failed mission can score: the top of a C (ui/report/grade.ts), so a failure never reads as praise (Jakob, 15 Nov) */
 export const FAILED_SCORE_CAP = 599
 

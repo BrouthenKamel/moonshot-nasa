@@ -12,6 +12,7 @@ import { Captions } from './ui/kit/Captions'
 import { InteractionLayer } from './ui/interaction/InteractionLayer'
 import { ReplayPanel } from './viz/ReplayPanel'
 import { isSimComplete } from './sim/simulate'
+import { failedLabel } from './sim/evaluate'
 import { computeBudgets } from './sim/budgets'
 import { difficultyPresets } from './data/brief'
 import { EventCard } from './ui/flight/EventCard'
@@ -58,7 +59,7 @@ function SimulationPlaceholder() {
         <div className="fp-label text-[var(--role-accent)]">Flight operations · Lunar Ice Mapper · Live telemetry</div>
         <h1 className="mt-1 fp-display text-2xl text-paper">Mission Simulation</h1>
         <p className="mt-2 fp-data text-sm text-paper-dim">
-          Month {simState.currentTurn}: {PHASE_TEXT[simState.phase] ?? simState.phase}
+          Month {simState.currentTurn}: {simState.phase === 'failed' ? failedLabel(simState.flight.end) : (PHASE_TEXT[simState.phase] ?? simState.phase)}
           {simState.phase === 'build' || simState.phase === 'test' || simState.phase === 'wait'
             ? `. The ride leaves in month ${f.launchTurn}.`
             : ''}
