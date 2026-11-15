@@ -10,6 +10,7 @@ import type { SimState, TurnLog } from '../../sim/types'
 import { LAUNCH, useUiStore, type FlightCamMode } from '../../state/uiStore'
 import { useInsideStore } from '../interaction/insideStore'
 import { flightShot, type FlightShot } from '../../viz/flight/flightDirector'
+import type { FlightTimeline } from '../../scene/flight/FlightView'
 import { useWorldStore } from '../../state/worldStore'
 import { DAYS_PER_TURN } from '../../game/world'
 import { audio } from '../../assets/audio'
@@ -424,6 +425,26 @@ function useMonthFraction(sim: SimState): number {
   })
 }
 
+/**
+ * The space view's clock: the agency day, read live, and the transfer's launch and arrival days,
+ * so the Moon, Earth and the craft move with the mission's days. Undefined before the agency
+ * has booked this flight.
+ */
+function useFlightTimeline(sim: SimState): FlightTimeline | undefined {
+  const approvedDay = useWorldStore((s) => (s.mission && s.mission.seed === sim.seed ? s.mission.approvedDay : null))
+  const f = sim.flight
+  return useMemo(() => {
+    if (approvedDay === null || f.launchedTurn === null) return undefined
+    const months = f.captureTurn !== null ? f.captureTurn - f.launchedTurn : sim.currentTurn - f.launchedTurn + (f.transferLeft ?? 0)
+    const launchDay = approvedDay + f.launchedTurn * DAYS_PER_TURN
+    return {
+      getDay: () => useWorldStore.getState().day,
+      launchDay,
+      arrivalDay: launchDay + Math.max(1, months) * DAYS_PER_TURN,
+    }
+  }, [approvedDay, f.launchedTurn, f.captureTurn, f.transferLeft, sim.currentTurn])
+}
+
 /** A segmented switch: flat ghost buttons on one hairline, the chosen one underlined in Kapton */
 function Segmented<T extends string>({
   label,
@@ -625,6 +646,7 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
 
   const terminal = isSimComplete(sim) ? (sim.phase === 'failed' ? 'failed' : 'complete') : undefined
   const monthFraction = useMonthFraction(sim)
+  const timeline = useFlightTimeline(sim)
   const shot = useMemo(
     () => flightShot(sim.design, sim.turnLogs, sim.turnLogs.length - 1, { terminal, transferLeft: sim.flight.transferLeft, monthFraction }),
     [sim, terminal, monthFraction],
@@ -639,7 +661,7 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
         <div className="absolute inset-0 bg-ink-0">
           <ViewBoundary fallback={island}>
             <Suspense fallback={<div className="flex h-full items-center justify-center fp-label">Pointing the telescope…</div>}>
-              <FlightView design={sim.design} shot={shot} />
+              <FlightView design={sim.design} shot={shot} timeline={timeline} />
             </Suspense>
           </ViewBoundary>
         </div>

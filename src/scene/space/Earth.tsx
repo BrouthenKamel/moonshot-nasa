@@ -62,24 +62,38 @@ const airFragment = /* glsl */ `
   }
 `
 
-/** Earth from NASA Blue Marble, with night lights on the dark side and a thin glowing atmosphere. */
-export function Earth({ radius = 1, spin = 0.01 }: { radius?: number; spin?: number }) {
+/**
+ * Earth from NASA Blue Marble, with night lights on the dark side and a thin glowing atmosphere.
+ * `spin` turns it at a steady rate (radians a second). A scene with its own clock passes
+ * `angle` instead (radians, read every frame) and, if its Sun moves, `sunDir`.
+ */
+export function Earth({
+  radius = 1,
+  spin = 0.01,
+  angle,
+  sunDir = SUN_DIR,
+}: {
+  radius?: number
+  spin?: number
+  angle?: { current: number }
+  sunDir?: THREE.Vector3
+}) {
   const day = useSpaceTexture('texture.earth-day')
   const night = useSpaceTexture('texture.earth-night')
   const globe = useRef<THREE.Mesh>(null)
   const surface = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: { dayMap: { value: day }, nightMap: { value: night }, sunDir: { value: SUN_DIR } },
+        uniforms: { dayMap: { value: day }, nightMap: { value: night }, sunDir: { value: sunDir } },
         vertexShader: surfaceVertex,
         fragmentShader: surfaceFragment,
       }),
-    [day, night],
+    [day, night, sunDir],
   )
   const air = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: { sunDir: { value: SUN_DIR } },
+        uniforms: { sunDir: { value: sunDir } },
         vertexShader: surfaceVertex,
         fragmentShader: airFragment,
         side: THREE.BackSide,
@@ -87,10 +101,12 @@ export function Earth({ radius = 1, spin = 0.01 }: { radius?: number; spin?: num
         transparent: true,
         depthWrite: false,
       }),
-    [],
+    [sunDir],
   )
   useFrame((_, dt) => {
-    if (globe.current) globe.current.rotation.y += dt * spin
+    if (!globe.current) return
+    if (angle) globe.current.rotation.y = angle.current
+    else globe.current.rotation.y += dt * spin
   })
   return (
     <group rotation={[0.41, 0, 0]}>
