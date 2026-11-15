@@ -41,7 +41,9 @@ export function FirstMappingPass({ sim }: { sim: SimState }) {
       <div role="dialog" aria-modal="true" aria-label="Arrived in lunar orbit" className="fixed inset-0 z-50 flex items-center justify-center bg-ink-0/70 p-4">
         <div className="fp-sheet w-full max-w-md p-5" data-tone="raised">
           <p className="fp-data text-sm text-paper">
-            Captured into the science orbit in month {f.captureTurn ?? sim.currentTurn}, {Math.max(0, Math.round(f.dvLeft))} m/s left.
+            Captured into the science orbit in month {f.captureTurn ?? sim.currentTurn}
+            {/* An event moved the arrival: say what the plan was, so the date does not look like a mistake */}
+            {budgets.arrivalTurn !== null && budgets.arrivalTurn !== (f.captureTurn ?? sim.currentTurn) && ` (planned: month ${budgets.arrivalTurn})`}, {Math.max(0, Math.round(f.dvLeft))} m/s left.
           </p>
           <button type="button" autoFocus onClick={() => setStage('pass')} className="fp-btn-primary mt-4 w-full justify-center py-2">
             Begin first mapping pass

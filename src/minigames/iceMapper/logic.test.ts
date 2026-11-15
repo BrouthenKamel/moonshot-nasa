@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { computeBudgets, createDefaultDesign } from '../../sim/budgets'
 import { COVERAGE_TARGET } from '../../sim/evaluate'
 import type { Design } from '../../sim/types'
-import { AREAS, TARGET_PCT, autoplay, craterState, newPass, passHours, passWhy, setupFromDesign, summarize } from './logic'
+import { AREAS, TARGET_PCT, autoplay, botAim, craterState, newPass, passHours, passWhy, setupFromDesign, step, summarize } from './logic'
 
 const design = (patch: Partial<Design>): Design => ({ ...createDefaultDesign(), ...patch })
 /** Sees only sunlit ground: nothing aboard reads permanently shadowed craters */
@@ -80,5 +80,27 @@ describe('passWhy: one sentence on the result', () => {
     expect(r.perArea.map(craterState).every((s) => s === 'reached')).toBe(true)
     expect(craterState({ name: 'x', value: 1, pct: 40, blocked: null })).toBe('missed')
     expect(craterState({ name: 'x', value: 1, pct: 0, blocked: 'dark' })).toBe('locked')
+  })
+})
+
+describe('the autopilot goes to the craters the payload can read', () => {
+  /** The first crater the autopilot aims at, flown from the start of the pass */
+  const firstTarget = (d: Design) => {
+    const su = setupFromDesign(d)
+    const st = newPass(su)
+    const mind = { target: null as number | null, idleUntil: 0 }
+    for (let i = 0; i < 60 * 30; i++) {
+      const aim = botAim(st, mind)
+      if (aim.target) return AREAS[mind.target!]
+      step(st, { x: 640, y: 300, scanning: false }, 1 / 60)
+    }
+    return null
+  }
+
+  it('a laser (sees into shadow) starts on a shadowed crater, not sunlit Amundsen', () => {
+    expect(firstTarget(seeing)?.dark).toBe(true)
+  })
+  it('an IR spectrometer (sunlit only) starts on a sunlit crater', () => {
+    expect(firstTarget(blind)?.dark).toBe(false)
   })
 })

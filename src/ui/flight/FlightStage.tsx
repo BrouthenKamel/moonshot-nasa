@@ -18,7 +18,7 @@ import { DAYS_PER_TURN } from '../../game/world'
 import { audio } from '../../assets/audio'
 import { prefersReducedMotion, useGraphics } from '../../scene/space/quality'
 import { Eng, Flap } from '../kit'
-import { EventCard } from './EventCard'
+import { EventCard, useShowPlaying } from './EventCard'
 import { FlightControls } from './FlightControls'
 import { FirstMappingPass } from '../../minigames/iceMapper'
 
@@ -649,6 +649,13 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   const launched = sim.flight.launchedTurn !== null
   // Launch Day: the player flies the ride to orbit once, when the core reports liftoff
   const [flyingLaunch, setFlyingLaunch] = useState(false)
+  const showPlaying = useShowPlaying()
+  // When a show ends, its voice captions end with it (a stale "…Ignition." stayed up over the next card)
+  const wasShowing = useRef(false)
+  useEffect(() => {
+    if (wasShowing.current && !showPlaying) audio.hush()
+    wasShowing.current = showPlaying
+  }, [showPlaying])
 
   // The launch plays once, when the core reports liftoff: first the countdown and the liftoff from the
   // island's pad; once the rocket is out of sight, Launch Day (PR 84, by KrabbyKrabby): the player flies
@@ -714,7 +721,7 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
           </Suspense>
         </ViewBoundary>
       )}
-      {sim.pendingDecision && (
+      {sim.pendingDecision && !showPlaying && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-ink-0/70 p-4">
           <div className="w-[min(100%,560px)]">
             <EventCard />
