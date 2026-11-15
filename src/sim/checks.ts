@@ -264,7 +264,9 @@ export function goNoGo(
     reason = `${(b.spendable - b.totalCost).toFixed(1)} M to spare, with ${b.reserveAmount.toFixed(1)} M reserve held back for fixes in flight.`
   } else if (b.totalCost <= b.budgetCap) {
     status = 'red'
-    reason = `The plan costs ${b.totalCost.toFixed(1)} M but only ${b.spendable.toFixed(1)} M is spendable: the ${b.reserveAmount.toFixed(1)} M reserve is locked for fixes in flight. Lower the reserve at the ${PLANNING_BUILDING} (Planning), or choose cheaper parts.`
+    // When both round to the same figure at one decimal, show two so the text never says "22.5 but only 22.5"
+    const dp = b.totalCost.toFixed(1) === b.spendable.toFixed(1) ? 2 : 1
+    reason = `The plan costs ${b.totalCost.toFixed(dp)} M but only ${b.spendable.toFixed(dp)} M is spendable${dp === 2 ? ` (${(b.totalCost - b.spendable).toFixed(2)} M over)` : ''}: the ${b.reserveAmount.toFixed(1)} M reserve is locked for fixes in flight. Lower the reserve at the ${PLANNING_BUILDING} (Planning), or choose cheaper parts.`
   } else {
     status = 'red'
     reason = `The plan costs ${b.totalCost.toFixed(1)} M; the budget is ${b.budgetCap} M. Cheaper parts, a shorter transfer or less ground time bring it down.`

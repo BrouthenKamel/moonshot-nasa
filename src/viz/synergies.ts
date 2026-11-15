@@ -5,11 +5,10 @@ import {
   type PropulsionPart,
   type RadioPart,
 } from '../data/parts'
-import { getOrbitById, type LunarOrbit } from '../data/orbits'
+import { getOrbitById } from '../data/orbits'
 import type { Budgets, Design, DesignStep } from '../sim/types'
 
 /** What kind of orbit, for the altitude badge */
-const ORBIT_KIND: Record<LunarOrbit['type'], string> = { elliptical: 'Elliptical Polar', circular: 'Circular Polar', halo: 'Halo Loop' }
 
 export type SynergyTone = 'synergy' | 'warning' | 'conflict'
 
@@ -69,7 +68,7 @@ export function computeSynergies(design: Design, budgets: Budgets): SynergyBadge
         id: 'altitude-match',
         tone: 'synergy',
         // Says which orbit and how close it comes, not a lock (playtester, 15 Nov)
-        title: `${ORBIT_KIND[orbit.type]}: closest pass ${orbit.altitude} km`,
+        title: `Closest pass ${orbit.altitude} km over the pole`,
         detail: `Passes within crater-mapping range of ${iceInstruments.map((i) => i.name.split(' ')[0]).join(' + ')}.`,
         steps: ['instruments', 'orbit'],
       })
