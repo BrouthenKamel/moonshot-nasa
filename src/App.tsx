@@ -1,4 +1,5 @@
 import { useGameStore } from './state/gameStore'
+import { useViewMode } from './ui/useViewMode'
 import { Shell } from './ui/Shell'
 import { DesignScreen, BaseScreen } from './ui/screens'
 import { Opening } from './ui/Opening'
@@ -164,6 +165,7 @@ export default function App() {
   const screen = useGameStore((s) => s.screen)
   const openingDone = useUiStore((s) => s.openingDone)
   useAudioDirector()
+  useViewMode()
 
   // The game starts on the agency map, a full-screen game view ('title' is an old name for it)
   if (screen === 'base' || screen === 'title') {
