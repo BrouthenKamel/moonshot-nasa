@@ -5,11 +5,11 @@ import { Blinker, Flag, Spin } from './Animated'
  * and a flag. Same palette as the other base buildings (BaseMap.tsx).
  */
 
-const WALL = '#eef1f6'
-const ROOF = '#2c3e6b'
-const GLASS = '#5aa9e6'
-const ACCENT = '#f28c28'
-const CONCRETE = '#c9ccd1'
+const WALL = '#ece5d6'
+const ROOF = '#2f3a4c'
+const GLASS = '#7fa3bd'
+const ACCENT = '#e8a33d'
+const CONCRETE = '#c9c3b6'
 
 /** Footprint on the map grid: first tile and size */
 export const HQ_TILE: [number, number] = [15, 10]
@@ -53,7 +53,7 @@ export function Headquarters() {
       <group position={[-0.7, 0, -0.7]}>
         <mesh position={[0, 1.45, 0]} castShadow receiveShadow>
           <boxGeometry args={[1.4, 2.7, 1.4]} />
-          <meshStandardMaterial color="#cfe3f5" metalness={0.2} roughness={0.25} />
+          <meshStandardMaterial color="#b7c4c8" metalness={0.25} roughness={0.3} />
         </mesh>
         {/* Floor lines */}
         {[0.75, 1.3, 1.85, 2.4].map((y) => (
@@ -69,25 +69,25 @@ export function Headquarters() {
         {/* Rooftop radar, turning */}
         <mesh position={[0.35, 3.0, 0.35]}>
           <cylinderGeometry args={[0.05, 0.07, 0.25, 8]} />
-          <meshStandardMaterial color="#6b717a" />
+          <meshStandardMaterial color="#6f6b63" />
         </mesh>
         <Spin position={[0.35, 3.15, 0.35]} rpm={10}>
           <mesh>
             <boxGeometry args={[0.6, 0.12, 0.04]} />
-            <meshStandardMaterial color="#e8ebef" />
+            <meshStandardMaterial color="#e2dccf" />
           </mesh>
         </Spin>
         {/* Antenna with a beacon */}
         <mesh position={[-0.4, 3.25, -0.4]}>
           <cylinderGeometry args={[0.02, 0.02, 0.8, 6]} />
-          <meshStandardMaterial color="#6b717a" />
+          <meshStandardMaterial color="#6f6b63" />
         </mesh>
         <Blinker position={[-0.4, 3.68, -0.4]} phase={0.4} />
       </group>
 
       {/* Flags in front */}
       <Flag position={[1.5, 0.15, 1.6]} />
-      <Flag position={[1.1, 0.15, 1.6]} color="#14213d" />
+      <Flag position={[1.1, 0.15, 1.6]} color="#1a1f2b" />
 
       {/* Planters */}
       {[
@@ -97,11 +97,11 @@ export function Headquarters() {
         <group key={x} position={[x, 0.15, z]}>
           <mesh position={[0, 0.1, 0]}>
             <boxGeometry args={[0.35, 0.2, 0.35]} />
-            <meshStandardMaterial color="#a7aeb8" />
+            <meshStandardMaterial color="#a9a396" />
           </mesh>
           <mesh position={[0, 0.38, 0]} castShadow>
             <icosahedronGeometry args={[0.22, 0]} />
-            <meshStandardMaterial color="#4ea644" flatShading />
+            <meshStandardMaterial color="#5f7244" flatShading />
           </mesh>
         </group>
       ))}

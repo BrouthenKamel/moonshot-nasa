@@ -294,25 +294,25 @@ function ResearchLab() {
       <group position={[-0.5, 1.66, -0.5]}>
         <mesh castShadow>
           <cylinderGeometry args={[0.72, 0.72, 0.25, 24]} />
-          <meshStandardMaterial color="#d7dbe2" />
+          <meshStandardMaterial color="#d6d0c3" />
         </mesh>
         <mesh position={[0, 0.12, 0]} castShadow>
           <sphereGeometry args={[0.68, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <meshStandardMaterial color="#b9c0cb" metalness={0.3} roughness={0.4} />
+          <meshStandardMaterial color="#bab3a5" metalness={0.3} roughness={0.4} />
         </mesh>
         {/* The telescope sweeps the sky */}
         <Spin rpm={3} swing={0.9}>
           <mesh position={[0.35, 0.65, 0.35]} rotation={[-0.6, Math.PI / 4, 0]} castShadow>
             <cylinderGeometry args={[0.1, 0.13, 0.9, 12]} />
-            <meshStandardMaterial color="#59616e" />
+            <meshStandardMaterial color="#5d5a54" />
           </mesh>
         </Spin>
       </group>
-      <Blinker position={[1.2, 0.82, 1.2]} color="#34d399" period={2.4} />
+      <Blinker position={[1.2, 0.82, 1.2]} color="#6faf7a" period={2.4} />
       {/* Side annex */}
       <mesh position={[1.2, 0.45, 1.2]} castShadow>
         <boxGeometry args={[1, 0.6, 0.9]} />
-        <meshStandardMaterial color="#dfe4ec" />
+        <meshStandardMaterial color="#ddd6c8" />
       </mesh>
     </group>
   )
@@ -324,7 +324,7 @@ function FactoryHallFallback() {
       {/* Hall */}
       <mesh position={[-0.2, 0.75, -0.2]} castShadow receiveShadow>
         <boxGeometry args={[4, 1.2, 2.8]} />
-        <meshStandardMaterial color="#e3e6eb" />
+        <meshStandardMaterial color="#e2dccf" />
       </mesh>
       {/* Sawtooth roof: triangular prisms running along x */}
       {[-1.1, -0.2, 0.7].map((z) => (
@@ -368,27 +368,27 @@ function Factory() {
       {/* Cleanroom utility annex + chimney */}
       <mesh position={[1.3, 2.0, -1.2]} castShadow>
         <cylinderGeometry args={[0.15, 0.18, 1.2, 10]} />
-        <meshStandardMaterial color="#8d939c" />
+        <meshStandardMaterial color="#928c80" />
       </mesh>
       <ChimneySmoke position={[1.3, 2.65, -1.2]} />
       {/* Roof fan */}
       <mesh position={[-1.4, 2.08, 0.7]}>
         <cylinderGeometry args={[0.3, 0.3, 0.12, 12]} />
-        <meshStandardMaterial color="#8d939c" />
+        <meshStandardMaterial color="#928c80" />
       </mesh>
       <Spin position={[-1.4, 2.16, 0.7]} rpm={40}>
         <mesh>
           <boxGeometry args={[0.5, 0.03, 0.08]} />
-          <meshStandardMaterial color="#4a4f57" />
+          <meshStandardMaterial color="#4b4842" />
         </mesh>
         <mesh rotation={[0, Math.PI / 2, 0]}>
           <boxGeometry args={[0.5, 0.03, 0.08]} />
-          <meshStandardMaterial color="#4a4f57" />
+          <meshStandardMaterial color="#4b4842" />
         </mesh>
       </Spin>
       {/* Work lights over the doors */}
-      <Blinker position={[-1.1, 1.05, 1.25]} color="#fbbf24" period={1.2} />
-      <Blinker position={[0.6, 1.05, 1.25]} color="#fbbf24" period={1.2} phase={0.6} />
+      <Blinker position={[-1.1, 1.05, 1.25]} color="#d9b23f" period={1.2} />
+      <Blinker position={[0.6, 1.05, 1.25]} color="#d9b23f" period={1.2} phase={0.6} />
       {/* Crates waiting outside */}
       {[
         [2.05, 0.35, 1.3],
@@ -501,7 +501,7 @@ function Rocket() {
       <LaunchEffects rocket={rocket} />
       <mesh position={[0, 1.2, 0]} castShadow>
         <cylinderGeometry args={[0.22, 0.22, 2, 16]} />
-        <meshStandardMaterial color="#f7f8fa" />
+        <meshStandardMaterial color="#efe9dc" />
       </mesh>
       <mesh position={[0, 1.6, 0]}>
         <cylinderGeometry args={[0.225, 0.225, 0.18, 16]} />
@@ -531,15 +531,15 @@ function ServiceTowerFallback() {
     <group position={[-0.75, 0, -0.3]}>
       <mesh position={[0, 1.65, 0]} castShadow>
         <boxGeometry args={[0.45, 3.1, 0.45]} />
-        <meshStandardMaterial color="#d9452b" wireframe />
+        <meshStandardMaterial color="#b8573c" wireframe />
       </mesh>
       <mesh position={[0, 1.65, 0]} castShadow>
         <boxGeometry args={[0.12, 3.1, 0.12]} />
-        <meshStandardMaterial color="#d9452b" />
+        <meshStandardMaterial color="#b8573c" />
       </mesh>
       <mesh position={[0.35, 2.3, 0.15]} castShadow>
         <boxGeometry args={[0.6, 0.08, 0.1]} />
-        <meshStandardMaterial color="#d9452b" />
+        <meshStandardMaterial color="#b8573c" />
       </mesh>
     </group>
   )
@@ -552,11 +552,11 @@ function LaunchSite() {
       {/* Launch mount */}
       <mesh position={[0, 0.2, 0]} receiveShadow castShadow>
         <cylinderGeometry args={[1.5, 1.6, 0.2, 32]} />
-        <meshStandardMaterial color="#b4b8bf" />
+        <meshStandardMaterial color="#b5afa3" />
       </mesh>
       <mesh position={[0, 0.31, 0]}>
         <boxGeometry args={[0.6, 0.03, 2.6]} />
-        <meshStandardMaterial color="#4a4f57" />
+        <meshStandardMaterial color="#4b4842" />
       </mesh>
       <group position={[0, 0.1, 0]}>
         <Rocket />
@@ -573,7 +573,7 @@ function LaunchSite() {
       ].map(([x, z]) => (
         <mesh key={z} position={[x, 0.45, z]} castShadow>
           <sphereGeometry args={[0.3, 16, 12]} />
-          <meshStandardMaterial color="#f2f3f5" />
+          <meshStandardMaterial color="#ebe5d8" />
         </mesh>
       ))}
       {/* Light poles */}
@@ -585,7 +585,7 @@ function LaunchSite() {
         <group key={`${x}${z}`} position={[x, 0, z]}>
           <mesh position={[0, 0.9, 0]} castShadow>
             <cylinderGeometry args={[0.03, 0.03, 1.6, 6]} />
-            <meshStandardMaterial color="#6b717a" />
+            <meshStandardMaterial color="#6f6b63" />
           </mesh>
           <mesh position={[0, 1.72, 0]}>
             <boxGeometry args={[0.2, 0.08, 0.12]} />
@@ -606,17 +606,17 @@ function Dish({ position, phase }: { position: [number, number, number]; phase: 
     <group position={position}>
       <mesh position={[0, 0.35, 0]} castShadow>
         <cylinderGeometry args={[0.1, 0.18, 0.7, 10]} />
-        <meshStandardMaterial color="#9aa1ab" />
+        <meshStandardMaterial color="#9c968a" />
       </mesh>
       <group ref={ref} position={[0, 0.8, 0]}>
         <group rotation={[-0.75, 0, 0]}>
           <mesh castShadow>
             <sphereGeometry args={[0.75, 24, 8, 0, Math.PI * 2, 0, 0.75]} />
-            <meshStandardMaterial color="#f4f5f7" side={DoubleSide} />
+            <meshStandardMaterial color="#ede6d6" side={DoubleSide} />
           </mesh>
           <mesh position={[0, -0.35, 0]}>
             <cylinderGeometry args={[0.03, 0.03, 0.75, 6]} />
-            <meshStandardMaterial color="#6b717a" />
+            <meshStandardMaterial color="#6f6b63" />
           </mesh>
         </group>
       </group>
@@ -647,7 +647,7 @@ function CommsCenter() {
       {/* Mast on the roof */}
       <mesh position={[-1.3, 1.6, 0.2]} castShadow>
         <cylinderGeometry args={[0.03, 0.03, 1, 6]} />
-        <meshStandardMaterial color="#6b717a" />
+        <meshStandardMaterial color="#6f6b63" />
       </mesh>
       <Blinker position={[-1.3, 2.13, 0.2]} period={2} phase={0.9} />
       {/* NASA DSN 34-meter deep-space dish and Radome telemetry dome */}

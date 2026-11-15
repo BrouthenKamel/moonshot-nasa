@@ -2,13 +2,17 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { SUN_DIR, useSpaceTexture } from './textures'
 
+/** Warm, slightly dimmed tint for the star map: a backdrop, never brighter than the ice or the craft */
+const STAR_TINT = new THREE.Color(0.86, 0.82, 0.74)
+
 /** The real night sky (NASA Deep Star Maps) on a sphere far behind everything. */
 export function Starfield({ brightness = 1 }: { brightness?: number }) {
   const stars = useSpaceTexture('texture.stars')
+  const tint = useMemo(() => STAR_TINT.clone().multiplyScalar(brightness), [brightness])
   return (
     <mesh rotation={[1.1, 0.4, 0.3]} renderOrder={-10}>
       <sphereGeometry args={[400, 48, 24]} />
-      <meshBasicMaterial map={stars} side={THREE.BackSide} depthWrite={false} color={new THREE.Color(brightness, brightness, brightness)} fog={false} />
+      <meshBasicMaterial map={stars} side={THREE.BackSide} depthWrite={false} color={tint} fog={false} />
     </mesh>
   )
 }
@@ -34,9 +38,10 @@ function makeGlow(inner: string, outer: string) {
 /**
  * The Sun: the scene's key light, plus a glare far away in the same direction.
  * `fill` is a faint light from the opposite side so the night side keeps a little shape.
+ * The glare is depth tested, so a planet in front of the Sun hides it.
  */
 export function Sun({ intensity = 3.2, fill = 0.05, glare = true }: { intensity?: number; fill?: number; glare?: boolean }) {
-  const glow = useMemo(() => makeGlow('rgba(255,255,255,1)', 'rgba(255,220,170,0.35)'), [])
+  const glow = useMemo(() => makeGlow('rgba(255,250,240,1)', 'rgba(255,206,150,0.3)'), [])
   const far = useMemo(() => SUN_DIR.clone().multiplyScalar(380), [])
   return (
     <>
@@ -45,7 +50,7 @@ export function Sun({ intensity = 3.2, fill = 0.05, glare = true }: { intensity?
       <ambientLight intensity={0.02} />
       {glare && (
         <sprite position={far} scale={[130, 130, 1]} renderOrder={-5}>
-          <spriteMaterial map={glow} blending={THREE.AdditiveBlending} depthWrite={false} depthTest={false} color={new THREE.Color(3, 2.8, 2.4)} fog={false} />
+          <spriteMaterial map={glow} blending={THREE.AdditiveBlending} depthWrite={false} color={new THREE.Color(2.4, 2.15, 1.8)} fog={false} />
         </sprite>
       )}
     </>
