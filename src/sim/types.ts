@@ -348,6 +348,8 @@ export interface Report {
   // Outcome
   outcome: 'success' | 'partial' | 'failed'
   outcomeReason: string
+  /** The craft itself was lost (not just stopped for lack of money); absent in reports saved before 15 Nov */
+  craftLost?: boolean
 
   // Requirements
   requirements: RequirementResult[]

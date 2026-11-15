@@ -333,7 +333,9 @@ export function missionTurned(world: World, now: MissionSnapshot): { world: Worl
         : now.outcome === 'partial'
           ? popularityEffects.missionPartial
           : popularityEffects.missionFailed
-    const refund = Math.max(0, now.leftover)
+    // A failed mission burns its whole budget, like a real agency's (Jakob, 15 Nov): nothing comes back
+    const failed = now.outcome === 'failed'
+    const refund = failed ? 0 : Math.max(0, now.leftover)
     w = {
       ...w,
       funds: w.funds + refund,
@@ -347,7 +349,7 @@ export function missionTurned(world: World, now: MissionSnapshot): { world: Worl
           : now.outcome === 'partial'
             ? `${name}: partial success`
             : `${name}: mission failed`,
-      detail: refund > 0 ? `Unspent budget returned` : undefined,
+      detail: failed ? 'The whole mission budget is spent' : refund > 0 ? `Unspent budget returned` : undefined,
       tone: now.outcome === 'failed' ? 'bad' : 'good',
       money: refund > 0 ? round2(refund) : undefined,
       popularity: effect,

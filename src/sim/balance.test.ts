@@ -51,14 +51,20 @@ describe('balance: the archetype designs', () => {
     }
   }, 60_000)
 
-  it('the ambitious two-instrument craft scores highest on average: ambition is a trade, not a trap', () => {
-    const mean = (d: Design) => {
-      let total = 0
-      for (let seed = 1; seed <= 150; seed++) total += buildReport(runSimulation(d, 'engineer', seed)).score.total
-      return total / 150
+  // Jakob, 15 Nov: a failed mission is capped at a C, so ambition is judged on its successes
+  // (the ambitious craft fails more often; see the win-rate test above)
+  it('the ambitious two-instrument craft scores highest when it succeeds: ambition is a trade, not a trap', () => {
+    const successMean = (d: Design) => {
+      const scores: number[] = []
+      for (let seed = 1; seed <= 150; seed++) {
+        const r = buildReport(runSimulation(d, 'engineer', seed))
+        if (r.outcome === 'success') scores.push(r.score.total)
+      }
+      expect(scores.length).toBeGreaterThan(0)
+      return scores.reduce((a, b) => a + b, 0) / scores.length
     }
-    const top = mean(archetypes.ambitious)
-    for (const name of ['flashlight', 'lunahMap', 'shoestring']) expect(top, name).toBeGreaterThan(mean(archetypes[name]))
+    const top = successMean(archetypes.ambitious)
+    for (const name of ['flashlight', 'lunahMap', 'shoestring']) expect(top, name).toBeGreaterThan(successMean(archetypes[name]))
   }, 30_000)
 
   it('are at least 6 genuinely different architectures', () => {

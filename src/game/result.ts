@@ -30,11 +30,14 @@ export function missionResult(world: Pick<World, 'mission' | 'research'>): Missi
     .map((p) => ({ title: p.title, money: p.money, popularity: p.popularity }))
   const paperMoney = papers.reduce((s, p) => s + p.money, 0)
   const paperPopularity = papers.reduce((s, p) => s + p.popularity, 0)
-  const refund = Math.max(0, m.last.leftover)
+  // A failed mission burns its whole budget (Jakob, 15 Nov): the same rule as game/world.ts
+  const refund = outcome === 'failed' ? 0 : Math.max(0, m.last.leftover)
 
   const money = [
     { label: 'Your share at launch', amount: -m.agencyPaid },
-    { label: 'Unspent budget returned', amount: refund },
+    outcome === 'failed'
+      ? { label: 'Failed: whole budget spent', amount: 0 }
+      : { label: 'Unspent budget returned', amount: refund },
     ...(paperMoney > 0 ? [{ label: `Papers (${papers.length})`, amount: paperMoney }] : []),
   ]
   const resultEffect =
