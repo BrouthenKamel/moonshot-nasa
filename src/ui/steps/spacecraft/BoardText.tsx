@@ -6,7 +6,7 @@ import { FlySheet } from './FlySheet'
 export function BoardText({ view }: { view: BayView }) {
   return (
     <div className="mx-auto max-w-3xl space-y-3 px-4 pt-16 pb-4">
-      <StepHeader step="spacecraft" title="Spacecraft" kicker="Factory · Lunar Ice Mapper" />
+      <StepHeader step="spacecraft" title="Spacecraft" kicker="Factory" />
       <FlySheet view={view} />
       <Eng as="p" className="fp-data text-xs text-paper-dim">
         Parts ${view.partsCost.toFixed(1)}M. Inside the box, bottom to top:{' '}

@@ -25,7 +25,7 @@ export function BriefScreen() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 pb-16">
-      <StepHeader step="brief" kicker="Comms Center · Lunar Ice Mapper" title={brief.name} />
+      <StepHeader step="brief" kicker="Comms Center" title={brief.name} />
 
       <Sheet className="space-y-6 p-6 sm:p-8 rounded-2xl border border-rule/80 bg-ink-1/90 shadow-2xl backdrop-blur-md">
         {/* Cinematic Directive Header */}

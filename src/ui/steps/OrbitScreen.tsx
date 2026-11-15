@@ -231,7 +231,7 @@ function PlainOrbit() {
   return (
     <div className="h-full overflow-auto p-4">
       <div className="mx-auto max-w-3xl space-y-4">
-        <StepHeader step="orbit" title="Orbit" kicker="Launch Site · Lunar Ice Mapper" />
+        <StepHeader step="orbit" title="Orbit" kicker="Launch Site" />
 
         <VerdictSheet o={view.selected} coverage={coverageAt(view.selected, MISSION_MONTHS)} />
 
