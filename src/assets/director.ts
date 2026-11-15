@@ -6,6 +6,7 @@ import { isSimComplete } from '../sim/simulate'
 import { useGameStore } from '../state/gameStore'
 import { audio } from './audio'
 import { cuesFor, type Cue, type Snapshot } from './cues'
+import { liftoffReached } from '../ui/flight/launchOrder'
 import { getAsset, type AudioAsset } from './manifest'
 
 type GameState = ReturnType<typeof useGameStore.getState>
@@ -42,7 +43,8 @@ function snapshot(s: GameState, prevLogCount: number): Snapshot {
             newLogs: sim.turnLogs.slice(Math.min(prevLogCount, sim.turnLogs.length)),
             pendingKey: sim.pendingDecision?.key ?? null,
             pendingTurn: sim.pendingDecision?.turn ?? null,
-            launched: f.launchedTurn !== null,
+            // Also while the launch month waits on a deployment event (src/ui/flight/launchOrder.ts)
+            launched: liftoffReached(sim),
             captured: f.captured,
             coverage: f.coverage,
             data: f.data,

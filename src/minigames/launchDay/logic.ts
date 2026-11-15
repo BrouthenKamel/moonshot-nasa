@@ -39,9 +39,7 @@ const Q_LIMIT = 70e3
 
 /** Within this many seconds of the mark is a perfect tap; within the second, a good one */
 const PERFECT_WINDOW = 0.55
-const GOOD_WINDOW = 1.4
-/** Tapping earlier than this is a false start, not a miss */
-const EARLY_WINDOW = 2.2
+const GOOD_WINDOW = 1.4 // earlier than this is TOO EARLY: a false start, not a miss
 /** The computer takes over this long after a missed mark */
 const MISS_AFTER = 2
 
@@ -409,15 +407,17 @@ export function press(s: LaunchState): Feedback | null {
     return null
   }
   const dt = s.t - tapTime(s, ev)
-  if (dt < -EARLY_WINDOW) {
+  // Earlier than a good tap (often before the event's prompt is even up, e.g. STAGE while the first
+  // stage still burns): too early, and the event waits. It used to count as an early OFF and fire it.
+  if (dt < -GOOD_WINDOW) {
     s.combo = 0
-    return { grade: 'early', id: null, big: 'TOO EARLY', small: 'wait for the line', points: 0, combo: 0 }
+    return { grade: 'early', id: null, big: 'TOO EARLY', small: `${(-dt).toFixed(1)} s early · wait for the line`, points: 0, combo: 0 }
   }
   const off = Math.abs(dt)
   const grade: Grade = off < PERFECT_WINDOW ? 'perfect' : off < GOOD_WINDOW ? 'good' : 'off'
   const when =
     dt < -PERFECT_WINDOW ? `${(-dt).toFixed(1)} s early` : dt > PERFECT_WINDOW ? `${dt.toFixed(1)} s late` : 'right on time'
-  return resolve(s, ev.id, grade, when)
+  return resolve(s, ev.id, grade, when, when)
 }
 
 export function release(s: LaunchState): void {
@@ -431,11 +431,12 @@ function finishHold(s: LaunchState): Feedback {
   const grade: Grade = covered > 0.8 && s.holdOut < 2 ? 'perfect' : covered > 0.5 ? 'good' : 'off'
   s.holding = false
   const note = `Throttled down for ${Math.round(covered * 100)}% of Max Q${s.holdOut > 2 ? ', but held too long' : ''}`
-  return resolve(s, 'maxq', grade, note)
+  return resolve(s, 'maxq', grade, note, `held ${Math.round(covered * 100)}% of Max Q`)
 }
 
 /** Record an event, score it, and make it happen in the flight */
-function resolve(s: LaunchState, id: EventId, grade: Grade, note: string): Feedback {
+/** `offBy`: on an OFF, what went wrong in a few words ("0.8 s late"), shown with the points */
+function resolve(s: LaunchState, id: EventId, grade: Grade, note: string, offBy?: string): Feedback {
   s.grades[id] = grade
   s.notes[id] = note
   if (grade === 'off') s.combo = 0
@@ -493,7 +494,8 @@ function resolve(s: LaunchState, id: EventId, grade: Grade, note: string): Feedb
   }
 
   s.idx += 1
-  return { grade, id, big: grade.toUpperCase(), small: `+${points}${s.combo > 1 ? `  ×${s.combo} combo` : ''}`, points, combo: s.combo }
+  const small = grade === 'off' && offBy ? `${offBy} · +${points}` : `+${points}${s.combo > 1 ? `  ×${s.combo} combo` : ''}`
+  return { grade, id, big: grade.toUpperCase(), small, points, combo: s.combo }
 }
 
 /** The orbit the craft is on right now, from its height and speed */
@@ -523,7 +525,7 @@ export function step(s: LaunchState, dt: number): Feedback | null {
     s.t += dt
     if (s.t < 0) return null
     // The computer lights the engines if nobody did; the rocket leaves either way
-    const missed = !s.engineOn ? resolve(s, 'ignite', 'off', 'Missed. The computer did it for you') : null
+    const missed = !s.engineOn ? resolve(s, 'ignite', 'off', 'Missed. The computer did it for you', `${(s.t + 3).toFixed(1)} s late`) : null
     if (missed) s.combo = 0
     s.t = 0
     s.shake = 1
@@ -599,7 +601,7 @@ export function step(s: LaunchState, dt: number): Feedback | null {
     const tt = eventTime(s, ev)
     if (ev.kind === 'tap' && !Array.isArray(tt) && s.t > tt + MISS_AFTER) {
       s.combo = 0
-      return resolve(s, ev.id, 'off', 'Missed. The computer did it for you')
+      return resolve(s, ev.id, 'off', 'Missed. The computer did it for you', `${(s.t - tt).toFixed(1)} s late`)
     }
     if (ev.kind === 'hold' && Array.isArray(tt) && s.t > tt[1] + 0.5) return finishHold(s)
   }

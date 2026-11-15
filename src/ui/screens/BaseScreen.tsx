@@ -32,6 +32,7 @@ import {
 } from '../agency/AgencyPanels'
 import { useWorldStore } from '../../state/worldStore'
 import { useCampaignStore } from '../../state/campaignStore'
+import { liftoffReached } from '../flight/launchOrder'
 import { CampaignLayer } from '../campaign/CampaignLayer'
 
 /*
@@ -189,7 +190,7 @@ export function BaseScreen() {
 
   // The rocket on the island's pad: it leaves during the launch and stays gone while the craft flies
   const launchAt = useUiStore((s) => s.launchAt)
-  const rocketGone = !!simState && simState.flight.launchedTurn !== null && launchAt === null
+  const rocketGone = !!simState && liftoffReached(simState) && launchAt === null
 
   // The agency: its clock runs while the base is open; one mission at a time
   useAgencyClock()

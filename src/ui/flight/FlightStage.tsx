@@ -22,6 +22,7 @@ import { Eng, Flap } from '../kit'
 import { EventCard, useShowPlaying } from './EventCard'
 import { FlightControls } from './FlightControls'
 import { FirstMappingPass } from '../../minigames/iceMapper'
+import { liftoffReached } from './launchOrder'
 
 const FlightView = lazy(() => import('../../scene/flight/FlightView').then((m) => ({ default: m.FlightView })))
 const LaunchDayGame = lazy(() => import('../../minigames/launchDay').then((m) => ({ default: m.LaunchDayGame })))
@@ -439,7 +440,7 @@ export function useSpaceShowing(sim: SimState | null): boolean {
   const view = useUiStore((s) => s.flightView)
   const launchAt = useUiStore((s) => s.launchAt)
   const webgl = useMemo(() => canUseWebGL(), [])
-  return !!sim && webgl && sim.flight.launchedTurn !== null && launchAt === null && view === 'space'
+  return !!sim && webgl && liftoffReached(sim) && launchAt === null && view === 'space'
 }
 
 /** How far the agency clock is into the flight's next month, 0..1 (in steps of 1%, so it re-renders gently) */
@@ -649,7 +650,9 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   const launchAt = useUiStore((s) => s.launchAt)
   const startLaunch = useUiStore((s) => s.startLaunch)
   const endLaunch = useUiStore((s) => s.endLaunch)
-  const launched = sim.flight.launchedTurn !== null
+  // Liftoff counts from the step that flies it, also when that step stops on a deployment event:
+  // the launch and Launch Day play first, the event's card after them (launchOrder.ts)
+  const launched = liftoffReached(sim)
   // Launch Day: the player flies the ride to orbit once, when the core reports liftoff
   const [flyingLaunch, setFlyingLaunch] = useState(false)
   const showPlaying = useShowPlaying()
