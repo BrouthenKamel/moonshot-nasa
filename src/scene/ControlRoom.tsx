@@ -10,6 +10,7 @@ import { goNoGo } from '../sim/checks'
 import { Effects } from './space/Effects'
 import { usePlanningOdds } from '../ui/useOdds'
 import { useDetailsOpen } from '../ui/kit/detailsState'
+import { fitView, SEAT_CAM, SEAT_TARGET } from './controlRoomFit'
 import { buildPlanningView, PLAN_DETAILS_ID, type PlanningView } from '../viz/planning/planningView'
 import { paintScreen, SCREEN_W, SCREEN_H, type ScreenAnim } from '../viz/planning/screenPainter'
 import { paintConsole, CONSOLE, STEP_LAMPS } from '../viz/planning/consolePainter'
@@ -528,21 +529,29 @@ function Console({ view, focus, onDragChange }: { view: PlanningView; focus: Con
 
 /* ---------------- camera ---------------- */
 
-const CAM = new THREE.Vector3(0, 3.2, 5.0)
-const TARGET = new THREE.Vector3(0, 2.0, -8.5)
+const CAM = SEAT_CAM
+const TARGET = SEAT_TARGET
 
-function SeatCamera({ dragging, reduced }: { dragging: { current: boolean }; reduced: boolean }) {
+function SeatCamera({ dragging, reduced, topInset }: { dragging: { current: boolean }; reduced: boolean; topInset: number }) {
   const { camera, size, pointer } = useThree()
   const sway = useRef({ x: 0, y: 0 })
-  useFrame(() => {
+  // Fit the full width of the big screen and the console (wider fov for narrower windows), and keep the
+  // wall's top edge below the step's overlay row on short windows (see controlRoomFit.ts)
+  const fit = useMemo(() => fitView(size.width, size.height, topInset), [size.width, size.height, topInset])
+  useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera
-    const aspect = size.width / Math.max(1, size.height)
-    // Fit the full width of the big screen and the console: wider fov for narrower windows
-    const fov = aspect < 1.25 ? 80 : aspect < 1.5 ? 72 : 60
-    if (cam.fov !== fov) {
-      cam.fov = fov
+    cam.fov = fit.fov
+    // A negative y offset draws the picture lower in the view
+    if (fit.shiftPx > 0) cam.setViewOffset(size.width, size.height, 0, -fit.shiftPx, size.width, size.height)
+    else cam.clearViewOffset()
+    cam.updateProjectionMatrix()
+    return () => {
+      cam.clearViewOffset()
       cam.updateProjectionMatrix()
     }
+  }, [camera, fit, size.width, size.height])
+  useFrame(() => {
+    const cam = camera as THREE.PerspectiveCamera
     if (!dragging.current && !reduced) {
       sway.current.x += (pointer.x - sway.current.x) * 0.05
       sway.current.y += (-pointer.y - sway.current.y) * 0.05
@@ -557,7 +566,8 @@ function SeatCamera({ dragging, reduced }: { dragging: { current: boolean }; red
 
 /* ---------------- the room ---------------- */
 
-export function ControlRoom({ focus }: { focus: ControlFocus }) {
+/** `topInset`: how many pixels at the top of the view the step's overlay row covers */
+export function ControlRoom({ focus, topInset = 0 }: { focus: ControlFocus; topInset?: number }) {
   const view = usePlanningView()
   const dragging = useRef(false)
   const reduced = useMemo(() => prefersReducedMotion(), [])
@@ -573,7 +583,7 @@ export function ControlRoom({ focus }: { focus: ControlFocus }) {
     >
       <color attach="background" args={[0x07090d]} />
       <fog attach="fog" args={[0x07090d, 14, 46]} />
-      <SeatCamera dragging={dragging} reduced={reduced} />
+      <SeatCamera dragging={dragging} reduced={reduced} topInset={topInset} />
       <Room />
       <OperatorRows />
       <BigScreen view={view} reduced={reduced} detail={detail} />

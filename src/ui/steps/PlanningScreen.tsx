@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
 import { turnConstants } from '../../data/brief'
@@ -479,7 +479,7 @@ function PlanningQuickHudOverlay() {
   )
 }
 
-function StepButtons({ overlay }: { overlay: boolean }) {
+function StepButtons({ overlay, rowRef }: { overlay: boolean; rowRef?: RefObject<HTMLDivElement | null> }) {
   const setDesignStep = useGameStore((s) => s.setDesignStep)
   const back = (
     <Btn type="button" onClick={() => setDesignStep('brief')}>
@@ -491,21 +491,23 @@ function StepButtons({ overlay }: { overlay: boolean }) {
       {nextLabel('planning')}
     </Btn>
   )
+  // One row across the top of the room; the camera keeps the big screen below its measured height.
+  // On short windows the title card drops its question line so the row (and the room's shrink) stays small.
   if (overlay)
     return (
-      <>
-        <div className="absolute top-3 left-3">{back}</div>
-        <div className="pointer-events-none absolute top-3 left-1/2 hidden -translate-x-1/2 md:block">
+      <div ref={rowRef} className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-3">
+        <div className="pointer-events-auto">{back}</div>
+        <div className="hidden md:block">
           <Sheet tone="inset" className="px-4 py-2 text-center">
             <div className="flex items-baseline justify-center gap-2">
               <span className="fp-data text-xs text-paper-faint">{String(N).padStart(2, '0')}</span>
               <span className="fp-display text-base text-paper">{stepTitle('planning')}</span>
             </div>
-            <div className="text-xs text-paper-dim">{STEP_QUESTION.planning}</div>
+            <div className="text-xs text-paper-dim [@media(max-height:680px)]:hidden">{STEP_QUESTION.planning}</div>
           </Sheet>
         </div>
-        <div className="absolute top-3 right-3">{next}</div>
-      </>
+        <div className="pointer-events-auto">{next}</div>
+      </div>
     )
   return (
     <div className="mx-auto mt-6 flex max-w-3xl justify-between">
@@ -519,6 +521,18 @@ export function PlanningScreen() {
   // The 3D room starts only in a browser with WebGL; server rendering and tests take the plain path
   const [room, setRoom] = useState(canUseWebGL)
   const [focus, setFocus] = useState<ControlFocus>(null)
+  // How far down the overlay row reaches into the room view, for the camera fit
+  const rowRef = useRef<HTMLDivElement>(null)
+  const [topInset, setTopInset] = useState(0)
+  useEffect(() => {
+    const row = rowRef.current
+    if (!row || typeof ResizeObserver === 'undefined') return
+    const measure = () => setTopInset(Math.ceil(row.offsetTop + row.offsetHeight))
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(row)
+    return () => ro.disconnect()
+  }, [room])
 
   if (!room)
     return (
@@ -532,12 +546,12 @@ export function PlanningScreen() {
     <div className="relative h-full min-h-[480px] w-full overflow-hidden bg-ink-0">
       <RoomBoundary onError={() => setRoom(false)}>
         <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Opening mission control…</div>}>
-          <ControlRoom focus={focus} />
+          <ControlRoom focus={focus} topInset={topInset} />
         </Suspense>
       </RoomBoundary>
       <PlanningControls hidden onFocus={setFocus} />
       <PlanningQuickHudOverlay />
-      <StepButtons overlay />
+      <StepButtons overlay rowRef={rowRef} />
     </div>
   )
 }
