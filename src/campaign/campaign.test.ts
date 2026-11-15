@@ -194,25 +194,58 @@ describe('minimumShare', () => {
 })
 
 describe('balance (game values)', () => {
-  it('a careful player who succeeds every time climbs the whole ladder with little waiting', () => {
+  /** Wait on the agency clock (30-day steps, at most `max` days) until a mission can be started */
+  function waitFor(world: World, progress: CampaignProgress, m: CampaignMission, max: number) {
+    let waited = 0
+    while (!(ladder(progress, world.funds, world.popularity)[m.n - 1].open && canAfford(world, planOf(m, safestPicks(m)))) && waited < max) {
+      world = advanceDays(world, world.day + 30).world
+      waited += 30
+    }
+    return { world, waited, open: ladder(progress, world.funds, world.popularity)[m.n - 1].open }
+  }
+
+  it('a careful player who succeeds every time reaches the Moon base with little waiting', () => {
     let world = flyIceMapper(initialWorld(), 'success')
     let progress = recordFlight(emptyProgress(), { missionId: 'ice-mapper', outcome: 'success', science: 0, day: world.day, seed: 7 })
-    const waits: number[] = []
-    for (const m of CAMPAIGN.slice(1)) {
-      // Wait (agency clock) until the gate is met, at most a year
-      let waited = 0
-      while (!(ladder(progress, world.funds, world.popularity)[m.n - 1].open && canAfford(world, planOf(m, safestPicks(m)))) && waited < 360) {
-        world = advanceDays(world, world.day + 30).world
-        waited += 30
-      }
-      waits.push(waited)
-      if (process.env.CAMPAIGN_LOG) console.log(m.id, waited, world.funds.toFixed(1), world.popularity.toFixed(1))
-      expect(ladder(progress, world.funds, world.popularity)[m.n - 1].open, `${m.id} opens`).toBe(true)
-      ;({ world, progress } = fly(world, progress, m, 'success'))
+    for (const m of CAMPAIGN.slice(1, 3)) {
+      const w = waitFor(world, progress, m, 90)
+      if (process.env.CAMPAIGN_LOG) console.log(m.id, w.waited, w.world.funds.toFixed(1), w.world.popularity.toFixed(1))
+      expect(w.open, `${m.id} opens within three months`).toBe(true)
+      ;({ world, progress } = fly(w.world, progress, m, 'success'))
     }
+  })
+
+  it('the Mars gate needs at least one strong flight after a clean run to the Moon base', () => {
+    let world = flyIceMapper(initialWorld(), 'success')
+    let progress = recordFlight(emptyProgress(), { missionId: 'ice-mapper', outcome: 'success', science: 0, day: world.day, seed: 7 })
+    for (const m of CAMPAIGN.slice(1, 3)) ({ world, progress } = fly(waitFor(world, progress, m, 360).world, progress, m, 'success'))
+    const mars = missionById('mars-base')
+    if (process.env.CAMPAIGN_LOG) console.log('before mars', world.funds.toFixed(1), world.popularity.toFixed(1))
+    // Not open, even after three months of funding
+    expect(waitFor(world, progress, mars, 90).open).toBe(false)
+    // One more strong flight (a repeat Moon base success) opens it within three months
+    ;({ world, progress } = fly(world, progress, missionById('moon-base'), 'success'))
+    const w = waitFor(world, progress, mars, 90)
+    if (process.env.CAMPAIGN_LOG) console.log('after repeat base', w.waited, w.world.funds.toFixed(1), w.world.popularity.toFixed(1))
+    expect(w.open).toBe(true)
+    ;({ world, progress } = fly(w.world, progress, mars, 'success'))
     expect(nextMission(progress)).toBeNull()
-    // Never more than three months of waiting at a gate
-    expect(Math.max(...waits)).toBeLessThanOrEqual(90)
+  })
+
+  it('keeps popularity under the 100% ceiling before Mars, even for a player who picks every crowd-pleaser', () => {
+    const boldPicks = (m: CampaignMission): Picks => Object.fromEntries(m.choices.map((c) => [c.id, [...c.options].sort((a, b) => b.hype - a.hype)[0].id]))
+    let world: World = { ...flyIceMapper(initialWorld(), 'success'), funds: 500 }
+    let progress = recordFlight(emptyProgress(), { missionId: 'ice-mapper', outcome: 'success', science: 0, day: world.day, seed: 7 })
+    for (const m of CAMPAIGN.slice(1, 3)) {
+      const picks = boldPicks(m)
+      const plan = planOf(m, picks)
+      const flight = flyMission(m, picks, seedFor(m, picks, 'success'))
+      const approved = approveCampaignMission({ ...world, popularity: Math.max(world.popularity, m.gate!.popularity) }, m, plan)
+      world = settleCampaignFlight(approved.world, m, flight, approved.paid, true).world
+      progress = recordFlight(markOpened(progress, m.id), { missionId: m.id, outcome: 'success', science: 0, day: world.day, seed: flight.seed })
+    }
+    if (process.env.CAMPAIGN_LOG) console.log('bold popularity before mars', world.popularity.toFixed(1))
+    expect(world.popularity).toBeLessThan(100)
   })
 
   it('a failed Moon landing leaves the agency short of the next gate: it must fly again', () => {

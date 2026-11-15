@@ -63,11 +63,10 @@ export function awardFor(mission: CampaignMission, outcome: Outcome, first: bool
 }
 
 export function popularityFor(mission: CampaignMission, outcome: Outcome, plan: MissionPlan, first: boolean): number {
-  const base = mission.popularity[outcome]
-  // A repeat success is smaller news than the first
-  const scaled = outcome === 'failed' ? base : first ? base : Math.round(base / 2)
+  // A repeat flight earns the same headline as the first (only its award is smaller); `first` is kept for symmetry
+  void first
   // The design's extra news value counts half: the result itself is the headline
-  return scaled + (outcome === 'success' ? Math.round(plan.hype / 2) : 0)
+  return mission.popularity[outcome] + (outcome === 'success' ? Math.round(plan.hype / 2) : 0)
 }
 
 /**
