@@ -42,10 +42,11 @@ describe('storage flow', () => {
   it('loses nothing when the downlink keeps up', () => {
     expect(storageFlow(100, 150, 500).spill).toBe(0)
   })
-  it('spills what the storage cannot hold', () => {
+  it('once storage is full, spills everything the link cannot carry, every month', () => {
     const f = storageFlow(1000, 200, 300)
     expect(f.fill).toBe(1)
-    expect(f.spill).toBeCloseTo(0.5)
+    expect(f.spill).toBeCloseTo(0.8)
+    expect(f.lostPerMonth).toBeCloseTo(800)
   })
 })
 

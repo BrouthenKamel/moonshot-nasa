@@ -153,7 +153,9 @@ function whyCoverageShort(state: SimState, b: Budgets): string[] {
   const ice = all.filter((i) => i.seesShadow)
   if (ice.length === 0)
     return [
-      `The ${nouns(all)} cannot see into the shadowed craters where the ice is: it needs sunlight. Only the laser reflectometer and the neutron spectrometer can.`,
+      all.length === 0
+        ? 'No instrument was on board, so nothing could map the ice. Only the laser reflectometer and the neutron spectrometer see into the shadowed craters.'
+        : `The ${nouns(all)} cannot see into the shadowed craters where the ice is: ${all.length > 1 ? 'they need' : 'it needs'} sunlight. Only the laser reflectometer and the neutron spectrometer can.`,
     ]
   const orbit = getOrbitById(state.design.orbit)
   const best = ice.reduce((a, c) => ((b.coverageRate[c.id] ?? 0) > (b.coverageRate[a.id] ?? 0) ? c : a))
@@ -206,6 +208,24 @@ function whyDataShort(state: SimState, b: Budgets, need: number): string[] {
   if (b.projectedData >= need) out.push(...eventsThatCostScience(state))
   if (f.scienceTurns < turns) out.push(...whyShortLife(state, b))
   return out.length ? out : [BAD_LUCK]
+}
+
+/**
+ * How the flight ended, as one sentence ("Budget ran out in orbit."). The report's verdict and
+ * the base's mission-result dialog both say this, so they always name the same reason.
+ */
+export function endingSentence(end: string): string {
+  const e = end || 'mission over'
+  return `${e.charAt(0).toUpperCase() + e.slice(1)}.`
+}
+
+/** Ends where the craft itself was lost; any other failure leaves a working craft (e.g. the money ran out) */
+export function craftWasLost(end: string): boolean {
+  return (
+    end === 'lost contact after deployment' ||
+    end === 'out of propellant, orbit lost' ||
+    end === 'not enough delta-v left to capture'
+  )
 }
 
 /**
@@ -262,11 +282,8 @@ export function buildReport(state: SimState): Report {
   else outcome = 'failed'
 
   const missed = requirements.filter((r) => !r.met).map((r) => r.name)
-  const ending = f.end || 'mission over'
   const outcomeReason =
-    outcome === 'success'
-      ? 'All mission requirements met.'
-      : `${ending.charAt(0).toUpperCase() + ending.slice(1)}. Missed: ${missed.join(', ')}.`
+    outcome === 'success' ? 'All mission requirements met.' : `${endingSentence(f.end)} Missed: ${missed.join(', ')}.`
 
   // Score (out of 1000)
   // Data and lifetime only count for as much ice as they mapped: a craft that finds
@@ -279,7 +296,7 @@ export function buildReport(state: SimState): Report {
         data: w.data * Math.min(1, f.data / dataTarget) * iceShare,
         lifetime: w.lifetime * Math.min(1, f.scienceTurns / turnsNeeded) * iceShare,
         context: w.context * Math.min(1, f.context / COVERAGE_TARGET),
-        // A failed mission uses up its whole budget: no points for money left (Jakob, 14 Nov)
+        // A failed mission earns no points for money left (Jakob, 14 Nov); the unspent money still goes back to the agency (game/world.ts)
         money: outcome === 'failed' ? 0 : (w.money * Math.max(0, moneyLeft)) / b.budgetCap,
       }
     : { coverage: 0, data: 0, lifetime: 0, context: 0, money: 0 }
@@ -308,7 +325,13 @@ export function buildReport(state: SimState): Report {
     if (score.data < w.data)
       scoreNotes.push(`Science data ${score.data}/${w.data}: ${f.data.toFixed(0)} MB home of the ${dataTarget} MB target.${iceNote}`)
     if (score.lifetime < w.lifetime)
-      scoreNotes.push(`Months in orbit ${score.lifetime}/${w.lifetime}: ${f.scienceTurns} of ${turnsNeeded} science months flown.${iceNote}`)
+      scoreNotes.push(
+        f.scienceTurns >= turnsNeeded
+          ? `Months in orbit ${score.lifetime}/${w.lifetime}: all ${turnsNeeded} science months flown` +
+              (f.scienceTurns > turnsNeeded ? ` (${f.scienceTurns} with the extended mission)` : '') +
+              `, but they score only for the ice they mapped (${f.coverage.toFixed(0)}% of the ${COVERAGE_TARGET}% target).`
+          : `Months in orbit ${score.lifetime}/${w.lifetime}: ${f.scienceTurns} of ${turnsNeeded} science months flown.${iceNote}`
+      )
     if (score.context < w.context)
       scoreNotes.push(
         instruments.some((i) => i.kind === 'context')
@@ -318,7 +341,8 @@ export function buildReport(state: SimState): Report {
     if (score.money < w.money)
       scoreNotes.push(
         outcome === 'failed'
-          ? `Money left 0/${w.money}: a failed mission uses up its budget.`
+          ? `Money left 0/${w.money}: a failed mission earns no points for money left.` +
+              (moneyLeft > 0 ? ` The ${moneyLeft.toFixed(1)} M it did not spend still goes back to the agency.` : '')
           : `Money left ${score.money}/${w.money}: ${Math.max(0, moneyLeft).toFixed(1)} M of the ${b.budgetCap} M budget was left. A cheaper plan, or fewer fixes paid in flight, keeps more.`
       )
   }

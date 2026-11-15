@@ -3,7 +3,7 @@ import { useGameStore } from '../../state/gameStore'
 import { useWorldStore, type Speed } from '../../state/worldStore'
 import { fundingPerDay, grantShare, missionFunding, popularityEffects } from '../../game/economy'
 import { lunarPapers } from '../../game/research'
-import { missionResult, type MissionResult } from '../../game/result'
+import { failedLine, missionResult, type MissionResult } from '../../game/result'
 import { useUiStore } from '../../state/uiStore'
 import { campaign, phaseProgress } from '../../game/campaign'
 import { backgroundNews } from '../../game/news'
@@ -735,14 +735,8 @@ export function MissionResultDialog({
 
   const look = OUTCOME_LOOK[result.outcome]
   // Say what actually happened: the craft lost, or a craft that flew but could not reach the goals
-  const line =
-    result.outcome !== 'failed'
-      ? look.line
-      : sim.phase === 'failed'
-        ? 'The spacecraft was lost. The report shows what went wrong.'
-        : result.coverage < 1
-          ? 'The spacecraft flew, but mapped no ice. The report shows why.'
-          : 'The spacecraft flew, but the ice map fell short. The report shows why.'
+  // (the same end reason the report gives: failedLine)
+  const line = result.outcome !== 'failed' ? look.line : failedLine(sim.flight.end, sim.phase === 'failed', result.coverage)
   const close = () => markSeen(mission.seed)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-0/80 p-4" onClick={close}>
