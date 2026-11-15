@@ -3,10 +3,12 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import type { ModelId } from '../../assets/manifest'
 import { preloadModel, useModel } from '../../assets/models'
 import { kitModel, type Vec3 } from '../../data/craftKit'
 import { allCraftParts, craftLabel, type CraftInstance, type CraftSlot } from '../../viz/spacecraft/craftBuild'
 import { prefersReducedMotion } from '../space/quality'
+import { Effects } from '../space/Effects'
 
 /**
  * The spacecraft step's assembly bay: the 6U craft hovers over a turntable in a dark bay, built from
@@ -14,7 +16,8 @@ import { prefersReducedMotion } from '../space/quality'
  * the wings and close the panels. Real scale, metres: the camera does the enlarging.
  */
 
-const ACCENT = '#8b5cf6'
+/** Kapton amber: the one warm accent in the clean room */
+const ACCENT = '#e8a33d'
 /** The craft hovers with its centre here, above the turntable */
 const CRAFT_CENTRE: Vec3 = [0, 0.42, 0]
 
@@ -302,29 +305,42 @@ function Bay({ ringColor, reduced }: { ringColor: string; reduced: boolean }) {
     <group>
       <mesh rotation-x={-Math.PI / 2}>
         <planeGeometry args={[40, 30]} />
-        <meshStandardMaterial color="#0b1220" roughness={0.3} metalness={0.55} />
+        <meshStandardMaterial color="#1b1e23" roughness={0.42} metalness={0.25} />
       </mesh>
-      <gridHelper args={[40, 120, '#2e1f5e', '#101a2e']} position-y={0.002} />
+      {/* conductive floor tiles: a fine ESD grid */}
+      <gridHelper args={[40, 66, '#3a3324', '#20242b']} position-y={0.002} />
+      {/* a Kapton safety line around the work area */}
+      <mesh rotation-x={-Math.PI / 2} position-y={0.003}>
+        <ringGeometry args={[1.18, 1.22, 96]} />
+        <meshBasicMaterial color={ACCENT} transparent opacity={0.55} />
+      </mesh>
       <mesh position={[0, 3, -2.4]}>
         <planeGeometry args={[40, 8]} />
-        <meshStandardMaterial color="#0a0f1c" />
+        <meshStandardMaterial color="#15181d" roughness={0.85} />
       </mesh>
+      {/* wall panels with HEPA return grilles */}
       {[-7, -5, -3, -1, 1, 3, 5, 7].map((x) => (
         <mesh key={x} position={[x * 0.9, 3, -2.3]}>
-          <boxGeometry args={[0.1, 8, 0.12]} />
-          <meshStandardMaterial color="#111a2c" />
+          <boxGeometry args={[0.06, 8, 0.08]} />
+          <meshStandardMaterial color="#22262d" roughness={0.6} />
+        </mesh>
+      ))}
+      {[-5.4, -1.8, 1.8, 5.4].map((x) => (
+        <mesh key={x} position={[x, 0.3, -2.34]}>
+          <boxGeometry args={[1.2, 0.36, 0.02]} />
+          <meshStandardMaterial color="#2a2e35" roughness={0.9} />
         </mesh>
       ))}
       {[-3.4, 0, 3.4].map((x) => (
         <mesh key={x} position={[x, 3.4, 0.2]}>
           <boxGeometry args={[2, 0.03, 0.2]} />
-          <meshBasicMaterial color="#e4dcff" />
+          <meshBasicMaterial color={[1.25, 1.27, 1.3]} toneMapped={false} />
         </mesh>
       ))}
       {/* the turntable */}
       <mesh position-y={0.04}>
         <cylinderGeometry args={[0.52, 0.58, 0.08, 64]} />
-        <meshStandardMaterial color="#141d2e" metalness={0.65} roughness={0.35} />
+        <meshStandardMaterial color="#23262c" metalness={0.6} roughness={0.38} />
       </mesh>
       <mesh position-y={0.085} rotation-x={Math.PI / 2}>
         <torusGeometry args={[0.5, 0.012, 8, 96]} />
@@ -333,21 +349,66 @@ function Bay({ ringColor, reduced }: { ringColor: string; reduced: boolean }) {
       {/* a faint beam holds the craft up */}
       <mesh position-y={0.095 + 0.15}>
         <cylinderGeometry args={[0.3, 0.46, 0.3, 48, 1, true]} />
-        <meshBasicMaterial ref={beam} color="#a78bfa" transparent opacity={0.08} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
+        <meshBasicMaterial ref={beam} color="#cfd8e3" transparent opacity={0.08} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
       </mesh>
       <pointLight ref={accent} position={[-1.8, 1.8, -1.2]} intensity={9} distance={7} color={ACCENT} />
+      <CleanRoomProps />
     </group>
+  )
+}
+
+/* ---------------- clean-room dressing ---------------- */
+
+/**
+ * Ground-support hardware from the kit, set around the turntable at real size (metres). Every
+ * piece sits outside the camera's orbit (radius > 1.4 m) so no preset clips through it; the
+ * bench, fairing and hook fill the backdrop behind the craft in the default views.
+ * Most models stand on their origin; the deployers and the ring are centred on theirs.
+ */
+const DRESSING: { id: ModelId; pos: Vec3; rotY?: number }[] = [
+  { id: 'model.sc-esd_workbench', pos: [-1.05, 0, -1.9], rotY: 0.15 },
+  { id: 'model.sc-fairing_half', pos: [1.25, 0, -2.0], rotY: -0.35 },
+  { id: 'model.sc-assembly_stand', pos: [-2.15, 0, -0.75], rotY: 1.2 },
+  { id: 'model.sc-laptop_cart', pos: [-1.9, 0, 0.95], rotY: 2.2 },
+  { id: 'model.sc-shipping_container', pos: [1.95, 0, 0.55], rotY: -1.25 },
+  { id: 'model.sc-deployer_6u_closed', pos: [1.95, 0.83, 0.55], rotY: -1.0 },
+  { id: 'model.sc-deployer_6u_open', pos: [0.2, 0.067, -1.6], rotY: 0.4 },
+  { id: 'model.sc-separation_ring', pos: [-0.3, 0.038, -1.55] },
+  { id: 'model.sc-crane_hook', pos: [0.45, 2.2, -1.55] },
+]
+
+function Prop({ id, pos, rotY = 0 }: { id: ModelId; pos: Vec3; rotY?: number }) {
+  const root = useModel(id)
+  return (
+    <group position={pos} rotation-y={rotY}>
+      <primitive object={root} />
+    </group>
+  )
+}
+
+function CleanRoomProps() {
+  return (
+    <>
+      {DRESSING.map((d) => (
+        <Suspense key={d.id} fallback={null}>
+          <Prop {...d} />
+        </Suspense>
+      ))}
+    </>
   )
 }
 
 function Lights() {
   return (
     <>
-      <ambientLight color="#8fa3c8" intensity={0.55} />
-      <spotLight position={[-0.9, 2.6, 1.8]} angle={0.55} penumbra={0.6} intensity={42} distance={9} color="#e3ecff" />
-      <pointLight position={[1.1, 0.9, 1.1]} intensity={4.5} distance={4} color="#9ec5ff" />
-      <pointLight position={[-0.9, 0.5, -0.8]} intensity={3.2} distance={4} color="#ffd9b0" />
-      <pointLight position={[0.3, -0.05, 0.4]} intensity={1.6} distance={2} color="#a78bfa" />
+      {/* clean-room key: cool, even, from the ceiling diffusers */}
+      <ambientLight color="#aab6c4" intensity={0.5} />
+      <hemisphereLight color="#dfe8f2" groundColor="#1b1e23" intensity={0.45} />
+      <spotLight position={[-0.9, 2.6, 1.8]} angle={0.55} penumbra={0.6} intensity={42} distance={9} color="#e6eef6" />
+      <pointLight position={[1.1, 0.9, 1.1]} intensity={4} distance={4} color="#c9d6e4" />
+      {/* warm Kapton accent from behind: rim light on the foil and panels */}
+      <pointLight position={[-0.9, 0.5, -0.8]} intensity={3.4} distance={4} color="#e8a33d" />
+      <pointLight position={[0.3, -0.05, 0.4]} intensity={1.2} distance={2} color="#f0c88a" />
     </>
   )
 }
@@ -445,8 +506,8 @@ export function SpacecraftStage(props: StageProps) {
         camera={{ fov: 34, position: VIEW_POSES.closeup.pos, near: 0.02, far: 60 }}
         gl={{ antialias: true }}
         onCreated={({ scene, gl }) => {
-          scene.background = new THREE.Color('#03050a')
-          scene.fog = new THREE.Fog('#03050a', 5, 14)
+          scene.background = new THREE.Color('#0d0f13')
+          scene.fog = new THREE.Fog('#0d0f13', 5, 14)
           const pmrem = new THREE.PMREMGenerator(gl)
           scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
           scene.environmentIntensity = 0.55
@@ -454,6 +515,7 @@ export function SpacecraftStage(props: StageProps) {
         }}
       >
         <Scene props={props} tags={tags} tagEls={tagEls} />
+        <Effects preset="interior" />
       </Canvas>
       <TagOverlay tags={tags} tagEls={tagEls} props={props} />
     </div>

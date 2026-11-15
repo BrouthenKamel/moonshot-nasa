@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useModel } from '../assets/models'
 import { useGameStore } from '../state/gameStore'
+import { Effects } from './space/Effects'
 import { usePlanningOdds } from '../ui/useOdds'
 import { buildPlanningView, type PlanningView } from '../viz/planning/planningView'
 import { paintScreen, SCREEN_W, SCREEN_H, type ScreenAnim } from '../viz/planning/screenPainter'
@@ -568,6 +569,7 @@ export function ControlRoom({ focus }: { focus: ControlFocus }) {
       <OperatorRows />
       <BigScreen view={view} reduced={reduced} />
       <Console view={view} focus={focus} onDragChange={(d) => (dragging.current = d)} />
+      <Effects preset="interior" />
     </Canvas>
   )
 }

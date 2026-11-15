@@ -126,9 +126,10 @@ function mulberry32(seed: number) {
 /* Ground                                                              */
 /* ------------------------------------------------------------------ */
 
-const GRASS_A = new Color('#8cc152')
-const GRASS_B = new Color('#80b84a')
-const ROAD = new Color('#e3c99a')
+// Golden-hour Florida coast: sun-bleached scrub greens and sand roads
+const GRASS_A = new Color('#8a9a58')
+const GRASS_B = new Color('#829353')
+const ROAD = new Color('#d8c095')
 
 function Ground() {
   const ref = useRef<InstancedMesh>(null)
@@ -164,12 +165,12 @@ function Ground() {
       {/* Earth block under the island */}
       <mesh position={[0, -0.45, 0]}>
         <boxGeometry args={[MAP_SIZE, 0.8, MAP_SIZE]} />
-        <meshStandardMaterial color="#9b6b43" />
+        <meshStandardMaterial color="#8a6646" />
       </mesh>
       {/* Grass beyond the island */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.86, 0]} receiveShadow>
         <planeGeometry args={[200, 200]} />
-        <meshStandardMaterial color="#6fa83f" />
+        <meshStandardMaterial color="#7a8a50" />
       </mesh>
     </group>
   )
@@ -184,15 +185,15 @@ function Tree({ position, scale }: { position: [number, number, number]; scale: 
     <group position={position} scale={scale}>
       <mesh position={[0, 0.25, 0]} castShadow>
         <cylinderGeometry args={[0.07, 0.1, 0.5, 6]} />
-        <meshStandardMaterial color="#7a4e2d" />
+        <meshStandardMaterial color="#6e4f36" />
       </mesh>
       <mesh position={[0, 0.75, 0]} castShadow>
         <icosahedronGeometry args={[0.38, 0]} />
-        <meshStandardMaterial color="#3f8f3a" flatShading />
+        <meshStandardMaterial color="#56703f" flatShading />
       </mesh>
       <mesh position={[0.05, 1.05, 0.02]} castShadow>
         <icosahedronGeometry args={[0.26, 0]} />
-        <meshStandardMaterial color="#4ea644" flatShading />
+        <meshStandardMaterial color="#647f46" flatShading />
       </mesh>
     </group>
   )
@@ -202,7 +203,7 @@ function Rock({ position, scale }: { position: [number, number, number]; scale: 
   return (
     <mesh position={position} scale={scale} castShadow>
       <dodecahedronGeometry args={[0.22, 0]} />
-      <meshStandardMaterial color="#a3a8ad" flatShading />
+      <meshStandardMaterial color="#aaa597" flatShading />
     </mesh>
   )
 }
@@ -243,11 +244,11 @@ function Scenery() {
 /* Buildings                                                           */
 /* ------------------------------------------------------------------ */
 
-const WALL = '#eef1f6'
-const ROOF = '#2c3e6b'
-const GLASS = '#5aa9e6'
-const ACCENT = '#f28c28'
-const CONCRETE = '#c9ccd1'
+const WALL = '#ece5d6'
+const ROOF = '#2f3a4c'
+const GLASS = '#7fa3bd'
+const ACCENT = '#e8a33d'
+const CONCRETE = '#c9c3b6'
 
 function Pad({ w, d }: { w: number; d: number }) {
   return (
@@ -716,7 +717,9 @@ function Sign({
   // A real button when it walks in, so it can be reached and pressed by keyboard
   const Tag = onClick ? 'button' : 'div'
   const tip = [title ?? (onClick ? `Enter the ${name}` : name), label?.status].filter(Boolean).join(': ')
-  const board = label?.highlight && !label.alert ? 'bg-orange-500' : 'bg-[#14213d]/90'
+  const next = !!label?.highlight && !label.alert
+  // An inventory tag: ink card, paper text, clipped corner. Kapton when it is the next stop.
+  const board = next ? 'bg-kapton text-kapton-ink border-kapton' : 'bg-ink-1/95 text-paper border-rule-strong'
   return (
     <Tag
       type={onClick ? 'button' : undefined}
@@ -730,18 +733,19 @@ function Sign({
       {label?.pulse && !label.alert && (
         <span
           data-testid="label-pulse"
-          className="pointer-events-none absolute -inset-x-2 -top-2 bottom-2 rounded-xl ring-4 ring-emerald-400/70 shadow-[0_0_18px_rgba(52,211,153,0.6)] motion-safe:animate-pulse"
+          className="pointer-events-none absolute -inset-x-1.5 -top-1.5 bottom-1.5 ring-2 ring-go/80 motion-safe:animate-pulse"
         />
       )}
       <span
-        className={`relative flex items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 font-display text-[11px] font-bold uppercase tracking-wider text-white shadow-md ring-1 ring-white/25 transition ${board} ${
-          onClick ? 'group-hover:-translate-y-0.5 group-hover:bg-orange-500 group-focus-visible:ring-4 group-focus-visible:ring-orange-300' : ''
-        } ${label?.highlight && !label.alert ? 'motion-safe:animate-pulse' : ''}`}
+        className={`relative flex items-center gap-1.5 whitespace-nowrap border py-[3px] pl-3 pr-2.5 font-sans text-[11px] font-bold uppercase leading-tight tracking-[0.1em] [font-stretch:75%] [clip-path:polygon(6px_0,100%_0,100%_100%,6px_100%,0_calc(100%-6px),0_6px)] transition ${board} ${
+          onClick ? 'group-hover:-translate-y-0.5 group-hover:border-kapton group-hover:bg-kapton group-hover:text-kapton-ink group-focus-visible:outline-2 group-focus-visible:outline-kapton' : ''
+        } ${next ? 'motion-safe:animate-pulse' : ''}`}
       >
-        {label?.alert && <span className="h-2 w-2 rounded-full bg-red-500 ring-2 ring-white/70" />}
+        <span className={`absolute left-[5px] top-1/2 -mt-[2px] h-1 w-1 rounded-full ${next ? 'bg-kapton-ink/70' : 'bg-paper-faint'}`} aria-hidden="true" />
+        {label?.alert && <span className="h-2 w-2 bg-nogo" />}
         {name}
       </span>
-      <span className={`h-2.5 w-0.5 ${label?.highlight && !label.alert ? 'bg-orange-500' : 'bg-[#14213d]/80'}`} />
+      <span className={`h-2.5 w-px ${next ? 'bg-kapton' : 'bg-ink-1/90'}`} />
     </Tag>
   )
 }
@@ -870,7 +874,7 @@ function BuildingStatusIndicator({ size, label }: { size: [number, number]; labe
   })
   if (!label) return null
   const [w, d] = size
-  const beaconColor = label.alert ? '#ef4444' : label.pulse ? '#34d399' : '#fb923c'
+  const beaconColor = label.alert ? '#d0533f' : label.pulse ? '#6faf7a' : '#e8a33d'
   const showBeacon = !!(label.highlight || label.pulse || label.alert)
   const radius = Math.hypot(w, d) * 0.52
 
@@ -890,7 +894,7 @@ function BuildingStatusIndicator({ size, label }: { size: [number, number]; labe
           </mesh>
           <mesh position={[-(w * 0.72 * (1 - Math.min(1, label.progress))) / 2, 0.015, 0]}>
             <boxGeometry args={[Math.max(0.06, w * 0.72 * Math.min(1, label.progress)), 0.05, 0.16]} />
-            <meshStandardMaterial color="#fb923c" emissive="#f97316" emissiveIntensity={0.45} />
+            <meshStandardMaterial color="#e8a33d" emissive="#c98a2c" emissiveIntensity={0.35} />
           </mesh>
         </group>
       )}
@@ -927,18 +931,21 @@ function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = fals
         aria-label="Map of the agency base. Each building's label is a button."
         onCreated={() => setReady(true)}
       >
-        <color attach="background" args={['#6fa83f']} />
+        <color attach="background" args={['#7a8a50']} />
         <FitCamera />
-        <hemisphereLight args={['#ffffff', '#5b7f3a', 0.9]} />
+        {/* Golden hour: a warm, low sun (long shadows) and a cool sky fill from the other side */}
+        <hemisphereLight args={['#ffe6c4', '#5c6640', 0.75]} />
+        <directionalLight position={[-14, 10, -10]} intensity={0.28} color="#9fb2d0" />
         <directionalLight
-          position={[12, 20, 6]}
-          intensity={1.6}
+          position={[18, 11, 4]}
+          intensity={2}
+          color="#ffd29a"
           castShadow
           shadow-mapSize={[2048, 2048]}
-          shadow-camera-left={-16}
-          shadow-camera-right={16}
-          shadow-camera-top={16}
-          shadow-camera-bottom={-16}
+          shadow-camera-left={-20}
+          shadow-camera-right={20}
+          shadow-camera-top={20}
+          shadow-camera-bottom={-20}
           shadow-bias={-0.0005}
         />
 
@@ -1040,7 +1047,7 @@ function IslandMap({ labels, onBuildingClick, launchAt = null, rocketGone = fals
       {!ready && (
         <div
           role="status"
-          className="absolute inset-0 flex items-center justify-center bg-[#6fa83f] font-display text-lg font-bold text-white"
+          className="absolute inset-0 flex items-center justify-center bg-ink-1 font-display text-sm font-bold uppercase tracking-[0.1em] text-paper-dim"
         >
           Loading map…
         </div>

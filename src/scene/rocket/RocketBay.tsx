@@ -8,6 +8,7 @@ import { preloadModel, useModel } from '../../assets/models'
 import { rocketParts, rocketSlots, type RocketConfig, type RocketPart, type RocketSlot } from '../../data/rocket'
 import { layoutRocket, type PlacedPart } from '../../viz/rocket/rocketView'
 import { prefersReducedMotion } from '../space/quality'
+import { Effects } from '../space/Effects'
 
 /**
  * The Rocket step's assembly hall: the player's rocket stands on a pad, built from the kit parts.
@@ -475,6 +476,7 @@ export function RocketBay(props: ViewProps) {
       >
         <Lights />
         <Rocket {...props} />
+        <Effects preset="interior" />
       </Canvas>
     </div>
   )

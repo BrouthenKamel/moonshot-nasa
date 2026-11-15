@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useModel } from '../assets/models'
 import { useGameStore } from '../state/gameStore'
-import { CubeSat, Earth as SpaceEarth, Moon as SpaceMoon, Starfield } from './space'
+import { CubeSat, Earth as SpaceEarth, Effects, Moon as SpaceMoon, Starfield } from './space'
 import type { OrbitOption, OrbitView } from '../viz/orbit/orbitView'
 import { stripCount } from '../viz/orbit/orbitView'
 import { paintIce, ICE_SIZE } from '../viz/orbit/icePainter'
@@ -243,7 +243,8 @@ function IceCap({ view, lapse }: { view: OrbitView; lapse: SceneProps['lapse'] }
   })
   return (
     <mesh geometry={geometry} renderOrder={1}>
-      <meshBasicMaterial map={paint.texture} transparent side={THREE.DoubleSide} depthWrite={false} />
+      {/* Pushed past 1.0 and not tone mapped: the ice is the brightest thing on screen, so bloom catches it */}
+      <meshBasicMaterial map={paint.texture} color={[1.45, 1.45, 1.45]} toneMapped={false} transparent side={THREE.DoubleSide} depthWrite={false} />
     </mesh>
   )
 }
@@ -279,7 +280,7 @@ function Ring({
   const [hover, setHover] = useState(false)
   const { tube, pick } = useMemo(() => {
     const curve = ringCurve(shape)
-    const tube = new THREE.TubeGeometry(curve, 600, 0.011, 8, true)
+    const tube = new THREE.TubeGeometry(curve, 600, 0.008, 8, true)
     const shadow = hiddenStretch(shape, SUN_DIR, 1 - option.sunlitPct / 100)
     const col = new THREE.Color(option.color)
     const P = tube.attributes.position
@@ -312,7 +313,7 @@ function Ring({
   return (
     <group>
       <mesh geometry={tube}>
-        <meshBasicMaterial vertexColors transparent opacity={picked ? 1 : hover ? 0.55 : 0.22} depthWrite={false} />
+        <meshBasicMaterial vertexColors transparent opacity={picked ? 0.9 : hover ? 0.5 : 0.2} depthWrite={false} />
       </mesh>
       <mesh
         geometry={pick}
@@ -566,6 +567,7 @@ export function OrbitScene({ view, lapse, reduced, onPick }: SceneProps) {
         <Ring key={o.id} option={o} picked={o.id === selected.id} onPick={onPick} />
       ))}
       {selected.reachable && <Craft key={selected.id} option={selected} reduced={reduced} />}
+      <Effects preset="space" />
     </Canvas>
   )
 }
