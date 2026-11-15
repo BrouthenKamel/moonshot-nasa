@@ -8,7 +8,7 @@ import { research } from '../game/research'
 import { MISSION_NAME, currentSim, missionBudget, onMissionChange, snapshotOf, stepMission } from '../game/missionLink'
 import { isSimComplete } from '../sim/simulate'
 import type { SimState } from '../sim/types'
-import { clockHeld, modalOpenOnPage } from './clockHold'
+import { autoPauseReason, clockHeld, idleFor, modalOpenOnPage, pageHidden } from './clockHold'
 
 /**
  * The agency layer on top of the mission (rules in src/game): one clock in days,
@@ -25,7 +25,8 @@ import { clockHeld, modalOpenOnPage } from './clockHold'
  * - "Reset demo" resets the agency too.
  * - A fresh game starts paused, so nothing changes while the player looks around: the clock
  *   starts with the first real action (New mission) or the Play button. It also holds while a
- *   modal is open over the base (src/state/clockHold.ts), so reading never costs days.
+ *   modal is open over the base (src/state/clockHold.ts), so reading never costs days. A hidden
+ *   tab or five minutes without input pauses it for real: only Play starts it again.
  */
 export const SPEEDS = { paused: 0, normal: 1, fast: 10 } as const
 export type Speed = keyof typeof SPEEDS
@@ -97,6 +98,11 @@ export const useWorldStore = create<WorldState>()(
       tick: (seconds) => {
         const rate = SPEEDS[get().speed]
         if (rate === 0 || seconds <= 0) return
+        // Nobody watching (hidden tab, or no input for minutes): pause for real, until Play
+        if (autoPauseReason({ hidden: pageHidden(), idleMs: idleFor() })) {
+          set({ speed: 'paused' })
+          return
+        }
         const held = clockHeld({
           decisionWaiting: !!currentSim()?.pendingDecision, // waits for the event card
           // The launch plays on the island first: the craft leaves only once the rocket has gone

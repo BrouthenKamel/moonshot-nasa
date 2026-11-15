@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { isValidElement, type ReactElement, type ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { BaseMap, type BuildingLabel } from './BaseMap'
-import { signHint } from './signHint'
+import { signHint } from './mapCues'
 import { BuildingList, MapBoundary } from './BuildingList'
 import type { BuildingId } from '../data/agency'
 

@@ -19,8 +19,12 @@ export const BUILDING_STEPS: Record<BuildingId, DesignStep[]> = {
   'launch-site': ['rocket', 'orbit', 'ride'],
 }
 
-/** The order the steps are suggested in */
-export const STEP_ORDER: DesignStep[] = ['brief', 'planning', 'instruments', 'rocket', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']
+/**
+ * The order the steps are suggested in. The Research Lab comes straight after the brief, as the
+ * brief's CAPCOM says ("Your first stop: the Research Lab"), so the map lights one building at a
+ * time in the order the story tells. (The step numbers on the rail stay as they are.)
+ */
+export const STEP_ORDER: DesignStep[] = ['brief', 'instruments', 'planning', 'rocket', 'spacecraft', 'orbit', 'ride', 'comms', 'go-nogo']
 
 export const STEP_NAMES: Record<DesignStep, string> = {
   brief: 'Brief',
@@ -181,13 +185,14 @@ export function missionLabels(input: {
 }
 
 /**
- * The Research Lab pulses until the player has opened the instruments step for
+ * The Research Lab pulses, after the brief, until the player has opened the instruments step for
  * this mission: the first lesson is there (the starting infrared spectrometer
  * cannot see into the shadowed craters). Only while planning; in flight the
  * buildings cannot be entered.
  */
 export function researchLabPulses(visited: DesignStep[], sim: SimState | null): boolean {
-  return !sim && !visited.includes('instruments')
+  // From the brief on: before it, the brief at the Communications Center is the one next step
+  return !sim && visited.includes('brief') && !visited.includes('instruments')
 }
 
 /** Where the mission is, for the stage chip in the top bar */

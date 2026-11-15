@@ -34,6 +34,9 @@ describe('mission map', () => {
   it('suggests the next unvisited step in order', () => {
     expect(suggestedStep([])).toBe('brief')
     expect(suggestedStep(['brief', 'planning'])).toBe('instruments')
+    // The brief sends the player to the Research Lab first
+    expect(suggestedStep(['brief'])).toBe('instruments')
+    expect(suggestedStep(['brief', 'instruments'])).toBe('planning')
     expect(suggestedStep(STEP_ORDER)).toBe('go-nogo')
   })
 
@@ -51,13 +54,14 @@ describe('mission map', () => {
   })
 
   // Jakob (I5b): point new players at the first lesson in the Research Lab
-  it('the Research Lab pulses until the instruments step has been opened', () => {
-    expect(researchLabPulses([], null)).toBe(true)
+  it('the Research Lab pulses from the brief until the instruments step has been opened', () => {
+    expect(researchLabPulses([], null)).toBe(false) // before the brief, the brief is the one next step
+    expect(researchLabPulses(['brief'], null)).toBe(true)
     expect(researchLabPulses(['brief', 'planning'], null)).toBe(true)
     expect(researchLabPulses(['brief', 'planning', 'instruments'], null)).toBe(false)
-    expect(labelsFor(flashlightDesign, [])['research-lab'].pulse).toBe(true)
+    expect(labelsFor(flashlightDesign, ['brief'])['research-lab'].pulse).toBe(true)
     expect(labelsFor(flashlightDesign, ['instruments'])['research-lab'].pulse).toBe(false)
-    expect(labelsFor(flashlightDesign, [])['factory'].pulse).toBeFalsy()
+    expect(labelsFor(flashlightDesign, ['brief'])['factory'].pulse).toBeFalsy()
     const sim = runSimulation(flashlightDesign, 'engineer', 1)
     expect(researchLabPulses([], sim)).toBe(false)
   })

@@ -7,7 +7,7 @@ import { useModel } from '../assets/models'
 import { MAP_SIZE, buildings, type BuildingId } from '../data/agency'
 import { BuildingList, MapBoundary } from './BuildingList'
 import { canUseWebGL } from './webgl'
-import { signHint } from './signHint'
+import { signHint, signMeaning } from './mapCues'
 import { BaseEffects, ChimneySmoke, Clouds, Truck } from './base/Life'
 import { FOREST_REACH, Forest } from './base/Forest'
 import { Blinker, Spin } from './base/Animated'
@@ -717,7 +717,7 @@ function Sign({
 }) {
   // A real button when it walks in, so it can be reached and pressed by keyboard
   const Tag = onClick ? 'button' : 'div'
-  const tip = [title ?? (onClick ? `Enter the ${name}` : name), label?.status].filter(Boolean).join(': ')
+  const tip = [title ?? (onClick ? `Enter the ${name}` : name), signMeaning(label), label?.status].filter(Boolean).join(': ')
   const next = !!label?.highlight && !label.alert
   const hint = signHint(label)
   // An inventory tag: ink card, paper text, clipped corner. Kapton when it is the next stop.

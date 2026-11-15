@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useGameStore } from './gameStore'
 import { useWorldStore } from './worldStore'
 import { useUiStore } from './uiStore'
-import { clockHeld, modalOpenOnPage } from './clockHold'
+import { IDLE_PAUSE_MS, autoPauseReason, clockHeld, modalOpenOnPage, noteInput } from './clockHold'
 import { flashlightDesign } from '../sim/fixtures'
 import { missionFunding } from '../game/economy'
 
@@ -143,6 +143,7 @@ describe('the clock waits while the player reads', () => {
   })
   afterEach(() => {
     vi.unstubAllGlobals()
+    noteInput()
   })
 
   it('a fresh game starts paused and stays paused until the first real action', () => {
@@ -183,6 +184,33 @@ describe('the clock waits while the player reads', () => {
     expect(useWorldStore.getState().day).toBeCloseTo(start + 1, 5)
   })
 
+  it('a hidden tab pauses the clock for real: it stays paused when the tab comes back', () => {
+    useWorldStore.getState().setSpeed('normal')
+    const page = { hidden: true, querySelector: () => null }
+    vi.stubGlobal('document', page)
+    const start = useWorldStore.getState().day
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().speed).toBe('paused')
+    page.hidden = false
+    for (let i = 0; i < 5; i++) useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBe(start) // only the player's Play resumes it
+    useWorldStore.getState().setSpeed('normal')
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBeCloseTo(start + 1, 5)
+  })
+
+  it('five minutes without input pause the clock until Play', () => {
+    useWorldStore.getState().setSpeed('fast')
+    noteInput(performance.now() - IDLE_PAUSE_MS - 1)
+    const start = useWorldStore.getState().day
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBe(start)
+    expect(useWorldStore.getState().speed).toBe('paused')
+    noteInput() // the player is back, but the clock waits for Play
+    useWorldStore.getState().tick(1)
+    expect(useWorldStore.getState().day).toBe(start)
+  })
+
   it('Reset demo pauses the fresh game again', () => {
     useWorldStore.getState().setSpeed('fast')
     useWorldStore.getState().resetWorld()
@@ -198,6 +226,13 @@ describe('clockHeld', () => {
     expect(clockHeld({ ...none, decisionWaiting: true })).toBe(true)
     expect(clockHeld({ ...none, launching: true })).toBe(true)
     expect(clockHeld({ ...none, modalOpen: true })).toBe(true)
+  })
+
+  it('auto-pauses for a hidden tab or a long idle stretch, and only then', () => {
+    expect(autoPauseReason({ hidden: false, idleMs: 0 })).toBeNull()
+    expect(autoPauseReason({ hidden: false, idleMs: IDLE_PAUSE_MS - 1 })).toBeNull()
+    expect(autoPauseReason({ hidden: true, idleMs: 0 })).toBe('hidden')
+    expect(autoPauseReason({ hidden: false, idleMs: IDLE_PAUSE_MS })).toBe('idle')
   })
 
   it('sees no modal without a page (tests, server render)', () => {
