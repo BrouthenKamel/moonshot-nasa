@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { isValidElement, type ReactElement, type ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { BaseMap, type BuildingLabel } from './BaseMap'
+import { signHint } from './signHint'
 import { BuildingList, MapBoundary } from './BuildingList'
 import type { BuildingId } from '../data/agency'
 
@@ -50,5 +51,17 @@ describe('base map without WebGL', () => {
     expect(boundary.render()).toBe('the map')
     boundary.state = { failed: true }
     expect(boundary.render()).toBe('the list')
+  })
+})
+
+describe('the next-stop cue on the map', () => {
+  it('puts one line of words under the glowing building, as the brief says', () => {
+    expect(signHint({ status: 'Lab', pulse: true })).toBe('First stop: can it see the ice?')
+  })
+
+  it('says nothing without the glow, or when a red problem takes over the sign', () => {
+    expect(signHint({ status: 'Lab' })).toBeNull()
+    expect(signHint({ status: 'Lab', pulse: true, alert: true })).toBeNull()
+    expect(signHint(undefined)).toBeNull()
   })
 })
