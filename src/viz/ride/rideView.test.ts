@@ -30,12 +30,14 @@ describe('buildRideView', () => {
     // Balance redesign: the IR spectrometer is lighter (2.4 kg), so the same tank gives more delta-v
     expect(v.tank.available).toBeCloseTo(2815, 0)
     expect(v.tank.layers.map((l) => l.key)).toEqual(['capture', 'hold', 'spare'])
-    expect(layer(v, 'capture')).toBe(1000)
-    expect(layer(v, 'hold')).toBe(60)
-    expect(layer(v, 'spare')).toBeCloseTo(1755, 0)
-    expect(v.path.dots).toBe(10)
-    // A one-instrument craft builds in 3 months now; the lighter craft spirals in 10
-    expect(v.timeline).toMatchObject({ readyTurn: 6, rideTurn: 8, transferTurns: 10, arrivalTurn: 18 })
+    // 15 Nov: the 15 km orbit is worked out like the Orbit step's: an Edelbaum spiral of 1,265 m/s (was a
+    // listed 1,000) and 4.73 m/s a month to hold it (was 5)
+    expect(layer(v, 'capture')).toBe(1265)
+    expect(layer(v, 'hold')).toBeCloseTo(56.8, 1)
+    expect(layer(v, 'spare')).toBeCloseTo(1494, 0)
+    expect(v.path.dots).toBe(12)
+    // A one-instrument craft builds in 3 months now; the longer spiral takes 12 (was 10)
+    expect(v.timeline).toMatchObject({ readyTurn: 6, rideTurn: 8, transferTurns: 12, arrivalTurn: 20 })
     expect(v.status).toBe(v.bars.some((b) => b.status === 'red') ? 'nogo' : v.bars.some((b) => b.status === 'yellow') ? 'caution' : 'go')
     expect(v.orbit.colour).toBe('#a3e635')
   })
@@ -90,27 +92,27 @@ describe('buildRideView', () => {
 
     const i = view(iceCubeDesign)
     // Balance redesign: GTO leaves in month 7 for 0.5 M, and the default craft is ready in month 6 and affordable
-    expect(row(i, 'ride-gto')).toMatchObject({ status: 'onTime', limitKg: 14, burn: 2500, overBudget: false, arrivalTurn: 27 })
+    expect(row(i, 'ride-gto')).toMatchObject({ status: 'onTime', limitKg: 14, burn: 2765, overBudget: false, arrivalTurn: 29 })
     // The reserve line is a hard limit: under the cap but over what is spendable reads INTO THE RESERVE
     const reserve = view({ ...flashlightDesign, planning: { ...flashlightDesign.planning, reservePercent: 20 } })
     expect(row(reserve, 'ride-lunar')).toMatchObject({ status: 'overBudget', statusLabel: 'INTO THE RESERVE', overBudget: true })
-    expect(row(i, 'ride-gto').planCost).toBeCloseTo(22.2, 1)
-    expect(row(i, 'ride-lunar').planCost).toBeCloseTo(21.3, 1)
-    expect(row(i, 'ride-lunar').arrivalTurn).toBe(18)
-    expect(row(i, 'ride-commercial').burn).toBe(500) // the lander halves the burn (was 0.4)
+    expect(row(i, 'ride-gto').planCost).toBeCloseTo(22.6, 1)
+    expect(row(i, 'ride-lunar').planCost).toBeCloseTo(21.8, 1)
+    expect(row(i, 'ride-lunar').arrivalTurn).toBe(20)
+    expect(row(i, 'ride-commercial').burn).toBeCloseTo(632.5, 1) // the lander halves the burn (was 0.4)
     expect(i.rows.map((r) => r.turn)).toEqual([7, 8, 10])
     expect(i.rows.filter((r) => r.selected)).toHaveLength(1)
 
-    expect(row(view(overCap), 'ride-gto').status).toBe('overBudget')
-    expect(row(view(overCap), 'ride-gto').statusLabel).toBe('OVER BUDGET')
+    // Over the cap, and since 15 Nov (the longer worked-out spiral) its tank cannot brake there either
+    expect(row(view(overCap), 'ride-gto')).toMatchObject({ overBudget: true, status: 'cantReach', statusLabel: "CAN'T BRAKE" })
   })
 
   it('GTO ride adds the spiral', () => {
     const v = view({ ...iceCubeDesign, ride: 'ride-gto' })
     expect(v.path.spiral).toBe(true)
     expect(v.tank.layers[0]).toMatchObject({ key: 'climb', value: 1500 })
-    expect(v.path.dots).toBe(20)
-    expect(v.timeline.turns).toBe(40)
+    expect(v.path.dots).toBe(22)
+    expect(v.timeline.turns).toBe(42)
   })
 
   it('dots are capped at 24', () => {
@@ -160,7 +162,7 @@ describe('buildRideView', () => {
     const order = v.reasons.map((r) => r.status)
     expect(order).toEqual([...order].sort((a, b) => (a === b ? 0 : a === 'red' ? -1 : 1)))
     expect(v.reasons[0].status).toBe('red')
-    expect(v.costLine).toBe('PLAN COST $26.4M OF $25M')
+    expect(v.costLine).toBe('PLAN COST $27.0M OF $25M') // $26.4M before the worked-out 15 km orbit (15 Nov)
   })
 })
 
@@ -187,7 +189,8 @@ describe('board rows say whether that ride gets the craft there', () => {
   })
 
   it('over the cap reads OVER BUDGET', () => {
-    expect(row(view(overCap), 'ride-gto').statusLabel).toBe('OVER BUDGET')
+    // The lunar ride: the tank brakes there, so the cap is what shows
+    expect(row(view(overCap), 'ride-lunar').statusLabel).toBe('OVER BUDGET')
   })
 })
 
@@ -201,8 +204,8 @@ describe('timelineLayout', () => {
     const l = timelineLayout(v.timeline)
     expect(flag(l, 'ready').at).toBeCloseTo(block(l, 'design').to, 9)
     expect(flag(l, 'launch').at - flag(l, 'ready').at).toBeCloseTo(2 / v.timeline.turns, 9)
-    expect(block(l, 'transit')).toMatchObject({ label: '10 MONTHS IN TRANSIT' })
-    expect(flag(l, 'arrive').label).toBe('ARRIVE · MONTH 18')
+    expect(block(l, 'transit')).toMatchObject({ label: '12 MONTHS IN TRANSIT' })
+    expect(flag(l, 'arrive').label).toBe('ARRIVE · MONTH 20')
   })
 
   it('a short transit joins launch and arrival in one label', () => {

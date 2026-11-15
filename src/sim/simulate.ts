@@ -132,6 +132,15 @@ export function buildStage(f: FlightState): BuildStage {
   return BUILD_STAGES.find((s) => f.stages[s] > 0) ?? 'ready'
 }
 
+/**
+ * The phase a build stage shows as. Fitting the craft to the ride (integration) happens at the
+ * launch site, after testing, so it reads as waiting at the pad, not as building again (15 Nov:
+ * the flight used to read build, test, build, wait).
+ */
+function prelaunchPhase(stage: BuildStage): 'build' | 'test' | 'wait' {
+  return stage === 'test' ? 'test' : stage === 'ready' || stage === 'integration' ? 'wait' : 'build'
+}
+
 /** Everything one turn needs */
 interface TurnContext {
   s: SimState
@@ -216,7 +225,7 @@ function buildTurn(ctx: TurnContext) {
     buildDelay(ctx)
   }
   const stage = buildStage(f)
-  ctx.log.phase = stage === 'test' ? 'test' : stage === 'ready' ? 'wait' : 'build'
+  ctx.log.phase = prelaunchPhase(stage)
   if (stage !== 'ready') f.stages[stage] -= 1
   const after = buildStage(f)
   note(
@@ -519,11 +528,7 @@ function runTurn(s: SimState, action: TurnAction, budgets?: Budgets) {
       : f.done
         ? 'complete'
         : f.launchedTurn === null
-          ? buildStage(f) === 'test'
-            ? 'test'
-            : buildStage(f) === 'ready'
-              ? 'wait'
-              : 'build'
+          ? prelaunchPhase(buildStage(f))
           : f.captured
             ? 'orbit'
             : 'transfer'

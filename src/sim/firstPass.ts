@@ -7,8 +7,11 @@ import type { Budgets, Design } from './types'
  *
  *  - floor (the autopilot): today's month, unchanged. Each instrument lays x footprints of strips
  *    over the region a month, at random, so they overlap and the month maps 1 - e^-x of it.
- *  - ceiling (this design's best): the same strips laid with no overlap, min(1, x). x already holds
- *    everything physical: orbit passes, footprint, altitude limit, pointing, power and battery duty.
+ *  - ceiling (this design's best): a hand-flown pass points the instruments at the shadowed craters,
+ *    where the ice is, instead of mapping whatever passes below: worth up to two months of the
+ *    autopilot, 1 - e^-2x (15 Nov; it was the same strips without overlap, min(1, x), which once the
+ *    mapping pace became realistic left the pass almost nothing to add). x already holds everything
+ *    physical: orbit passes, footprint, altitude limit, pointing, power and battery duty.
  *    An instrument blind in shadow adds nothing to ice coverage at either end.
  *  - the pass: `mix` 0..1 between them. Playing never does worse than the autopilot, and a great
  *    pass never maps more than the design can.
@@ -33,8 +36,9 @@ export function passMix(player: number, autopilot: number, best: number): number
 /** One instrument's share of the region mapped in the first month, at a mix between autopilot and ceiling */
 export function passRate(autoRate: number, mix: number): number {
   const r = clamp01(autoRate)
-  const x = r >= 1 ? Infinity : -Math.log(1 - r)
-  return r + clamp01(mix) * (Math.min(1, x) - r)
+  // The best pass is worth two months of the autopilot: 1 - (1 - r)^2
+  const best = 1 - (1 - r) * (1 - r)
+  return r + clamp01(mix) * (best - r)
 }
 
 /** The month-1 coverage rates for every instrument at this mix (mix 0 gives the budgets' own rates) */

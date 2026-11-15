@@ -225,12 +225,12 @@ export function FlightControls({ compact = false, monthPlan = true }: { compact?
         </button>
         <button
           type="button"
-          onClick={() => skipPhase()}
-          disabled={autoFly}
+          onClick={() => (autoFly ? useGameStore.getState().stopAutoFly() : skipPhase())}
+          aria-pressed={autoFly}
           title="Jump to the end of this phase. An event card still stops the flight for your answer."
           className={`fp-btn-secondary flex-1 justify-center whitespace-nowrap ${pad}`}
         >
-          {skipLabel(simState.phase)}
+          {autoFly ? 'Pause' : skipLabel(simState.phase)}
         </button>
       </div>
     </div>

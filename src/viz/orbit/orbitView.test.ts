@@ -57,7 +57,8 @@ describe('buildOrbitView', () => {
     // Plans got cheaper in the balance redesign (14 Nov): a pricier craft and a 15% reserve keep the two cases apart
     const d = {
       ...lunahMapDesign,
-      planning: { ...lunahMapDesign.planning, reservePercent: 15, testTurns: 2 },
+      // One test month (was two): the worked-out 15 km orbit's longer spiral (15 Nov) costs a little more
+      planning: { ...lunahMapDesign.planning, reservePercent: 15, testTurns: 1 },
       computer: 'computer-redundant',
       radio: 'radio-xband',
       groundStation: 'ground-dsn',

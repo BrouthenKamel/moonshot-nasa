@@ -1,5 +1,6 @@
 import { useGameStore } from '../../state/gameStore'
 import { lunarIceMapperBrief, difficultyPresets, modelConstants } from '../../data/brief'
+import { computeBudgets } from '../../sim/budgets'
 import { STEP_QUESTION, nextLabel } from '../kit'
 import { STEP_NAMES, buildingName, firstStop } from '../../viz/missionMap'
 import { audio } from '../../assets/audio'
@@ -39,10 +40,13 @@ export function BriefScreen() {
   const preset = difficultyPresets[difficulty] ?? difficultyPresets.engineer
   const brief = lunarIceMapperBrief
   const stop = firstStop()
-  const ride = brief.defaultRideTurn
+  // The schedule of the craft on the drawing board: when its ride leaves and how long its trip takes
+  const design = useGameStore((s) => s.design)
+  const b = computeBudgets(design, difficulty)
+  const ride = b.rideTurn
   const mapping = brief.missionDurationTurns
-  const trip = modelConstants.cruiseTurns // a low-energy trip, as CAPSTONE's (a direct one takes days)
-  const total = ride + trip + mapping
+  const trip = b.transferTurns ?? modelConstants.cruiseTurns
+  const total = ride + Math.max(trip, 0.5) + mapping
 
   return (
     <div className="mx-auto flex h-full min-h-[560px] max-w-6xl flex-col gap-5 overflow-hidden px-6 py-5">
@@ -84,12 +88,15 @@ export function BriefScreen() {
           <div className="fp-label text-[0.62rem] tracking-[0.14em] text-paper-faint">Schedule, in months</div>
           <div className="mt-2.5 flex h-2.5 w-full overflow-hidden rounded-full">
             <div className="bg-paper-dim/60" style={{ width: `${(ride / total) * 100}%` }} title="Build and test" />
-            <div className="bg-kapton" style={{ width: `${(trip / total) * 100}%` }} title="The trip to the Moon" />
+            <div className="bg-kapton" style={{ width: `${(Math.max(trip, 0.5) / total) * 100}%` }} title="The trip to the Moon" />
             <div className="bg-ice" style={{ width: `${(mapping / total) * 100}%` }} title="Mapping the ice" />
           </div>
           <div className="mt-1.5 flex justify-between gap-2 text-[0.72rem] text-paper-dim">
             <span>Build &amp; test: months 0–{ride}</span>
-            <span className="text-kapton">Ride leaves: month {ride}</span>
+            <span className="text-kapton">
+              Ride: month {ride} ·{' '}
+              {b.transferTurns === null ? 'no way to the Moon yet' : `trip ${trip === 0 ? 'a few days' : `${trip} month${trip === 1 ? '' : 's'}`}`}
+            </span>
             <span className="text-ice">{mapping} months mapping</span>
           </div>
         </div>

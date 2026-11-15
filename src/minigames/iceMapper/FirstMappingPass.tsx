@@ -14,7 +14,8 @@ import { passDue, useIcePassStore } from './passStore'
  * The flight's hand-off to the Ice Mapper (KrabbyKrabby's mini game). On arrival in the science
  * orbit the flight holds: first the capture, then one mapping pass flown with the player's own
  * design, then the line saying what it mapped. The pass sets the first science month's ice map
- * between the autopilot and this design's ceiling (src/sim/firstPass.ts); later months fly as before.
+ * between the autopilot and this design's ceiling (src/sim/firstPass.ts), and that month is flown
+ * as soon as the player goes on, so its data comes home and shows; later months fly as before.
  */
 export function FirstMappingPass({ sim }: { sim: SimState }) {
   const played = useIcePassStore((s) => s.played)
@@ -64,6 +65,9 @@ export function FirstMappingPass({ sim }: { sim: SimState }) {
         if (o.how === 'flown') markPlayed()
         const firstPass = toFirstPass(o)
         useGameStore.setState((s) => (s.simState ? { simState: { ...s.simState, firstPass } } : {}))
+        // The pass is the first science month's observing: fly that month now, so its data comes down
+        // and the ice map shows what the pass found, instead of 0% until the player advances
+        useGameStore.getState().advanceTurn()
       }}
     />
   )
