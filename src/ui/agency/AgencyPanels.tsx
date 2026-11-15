@@ -732,7 +732,7 @@ function Ledger({
       </Eng>
       <div className="mt-1 flex justify-between text-sm font-semibold">
         <span className="text-paper">{total?.label ?? 'Net'}</span>
-        <span className={`fp-data ${total ? 'text-paper' : net >= 0 ? 'text-go' : 'text-nogo'}`}>{total?.text ?? fmt(net)}</span>
+        <span className={`fp-data whitespace-nowrap ${total ? 'text-paper' : net >= 0 ? 'text-go' : 'text-nogo'}`}>{total?.text ?? fmt(net)}</span>
       </div>
     </div>
   )
@@ -793,7 +793,7 @@ export function MissionResultDialog({
             rows={result.money}
             net={result.moneyNet}
             fmt={signedMoney}
-            total={{ label: 'Money left', text: `${money(result.moneyLeft)} of ${money(result.budget)}` }}
+            total={{ label: 'Left', text: `${money(result.moneyLeft)} of ${money(result.budget)}` }}
           />
           <Ledger title="Popularity" rows={result.popularity} net={result.popularityNet} fmt={signedPoints} />
         </div>
