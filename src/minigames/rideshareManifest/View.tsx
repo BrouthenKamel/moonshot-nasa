@@ -277,8 +277,8 @@ export default function RideshareManifest({ design, difficulty, onComplete, onEx
 
       {phase === 'board' && (
         <>
-          <div className="pointer-events-none absolute inset-x-0 top-36 z-20 flex justify-center px-4">
-            <div className="pointer-events-auto flex w-[min(640px,92vw)] flex-col gap-2">
+          <div className="pointer-events-none absolute inset-x-0 top-36 z-20 flex justify-end px-8">
+            <div className="pointer-events-auto flex w-[min(560px,56vw)] flex-col gap-2">
               <Board rows={rows} flaps={flaps} onPick={pickRide} />
               <Calendar rows={rows} readyTurn={base.readyTurn} buildTurns={base.buildTurns} testTurns={base.testTurns} />
             </div>

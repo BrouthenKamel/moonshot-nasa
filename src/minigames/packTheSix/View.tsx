@@ -18,7 +18,7 @@ type Vec3 = [number, number, number]
 type Phase = 'pack' | 'wire'
 
 const POSE: Record<Phase, { pos: Vec3; target: Vec3 }> = {
-  pack: { pos: [-0.4, 5.6, 8.0], target: [-0.4, 0.3, 0] },
+  pack: { pos: [0.2, 6.4, 11.2], target: [0.2, 0.2, 0] },
   wire: { pos: [-0.8, 2.6, 9.6], target: [-0.8, 2.4, 0] },
 }
 

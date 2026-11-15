@@ -248,7 +248,7 @@ function Coins({ budgets }: { budgets: Budgets }) {
   const coins = useMemo(() => Array.from({ length: n }, (_, i) => ({ x: Math.floor(i / 8) * 0.34, y: (i % 8) * 0.05 })), [n])
   const broke = budgets.budgetMargin < 0
   return (
-    <group position={[2.9, -0.05, 2.6]}>
+    <group position={[1.4, -0.05, 3.1]}>
       {coins.map((c, i) => (
         <mesh key={i} position={[c.x, c.y + 0.03, ((i * 7) % 3) * 0.02]} rotation={[0, i * 0.7, 0]}>
           <cylinderGeometry args={[0.15, 0.15, 0.04, 16]} />

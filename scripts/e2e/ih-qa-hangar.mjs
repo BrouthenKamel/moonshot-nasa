@@ -1,0 +1,23 @@
+import { chromium } from 'playwright-core'
+const S = process.argv[2]
+const browser = await chromium.launch({ executablePath: process.env.HOME + '/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome',
+  args: ['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] })
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+const errs = []; page.on('pageerror', (e) => errs.push(e.message.slice(0, 200)))
+await page.goto('http://localhost:5210/')
+await page.getByRole('button').first().click()
+await page.waitForSelector('[data-testid="astronaut-setup"]', { timeout: 90000 })
+await page.click('[data-testid="astronaut-begin"]')
+await page.evaluate(() => ['briefing','science-lab','flight-dynamics','clean-room'].forEach((r) => window.__game.completeRoom(r)))
+await page.evaluate(() => window.__game.campus.getState().enterRoom('launch-hangar'))
+await page.waitForSelector('[data-testid="rideshare"]', { timeout: 60000 })
+await page.waitForTimeout(4000)
+await page.screenshot({ path: S + '/hangar-board.png' })
+const tickets = await page.getByText('TICKET').all()
+console.log('tickets', tickets.length)
+await tickets[1].click()
+await page.waitForTimeout(4000)
+console.log('phase after ticket:', await page.getAttribute('[data-testid="rideshare"]', 'data-phase'))
+await page.screenshot({ path: S + '/hangar-after.png' })
+console.log('page errors', errs)
+await browser.close()
