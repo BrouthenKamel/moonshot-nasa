@@ -11,7 +11,7 @@ const COLOURS: Record<string, string> = {
 const SHORT_NAMES: Record<string, string> = {
   'orbit-halo': 'HALO LOOP',
   'orbit-elliptical': 'ELLIPTICAL ORBIT',
-  'orbit-100km': 'LOW CIRCULAR ORBIT',
+  'orbit-100km': 'CIRCULAR 100 KM ORBIT',
 }
 
 export function orbitColour(orbitId: string): string {
