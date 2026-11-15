@@ -42,15 +42,16 @@ export const VIEW_POSES: Record<ViewPreset, Pose> = {
 }
 
 const slotColor: Record<CraftSlot, string> = {
-  structure: '#94a3b8',
-  solar: '#3b82f6',
-  battery: '#22c55e',
-  computer: '#a855f7',
-  attitude: '#f97316',
-  propulsion: '#eab308',
-  instrument: '#c084fc',
-  radio: '#60a5fa',
-  bus: '#94a3b8',
+  // Muted family swatches, as on the catalogue cards and the tray
+  structure: '#948d7f',
+  solar: '#7c9cc9',
+  battery: '#a3b865',
+  computer: '#a394cc',
+  attitude: '#c48a7c',
+  propulsion: '#d98e55',
+  instrument: '#c9b27a',
+  radio: '#8aa39b',
+  bus: '#948d7f',
 }
 
 export interface StageProps {
@@ -269,18 +270,18 @@ function TagOverlay({ tags, tagEls, props }: { tags: CraftInstance[]; tagEls: Re
               onMouseLeave={() => props.onHover(null)}
               onClick={() => props.onSelect(slot)}
               aria-label={craftLabel(i.from)}
-              className="pointer-events-auto flex items-center gap-1.5 whitespace-nowrap rounded-full border text-[10px] font-semibold backdrop-blur-sm transition-all"
+              className="pointer-events-auto flex items-center gap-1.5 whitespace-nowrap rounded-[2px] border font-mono text-[10px] font-semibold transition-all"
               style={{
                 borderColor: active ? color : `${color}aa`,
-                color: '#fff',
-                background: active ? `${color}cc` : 'rgba(2,6,23,0.55)',
+                color: active ? '#07090d' : '#ede6d6',
+                background: active ? color : 'rgba(11,14,20,0.82)',
                 padding: active ? '2px 8px 2px 6px' : '0',
                 width: active ? 'auto' : 14,
                 height: active ? 'auto' : 14,
                 justifyContent: 'center',
               }}
             >
-              <span className="h-2 w-2 flex-none rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+              <span className="h-2 w-2 flex-none rounded-full" style={{ background: active ? '#07090d' : color }} />
               {active && craftLabel(i.from).replace(/\s*\(.*\)$/, '')}
             </button>
           </div>
@@ -299,7 +300,7 @@ function Bay({ ringColor, reduced }: { ringColor: string; reduced: boolean }) {
   useFrame((st) => {
     if (ring.current) ring.current.color.set(ringColor)
     if (beam.current) beam.current.opacity = 0.07 + (reduced ? 0 : 0.025 * Math.sin(st.clock.elapsedTime * 1.6))
-    if (accent.current) accent.current.color.set(ringColor === '#ef4444' ? '#ef4444' : ACCENT)
+    if (accent.current) accent.current.color.set(ringColor === '#d0533f' || ringColor === '#ef4444' ? '#d0533f' : ACCENT)
   })
   return (
     <group>

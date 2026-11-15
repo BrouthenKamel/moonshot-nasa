@@ -173,29 +173,29 @@ function PrimitiveSatelliteFallback() {
     <>
       <mesh>
         <boxGeometry args={[0.8, 0.5, 1.4]} />
-        <meshStandardMaterial color="#cbd5e1" metalness={0.35} roughness={0.45} emissive="#1e293b" emissiveIntensity={0.5} />
+        <meshStandardMaterial color="#c9a25a" metalness={0.45} roughness={0.5} emissive="#1a1206" emissiveIntensity={0.5} />
       </mesh>
       {[-1, 1].map((side) => (
         <group key={side} position={[side * 1.45, 0.12, 0]}>
           <mesh>
             <boxGeometry args={[2.0, 0.04, 1.05]} />
-            <meshStandardMaterial color="#1d4ed8" metalness={0.5} roughness={0.35} emissive="#1e3a8a" emissiveIntensity={0.55} />
+            <meshStandardMaterial color="#1c2230" metalness={0.6} roughness={0.35} emissive="#0b0e14" emissiveIntensity={0.4} />
           </mesh>
           {[-0.5, 0, 0.5].map((x) => (
             <mesh key={x} position={[x, 0.025, 0]}>
               <boxGeometry args={[0.02, 0.01, 1.05]} />
-              <meshBasicMaterial color="#93c5fd" transparent opacity={0.5} />
+              <meshBasicMaterial color="#3a4254" transparent opacity={0.6} />
             </mesh>
           ))}
         </group>
       ))}
       <mesh position={[0, 0.33, 0.35]}>
         <cylinderGeometry args={[0.22, 0.08, 0.12, 20]} />
-        <meshStandardMaterial color="#e2e8f0" metalness={0.2} roughness={0.6} />
+        <meshStandardMaterial color="#ddd5c4" metalness={0.2} roughness={0.6} />
       </mesh>
       <mesh position={[0, 0, 0.76]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.1, 0.16, 0.14, 16]} />
-        <meshStandardMaterial color="#64748b" />
+        <meshStandardMaterial color="#5a5650" />
       </mesh>
     </>
   )
@@ -241,7 +241,7 @@ function Sky({ glow }: { glow: THREE.Texture }) {
       </sprite>
       <mesh position={[135, 180, -768]}>
         <sphereGeometry args={[20, 32, 32]} />
-        <meshStandardMaterial color="#2563eb" emissive="#1d4ed8" emissiveIntensity={0.25} roughness={0.9} />
+        <meshStandardMaterial color="#4f6f9a" emissive="#1f2c40" emissiveIntensity={0.25} roughness={0.9} />
       </mesh>
     </>
   )
@@ -260,10 +260,10 @@ export function Scene({ pass, h, views, still, onShadow }: SceneProps) {
   const [startTarget] = useState<[number, number, number]>(() => [0, lookY(h), -4])
   return (
     <>
-      <color attach="background" args={['#03050a']} />
+      <color attach="background" args={['#07090d']} />
       <ambientLight intensity={0.07} />
       <directionalLight position={[-34.2, 15.8, -94]} intensity={6.5} color="#fff8ec" />
-      <pointLight position={[2.5, h + 2.5, 5]} intensity={45} distance={9} decay={2} color="#cbd5e1" />
+      <pointLight position={[2.5, h + 2.5, 5]} intensity={45} distance={9} decay={2} color="#e6dccb" />
       <Driver pass={pass} h={h} still={still} onShadow={onShadow} />
       <Rig h={h} />
       <Sky glow={glow} />

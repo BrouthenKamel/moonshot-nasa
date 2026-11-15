@@ -168,7 +168,7 @@ export function buildOrbitView(design: Design, difficulty: Difficulty): OrbitVie
     // The game's own projection maps nothing in these two cases; with an engine too weak to thrust it still
     // projects coverage (budgets.ts), so the view follows it and the red Delta-v verdict carries the problem
     const reachable = b.captureDeltaV !== null && b.deltaVAvailable >= b.captureDeltaV
-    const look = ORBIT_LOOK[orbit.id] ?? { shortName: orbit.name, color: '#e2e8f0' }
+    const look = ORBIT_LOOK[orbit.id] ?? { shortName: orbit.name, color: '#ede6d6' }
 
     return {
       id: orbit.id,

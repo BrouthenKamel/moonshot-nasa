@@ -17,9 +17,9 @@ export interface IcePaint {
 
 const GOLDEN_ANGLE = 2.39996
 const STRIP_FILL: Record<StripTone, string> = {
-  ice: 'rgba(103,232,249,.13)',
-  blind: 'rgba(251,191,36,.18)',
-  none: 'rgba(148,163,184,.14)',
+  ice: 'rgba(94,230,240,.13)',
+  blind: 'rgba(232,163,61,.18)',
+  none: 'rgba(185,178,163,.12)',
 }
 
 interface Crater {
@@ -83,14 +83,14 @@ export function paintIce(ctx: CanvasRenderingContext2D, p: IcePaint): void {
   ctx.beginPath()
   ctx.arc(mid, mid, mid - 2, 0, Math.PI * 2)
   ctx.clip()
-  ctx.fillStyle = 'rgba(8,15,35,.5)'
+  ctx.fillStyle = 'rgba(11,14,20,.5)'
   ctx.fillRect(0, 0, ICE_SIZE, ICE_SIZE)
 
   for (const c of CRATERS) {
     craterPath(ctx, c)
-    ctx.fillStyle = 'rgba(3,7,22,.92)'
+    ctx.fillStyle = 'rgba(7,9,13,.92)'
     ctx.fill()
-    ctx.strokeStyle = 'rgba(125,211,252,.45)'
+    ctx.strokeStyle = 'rgba(148,141,127,.5)'
     ctx.lineWidth = 1.5
     ctx.stroke()
   }
@@ -104,7 +104,7 @@ export function paintIce(ctx: CanvasRenderingContext2D, p: IcePaint): void {
       ctx.save()
       stripsPath(ctx, strips, p.angle0, width)
       ctx.clip()
-      ctx.shadowColor = '#22d3ee'
+      ctx.shadowColor = '#5ee6f0'
       ctx.shadowBlur = 14
       for (const c of CRATERS) {
         craterPath(ctx, c)
@@ -116,7 +116,7 @@ export function paintIce(ctx: CanvasRenderingContext2D, p: IcePaint): void {
   }
   ctx.restore()
 
-  ctx.strokeStyle = 'rgba(125,211,252,.7)'
+  ctx.strokeStyle = 'rgba(185,178,163,.6)'
   ctx.lineWidth = 3
   ctx.setLineDash([10, 8])
   ctx.beginPath()

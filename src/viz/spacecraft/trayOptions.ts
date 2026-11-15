@@ -30,13 +30,14 @@ export interface TrayGroup {
 
 /** Colours shared by the tray outline and the matching block in the bay. */
 export const CATEGORY_COLORS: Record<string, string> = {
-  solar: '#3b82f6',
-  battery: '#22c55e',
-  computer: '#a855f7',
-  attitude: '#f472b6', // pink: cyan is reserved for ice
-  propulsion: '#f59e0b',
-  instrument: '#64748b',
-  radio: '#64748b',
+  // Muted family swatches (FLIGHT PLAN): kin to the role colours, never neon; cyan is reserved for ice
+  solar: '#7c9cc9',
+  battery: '#a3b865',
+  computer: '#a394cc',
+  attitude: '#c48a7c',
+  propulsion: '#d98e55',
+  instrument: '#827c70',
+  radio: '#827c70',
 }
 
 const SHORT: Record<string, string> = {
