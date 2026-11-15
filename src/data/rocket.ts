@@ -46,12 +46,12 @@ export interface RocketSlotInfo {
 }
 
 export const rocketSlots: RocketSlotInfo[] = [
-  { id: 'engine', title: 'Engines', color: '#f97316', where: 'at the bottom', optional: false },
-  { id: 'stage1', title: 'Core stage', color: '#3b82f6', where: 'the main tank', optional: false },
-  { id: 'stage2', title: 'Upper stage', color: '#a855f7', where: 'above the core', optional: true },
-  { id: 'nose', title: 'Nose', color: '#22c55e', where: 'at the top', optional: false },
-  { id: 'fins', title: 'Fins', color: '#eab308', where: 'around the base', optional: true },
-  { id: 'boosters', title: 'Boosters', color: '#ef4444', where: 'strapped to the sides', optional: true },
+  { id: 'engine', title: 'Engines', color: '#d98e55', where: 'at the bottom', optional: false },
+  { id: 'stage1', title: 'Core stage', color: '#7c9cc9', where: 'the main tank', optional: false },
+  { id: 'stage2', title: 'Upper stage', color: '#a394cc', where: 'above the core', optional: true },
+  { id: 'nose', title: 'Nose', color: '#a3b865', where: 'at the top', optional: false },
+  { id: 'fins', title: 'Fins', color: '#c9b27a', where: 'around the base', optional: true },
+  { id: 'boosters', title: 'Boosters', color: '#c4705c', where: 'strapped to the sides', optional: true },
 ]
 
 const m = (id: string) => `model.rocket-${id}` as ModelId

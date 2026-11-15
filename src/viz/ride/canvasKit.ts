@@ -4,16 +4,26 @@ import type { Pt } from './skyPath'
 
 type Ctx = CanvasRenderingContext2D
 
-export const FONT = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif'
+// FLIGHT PLAN: Archivo for words, IBM Plex Mono for data; warm paper on matte ink
+export const FONT = '"Archivo", "Helvetica Neue", Arial, sans-serif'
+export const MONO = '"IBM Plex Mono", ui-monospace, Menlo, monospace'
 
-export const INK = '#e2e8f0'
-export const DIM = '#94a3b8'
-export const RED = '#f87171'
-export const AMBER = '#fbbf24'
-export const GREEN = '#4ade80'
-export const PATH = '#dbeafe'
-export const ORANGE = '#f97316'
-export const SELECTED_FILL = 'rgba(124,45,18,.9)'
+export const INK = '#ede6d6' // paper
+export const DIM = '#b9b2a3' // paper-dim
+export const FAINT = '#948d7f' // paper-faint
+export const RED = '#d0533f' // nogo
+export const AMBER = '#e8a33d' // kapton
+export const GREEN = '#6faf7a' // go
+export const CAUTION = '#d9b23f'
+export const PATH = '#ede6d6'
+export const ORANGE = '#e8a33d' // kapton (selection)
+export const SELECTED_FILL = 'rgba(42,30,12,.94)' // kapton-tinted ink
+export const INK_0 = '#07090d'
+export const INK_1 = '#0b0e14'
+export const INK_2 = '#121620'
+export const INK_3 = '#1a1f2b'
+export const RULE = '#2a3040'
+export const RULE_STRONG = '#3a4254'
 
 export function text(
   ctx: Ctx,
@@ -24,16 +34,17 @@ export function text(
   colour: string,
   align: CanvasTextAlign = 'left',
   weight = 600,
-  halo = false
+  halo = false,
+  family = FONT
 ) {
-  ctx.font = `${weight} ${size}px ${FONT}`
+  ctx.font = `${weight} ${size}px ${family}`
   ctx.textAlign = align
   ctx.textBaseline = 'alphabetic'
   if (halo) {
     // A dark outline keeps a label readable where it crosses a path or a star
     ctx.lineJoin = 'round'
     ctx.lineWidth = 6
-    ctx.strokeStyle = 'rgba(3,5,10,.9)'
+    ctx.strokeStyle = 'rgba(7,9,13,.92)'
     ctx.strokeText(s, x, y)
   }
   ctx.fillStyle = colour
@@ -122,3 +133,34 @@ export function seeded(seed: number) {
 
 export const fmtMs = (v: number) => `${Math.round(v).toLocaleString('en-US')} m/s`
 export const fmtM = (v: number) => `$${v.toFixed(1)}M`
+
+/**
+ * Split-flap text: one ink cell per character (with the hinge line across the
+ * middle), then the whole string in mono on top, so the glyphs land in the cells.
+ */
+export function flapText(
+  ctx: Ctx,
+  s: string,
+  x: number,
+  y: number,
+  size: number,
+  colour: string,
+  align: CanvasTextAlign = 'left',
+  weight = 600,
+  cell = INK_2
+) {
+  ctx.font = `${weight} ${size}px ${MONO}`
+  const cw = ctx.measureText('M').width || size * 0.6
+  const w = cw * s.length
+  const left = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x
+  const top = y - size * 0.86
+  const h = size * 1.12
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === ' ') continue
+    ctx.fillStyle = cell
+    ctx.fillRect(left + i * cw + 1.5, top, cw - 3, h)
+    ctx.fillStyle = INK_0
+    ctx.fillRect(left + i * cw + 1.5, top + h / 2 - 1, cw - 3, 2)
+  }
+  text(ctx, s, x, y, size, colour, align, weight, false, MONO)
+}

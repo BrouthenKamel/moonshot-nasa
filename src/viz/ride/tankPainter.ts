@@ -1,5 +1,5 @@
 import type { RideView } from './rideView'
-import { DIM, GREEN, INK, RED, fmtMs, roundRect, text } from './canvasKit'
+import { DIM, GREEN, INK, INK_1, MONO, RED, RULE_STRONG, fmtMs, roundRect, text } from './canvasKit'
 
 /**
  * The propellant tank: what the journey takes of the delta-v on board, in
@@ -34,20 +34,20 @@ export function paintTank(ctx: Ctx, view: RideView, levels: number[]): void {
   ctx.clearRect(0, 0, TANK_W, TANK_H)
 
   text(ctx, 'PROPELLANT', BODY.x, 58, 52, INK, 'left', 800)
-  text(ctx, `${fmtMs(tank.available)} on board`, BODY.x, 118, MIN + 4, INK, 'left', 600)
+  text(ctx, `${fmtMs(tank.available)} on board`, BODY.x, 118, MIN + 4, INK, 'left', 600, false, MONO)
   text(ctx, `${tank.propellantKg} kg · chosen at the Factory`, BODY.x, 172, MIN, DIM, 'left', 500)
 
   // Glass
-  roundRect(ctx, BODY.x - 8, BODY.y - 8, BODY.w + 16, BODY.h + 16, 22)
-  ctx.fillStyle = '#0b1220'
+  roundRect(ctx, BODY.x - 8, BODY.y - 8, BODY.w + 16, BODY.h + 16, 6)
+  ctx.fillStyle = INK_1
   ctx.fill()
-  ctx.strokeStyle = '#64748b'
+  ctx.strokeStyle = RULE_STRONG
   ctx.lineWidth = 5
   ctx.stroke()
 
   const legendX = BODY.x + BODY.w + 34
   if (tank.greyLabel) {
-    ctx.fillStyle = 'rgba(100,116,139,.35)'
+    ctx.fillStyle = 'rgba(148,141,127,.22)'
     ctx.fillRect(BODY.x, BODY.y, BODY.w, BODY.h)
     const [a, b] = twoLines(tank.greyLabel)
     text(ctx, a, legendX, BODY.y + BODY.h / 2 - 10, 44, RED, 'left', 800)
@@ -71,9 +71,9 @@ export function paintTank(ctx: Ctx, view: RideView, levels: number[]): void {
   // Not enough: where the tank really ends
   if (tank.shortBy > 0) {
     const level = BODY.y + BODY.h - (Math.min(tank.available, tank.scaleMax) / Math.max(1, tank.scaleMax)) * BODY.h
-    ctx.fillStyle = 'rgba(248,113,113,.3)'
+    ctx.fillStyle = 'rgba(208,83,63,.28)'
     ctx.fillRect(BODY.x, BODY.y, BODY.w, Math.max(0, level - BODY.y))
-    ctx.strokeStyle = '#fff'
+    ctx.strokeStyle = INK
     ctx.lineWidth = 4
     ctx.setLineDash([12, 10])
     ctx.beginPath()
@@ -92,6 +92,6 @@ export function paintTank(ctx: Ctx, view: RideView, levels: number[]): void {
     ctx.fillStyle = e.colour
     ctx.fillRect(legendX, ly - 28, 28, 28)
     text(ctx, e.label, legendX + 44, ly, MIN, INK, 'left', 600)
-    text(ctx, fmtMs(e.value), legendX + 44, ly + 50, 44, e.colour, 'left', 800)
+    text(ctx, fmtMs(e.value), legendX + 44, ly + 50, 44, e.colour, 'left', 600, false, MONO)
   })
 }

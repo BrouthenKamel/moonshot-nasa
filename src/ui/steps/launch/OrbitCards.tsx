@@ -16,10 +16,11 @@ const flownBy = (id: string) => lunarOrbits.find((o) => o.id === id)?.flownBy
 function stats(o: OrbitOption, full: boolean): ChoiceStat[] {
   const ice12 = Math.round(coverageAt(o, MISSION_MONTHS))
   const tooHigh = o.iceInstruments.length > 0 && !o.iceInRange
+  // The card shows its first two stats in Story view (ice, then height); the rest are Engineer view
   const out: ChoiceStat[] = [
+    { label: full ? 'Ice in 12 months' : 'Ice mapped', value: `${ice12}%`, tone: ice12 >= COVERAGE_GOAL ? 'good' : o.iceInstruments.length ? 'bad' : undefined },
     { label: full ? 'Over the pole' : 'Height', value: `${o.altitudeKm} km`, tone: tooHigh ? 'bad' : o.iceInRange ? 'good' : undefined },
     { label: full ? 'Passes a month' : 'Passes', value: full ? `${o.passesPerTurn}` : `${o.passesPerTurn}/month` },
-    { label: full ? 'Ice in 12 months' : 'Ice mapped', value: `${ice12}%`, tone: ice12 >= COVERAGE_GOAL ? 'good' : o.iceInstruments.length ? 'bad' : undefined },
     {
       label: full ? 'To capture' : 'Capture',
       value: o.captureDeltaV === null ? 'not possible' : `${Math.round(o.captureDeltaV).toLocaleString('en-US')} m/s`,
@@ -58,6 +59,8 @@ export function OrbitCardTray({
   columns?: number
 }) {
   const keys = useRadioKeys(options, selectedId, () => true, onPick)
+  // When every orbit has the same verdict (e.g. no ice instrument on board), the verdict sheet says it once
+  const sameVerdict = options.length > 1 && options.every((o) => o.verdict.text === options[0].verdict.text)
   return (
     <div role="radiogroup" aria-label="Science orbit" className="grid items-end gap-2.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
       {options.map((o, i) => (
@@ -68,9 +71,16 @@ export function OrbitCardTray({
           subtitle={full ? `Flown by ${flownBy(o.id)}` : undefined}
           tag={flownBy(o.id)?.replace(' (planned)', '').split(',')[0]}
           stats={stats(o, full)}
-          plaque={{ tone: o.verdict.tone, text: o.verdict.text }}
+          plaque={sameVerdict ? undefined : { tone: o.verdict.tone, text: o.verdict.text }}
           size={size}
           selected={o.id === selectedId}
+          drag={{
+            field: 'orbit',
+            value: o.id,
+            label: o.shortName,
+            patch: { orbit: o.id },
+            sound: 'sfx.pick-orbit',
+          }}
           onPick={() => onPick(o.id, false)}
           radio
           tabIndex={keys.tabIndex(o.id)}

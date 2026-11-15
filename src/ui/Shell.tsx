@@ -22,7 +22,7 @@ export function roleForStep(step: DesignStep): BuildingRole {
   return BUILDING_TO_ROLE[buildingForStep(step)]
 }
 
-/** Steps that fill the main column edge to edge and show their own numbers (no dashboard). */
+/** Steps that fill the main column edge to edge and show their own numbers (no quest log). */
 const FULL_BLEED_STEPS: DesignStep[] = ['planning', 'rocket', 'spacecraft', 'orbit', 'ride']
 
 interface ShellProps {
@@ -47,16 +47,17 @@ export function Shell({ children }: ShellProps) {
   }, [designStep, screen, setPreviewPatch])
 
   return (
-    <div data-role={role} className="dark-steps flex h-screen flex-col bg-[#03050a] text-slate-100">
+    <div data-role={role} className="dark-steps flex h-screen flex-col bg-ink-0 text-paper">
       <Header />
       <div className="flex flex-1 overflow-hidden">
         {showDesignUI && <StepRail />}
         <main
           ref={mainRef}
-          className={fullBleed ? 'flex-1 overflow-hidden bg-[#03050a]' : 'hud-grid-bg flex-1 overflow-auto p-4'}
+          className={fullBleed ? 'flex-1 overflow-hidden bg-ink-0' : 'hud-grid-bg flex-1 overflow-auto p-4'}
         >
           {children}
         </main>
+        {/* The quest log: mission objectives, margins and the Go/No-Go stamp */}
         {showDesignUI && !fullBleed && <Dashboard />}
       </div>
     </div>

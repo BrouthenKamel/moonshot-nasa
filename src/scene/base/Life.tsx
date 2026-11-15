@@ -1,5 +1,5 @@
-import { useMemo, useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useLayoutEffect, useMemo, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, TiltShift2, ToneMapping, Vignette } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
@@ -56,7 +56,7 @@ export function Clouds() {
           {c.puffs.map((p, j) => (
             <mesh key={j} position={p.p} scale={p.s} castShadow>
               <icosahedronGeometry args={[0.7, 1]} />
-              <meshStandardMaterial color="#ffffff" roughness={1} flatShading transparent opacity={0.92} />
+              <meshStandardMaterial color="#f6ead6" roughness={1} flatShading transparent opacity={0.9} />
             </mesh>
           ))}
         </group>
@@ -86,7 +86,7 @@ export function ChimneySmoke({ position }: { position: [number, number, number] 
       {Array.from({ length: N }, (_, i) => (
         <mesh key={i} ref={(m) => { puffs.current[i] = m }}>
           <icosahedronGeometry args={[0.5, 1]} />
-          <meshStandardMaterial color="#e6e6e6" roughness={1} flatShading transparent depthWrite={false} />
+          <meshStandardMaterial color="#d9d1c2" roughness={1} flatShading transparent depthWrite={false} />
         </mesh>
       ))}
     </group>
@@ -112,21 +112,21 @@ export function Truck({ z, from, to }: { z: number; from: number; to: number }) 
     <group ref={ref}>
       <mesh position={[0.15, 0.22, 0]} castShadow>
         <boxGeometry args={[0.6, 0.36, 0.3]} />
-        <meshStandardMaterial color="#f8fafc" />
+        <meshStandardMaterial color="#ece5d6" />
       </mesh>
       <mesh position={[-0.27, 0.17, 0]} castShadow>
         <boxGeometry args={[0.24, 0.26, 0.28]} />
-        <meshStandardMaterial color="#f28c28" />
+        <meshStandardMaterial color="#e8a33d" />
       </mesh>
       <mesh position={[-0.33, 0.22, 0]}>
         <boxGeometry args={[0.13, 0.1, 0.285]} />
-        <meshStandardMaterial color="#5aa9e6" />
+        <meshStandardMaterial color="#7fa3bd" />
       </mesh>
       {[-0.25, 0.25].map((x) =>
         [-0.15, 0.15].map((zz) => (
           <mesh key={`${x}${zz}`} position={[x, 0.05, zz]} rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.06, 0.06, 0.04, 10]} />
-            <meshStandardMaterial color="#1f2937" />
+            <meshStandardMaterial color="#22252d" />
           </mesh>
         )),
       )}
@@ -134,15 +134,35 @@ export function Truck({ z, from, to }: { z: number; from: number; to: number }) 
   )
 }
 
-/** Miniature look for the island: focus band across the middle, soft edges */
+/** The composer's ACES pass replaces the renderer's own tone mapping while it runs (as in space/Effects.tsx) */
+function RendererToneMappingOff() {
+  const gl = useThree((s) => s.gl)
+  useLayoutEffect(() => {
+    const prev = gl.toneMapping
+    gl.toneMapping = THREE.NoToneMapping
+    return () => {
+      gl.toneMapping = prev
+    }
+  }, [gl])
+  return null
+}
+
+/**
+ * Miniature-diorama look for the island, 'high' quality only: a horizontal focus band through
+ * the middle of the frame with a gentle blur toward the top and bottom edges, soft dark corners,
+ * filmic colour. At 'low' nothing is drawn and the renderer tone maps on its own.
+ */
 export function BaseEffects() {
   const quality = useGraphics((s) => s.quality)
   if (quality !== 'high') return null
   return (
-    <EffectComposer multisampling={4}>
-      <TiltShift2 blur={0.08} taper={0.6} start={[0.5, 0.0]} end={[0.5, 1.0]} />
-      <Vignette offset={0.3} darkness={0.45} />
-      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-    </EffectComposer>
+    <>
+      <RendererToneMappingOff />
+      <EffectComposer multisampling={4}>
+        <TiltShift2 blur={0.1} taper={0.3} start={[0, 0.52]} end={[1, 0.52]} samples={12} />
+        <Vignette offset={0.32} darkness={0.4} />
+        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+      </EffectComposer>
+    </>
   )
 }

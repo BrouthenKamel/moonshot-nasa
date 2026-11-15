@@ -6,9 +6,17 @@ import { isSimComplete } from '../../sim/simulate'
 import type { OperatingMode, SimState } from '../../sim/types'
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
+import { Eng, Story } from '../kit'
 
 /** One month every half second while the flight plays at 1x speed (Jakob, 14 Nov) */
 export const AUTO_FLY_MS = 500
+
+/** The plain consequence of each mode, for Story view */
+const MODE_STORY: Record<OperatingMode, string> = {
+  'full-science': 'Most science and the fastest ice map.',
+  reduced: 'Half the science, easier on the battery.',
+  'safe-mode': 'No science; the craft rests and sends what it has stored.',
+}
 
 /**
  * F3 (Jakob, 14 Nov): how the craft works in the coming science months. The
@@ -38,13 +46,19 @@ function ThisMonth({ simState, compact }: { simState: SimState; compact: boolean
       const needWh = Math.round((budgets.busPower + budgets.instrumentPower) * eclipseHours)
       const overflow = made > activeLink ? `+${made - activeLink} MB buf` : 'Downlink OK'
       const bat = eclipseHours > 0 ? ` · ${needWh}/${usableWh} Wh` : ''
-      return { primary: `+${made} MB`, secondary: `${overflow}${bat}`, warn: eclipseHours > 0 && needWh > usableWh }
+      const warn = eclipseHours > 0 && needWh > usableWh
+      return { primary: `+${made} MB`, secondary: `${overflow}${bat}`, warn, story: warn ? 'Battery runs short in eclipse' : made > activeLink ? 'Fills the buffer' : 'Link keeps up' }
     }
     if (mode === 'reduced') {
-      return { primary: `+${Math.round(made / 2)} MB`, secondary: '50% duty · slower ice map', warn: false }
+      return { primary: `+${Math.round(made / 2)} MB`, secondary: '50% duty · slower ice map', warn: false, story: 'Slower ice map' }
     }
     const drain = Math.min(stored, activeLink)
-    return { primary: '+0 MB', secondary: drain > 0 ? `Drain -${drain} MB backlog` : 'Bus only · idle', warn: false }
+    return {
+      primary: '+0 MB',
+      secondary: drain > 0 ? `Drain -${drain} MB backlog` : 'Bus only · idle',
+      warn: false,
+      story: drain > 0 ? 'Empties the buffer' : 'Idle',
+    }
   }
 
   // Arrow keys move the choice, as in any radio group
@@ -59,20 +73,17 @@ function ThisMonth({ simState, compact }: { simState: SimState; compact: boolean
 
   const text = compact ? 'text-xs' : 'text-sm'
   return (
-    <div className="hud-panel mb-2.5 rounded-xl p-3 text-white">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.85)]" aria-hidden="true" />
-          <div id={`${id}-title`} className="font-mono text-xs font-bold tracking-wider text-slate-200 uppercase">
-            This month
-          </div>
+    <div className="fp-sheet mb-2.5 p-3 text-paper" data-tone="raised">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1">
+        <div id={`${id}-title`} className="fp-display text-sm text-paper">
+          This month
         </div>
-        <div className="font-mono text-[10px] tabular-nums text-slate-400">
+        <div className="fp-data text-[10px] text-paper-dim">
           BUFFER {stored} / {capacity} MB
         </div>
       </div>
 
-      <div role="radiogroup" aria-labelledby={`${id}-title`} className="mt-2 space-y-1.5" onKeyDown={onKeyDown}>
+      <div role="radiogroup" aria-labelledby={`${id}-title`} className="mt-1" onKeyDown={onKeyDown}>
         {o.modes.map((m, i) => {
           const on = i === selected
           const badge = badgeFor(m.mode)
@@ -89,33 +100,28 @@ function ThisMonth({ simState, compact }: { simState: SimState; compact: boolean
               aria-describedby={`${id}-${m.mode}`}
               tabIndex={on ? 0 : -1}
               onClick={() => setAction({ mode: m.mode })}
-              className={`w-full rounded-lg border px-3 py-2 text-left transition ${text} ${
-                on
-                  ? 'border-blue-400/70 bg-blue-950/75 text-white shadow-[0_0_16px_rgba(59,130,246,0.22)]'
-                  : 'border-white/10 bg-slate-900/70 text-slate-200 hover:border-white/25 hover:bg-slate-800/80'
+              className={`block w-full border-b border-l-[3px] border-b-rule px-2.5 py-1.5 text-left transition-colors ${text} ${
+                on ? 'border-l-kapton bg-ink-3 text-paper' : 'border-l-transparent text-paper-dim hover:bg-ink-3/60 hover:text-paper'
               }`}
             >
-              <span className="flex flex-wrap items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-2">
-                  <span
-                    aria-hidden="true"
-                    className={`h-2 w-2 rounded-full transition ${
-                      on ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]' : 'bg-slate-600'
-                    }`}
-                  />
-                  <span id={`${id}-${m.mode}-label`} className="font-semibold">
+              <span className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="inline-flex items-baseline gap-2">
+                  <span aria-hidden="true" className={`fp-data text-[10px] ${on ? 'text-kapton' : 'text-paper-faint'}`}>
+                    {on ? '■' : '□'}
+                  </span>
+                  <span id={`${id}-${m.mode}-label`} className="fp-label text-[0.75rem] text-current">
                     {m.label}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1.5 font-mono text-[10px] tabular-nums">
-                  <span className={`rounded px-1.5 py-0.5 font-bold ${on ? 'bg-blue-500/25 text-blue-200' : 'bg-white/5 text-slate-300'}`}>
-                    {badge.primary}
-                  </span>
-                  <span className={badge.warn ? 'text-amber-300' : 'text-slate-400'}>{badge.secondary}</span>
+                <span className="inline-flex items-baseline gap-1.5 text-[10px]">
+                  <Eng className={`fp-data font-semibold ${on ? 'text-paper' : 'text-paper-dim'}`}>{badge.primary}</Eng>
+                  <Eng className={`fp-data ${badge.warn ? 'text-caution' : 'text-paper-faint'}`}>{badge.secondary}</Eng>
+                  <Story className={`fp-label text-[0.62rem] ${badge.warn ? 'text-caution' : 'text-paper-faint'}`}>{badge.story}</Story>
                 </span>
               </span>
-              <span id={`${id}-${m.mode}`} className="mt-1 block text-[11px] leading-snug text-slate-300">
-                {m.effect}
+              <span id={`${id}-${m.mode}`} className="mt-0.5 block pl-5 text-[11px] leading-snug text-paper-dim">
+                <Story>{MODE_STORY[m.mode]}</Story>
+                <Eng>{m.effect}</Eng>
               </span>
             </button>
           )
@@ -123,33 +129,32 @@ function ThisMonth({ simState, compact }: { simState: SimState; compact: boolean
       </div>
 
       <label
-        className={`mt-2 flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 transition ${text} ${
-          action.buyExtraPass
-            ? 'border-amber-400/60 bg-amber-950/35 text-amber-50'
-            : 'border-white/10 bg-slate-900/60 text-slate-200 hover:border-white/20'
+        className={`mt-2 flex cursor-pointer items-start gap-2.5 border px-2.5 py-1.5 transition-colors ${text} ${
+          action.buyExtraPass ? 'border-kapton bg-ink-3 text-paper' : 'border-rule text-paper-dim hover:border-rule-strong'
         }`}
       >
         <input
           type="checkbox"
-          className="mt-0.5 h-4 w-4 accent-amber-400"
+          className="mt-0.5 h-4 w-4 accent-[var(--color-kapton)]"
           checked={action.buyExtraPass}
           disabled={!o.extraPass.affordable && !action.buyExtraPass}
           onChange={(e) => setAction({ buyExtraPass: e.target.checked })}
           aria-describedby={`${id}-pass`}
         />
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center justify-between gap-2">
+          <span className="flex flex-wrap items-baseline justify-between gap-2">
             <span className="font-semibold">{o.extraPass.label}</span>
-            <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums text-emerald-300">
+            <Eng className="fp-data text-[10px] text-paper">
               {baseLink} → {boostedLink} MB/mo
-            </span>
+            </Eng>
           </span>
-          <span id={`${id}-pass`} className="mt-0.5 block text-[11px] text-slate-300">
-            {o.extraPass.effect}
+          <span id={`${id}-pass`} className="mt-0.5 block text-[11px] text-paper-dim">
+            <Story>More data sent home this month, for a little money.</Story>
+            <Eng>{o.extraPass.effect}</Eng>
           </span>
         </span>
       </label>
-      <div className="mt-1.5 text-[11px] text-slate-400">Applies from the next month until you change it.</div>
+      <div className="mt-1.5 fp-label text-[0.62rem] text-paper-faint">Applies from the next month until you change it.</div>
     </div>
   )
 }
@@ -178,20 +183,17 @@ export function FlightControls({ compact = false, monthPlan = true }: { compact?
   }, [autoFly, intervalMs])
 
   if (!simState) return null
-  const pad = compact ? 'py-2 text-sm' : 'py-3'
+  const pad = compact ? 'py-2' : 'py-3'
 
   if (isSimComplete(simState)) {
     return (
-      <button
-        type="button"
-        onClick={() => showReport()}
-        className={`w-full rounded-xl bg-emerald-600 font-display font-bold text-white shadow-lg transition hover:bg-emerald-500 ${pad}`}
-      >
+      <button type="button" onClick={() => showReport()} className={`fp-btn-primary w-full justify-center ${pad}`}>
         See report
       </button>
     )
   }
   if (simState.pendingDecision) return null
+  const seg = 'fp-btn-ghost justify-center rounded-none border-b-2'
   return (
     <div>
       {monthPlan && simState.phase === 'orbit' && <ThisMonth simState={simState} compact={compact} />}
@@ -200,45 +202,35 @@ export function FlightControls({ compact = false, monthPlan = true }: { compact?
           type="button"
           onClick={() => advanceTurn()}
           disabled={autoFly}
-          className={`flex-1 rounded-xl border border-white/15 bg-slate-800/95 px-3 font-medium text-white shadow transition hover:bg-slate-700 disabled:opacity-50 ${pad}`}
+          className={`fp-btn-primary flex-1 justify-center whitespace-nowrap ${pad}`}
         >
           Advance one month
         </button>
-        {autoFly ? (
+        <div className="flex flex-1 items-stretch border border-rule-strong bg-ink-1">
           <button
             type="button"
-            onClick={() => stopAutoFly()}
-            className={`flex-1 rounded-xl bg-amber-600 px-3 font-medium text-white shadow transition hover:bg-amber-500 ${pad}`}
+            onClick={() => (autoFly ? stopAutoFly() : startAutoFly())}
+            aria-pressed={autoFly}
+            className={`${seg} flex-1 whitespace-nowrap px-3 ${autoFly ? 'border-b-kapton text-paper' : 'border-b-transparent'}`}
           >
-            Pause
+            {autoFly ? 'Pause' : 'Fly until something happens'}
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => startAutoFly()}
-            className={`flex-1 rounded-xl bg-blue-600 px-3 font-medium text-white shadow transition hover:bg-blue-500 ${pad}`}
-          >
-            Fly until something happens
-          </button>
-        )}
-        <div
-          className="hud-panel flex items-center rounded-xl p-1 font-mono text-xs font-bold"
-          aria-label="Auto-fly speed"
-        >
-          {([1, 2] as const).map((spd) => (
-            <button
-              key={spd}
-              type="button"
-              aria-pressed={autoFlySpeed === spd}
-              aria-label={`Auto-fly speed ${spd}x`}
-              onClick={() => setAutoFlySpeed(spd)}
-              className={`rounded-lg px-2.5 py-1.5 transition ${
-                autoFlySpeed === spd ? 'bg-sky-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              {spd}x
-            </button>
-          ))}
+          <div className="flex border-l border-rule" aria-label="Auto-fly speed" role="group">
+            {([1, 2] as const).map((spd) => (
+              <button
+                key={spd}
+                type="button"
+                aria-pressed={autoFlySpeed === spd}
+                aria-label={`Auto-fly speed ${spd}x`}
+                onClick={() => setAutoFlySpeed(spd)}
+                className={`${seg} fp-data px-2.5 ${spd === 2 ? 'border-l border-l-rule' : ''} ${
+                  autoFlySpeed === spd ? 'border-b-kapton text-paper' : 'border-b-transparent'
+                }`}
+              >
+                {spd}x
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

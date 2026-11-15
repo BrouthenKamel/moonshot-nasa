@@ -39,3 +39,5 @@ assets-src/raw/
 assets-src/models/parts/
 
 nasa/
+# Playwright check screenshots
+shots/

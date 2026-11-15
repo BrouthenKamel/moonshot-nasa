@@ -99,7 +99,7 @@ export function CubeSat({ design, deploy = 1, burn = 0, scale = 1, live }: CubeS
     if (plumeLight.current) plumeLight.current.intensity = b * 2 * flicker
   })
 
-  const plumeColor = electric ? new THREE.Color(1.2, 3.2, 6) : new THREE.Color(6, 3.4, 1.4)
+  const plumeColor = electric ? new THREE.Color(2.4, 1.9, 6) : new THREE.Color(6, 3.4, 1.4)
   return (
     <group scale={scale}>
       <primitive object={model} />
@@ -108,7 +108,7 @@ export function CubeSat({ design, deploy = 1, burn = 0, scale = 1, live }: CubeS
         <coneGeometry args={[0.035, 0.42, 20, 1, true]} />
         <meshBasicMaterial color={plumeColor} transparent opacity={0.85} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
-      <pointLight ref={plumeLight} position={[0, 0, -0.3]} color={electric ? '#7cc4ff' : '#ffb066'} intensity={0} distance={2} />
+      <pointLight ref={plumeLight} position={[0, 0, -0.3]} color={electric ? '#9d8cff' : '#ffb066'} intensity={0} distance={2} />
     </group>
   )
 }

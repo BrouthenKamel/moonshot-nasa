@@ -128,7 +128,7 @@ const REACH_LABEL: Record<Exclude<Reach, 'ok'>, string> = {
 
 const BAR_ORDER: BarResource[] = ['Delta-v', 'Mass', 'Time', 'Budget']
 
-const LAYER_COLOUR = { climb: '#fbbf24', hold: '#818cf8', spare: '#4ade80' }
+const LAYER_COLOUR = { climb: '#e8a33d', hold: '#b9b2a3', spare: '#6faf7a' }
 
 function reachOf(b: Budgets): Reach {
   if (b.captureDeltaV === null) return 'noWay'

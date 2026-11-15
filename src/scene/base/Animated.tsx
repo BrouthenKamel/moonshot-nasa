@@ -11,7 +11,7 @@ import { prefersReducedMotion } from '../space/quality'
 /** A small light that blinks on a slow beat */
 export function Blinker({
   position,
-  color = '#ff4d3d',
+  color = '#d0533f',
   period = 1.6,
   phase = 0,
   size = 0.07,
@@ -67,7 +67,7 @@ export function Spin({
 }
 
 /** A flag on a pole, waving */
-export function Flag({ position, color = '#f28c28' }: { position: [number, number, number]; color?: string }) {
+export function Flag({ position, color = '#e8a33d' }: { position: [number, number, number]; color?: string }) {
   const ref = useRef<Group>(null)
   const reduced = useMemo(() => prefersReducedMotion(), [])
   useFrame(({ clock }) => {
@@ -80,7 +80,7 @@ export function Flag({ position, color = '#f28c28' }: { position: [number, numbe
     <group position={position}>
       <mesh position={[0, 0.75, 0]} castShadow>
         <cylinderGeometry args={[0.025, 0.025, 1.5, 6]} />
-        <meshStandardMaterial color="#9aa1ab" />
+        <meshStandardMaterial color="#9c968a" />
       </mesh>
       <group ref={ref} position={[0, 1.32, 0]}>
         <mesh position={[0.26, 0, 0]}>

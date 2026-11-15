@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { ModelId } from '../../assets/manifest'
 import { useModel } from '../../assets/models'
+import { Effects } from '../space/Effects'
 import { useRideView, chooseRide, chooseTransfer } from '../../viz/ride/useRideView'
 import type { DropKind, RideView } from '../../viz/ride/rideView'
 import {
@@ -73,6 +74,9 @@ function makeCanvasTexture(w: number, h: number) {
 
 /* ---------------- sky ---------------- */
 
+/** Matte pad concrete at night, just catching the sodium light */
+const GROUND = '#0e0d0b'
+
 function Sky({ view, hover }: { view: RideView; hover: Hover }) {
   const sky = useMemo(() => makeCanvasTexture(SKY_W * SKY_CANVAS_SCALE, SKY_H * SKY_CANVAS_SCALE), [])
   // A wide backdrop with the same horizon gradient, so the sway never shows an edge
@@ -80,11 +84,12 @@ function Sky({ view, hover }: { view: RideView; hover: Hover }) {
     const t = makeCanvasTexture(4, 256)
     const g = t.ctx.createLinearGradient(0, 0, 0, 256)
     const h = GROUND_Y / SKY_H
-    g.addColorStop(0, '#03050a')
-    g.addColorStop(0.7 * h, '#071022')
-    g.addColorStop(h, '#16233f')
-    g.addColorStop(Math.min(1, h + 0.001), '#070b14')
-    g.addColorStop(1, '#070b14')
+    // Same sky as skyPainter: ink overhead, warm sodium haze on the horizon
+    g.addColorStop(0, '#07090d')
+    g.addColorStop(0.68 * h, '#0d1017')
+    g.addColorStop(h, '#2a2218')
+    g.addColorStop(Math.min(1, h + 0.001), GROUND)
+    g.addColorStop(1, GROUND)
     t.ctx.fillStyle = g
     t.ctx.fillRect(0, 0, 4, 256)
     t.texture.needsUpdate = true
@@ -94,7 +99,7 @@ function Sky({ view, hover }: { view: RideView; hover: Hover }) {
     const { ctx } = sky
     ctx.setTransform(SKY_CANVAS_SCALE, 0, 0, SKY_CANVAS_SCALE, 0, 0)
     paintSky(ctx, view, hover)
-    ctx.fillStyle = '#070b14'
+    ctx.fillStyle = GROUND
     ctx.fillRect(0, GROUND_Y, SKY_W, SKY_H - GROUND_Y)
     sky.texture.needsUpdate = true
   }, [sky, view, hover])
@@ -152,11 +157,11 @@ function SkySprites({ view, reduced }: { view: RideView; reduced: boolean }) {
       <group ref={dot}>
         <mesh>
           <circleGeometry args={[6 * u, 20]} />
-          <meshBasicMaterial color="#ffffff" toneMapped={false} />
+          <meshBasicMaterial color="#ede6d6" toneMapped={false} />
         </mesh>
         <mesh position={[0, 0, -0.01]}>
           <circleGeometry args={[16 * u, 24]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.18} toneMapped={false} depthWrite={false} />
+          <meshBasicMaterial color="#ede6d6" transparent opacity={0.14} toneMapped={false} depthWrite={false} />
         </mesh>
       </group>
       <mesh ref={ring} position={at(CAPTURE.x, CAPTURE.y, D_SKY - 0.2)}>
@@ -169,8 +174,8 @@ function SkySprites({ view, reduced }: { view: RideView; reduced: boolean }) {
 
 /* ---------------- pad ---------------- */
 
-const WHITE = '#f1f5f9'
-const DARK = '#0f172a'
+const WHITE = '#e6e1d6'
+const DARK = '#1a1c20'
 
 function Cyl({ r, h, y, colour, x = 0, top }: { r: number; h: number; y: number; colour: string; x?: number; top?: number }) {
   return (
@@ -241,7 +246,7 @@ function Rocket({ drop }: { drop: DropKind }) {
     payloadZ = 14
     parts = (
       <>
-        <Cyl r={28} h={270} y={135} colour="#ea580c" />
+        <Cyl r={28} h={270} y={135} colour="#c9762f" />
         <Cyl r={22} h={40} y={290} colour={WHITE} />
         <Cyl r={22} top={0.5} h={36} y={328} colour={WHITE} />
         {[-40, 40].map((x) => (
@@ -258,7 +263,7 @@ function Rocket({ drop }: { drop: DropKind }) {
       <>
         <Cyl r={17} h={220} y={110} colour={WHITE} />
         <Cyl r={17.6} h={8} y={150} colour={DARK} />
-        <Cyl r={20} h={6} y={222} colour="#334155" />
+        <Cyl r={20} h={6} y={222} colour="#3a3c42" />
         <Cyl r={20} top={0.5} h={48} y={249} colour={WHITE} />
       </>
     )
@@ -280,11 +285,11 @@ function Rocket({ drop }: { drop: DropKind }) {
       {/* The CubeSat in the nose: where the path starts */}
       <mesh position={[0, payloadY, payloadZ]}>
         <boxGeometry args={[10, 14, 4]} />
-        <meshBasicMaterial color="#e0f2fe" toneMapped={false} />
+        <meshBasicMaterial color="#f2c27a" toneMapped={false} />
       </mesh>
       <mesh position={[0, payloadY, payloadZ - 1]}>
         <circleGeometry args={[18, 24]} />
-        <meshBasicMaterial color="#bfdbfe" transparent opacity={0.22} toneMapped={false} depthWrite={false} />
+        <meshBasicMaterial color="#e8a33d" transparent opacity={0.2} toneMapped={false} depthWrite={false} />
       </mesh>
     </group>
   )
@@ -303,7 +308,7 @@ function Gantry() {
       {bars.map((b, i) => (
         <mesh key={i} position={b.p} rotation={[0, 0, b.r ?? 0]}>
           <boxGeometry args={b.s} />
-          <meshStandardMaterial color="#475569" roughness={0.6} metalness={0.4} />
+          <meshStandardMaterial color="#4a4640" roughness={0.75} metalness={0.3} />
         </mesh>
       ))}
     </group>
@@ -332,7 +337,7 @@ function Vapour({ reduced, puff }: { reduced: boolean; puff: React.RefObject<num
       {VAPOUR.map((v, i) => (
         <mesh key={i} ref={(m) => void (refs.current[i] = m)} position={[v.x, 8, 30]}>
           <sphereGeometry args={[v.r, 16, 12]} />
-          <meshBasicMaterial color="#cbd5e1" transparent opacity={0.08} depthWrite={false} toneMapped={false} />
+          <meshBasicMaterial color="#d9c8a6" transparent opacity={0.08} depthWrite={false} toneMapped={false} />
         </mesh>
       ))}
     </>
@@ -360,7 +365,7 @@ function Floods({ colour }: { colour: THREE.Color }) {
         <group key={x0}>
           <mesh position={[x0, 55, -30]}>
             <boxGeometry args={[5, 110, 5]} />
-            <meshStandardMaterial color="#334155" />
+            <meshStandardMaterial color="#2c2b28" roughness={0.85} />
           </mesh>
           <mesh position={[x0, 112, -28]}>
             <boxGeometry args={[22, 10, 8]} />
@@ -370,7 +375,7 @@ function Floods({ colour }: { colour: THREE.Color }) {
             <meshBasicMaterial
               color={colour}
               transparent
-              opacity={0.1}
+              opacity={0.08}
               blending={THREE.AdditiveBlending}
               depthWrite={false}
               side={THREE.DoubleSide}
@@ -383,7 +388,8 @@ function Floods({ colour }: { colour: THREE.Color }) {
   )
 }
 
-const FLOOD = { go: new THREE.Color('#dbeafe'), caution: new THREE.Color('#fcd34d'), nogo: new THREE.Color('#dbeafe') }
+/** Sodium-vapour floodlights; a caution pad leans to the amber, a no-go one stays plain sodium */
+const FLOOD = { go: new THREE.Color('#ffc27a'), caution: new THREE.Color('#ffb04a'), nogo: new THREE.Color('#ffc27a') }
 
 function Pad({ view, reduced }: { view: RideView; reduced: boolean }) {
   const u = unit(D_PAD)
@@ -403,7 +409,7 @@ function Pad({ view, reduced }: { view: RideView; reduced: boolean }) {
   useFrame((state) => {
     const t = state.clock.elapsedTime
     const pulse = nogo ? (reduced ? 1 : 0.5 + 0.5 * Math.sin(t * 5)) : 0
-    beacon.current?.color.set(nogo ? '#ef4444' : '#7f1d1d').multiplyScalar(nogo ? 0.6 + 0.6 * pulse : 1)
+    beacon.current?.color.set(nogo ? '#d0533f' : '#4a1c15').multiplyScalar(nogo ? 0.6 + 0.6 * pulse : 1)
     if (alarm.current) alarm.current.intensity = nogo ? 0.4 + 1.4 * pulse : 0
   })
   const flood = FLOOD[view.status]
@@ -414,12 +420,12 @@ function Pad({ view, reduced }: { view: RideView; reduced: boolean }) {
       {/* Ground, from just in front of the camera to a little behind the pad */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, groundY - 0.01, -(D_PAD + 0.6) / 2]}>
         <planeGeometry args={[400, D_PAD + 0.6]} />
-        <meshStandardMaterial color="#070b14" roughness={1} />
+        <meshStandardMaterial color={GROUND} roughness={1} />
       </mesh>
       <group position={base} scale={u}>
         <mesh position={[0, -6, 0]}>
           <boxGeometry args={[320, 12, 140]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.9} />
+          <meshStandardMaterial color="#2a2722" roughness={0.95} />
         </mesh>
         <Rocket drop={drop} />
         <SafePadModel id="model.env-mobile-launcher" position={[0, 0, -28]} scale={14.5} />
@@ -427,12 +433,12 @@ function Pad({ view, reduced }: { view: RideView; reduced: boolean }) {
         <SafePadModel id="model.env-crawler" position={[-88, 0, 14]} rotation={[0, 0.25, 0]} scale={10.5} />
         <mesh position={[79, 342, 0]}>
           <sphereGeometry args={[6, 16, 12]} />
-          <meshBasicMaterial ref={beacon} color="#7f1d1d" toneMapped={false} />
+          <meshBasicMaterial ref={beacon} color="#4a1c15" toneMapped={false} />
         </mesh>
         <Vapour reduced={reduced} puff={puff} />
         <Floods colour={flood} />
-        <directionalLight position={[-60, 180, 140]} intensity={1.1} color="#fff7ed" />
-        <pointLight ref={alarm} position={[79, 360, 40]} color="#ff3b3b" intensity={0} distance={0} decay={0} />
+        <directionalLight position={[-60, 180, 140]} intensity={0.9} color="#ffd9a8" />
+        <pointLight ref={alarm} position={[79, 360, 40]} color="#d0533f" intensity={0} distance={0} decay={0} />
         <spotLight
           position={[-80, 130, 120]}
           target-position={[base[0], base[1] + 4, base[2]]}
@@ -490,7 +496,7 @@ function Board({ view, hover, setHover }: { view: RideView; hover: Hover; setHov
       {[BOARD_RECT.x + 60, BOARD_RECT.x + BOARD_RECT.w - 60].map((x) => (
         <mesh key={x} position={at(x, (bottom + GROUND_Y) / 2, D_PAD + 0.05)}>
           <boxGeometry args={[10 * u, (GROUND_Y - bottom) * u, 10 * u]} />
-          <meshStandardMaterial color="#334155" />
+          <meshStandardMaterial color="#2c2b28" roughness={0.85} />
         </mesh>
       ))}
       {view.rows.map((r, i) => {
@@ -621,9 +627,10 @@ export function LaunchPad({ focus }: { focus: RideFocus }) {
       gl={{ antialias: true }}
       aria-hidden
     >
-      <color attach="background" args={[0x03050a]} />
-      <ambientLight intensity={0.55} color="#9fb4e0" />
-      <directionalLight position={[20, 30, 10]} intensity={0.9} color="#c7d2fe" />
+      <color attach="background" args={[0x07090d]} />
+      {/* night: a dim warm ambient from the sodium haze, a faint cool moonlight from above */}
+      <ambientLight intensity={0.45} color="#b8a88e" />
+      <directionalLight position={[20, 30, 10]} intensity={0.55} color="#c9d1dc" />
       <PadCamera reduced={reduced} />
       <Sky view={view} hover={stableHover} />
       <SkySprites view={view} reduced={reduced} />
@@ -631,6 +638,7 @@ export function LaunchPad({ focus }: { focus: RideFocus }) {
       <Pad view={view} reduced={reduced} />
       <Tank view={view} reduced={reduced} />
       <Board view={view} hover={stableHover} setHover={setPointerHover} />
+      <Effects preset="night" />
     </Canvas>
   )
 }

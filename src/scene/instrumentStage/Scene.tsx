@@ -5,11 +5,13 @@ import * as THREE from 'three'
 import { useModel } from '../../assets/models'
 import { useGameStore } from '../../state/gameStore'
 import { CubeSat, useSpaceTexture } from '../space'
-import { TILE_LENGTH, TILE_WIDTH, bakeGround } from './ground'
+import { TILE_LENGTH, TILE_WIDTH, TRACK_CRATER, bakeGround, groundHeight, shadowAt } from './ground'
 import { Beam } from './beams'
 import { InstrumentModel } from './InstrumentModel'
 import { FAR_PLANE_NEAR_EDGE, SAT_SCALE, TILE_COPIES, advancePass, holdOverCrater, groundAt, lookY, makeGlowTexture, slotX, targetZ, type Pass } from './frame'
-import type { InstrumentView } from './stageModel'
+import { iceSparkleStrength, type InstrumentView } from './stageModel'
+import { useInsidePath } from '../interaction/InsideCam'
+import { useInsidePlaying } from '../../ui/interaction/insideStore'
 
 const TAU = Math.PI * 2
 
@@ -111,7 +113,12 @@ function Driver({ pass, h, still, onShadow }: { pass: Pass; h: number; still: bo
 /** Moves camera and look-at point with the satellite when the altitude changes. */
 function Rig({ h }: { h: number }) {
   const cur = useRef(h)
+  const looking = useInsidePlaying('lab-look-through')
   useFrame((state) => {
+    if (looking) {
+      cur.current = h
+      return
+    }
     const d = (h - cur.current) * 0.07
     if (Math.abs(d) < 1e-4) return
     cur.current += d
@@ -125,7 +132,94 @@ function Rig({ h }: { h: number }) {
   return null
 }
 
-function Terrain({ pass }: { pass: Pass }) {
+/** Cuts the camera under the CubeSat payload aperture looking down across shadowed crater floors. */
+function LookThroughRig({ h }: { h: number }) {
+  const keys = useMemo(
+    () => [
+      { t: 0, pos: [0.35, h - 0.65, 0.25] as [number, number, number], target: [0, -0.1, targetZ(h)] as [number, number, number], fov: 48 },
+      { t: 0.65, pos: [0, h - 0.9, -0.35] as [number, number, number], target: [0, -0.5, targetZ(h)] as [number, number, number], fov: 42 },
+      { t: 18, pos: [0, h - 0.9, -0.35] as [number, number, number], target: [0, -0.5, targetZ(h)] as [number, number, number], fov: 42 },
+    ],
+    [h],
+  )
+  useInsidePath('lab-look-through', keys, { still: 1, endAfterS: 18 })
+  return null
+}
+
+const ICE_SPARKLES: ReadonlyArray<[number, number, number]> = (() => {
+  const pts: [number, number, number][] = []
+  for (let i = 0; i < 48; i++) {
+    const a = i * 2.399963
+    const rad = Math.sqrt((i + 0.5) / 48) * (TRACK_CRATER.r * 0.72)
+    const x = TRACK_CRATER.x + Math.cos(a) * rad
+    const u = TRACK_CRATER.u + Math.sin(a) * rad
+    if (shadowAt(x, u) > 0.55) pts.push([x, groundHeight(x, u) + 0.14, -u])
+  }
+  return pts
+})()
+
+function CraterIceSparkles({ strength, still }: { strength: number; still: boolean }) {
+  const mesh = useRef<THREE.InstancedMesh>(null)
+  const mat = useRef<THREE.MeshBasicMaterial>(null)
+  const cur = useRef(strength)
+  const dummy = useMemo(() => new THREE.Object3D(), [])
+
+  useFrame(({ clock }) => {
+    cur.current += (strength - cur.current) * 0.08
+    if (mat.current) mat.current.opacity = cur.current * 0.85
+    if (!mesh.current) return
+    mesh.current.visible = cur.current > 0.015
+    if (!mesh.current.visible) return
+    const t = clock.elapsedTime
+    for (let i = 0; i < ICE_SPARKLES.length; i++) {
+      const [x, y, z] = ICE_SPARKLES[i]
+      const glint = still ? 0.85 : 0.45 + 0.65 * Math.max(0, Math.sin(t * 2.7 + i * 1.9))
+      dummy.position.set(x, y, z)
+      dummy.scale.setScalar(glint * (0.09 + 0.05 * cur.current))
+      dummy.updateMatrix()
+      mesh.current.setMatrixAt(i, dummy.matrix)
+    }
+    mesh.current.instanceMatrix.needsUpdate = true
+  })
+
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, ICE_SPARKLES.length]} frustumCulled={false}>
+      <octahedronGeometry args={[1, 0]} />
+      <meshBasicMaterial ref={mat} color="#5ee6f0" transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} />
+    </instancedMesh>
+  )
+}
+
+function OpticalBenchPedestal({ h }: { h: number }) {
+  const ref = useRef<THREE.Group>(null)
+  const cur = useRef(h)
+  useFrame(() => {
+    cur.current += (h - cur.current) * 0.07
+    if (ref.current) ref.current.position.y = cur.current - 1.05
+  })
+  return (
+    <group ref={ref} position={[0, h - 1.05, 0.72]}>
+      <mesh>
+        <boxGeometry args={[3.4, 0.08, 0.16]} />
+        <meshStandardMaterial color="#1f252e" metalness={0.55} roughness={0.45} />
+      </mesh>
+      {[-1.55, 1.55].map((x) => (
+        <group key={x} position={[x, 0.35, 0]}>
+          <mesh>
+            <boxGeometry args={[0.07, 0.78, 0.08]} />
+            <meshStandardMaterial color="#2a313c" metalness={0.6} roughness={0.4} />
+          </mesh>
+          <mesh position={[0, 0.32, -0.05]}>
+            <boxGeometry args={[0.14, 0.04, 0.04]} />
+            <meshBasicMaterial color="#e8a33d" />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function Terrain({ pass, sparkleStrength, still }: { pass: Pass; sparkleStrength: number; still: boolean }) {
   const geo = useMemo(() => buildTile(), [])
   const group = useRef<THREE.Group>(null)
   useFrame(() => {
@@ -154,6 +248,7 @@ function Terrain({ pass }: { pass: Pass }) {
                 </Suspense>
               </SceneBoundary>
             </mesh>
+            <CraterIceSparkles strength={sparkleStrength} still={still} />
             {/* Flank the crater corridor with NASA Aristarchus relief terrain outside the central scan track */}
             <SceneBoundary>
               <Suspense fallback={null}>
@@ -173,29 +268,29 @@ function PrimitiveSatelliteFallback() {
     <>
       <mesh>
         <boxGeometry args={[0.8, 0.5, 1.4]} />
-        <meshStandardMaterial color="#cbd5e1" metalness={0.35} roughness={0.45} emissive="#1e293b" emissiveIntensity={0.5} />
+        <meshStandardMaterial color="#c9a25a" metalness={0.45} roughness={0.5} emissive="#1a1206" emissiveIntensity={0.5} />
       </mesh>
       {[-1, 1].map((side) => (
         <group key={side} position={[side * 1.45, 0.12, 0]}>
           <mesh>
             <boxGeometry args={[2.0, 0.04, 1.05]} />
-            <meshStandardMaterial color="#1d4ed8" metalness={0.5} roughness={0.35} emissive="#1e3a8a" emissiveIntensity={0.55} />
+            <meshStandardMaterial color="#1c2230" metalness={0.6} roughness={0.35} emissive="#0b0e14" emissiveIntensity={0.4} />
           </mesh>
           {[-0.5, 0, 0.5].map((x) => (
             <mesh key={x} position={[x, 0.025, 0]}>
               <boxGeometry args={[0.02, 0.01, 1.05]} />
-              <meshBasicMaterial color="#93c5fd" transparent opacity={0.5} />
+              <meshBasicMaterial color="#3a4254" transparent opacity={0.6} />
             </mesh>
           ))}
         </group>
       ))}
       <mesh position={[0, 0.33, 0.35]}>
         <cylinderGeometry args={[0.22, 0.08, 0.12, 20]} />
-        <meshStandardMaterial color="#e2e8f0" metalness={0.2} roughness={0.6} />
+        <meshStandardMaterial color="#ddd5c4" metalness={0.2} roughness={0.6} />
       </mesh>
       <mesh position={[0, 0, 0.76]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.1, 0.16, 0.14, 16]} />
-        <meshStandardMaterial color="#64748b" />
+        <meshStandardMaterial color="#5a5650" />
       </mesh>
     </>
   )
@@ -241,7 +336,7 @@ function Sky({ glow }: { glow: THREE.Texture }) {
       </sprite>
       <mesh position={[135, 180, -768]}>
         <sphereGeometry args={[20, 32, 32]} />
-        <meshStandardMaterial color="#2563eb" emissive="#1d4ed8" emissiveIntensity={0.25} roughness={0.9} />
+        <meshStandardMaterial color="#4f6f9a" emissive="#1f2c40" emissiveIntensity={0.25} roughness={0.9} />
       </mesh>
     </>
   )
@@ -258,21 +353,24 @@ export interface SceneProps {
 export function Scene({ pass, h, views, still, onShadow }: SceneProps) {
   const glow = useMemo(() => makeGlowTexture(), [])
   const [startTarget] = useState<[number, number, number]>(() => [0, lookY(h), -4])
+  const sparkleStrength = useMemo(() => iceSparkleStrength(views), [views])
   return (
     <>
-      <color attach="background" args={['#03050a']} />
+      <color attach="background" args={['#07090d']} />
       <ambientLight intensity={0.07} />
       <directionalLight position={[-34.2, 15.8, -94]} intensity={6.5} color="#fff8ec" />
-      <pointLight position={[2.5, h + 2.5, 5]} intensity={45} distance={9} decay={2} color="#cbd5e1" />
+      <pointLight position={[2.5, h + 2.5, 5]} intensity={45} distance={9} decay={2} color="#e6dccb" />
       <Driver pass={pass} h={h} still={still} onShadow={onShadow} />
       <Rig h={h} />
+      <LookThroughRig h={h} />
       <Sky glow={glow} />
       <SceneBoundary>
         <Suspense fallback={null}>
           <OrbitingLro h={h} />
         </Suspense>
       </SceneBoundary>
-      <Terrain pass={pass} />
+      <Terrain pass={pass} sparkleStrength={sparkleStrength} still={still} />
+      <OpticalBenchPedestal h={h} />
       <Satellite h={h} views={views} />
       {views.map((v, i) => (
         <Beam key={v.id} pass={pass} h={h} x={slotX(i, views.length)} view={v} glow={glow} calm={still} />

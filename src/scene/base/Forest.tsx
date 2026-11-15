@@ -47,11 +47,22 @@ function spots(half: number, outer: number): TreeSpot[] {
 /** How far the forest reaches beyond the island edge, in tiles; the base camera stays inside it */
 export const FOREST_REACH = 20
 
-const TRUNK = new Color('#6e4a2c')
-const LEAF_A = new Color('#3d8b37')
-const LEAF_B = new Color('#2f6f2e')
-const PINE_A = new Color('#2c6b3a')
-const PINE_B = new Color('#245a31')
+// Golden-hour coastal scrub, a step darker than BaseMap's ground (#8a9a58) so the island's
+// clearing and the light buildings still read first: olive and sage crowns, dry khaki tips,
+// deep slash-pine greens, and a few sun-burnt sand/ochre trees for variety.
+const TRUNK = new Color('#5e4632')
+const LEAF_A = new Color('#56643a') // olive
+const LEAF_B = new Color('#6f7a4c') // sage
+const LEAF_DRY = new Color('#8d8556') // dry khaki
+const PINE_A = new Color('#3e4b31')
+const PINE_B = new Color('#4d5a3a')
+const AUTUMN = [new Color('#8a7246'), new Color('#968259'), new Color('#76673f')]
+
+/** A second, position-based random so the tint varies independently of size and turn */
+function hash(x: number, z: number) {
+  const v = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453
+  return v - Math.floor(v)
+}
 
 export function Forest({ half, ground }: { half: number; ground: number }) {
   const trees = useMemo(() => spots(half, half + FOREST_REACH), [half])
@@ -77,7 +88,7 @@ export function Forest({ half, ground }: { half: number; ground: number }) {
       trunks.instanceMatrix.needsUpdate = true
       if (trunks.instanceColor) trunks.instanceColor.needsUpdate = true
     }
-    const place = (mesh: InstancedMesh | null, list: TreeSpot[], y: number, a: Color, b: Color) => {
+    const place = (mesh: InstancedMesh | null, list: TreeSpot[], y: number, a: Color, b: Color, dry: Color | null) => {
       if (!mesh) return
       list.forEach((t, i) => {
         d.position.set(t.x, ground + y * t.s, t.z)
@@ -85,13 +96,18 @@ export function Forest({ half, ground }: { half: number; ground: number }) {
         d.rotation.set(0, t.shade * Math.PI * 2, 0)
         d.updateMatrix()
         mesh.setMatrixAt(i, d.matrix)
-        mesh.setColorAt(i, c.copy(a).lerp(b, t.shade))
+        const h = hash(t.x, t.z)
+        c.copy(a).lerp(b, t.shade)
+        if (dry && h < 0.045) c.copy(AUTUMN[Math.floor(h * 200) % AUTUMN.length])
+        else if (dry && h > 0.72) c.lerp(dry, (h - 0.72) * 1.6)
+        else if (!dry) c.lerp(PINE_B, h * 0.4)
+        mesh.setColorAt(i, c)
       })
       mesh.instanceMatrix.needsUpdate = true
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
     }
-    place(roundRef.current, round, 0.8, LEAF_A, LEAF_B)
-    place(pineRef.current, pines, 0.95, PINE_A, PINE_B)
+    place(roundRef.current, round, 0.8, LEAF_A, LEAF_B, LEAF_DRY)
+    place(pineRef.current, pines, 0.95, PINE_A, PINE_B, null)
   }, [trees, round, pines, ground])
 
   return (

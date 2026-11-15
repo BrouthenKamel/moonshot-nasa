@@ -2,12 +2,17 @@ import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from '
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
 import { turnConstants } from '../../data/brief'
+import type { PlanningChoices } from '../../sim/types'
 import { percent } from '../../sim/odds'
 import { usePlanningOdds } from '../useOdds'
 import { useDesignPreview } from '../useDesignPreview'
 import { DesignDeltaLine } from '../../viz/DesignDeltaLine'
 import { canUseWebGL } from '../../scene/webgl'
+import { prefersReducedMotion } from '../../scene/space/quality'
 import type { ControlFocus } from '../../scene/ControlRoom'
+import { useDragStore } from '../interaction/dragStore'
+import { useDragPart, useDropTarget } from '../interaction/drag'
+import { Btn, Eng, LineItem, Sheet, STEP_QUESTION, StepHeader, stepNumber } from '../kit'
 
 const ControlRoom = lazy(() => import('../../scene/ControlRoom').then((m) => ({ default: m.ControlRoom })))
 
@@ -29,147 +34,161 @@ class RoomBoundary extends Component<{ children: ReactNode; onError: () => void 
 }
 
 /**
- * F2 (Jakob, 14 Nov): what a control really does to the chance of full success,
- * at the current setting and at every other one.
+ * F2 (Jakob, 14 Nov): what a control really does to the chance of full success.
+ * Story view: the one line for the current setting. Engineer view: every other setting too.
  */
 function OddsRow({ byValue, current, label }: { byValue?: Record<number, number>; current: number; label: (v: number) => string }) {
   if (!byValue || byValue[current] === undefined)
-    return <div className="mt-2 font-mono text-xs text-slate-400">Working out the chance of full success…</div>
+    return <div className="mt-2 fp-data text-xs text-paper-faint">Working out the chance of full success…</div>
   const others = Object.keys(byValue)
     .map(Number)
     .filter((v) => v !== current)
     .sort((a, b) => a - b)
   return (
-    <div className="mt-2.5 rounded border border-slate-700/60 bg-slate-950/60 px-3 py-2 text-sm text-slate-300" aria-live="polite">
-      <div className="font-mono text-xs font-semibold tabular-nums text-cyan-300">
-        {`Chance of full success: about ${percent(byValue[current])}`}
-      </div>
-      <div className="mt-0.5 font-mono text-[11px] tabular-nums text-slate-400">
+    <div className="mt-2.5 text-sm" aria-live="polite">
+      <div className="fp-data text-sm font-medium text-paper">{`Chance of full success: about ${percent(byValue[current])}`}</div>
+      <Eng as="div" className="mt-0.5 fp-data text-[11px] text-paper-faint">
         {others.map((v) => `${label(v)}: about ${percent(byValue[v])}`).join(' · ')}
-      </div>
+      </Eng>
     </div>
   )
 }
 
-function QuickPickTestButtons({
-  current,
-  oddsByValue,
+function SegmentedOption({
+  v,
+  active,
+  odd,
+  unit,
+  recommended,
+  field,
+  planning,
   onPick,
   onHover,
   onFocusField,
-  compact = false,
 }: {
-  current: number
-  oddsByValue?: Record<number, number>
+  v: number
+  active: boolean
+  odd: number | undefined
+  unit: (v: number) => string
+  recommended?: number
+  field: 'test' | 'reserve'
+  planning: PlanningChoices
   onPick: (v: number) => void
   onHover: (v: number | null) => void
   onFocusField?: (f: ControlFocus) => void
-  compact?: boolean
 }) {
+  const dragProps = useDragPart({
+    field: field === 'test' ? 'planning-test' : 'planning-reserve',
+    value: String(v),
+    label: field === 'test' ? `Test · ${unit(v)}` : `Reserve · ${unit(v)}`,
+    patch: {
+      planning:
+        field === 'test'
+          ? { ...planning, testTurns: v }
+          : { ...planning, reservePercent: v },
+    },
+    sound: 'sfx.snap',
+  })
   return (
-    <div
-      className={compact ? 'flex flex-wrap gap-1.5' : 'grid grid-cols-4 gap-2'}
-      onMouseLeave={() => onHover(null)}
+    <button
+      {...dragProps}
+      type="button"
+      data-testid={field === 'test' ? `test-block-${v}` : `reserve-coin-${v}`}
+      aria-pressed={active}
+      onClick={() => onPick(v)}
+      onMouseEnter={() => {
+        if (!useDragStore.getState().held) onHover(v)
+      }}
+      onFocus={() => {
+        onHover(v)
+        onFocusField?.(field)
+      }}
+      onBlur={() => {
+        if (!useDragStore.getState().held) onHover(null)
+        onFocusField?.(null)
+      }}
+      className={`flex min-w-[3.25rem] cursor-grab flex-col items-center border-r border-rule px-2.5 py-1.5 last:border-r-0 active:cursor-grabbing focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-kapton ${
+        active ? 'bg-kapton text-kapton-ink' : 'text-paper-dim hover:bg-ink-3 hover:text-paper'
+      }`}
     >
-      {TEST_MONTH_OPTIONS.map((v) => {
-        const active = current === v
-        const odd = oddsByValue?.[v]
-        return (
-          <button
-            key={v}
-            type="button"
-            onClick={() => onPick(v)}
-            onMouseEnter={() => onHover(v)}
-            onFocus={() => {
-              onHover(v)
-              onFocusField?.('test')
-            }}
-            onBlur={() => {
-              onHover(null)
-              onFocusField?.(null)
-            }}
-            className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 font-mono text-xs tabular-nums transition ${
-              active
-                ? 'border-[var(--role-accent)] bg-[var(--role-surface)] text-white shadow-[0_0_12px_var(--role-glow)]'
-                : 'border-slate-700/70 bg-slate-950/70 text-slate-300 hover:border-slate-500 hover:bg-slate-800/80'
-            }`}
-          >
-            <span className="font-semibold">{v} mo</span>
-            <span className={active ? 'text-cyan-300' : 'text-slate-400'}>
-              {odd !== undefined ? percent(odd) : '…'}
-            </span>
-          </button>
-        )
-      })}
-    </div>
+      <span className="fp-data text-xs font-semibold">
+        {unit(v)}
+        {v === recommended && (
+          <span aria-hidden="true" title="CubeSat 101 recommended" className="ml-0.5">
+            ★
+          </span>
+        )}
+      </span>
+      <Eng className={`fp-data text-[10px] ${active ? 'text-kapton-ink' : 'text-paper-faint'}`}>
+        {odd !== undefined ? percent(odd) : '…'}
+      </Eng>
+    </button>
   )
 }
 
-function QuickPickReserveButtons({
+/** Flat segmented quick-picks: one row, the chosen segment in Kapton; draggable onto the schedule/reserve slots */
+function Segmented({
+  options,
   current,
+  unit,
+  recommended,
   oddsByValue,
+  planning,
   onPick,
   onHover,
   onFocusField,
-  compact = false,
+  field,
+  ariaLabel,
 }: {
+  options: number[]
   current: number
+  unit: (v: number) => string
+  recommended?: number
   oddsByValue?: Record<number, number>
+  planning: PlanningChoices
   onPick: (v: number) => void
   onHover: (v: number | null) => void
   onFocusField?: (f: ControlFocus) => void
-  compact?: boolean
+  field: 'test' | 'reserve'
+  ariaLabel: string
 }) {
   return (
     <div
-      className={compact ? 'flex flex-wrap gap-1.5' : 'grid grid-cols-5 gap-2'}
-      onMouseLeave={() => onHover(null)}
+      role="group"
+      aria-label={ariaLabel}
+      className="flex w-fit border border-rule-strong"
+      onMouseLeave={() => {
+        if (!useDragStore.getState().held) onHover(null)
+      }}
     >
-      {RESERVE_OPTIONS.map((v) => {
-        const active = current === v
-        const odd = oddsByValue?.[v]
-        const recommended = v === turnConstants.recommendedReservePercent
-        return (
-          <button
-            key={v}
-            type="button"
-            onClick={() => onPick(v)}
-            onMouseEnter={() => onHover(v)}
-            onFocus={() => {
-              onHover(v)
-              onFocusField?.('reserve')
-            }}
-            onBlur={() => {
-              onHover(null)
-              onFocusField?.(null)
-            }}
-            className={`flex flex-col items-center rounded-md border px-2 py-1.5 font-mono text-xs tabular-nums transition ${
-              active
-                ? 'border-[var(--role-accent)] bg-[var(--role-surface)] text-white shadow-[0_0_12px_var(--role-glow)]'
-                : 'border-slate-700/70 bg-slate-950/70 text-slate-300 hover:border-slate-500 hover:bg-slate-800/80'
-            }`}
-          >
-            <span className="flex items-center gap-1 font-semibold">
-              {v}%
-              {recommended && (
-                <span aria-hidden="true" className="text-[10px] text-amber-400" title="CubeSat 101 recommended">
-                  ★
-                </span>
-              )}
-            </span>
-            <span className={`text-[11px] ${active ? 'text-cyan-300' : 'text-slate-400'}`}>
-              {odd !== undefined ? percent(odd) : '…'}
-            </span>
-          </button>
-        )
-      })}
+      {options.map((v) => (
+        <SegmentedOption
+          key={v}
+          v={v}
+          active={current === v}
+          odd={oddsByValue?.[v]}
+          unit={unit}
+          recommended={recommended}
+          field={field}
+          planning={planning}
+          onPick={onPick}
+          onHover={onHover}
+          onFocusField={onFocusField}
+        />
+      ))}
     </div>
   )
 }
 
-function ScheduleAndReserveVisuals({ testMonths }: { testMonths: number }) {
-  const { budgets, previewBudgets } = useDesignPreview()
+const N = stepNumber('planning')
+
+/** The schedule and the money, as two ruled drop zones: magnetic schedule wall and sealed reserve box. */
+function ScheduleAndReserveVisuals({ testMonths, compact = false }: { testMonths: number; compact?: boolean }) {
+  const design = useGameStore((s) => s.design)
+  const updateDesign = useGameStore((s) => s.updateDesign)
+  const { budgets, previewBudgets, previewPatch } = useDesignPreview()
   const active = previewBudgets ?? budgets
+  const shownReservePct = previewPatch?.planning?.reservePercent ?? design.planning.reservePercent
   const scaleMax = Math.max(active.rideTurn + 1, active.readyTurn + 1, 8)
   const pct = (m: number) => `${(m / scaleMax) * 100}%`
   const ridePct = Math.min(100, (active.rideTurn / scaleMax) * 100)
@@ -177,114 +196,125 @@ function ScheduleAndReserveVisuals({ testMonths }: { testMonths: number }) {
   const planPct = Math.min(100, (active.totalCost / cap) * 100)
   const reservePct = Math.min(100 - planPct, (active.reserveAmount / cap) * 100)
   const overBudget = active.totalCost > active.spendable
+  const missed = active.timeMarginTurns < 0
+  const reduced = prefersReducedMotion()
+  const seg = 'flex items-center justify-center border-r border-ink-1 fp-data text-[10px] font-semibold'
+
+  const scheduleDrop = useDropTarget({
+    id: 'planning:schedule-wall',
+    accepts: ['planning-test'],
+    onDrop: (p) => updateDesign({ planning: { ...design.planning, testTurns: Number(p.value) } }),
+  })
+  const reserveDrop = useDropTarget({
+    id: 'planning:reserve-box',
+    accepts: ['planning-reserve'],
+    onDrop: (p) => updateDesign({ planning: { ...design.planning, reservePercent: Number(p.value) } }),
+  })
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {/* Pre-Launch Schedule Timeline Bar */}
-      <div className="hud-panel p-4">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-slate-400">
-            Pre-Launch Schedule (Month 0–{active.rideTurn})
-          </h2>
-          <span
-            className={`rounded px-2 py-0.5 font-mono text-[11px] tabular-nums ${
-              active.timeMarginTurns >= 0
-                ? 'bg-emerald-950/70 text-emerald-300'
-                : 'bg-red-950/70 text-red-300'
-            }`}
-          >
-            {active.timeMarginTurns >= 0
-              ? `+${active.timeMarginTurns} mo margin`
-              : `${active.timeMarginTurns} mo late`}
-          </span>
-        </div>
-
-        <div className="relative mt-3 h-7 overflow-hidden rounded border border-slate-700/70 bg-slate-950">
+    <div className="grid gap-3 md:grid-cols-2">
+      <style>{`@keyframes ride-depart { 0% { transform: translateX(0); opacity: 1 } 100% { transform: translateX(18px); opacity: 0.25 } }`}</style>
+      <div
+        {...scheduleDrop.handlers}
+        className={`border bg-ink-1/95 transition-colors ${compact ? 'p-3' : 'p-4'} ${
+          scheduleDrop.state.over
+            ? 'border-kapton'
+            : scheduleDrop.state.compatible
+              ? 'border-dashed border-rule-strong'
+              : 'border-rule'
+        }`}
+      >
+        <LineItem
+          n={`${N}.2`}
+          label="Schedule wall"
+          aside={
+            <span className={!missed ? 'text-go' : 'text-nogo'}>
+              {!missed ? 'Ready in time' : 'Leaves without you'}
+              <Eng>{!missed ? ` · +${active.timeMarginTurns} mo margin` : ` · ${active.timeMarginTurns} mo late`}</Eng>
+            </span>
+          }
+        />
+        <div className="relative mt-2.5 h-7 overflow-hidden border border-rule bg-ink-0">
           <div className="flex h-full">
-            <div
-              style={{ width: pct(1) }}
-              className="flex items-center justify-center border-r border-slate-950 bg-sky-600/80 font-mono text-[10px] font-semibold text-white"
-              title="Design: 1 month"
-            >
+            <div style={{ width: pct(1) }} className={`${seg} bg-ink-3 text-paper-dim`} title="Design: 1 month">
               D
             </div>
-            <div
-              style={{ width: pct(active.buildTurns) }}
-              className="flex items-center justify-center border-r border-slate-950 bg-indigo-500/85 font-mono text-[10px] font-semibold text-white"
-              title={`Build: ${active.buildTurns} months`}
-            >
-              Build {active.buildTurns}m
+            <div style={{ width: pct(active.buildTurns) }} className={`${seg} bg-rule-strong text-paper`} title={`Build: ${active.buildTurns} months (fixed by design)`}>
+              Build ({active.buildTurns}m fixed)
             </div>
             {testMonths > 0 && (
-              <div
-                style={{ width: pct(testMonths) }}
-                className="flex items-center justify-center border-r border-slate-950 bg-cyan-500/85 font-mono text-[10px] font-semibold text-slate-950"
-                title={`Test: ${testMonths} months`}
-              >
-                T{testMonths}
+              <div style={{ width: pct(testMonths) }} className={`${seg} bg-kapton-dim text-paper`} title={`Test: ${testMonths} months`}>
+                Test ({testMonths}m)
               </div>
             )}
-            <div
-              style={{ width: pct(1) }}
-              className="flex items-center justify-center border-r border-slate-950 bg-emerald-500/85 font-mono text-[10px] font-semibold text-slate-950"
-              title="Launch pad fitting: 1 month"
-            >
+            <div style={{ width: pct(1) }} className={`${seg} bg-ink-3 text-paper-dim`} title="Launch pad fitting: 1 month">
               Fit
             </div>
           </div>
-          <div className="hud-bar-segments pointer-events-none absolute inset-0" />
           <div
-            className="pointer-events-none absolute inset-y-0 w-0.5 bg-orange-400 shadow-[0_0_8px_#fb923c]"
+            className={`pointer-events-none absolute inset-y-0 w-0.5 ${missed ? 'bg-nogo' : 'bg-kapton'}`}
             style={{ left: `${ridePct}%` }}
             title={`Ride departs Month ${active.rideTurn}`}
           />
         </div>
-        <div className="mt-1.5 flex items-center justify-between font-mono text-[11px] tabular-nums text-slate-400">
-          <span>Ready: M{active.readyTurn}</span>
-          <span className="text-orange-300">Ride departs: M{active.rideTurn}</span>
-        </div>
+        {missed && (
+          <div data-testid="ride-missed" className="mt-1.5 flex items-center justify-between border-l-2 border-nogo bg-ink-2 px-2 py-1 text-[11px] font-semibold text-nogo">
+            <span>NO-GO · Ride leaves without you (M{active.rideTurn})</span>
+            <span aria-hidden style={reduced ? undefined : { animation: 'ride-depart 1.4s ease-out infinite' }}>
+              🚀→
+            </span>
+          </div>
+        )}
+        <Eng as="div" className="mt-1.5 flex items-center justify-between fp-data text-[11px] text-paper-faint">
+          <span>Ready: M{active.readyTurn} (Build {active.buildTurns} mo fixed)</span>
+          <span className={missed ? 'text-nogo' : 'text-kapton'}>Ride departs: M{active.rideTurn}</span>
+        </Eng>
       </div>
 
-      {/* Budget Allocation Tank */}
-      <div className="hud-panel p-4">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-slate-400">
-            Budget Allocation Tank
-          </h2>
-          <span
-            className={`rounded px-2 py-0.5 font-mono text-[11px] tabular-nums ${
-              overBudget ? 'bg-red-950/70 text-red-300' : 'bg-sky-950/70 text-cyan-300'
-            }`}
-          >
-            ${(active.spendable - active.totalCost).toFixed(1)}M free
-          </span>
-        </div>
-
-        <div className="relative mt-3 h-7 overflow-hidden rounded border border-slate-700/70 bg-slate-950">
+      <div
+        {...reserveDrop.handlers}
+        className={`border bg-ink-1/95 transition-colors ${compact ? 'p-3' : 'p-4'} ${
+          reserveDrop.state.over
+            ? 'border-kapton'
+            : reserveDrop.state.compatible
+              ? 'border-dashed border-rule-strong'
+              : 'border-rule'
+        }`}
+      >
+        <LineItem
+          n={`${N}.3`}
+          label="Sealed reserve box"
+          aside={
+            <span className={overBudget ? 'text-nogo' : 'text-go'}>
+              {overBudget ? 'Over budget' : 'Within budget'}
+              <Eng>{` · $${(active.spendable - active.totalCost).toFixed(1)}M free`}</Eng>
+            </span>
+          }
+        />
+        <div className="relative mt-2.5 h-7 overflow-hidden border border-rule bg-ink-0">
           <div className="flex h-full">
             <div
               style={{ width: `${planPct}%` }}
-              className={`flex items-center justify-center font-mono text-[10px] font-semibold transition-all ${
-                overBudget ? 'bg-red-500/85 text-white' : 'bg-sky-500/85 text-slate-950'
+              className={`flex items-center justify-center fp-data text-[10px] font-semibold transition-all ${
+                overBudget ? 'bg-nogo text-paper' : 'bg-rule-strong text-paper'
               }`}
             >
-              Plan ${active.totalCost.toFixed(1)}M
+              Plan<Eng>{` $${active.totalCost.toFixed(1)}M`}</Eng>
             </div>
             {reservePct > 0 && (
               <div
                 style={{ width: `${reservePct}%` }}
-                className="flex items-center justify-center border-l border-slate-950 bg-amber-400/85 font-mono text-[10px] font-semibold text-slate-950 transition-all"
+                className="flex items-center justify-center border-l border-ink-1 bg-kapton fp-data text-[10px] font-semibold text-kapton-ink transition-all"
               >
-                Res ${active.reserveAmount.toFixed(1)}M
+                Locked {shownReservePct}%<Eng>{` ($${active.reserveAmount.toFixed(1)}M)`}</Eng>
               </div>
             )}
           </div>
-          <div className="hud-bar-segments pointer-events-none absolute inset-0" />
         </div>
-        <div className="mt-1.5 flex items-center justify-between font-mono text-[11px] tabular-nums text-slate-400">
+        <Eng as="div" className="mt-1.5 flex items-center justify-between fp-data text-[11px] text-paper-faint">
           <span>Spendable: ${active.spendable.toFixed(1)}M</span>
           <span>Cap: ${active.budgetCap}M</span>
-        </div>
+        </Eng>
       </div>
     </div>
   )
@@ -308,38 +338,23 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
   useEffect(() => () => setPreviewPatch(null), [setPreviewPatch])
 
   return (
-    <div className={hidden ? 'sr-only' : 'mx-auto max-w-3xl space-y-5'}>
-      <header className="hud-step-header">
-        <div className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--role-accent)]">
-          COMMS CENTER · LUNAR ICE MAPPER · PLANNING
-        </div>
-        <h1 className="mt-1 font-display text-2xl font-bold text-slate-50">1. Mission Planning</h1>
-        <p className="mt-1.5 text-sm text-slate-300">
-          Comms Center, mission control. Set how long to test and how much budget to hold back for surprises.
-        </p>
-      </header>
+    <div className={hidden ? 'sr-only' : 'mx-auto max-w-3xl space-y-4'}>
+      <StepHeader step="planning" kicker="Comms Center · Lunar Ice Mapper" title="Mission planning" />
 
-      <div className="hud-panel p-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-slate-400">Build Time</h2>
-          <span className="font-mono text-sm font-semibold tabular-nums text-cyan-300">
-            {budgets.buildEffort} effort pts = {budgets.buildTurns} months
-          </span>
-        </div>
-        <p className="mt-1 text-sm text-slate-300">
-          Set by what you build: {budgets.buildEffort} effort points = {budgets.buildTurns} months. Simpler parts build faster.
-        </p>
-      </div>
+      <Eng as="div" className="block">
+        <Sheet tone="flat" className="p-4">
+          <LineItem n={`${N}.1`} label="Build time" aside={`${budgets.buildEffort} effort pts = ${budgets.buildTurns} months`} />
+          <p className="mt-2 text-sm text-paper-dim">
+            Set by what you build: {budgets.buildEffort} effort points = {budgets.buildTurns} months. Simpler parts build faster.
+          </p>
+        </Sheet>
+      </Eng>
 
-      <ScheduleAndReserveVisuals testMonths={p.testTurns} />
+      {!hidden && <ScheduleAndReserveVisuals testMonths={p.testTurns} />}
 
-      <div className="hud-panel p-5">
-        <div className="mb-2 flex items-baseline justify-between gap-2">
-          <label htmlFor="planning-test" className="font-semibold text-slate-100">
-            Test Time: <span className="font-mono tabular-nums text-cyan-300">{p.testTurns} months</span>
-          </label>
-          <span className="font-mono text-xs tabular-nums text-slate-400">0.4 M per test month</span>
-        </div>
+      <Sheet className="p-5">
+        <LineItem n={`${N}.4`} label={<label htmlFor="planning-test">Test time</label>} aside={<Eng>0.4 M per test month</Eng>} />
+        <p className="mt-2 text-sm text-paper-dim">Testing finds faults on the ground, where they are cheap to fix. It costs time before the ride.</p>
         <input
           id="planning-test"
           type="range"
@@ -350,12 +365,17 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
           onChange={(e) => set({ testTurns: Number(e.target.value) })}
           onFocus={() => onFocus('test')}
           onBlur={() => onFocus(null)}
-          className="tactical-range"
+          className={hidden ? 'tactical-range' : 'tactical-range sr-only'}
         />
         {!hidden && (
           <div className="mt-3">
-            <QuickPickTestButtons
+            <Segmented
+              field="test"
+              ariaLabel="Test months"
+              options={TEST_MONTH_OPTIONS}
+              unit={(v) => `${v} mo`}
               current={p.testTurns}
+              planning={p}
               oddsByValue={odds?.test}
               onPick={(v) => set({ testTurns: v })}
               onHover={(v) => setPreviewPatch(v === null ? null : { planning: { ...p, testTurns: v } })}
@@ -363,22 +383,18 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
             />
           </div>
         )}
-        <OddsRow
-          byValue={odds?.test}
-          current={p.testTurns}
-          label={(v) => `${v} test month${v === 1 ? '' : 's'}`}
-        />
-      </div>
+        <OddsRow byValue={odds?.test} current={p.testTurns} label={(v) => `${v} test month${v === 1 ? '' : 's'}`} />
+      </Sheet>
 
-      <div className="hud-panel p-5">
-        <div className="mb-2 flex items-baseline justify-between gap-2">
-          <label htmlFor="planning-reserve" className="font-semibold text-slate-100">
-            Budget Reserve: <span className="font-mono tabular-nums text-cyan-300">{p.reservePercent}%</span>
-          </label>
-          <span className="font-mono text-xs tabular-nums text-slate-400">
-            ${budgets.reserveAmount.toFixed(1)}M held
-          </span>
-        </div>
+      <Sheet className="p-5">
+        <LineItem
+          n={`${N}.5`}
+          label={<label htmlFor="planning-reserve">Budget reserve</label>}
+          aside={<Eng>${budgets.reserveAmount.toFixed(1)}M held</Eng>}
+        />
+        <p className="mt-2 text-sm text-paper-dim">
+          Money held back for surprises. CubeSat 101 recommends {turnConstants.recommendedReservePercent}% (★).
+        </p>
         <input
           id="planning-reserve"
           type="range"
@@ -390,27 +406,18 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
           onChange={(e) => set({ reservePercent: Number(e.target.value) })}
           onFocus={() => onFocus('reserve')}
           onBlur={() => onFocus(null)}
-          list="planning-reserve-ticks"
-          className="tactical-range"
+          className={hidden ? 'tactical-range' : 'tactical-range sr-only'}
         />
-        <datalist id="planning-reserve-ticks">
-          {[0, 5, 10, 15, 20].map((v) => (
-            <option key={v} value={v} />
-          ))}
-        </datalist>
-        {/* The CubeSat 101 advice, marked under its place on the slider (QC #57) */}
-        <div className="relative mt-1 h-4 font-mono text-[11px] font-semibold text-amber-400" aria-hidden="true">
-          <span
-            className="absolute -translate-x-1/2 whitespace-nowrap"
-            style={{ left: `${(turnConstants.recommendedReservePercent / 20) * 100}%` }}
-          >
-            ▲ {turnConstants.recommendedReservePercent}% recommended (CubeSat 101)
-          </span>
-        </div>
         {!hidden && (
-          <div className="mt-2">
-            <QuickPickReserveButtons
+          <div className="mt-3">
+            <Segmented
+              field="reserve"
+              ariaLabel="Budget reserve"
+              options={RESERVE_OPTIONS}
+              unit={(v) => `${v}%`}
+              recommended={turnConstants.recommendedReservePercent}
               current={p.reservePercent}
+              planning={p}
               oddsByValue={odds?.reserve}
               onPick={(v) => set({ reservePercent: v })}
               onHover={(v) => setPreviewPatch(v === null ? null : { planning: { ...p, reservePercent: v } })}
@@ -418,26 +425,25 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
             />
           </div>
         )}
-        <div className="mt-2.5 font-mono text-xs tabular-nums text-slate-400">
+        <Eng as="div" className="mt-2.5 fp-data text-xs text-paper-faint">
           Recommended: {turnConstants.recommendedReservePercent}%. Reserve ${budgets.reserveAmount.toFixed(1)}M, spendable $
           {budgets.spendable.toFixed(1)}M, plan costs ${budgets.totalCost.toFixed(1)}M of the ${budgets.budgetCap}M cap.
-        </div>
+        </Eng>
         <OddsRow byValue={odds?.reserve} current={p.reservePercent} label={(v) => `${v}% reserve`} />
-      </div>
+      </Sheet>
 
       {!hidden && <DesignDeltaLine />}
 
-      <div
-        className="hud-panel border-amber-400/35 bg-amber-950/30 p-4 font-mono text-xs tabular-nums text-amber-100"
-        aria-live="polite"
-      >
-        Ready in month {budgets.readyTurn} (design 1 + build {budgets.buildTurns} + test {p.testTurns} + fitting 1). Ride leaves in month{' '}
-        {budgets.rideTurn}.{' '}
+      <div className="border-l-2 border-kapton pl-3 text-sm text-paper" aria-live="polite">
         {budgets.timeMarginTurns >= 0 ? (
-          <span className="font-semibold text-emerald-400">{budgets.timeMarginTurns} month(s) spare.</span>
+          <span className="font-semibold text-go">Ready before the ride leaves.</span>
         ) : (
-          <span className="font-semibold text-red-400">Will miss the ride by {-budgets.timeMarginTurns} month(s)!</span>
-        )}
+          <span className="font-semibold text-nogo">Will miss the ride by {-budgets.timeMarginTurns} month(s)!</span>
+        )}{' '}
+        <Eng className="fp-data text-xs text-paper-dim">
+          Ready in month {budgets.readyTurn} (design 1 + build {budgets.buildTurns} + test {p.testTurns} + fitting 1). Ride leaves in month{' '}
+          {budgets.rideTurn}. {budgets.timeMarginTurns >= 0 ? `${budgets.timeMarginTurns} month(s) spare.` : ''}
+        </Eng>
       </div>
     </div>
   )
@@ -451,38 +457,52 @@ function PlanningQuickHudOverlay({ onFocus }: { onFocus: (f: ControlFocus) => vo
   const odds = usePlanningOdds(design, difficulty)
   const p = design.planning
   const set = (patch: Partial<typeof p>) => updateDesign({ planning: { ...p, ...patch } })
+  const chance = odds?.test?.[p.testTurns]
 
   return (
     <div className="pointer-events-none absolute inset-x-3 bottom-3 flex flex-col items-center gap-2">
+      <div className="pointer-events-auto w-full max-w-4xl">
+        <ScheduleAndReserveVisuals testMonths={p.testTurns} compact />
+      </div>
       <DesignDeltaLine className="pointer-events-auto max-w-3xl" />
-      <div className="hud-panel pointer-events-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-4 px-4 py-2.5 backdrop-blur">
-        <div className="space-y-1">
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">
-            Test Months · Win Odds
-          </div>
-          <QuickPickTestButtons
-            compact
+      <Sheet className="pointer-events-auto flex w-full max-w-4xl flex-wrap items-end justify-between gap-4 px-4 py-3">
+        <div className="space-y-1.5">
+          <div className="fp-label text-[10px] text-paper-faint">{N}.4 Test blocks (drag onto schedule)</div>
+          <Segmented
+            field="test"
+            ariaLabel="Test months"
+            options={TEST_MONTH_OPTIONS}
+            unit={(v) => `${v} mo`}
             current={p.testTurns}
+            planning={p}
             oddsByValue={odds?.test}
             onPick={(v) => set({ testTurns: v })}
             onHover={(v) => setPreviewPatch(v === null ? null : { planning: { ...p, testTurns: v } })}
             onFocusField={onFocus}
           />
         </div>
-        <div className="space-y-1">
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400">
-            Budget Reserve · Win Odds
-          </div>
-          <QuickPickReserveButtons
-            compact
+        <div className="space-y-1.5">
+          <div className="fp-label text-[10px] text-paper-faint">{N}.5 Reserve coins (drag into box)</div>
+          <Segmented
+            field="reserve"
+            ariaLabel="Budget reserve"
+            options={RESERVE_OPTIONS}
+            unit={(v) => `${v}%`}
+            recommended={turnConstants.recommendedReservePercent}
             current={p.reservePercent}
+            planning={p}
             oddsByValue={odds?.reserve}
             onPick={(v) => set({ reservePercent: v })}
             onHover={(v) => setPreviewPatch(v === null ? null : { planning: { ...p, reservePercent: v } })}
             onFocusField={onFocus}
           />
         </div>
-      </div>
+        {chance !== undefined && (
+          <div aria-hidden="true" className="fp-data text-sm text-paper">
+            {`Chance of full success: about ${percent(chance)}`}
+          </div>
+        )}
+      </Sheet>
     </div>
   )
 }
@@ -490,31 +510,27 @@ function PlanningQuickHudOverlay({ onFocus }: { onFocus: (f: ControlFocus) => vo
 function StepButtons({ overlay }: { overlay: boolean }) {
   const setDesignStep = useGameStore((s) => s.setDesignStep)
   const back = (
-    <button
-      type="button"
-      onClick={() => setDesignStep('brief')}
-      className="tactical-btn-back"
-    >
+    <Btn type="button" onClick={() => setDesignStep('brief')}>
       ← Back
-    </button>
+    </Btn>
   )
   const next = (
-    <button
-      type="button"
-      onClick={() => setDesignStep('instruments')}
-      className="tactical-btn-next"
-    >
-      Select Instruments →
-    </button>
+    <Btn variant="primary" type="button" onClick={() => setDesignStep('instruments')}>
+      Select instruments →
+    </Btn>
   )
   if (overlay)
     return (
       <>
         <div className="absolute top-3 left-3">{back}</div>
         <div className="pointer-events-none absolute top-3 left-1/2 hidden -translate-x-1/2 md:block">
-          <div className="hud-panel px-3.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--role-accent)]">
-            COMMS CENTER · LUNAR ICE MAPPER · PLANNING
-          </div>
+          <Sheet tone="inset" className="px-4 py-2 text-center">
+            <div className="flex items-baseline justify-center gap-2">
+              <span className="fp-data text-xs text-paper-faint">{String(N).padStart(2, '0')}</span>
+              <span className="fp-display text-base text-paper">Mission planning</span>
+            </div>
+            <div className="text-xs text-paper-dim">{STEP_QUESTION.planning}</div>
+          </Sheet>
         </div>
         <div className="absolute top-3 right-3">{next}</div>
       </>
@@ -541,9 +557,9 @@ export function PlanningScreen() {
     )
 
   return (
-    <div className="relative h-full min-h-[480px] w-full overflow-hidden bg-[#03050a]">
+    <div className="relative h-full min-h-[480px] w-full overflow-hidden bg-ink-0">
       <RoomBoundary onError={() => setRoom(false)}>
-        <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-500">Opening mission control…</div>}>
+        <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Opening mission control…</div>}>
           <ControlRoom focus={focus} />
         </Suspense>
       </RoomBoundary>

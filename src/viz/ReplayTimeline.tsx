@@ -9,18 +9,30 @@ interface ReplayTimelineProps {
   onTogglePlay: () => void
 }
 
-const PHASE_COLOURS: Record<TurnLog['phase'], string> = {
-  build: 'bg-slate-600',
-  test: 'bg-purple-700',
-  wait: 'bg-slate-700',
-  transfer: 'bg-amber-600',
-  capture: 'bg-orange-600',
-  orbit: 'bg-green-700',
-  complete: 'bg-green-800',
-  failed: 'bg-red-800',
+/** A thin muted band under each phase, like the colour key on a printed flight plan */
+const PHASE_BAND: Record<TurnLog['phase'], string> = {
+  build: 'bg-paper-faint/50',
+  test: 'bg-paper-faint/50',
+  wait: 'bg-rule-strong',
+  transfer: 'bg-kapton-dim',
+  capture: 'bg-kapton',
+  orbit: 'bg-go/70',
+  complete: 'bg-go',
+  failed: 'bg-nogo',
 }
 
-/** Each turn button's name, for the tooltip and for screen readers (QC #40) */
+const PHASE_NAME: Record<TurnLog['phase'], string> = {
+  build: 'Build',
+  test: 'Test',
+  wait: 'Pad',
+  transfer: 'Transfer',
+  capture: 'Capture',
+  orbit: 'Science orbit',
+  complete: 'Complete',
+  failed: 'Lost',
+}
+
+/** Each month tick's name, for the tooltip and for screen readers (QC #40) */
 const turnTitle = (log: TurnLog) => `Month ${log.turn}: ${log.phase}${log.events.length ? `, ${log.events.length} event(s)` : ''}`
 
 interface Segment {
@@ -39,6 +51,7 @@ function groupSegments(logs: TurnLog[]): Segment[] {
   return segments
 }
 
+/** The flight as a ruled timeline: phases as labelled segments, a tick per month, the chosen month in Kapton */
 export function ReplayTimeline({ logs, turnIndex, onSelect, playing, onTogglePlay }: ReplayTimelineProps) {
   const segments = useMemo(() => groupSegments(logs), [logs])
   if (logs.length === 0) return null
@@ -47,12 +60,9 @@ export function ReplayTimeline({ logs, turnIndex, onSelect, playing, onTogglePla
   const atEnd = current >= last
 
   return (
-    <div className="hud-panel space-y-2.5 rounded-2xl p-3.5">
+    <div className="fp-sheet space-y-2 p-3.5" data-tone="raised">
       <div className="flex items-center gap-3">
-        <button
-          onClick={onTogglePlay}
-          className="w-24 rounded-lg border border-blue-400/50 bg-blue-600 px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-wider text-white shadow-[0_0_14px_rgba(59,130,246,0.35)] transition hover:bg-blue-500"
-        >
+        <button type="button" onClick={onTogglePlay} className="fp-btn-primary w-24 justify-center py-1.5 text-xs">
           {playing ? 'Pause' : atEnd ? 'Replay' : 'Play'}
         </button>
         <input
@@ -65,33 +75,45 @@ export function ReplayTimeline({ logs, turnIndex, onSelect, playing, onTogglePla
           aria-label="Month"
           className="tactical-range flex-1"
         />
-        <span className="w-32 text-right font-mono text-xs font-semibold tabular-nums text-slate-300">
-          Month {logs[current].turn} / {logs[last].turn}
+        <span className="w-36 text-right fp-data text-xs text-paper">
+          <span className="text-kapton">Month {logs[current].turn}</span> / {logs[last].turn}
         </span>
       </div>
 
-      <div className="flex gap-1 overflow-x-auto pt-2">
-        {segments.map((seg) => (
-          <div key={`${seg.phase}-${seg.start}`} className="min-w-0" style={{ flexGrow: seg.end - seg.start + 1 }}>
-            <div className="mb-1 truncate font-mono text-[10px] uppercase tracking-wider text-slate-400">{seg.phase}</div>
-            <div className="flex gap-0.5">
+      <div className="flex overflow-x-auto pt-1">
+        {segments.map((seg, si) => (
+          <div
+            key={`${seg.phase}-${seg.start}`}
+            className={si > 0 ? "border-l border-rule-strong pl-1" : ""}
+            style={{ flexGrow: seg.end - seg.start + 1, flexBasis: 0 }}
+          >
+            <div className="mb-1 whitespace-nowrap pr-1 fp-label text-[0.6rem]">
+              {PHASE_NAME[seg.phase]}
+            </div>
+            <div className={`h-0.5 ${PHASE_BAND[seg.phase]}`} aria-hidden="true" />
+            <div className="flex">
               {logs.slice(seg.start, seg.end + 1).map((log, k) => {
                 const i = seg.start + k
                 const selected = i === current
+                const event = log.events.length > 0
                 return (
                   <button
                     key={i}
+                    type="button"
                     onClick={() => onSelect(i)}
                     title={turnTitle(log)}
                     aria-label={turnTitle(log)}
                     aria-pressed={selected}
-                    className={`relative h-6 min-w-3 flex-1 rounded-sm transition ${PHASE_COLOURS[log.phase]} ${
-                      selected ? 'ring-2 ring-white' : i < current ? 'opacity-90' : 'opacity-50'
-                    }`}
+                    className="group relative flex h-6 min-w-2.5 flex-1 justify-center hover:bg-ink-3"
                   >
-                    {log.events.length > 0 && (
-                      <span className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.9)]" />
-                    )}
+                    <span
+                      className={
+                        selected
+                          ? 'h-6 w-[3px] bg-kapton'
+                          : `w-px ${event ? 'h-4 bg-caution' : 'h-2.5'} ${!event ? (i < current ? 'bg-paper-dim' : 'bg-rule-strong') : ''}`
+                      }
+                    />
+                    {event && !selected && <span className="absolute bottom-0 h-1.5 w-1.5 bg-caution" aria-hidden="true" />}
                   </button>
                 )
               })}

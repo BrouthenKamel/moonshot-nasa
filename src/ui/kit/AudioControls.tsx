@@ -2,11 +2,26 @@ import { useEffect, useRef, useState } from 'react'
 import { useAudioSettings } from '../../assets/audio'
 import { useGraphics } from '../../scene/space/quality'
 
+const ICON = {
+  on: 'M4 9h4l5-4v14l-5-4H4zM16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12',
+  off: 'M4 9h4l5-4v14l-5-4H4zM16 9l5 6M21 9l-5 6',
+  settings: 'M4 7h10M18 7h2M4 17h4M12 17h8M14 5v4M8 15v4',
+} as const
+
+function Glyph({ d }: { d: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="square">
+      <path d={d} />
+    </svg>
+  )
+}
+
 /**
- * Sound and picture settings: a speaker button that mutes, and a small panel with
- * volumes and the graphics quality. `tone` matches the bar it sits in.
+ * Sound and picture settings: a speaker button that mutes, and a small sheet with
+ * volumes and the graphics quality. `tone` is kept for callers; every bar is ink now.
  */
-export function AudioControls({ tone = 'dark' }: { tone?: 'dark' | 'navy' }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function AudioControls(_props: { tone?: 'dark' | 'navy' } = {}) {
   const { muted, setMuted, volume, setVolume } = useAudioSettings()
   const quality = useGraphics((s) => s.quality)
   const setQuality = useGraphics((s) => s.setQuality)
@@ -22,40 +37,33 @@ export function AudioControls({ tone = 'dark' }: { tone?: 'dark' | 'navy' }) {
     return () => window.removeEventListener('mousedown', close)
   }, [open])
 
-  const btn =
-    tone === 'navy'
-      ? 'border-white/20 bg-white/5 text-slate-100 hover:bg-white/10'
-      : 'border-white/15 bg-[#0a1122] text-slate-200 hover:border-white/30 hover:bg-[#0f1930]'
+  const btn = 'flex h-8 w-8 items-center justify-center border border-rule text-paper-dim transition-colors hover:border-rule-strong hover:bg-ink-3 hover:text-paper'
   return (
-    <div ref={box} className="relative flex items-center gap-1.5">
+    <div ref={box} className="relative flex items-center gap-1">
       <button
         onClick={() => setMuted(!muted)}
         aria-pressed={muted}
         aria-label={muted ? 'Unmute sound' : 'Mute sound'}
         title={muted ? 'Sound off' : 'Sound on'}
-        className={`flex h-8 w-8 items-center justify-center rounded-lg border text-sm transition ${btn}`}
+        className={`${btn} ${muted ? 'text-nogo' : ''}`}
       >
-        {muted ? '🔇' : '🔊'}
+        <Glyph d={muted ? ICON.off : ICON.on} />
       </button>
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-label="Sound and graphics settings"
         title="Sound and graphics"
-        className={`flex h-8 w-8 items-center justify-center rounded-lg border text-sm transition ${btn}`}
+        className={`${btn} ${open ? 'border-kapton text-paper' : ''}`}
       >
-        ⚙
+        <Glyph d={ICON.settings} />
       </button>
       {open && (
-        <div className="hud-panel absolute right-0 top-10 z-50 w-64 rounded-xl p-4 text-sm text-slate-200">
-          <div className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-            Audio &amp; Telemetry
-          </div>
+        <div className="fp-sheet absolute right-0 top-10 z-50 w-64 p-4 text-sm text-paper" data-tone="raised">
+          <div className="fp-label mb-3 border-b border-rule pb-1.5">Audio &amp; Telemetry</div>
           {(['music', 'sfx', 'voice'] as const).map((g) => (
             <label key={g} className="mb-2.5 flex items-center justify-between gap-3">
-              <span className="w-16 font-mono text-xs text-slate-300">
-                {g === 'sfx' ? 'Effects' : g === 'voice' ? 'Voice' : 'Music'}
-              </span>
+              <span className="fp-label w-16 text-[0.66rem]">{g === 'sfx' ? 'Effects' : g === 'voice' ? 'Voice' : 'Music'}</span>
               <input
                 type="range"
                 min={0}
@@ -63,23 +71,22 @@ export function AudioControls({ tone = 'dark' }: { tone?: 'dark' | 'navy' }) {
                 step={0.05}
                 value={volume[g]}
                 onChange={(e) => setVolume(g, +e.target.value)}
-                className="tactical-range flex-1 accent-orange-500"
+                className="tactical-range flex-1"
               />
+              <span className="fp-data w-7 text-right text-[10px] text-paper-faint">{Math.round(volume[g] * 100)}</span>
             </label>
           ))}
-          <div className="mt-3 border-t border-white/10 pt-3">
-            <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400">Graphics</div>
-            <div className="flex gap-1.5" role="radiogroup" aria-label="Graphics quality">
-              {(['high', 'low'] as const).map((q) => (
+          <div className="mt-3 border-t border-rule pt-3">
+            <div className="fp-label mb-1.5">Graphics</div>
+            <div className="flex border border-rule" role="radiogroup" aria-label="Graphics quality">
+              {(['high', 'low'] as const).map((q, i) => (
                 <button
                   key={q}
                   role="radio"
                   aria-checked={quality === q}
                   onClick={() => setQuality(q)}
-                  className={`flex-1 rounded-lg border px-2 py-1 font-mono text-xs font-semibold transition ${
-                    quality === q
-                      ? 'border-orange-400/70 bg-orange-500 text-white shadow-[0_0_12px_rgba(249,115,22,0.4)]'
-                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                  className={`fp-label flex-1 px-2 py-1 text-[0.66rem] transition-colors ${i > 0 ? 'border-l border-rule' : ''} ${
+                    quality === q ? '!text-kapton-ink bg-kapton' : 'hover:bg-ink-3 hover:text-paper'
                   }`}
                 >
                   {q === 'high' ? 'Cinematic' : 'Fast'}

@@ -1,18 +1,25 @@
 import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { difficultyPresets } from '../../data/brief'
 import { getGroundStationById } from '../../data/ground'
 import { getOrbitById } from '../../data/orbits'
 import { getPartById } from '../../data/parts'
 import { canUseWebGL } from '../../scene/webgl'
+import { computeBudgets } from '../../sim/budgets'
 import { isSimComplete } from '../../sim/simulate'
 import type { SimState, TurnLog } from '../../sim/types'
 import { LAUNCH, useUiStore, type FlightCamMode } from '../../state/uiStore'
+import { useInsideStore } from '../interaction/insideStore'
 import { flightShot, type FlightShot } from '../../viz/flight/flightDirector'
 import { useWorldStore } from '../../state/worldStore'
 import { DAYS_PER_TURN } from '../../game/world'
+import { audio } from '../../assets/audio'
+import { prefersReducedMotion, useGraphics } from '../../scene/space/quality'
+import { Eng, Flap, Sheet } from '../kit'
 import { EventCard } from './EventCard'
 import { FlightControls } from './FlightControls'
 
 const FlightView = lazy(() => import('../../scene/flight/FlightView').then((m) => ({ default: m.FlightView })))
+const FairingRide = lazy(() => import('../../scene/launch/FairingRide').then((m) => ({ default: m.FairingRide })))
 
 class ViewBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -31,15 +38,82 @@ function pipStatus(log: TurnLog): 'failed' | 'anomaly' | 'milestone' | 'clean' {
   return 'clean'
 }
 
-const PIP_STYLE: Record<ReturnType<typeof pipStatus>, string> = {
-  clean: 'bg-emerald-400/80 shadow-[0_0_6px_rgba(52,211,153,0.55)]',
-  milestone: 'bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,0.95)] ring-1 ring-white/60',
-  anomaly: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.9)]',
-  failed: 'bg-rose-500 shadow-[0_0_9px_rgba(244,63,94,0.95)]',
+/** A flown month's tick on the strip: a hairline, taller and status-tinted when something happened */
+const TICK_STYLE: Record<ReturnType<typeof pipStatus>, string> = {
+  clean: 'h-2 w-px bg-paper-dim',
+  milestone: 'h-3 w-px bg-paper',
+  anomaly: 'h-3 w-0.5 bg-caution',
+  failed: 'h-3 w-0.5 bg-nogo',
 }
 
+const PHASE_WORD: Record<SimState['phase'], string> = {
+  build: 'Building',
+  test: 'Testing',
+  wait: 'On the pad',
+  transfer: 'To the Moon',
+  capture: 'Capture',
+  orbit: 'Mapping',
+  complete: 'Mission over',
+  failed: 'Lost',
+}
+
+type SegState = 'done' | 'active' | 'upcoming'
+interface Segment {
+  label: string
+  state: SegState
+  /** First and last month of the segment, inclusive; last < first means no months */
+  first: number
+  last: number
+}
+
+/** One word for how the craft is doing */
+function health(sim: SimState): { word: string; tone: 'go' | 'caution' | 'nogo' } {
+  const f = sim.flight
+  if (sim.phase === 'failed' || !f.alive) return { word: 'Lost', tone: 'nogo' }
+  const last = sim.turnLogs[sim.turnLogs.length - 1]
+  if (f.reserve < 0 || (f.launchedTurn !== null && f.dvLeft <= 0)) return { word: 'Strained', tone: 'nogo' }
+  if ((last && last.events.length > 0) || f.scienceFactor < 1) return { word: 'Watch', tone: 'caution' }
+  return { word: 'Nominal', tone: 'go' }
+}
+
+const TONE_TEXT = { go: 'text-go', caution: 'text-caution', nogo: 'text-nogo' } as const
+
+/** A ruled readout: label, a split-flap value, and an optional hairline scale with a target tick */
+function Readout({
+  label,
+  value,
+  className = 'text-paper',
+  scale,
+}: {
+  label: string
+  value: string
+  className?: string
+  scale?: { value: number; limit: number; target?: number; color: string }
+}) {
+  const pct = (n: number) => (scale && scale.limit > 0 ? Math.max(0, Math.min(1, n / scale.limit)) * 100 : 0)
+  return (
+    <div className="min-w-0">
+      <div className="fp-label truncate text-[0.62rem] leading-none">{label}</div>
+      <Flap value={value} className={`mt-1 block truncate text-sm font-semibold leading-none ${className}`} />
+      {scale && (
+        <div className="relative mt-1 h-2" aria-hidden="true">
+          <div className="absolute inset-x-0 top-1 h-px bg-rule-strong" />
+          <div className="absolute top-[3px] h-[3px]" style={{ left: 0, width: `${pct(scale.value)}%`, background: scale.color }} />
+          {scale.target != null && <div className="absolute top-0 h-2 w-px bg-paper-dim" style={{ left: `${pct(scale.target)}%` }} />}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The flight plan as a ruled strip: phases as labelled segments, a tick per month (flown months
+ * tinted by what happened), the current month in Kapton; under it the readouts.
+ */
 function MissionPhaseTimeline({ sim }: { sim: SimState }) {
   const [hoveredTurn, setHoveredTurn] = useState<number | null>(null)
+  const budgets = useMemo(() => computeBudgets(sim.design, sim.difficulty), [sim.design, sim.difficulty])
+  const logByTurn = useMemo(() => new Map(sim.turnLogs.map((l) => [l.turn, l])), [sim.turnLogs])
   const f = sim.flight
   const launched = f.launchedTurn !== null
   const isLaunchTurn = launched && sim.currentTurn === f.launchedTurn
@@ -48,75 +122,137 @@ function MissionPhaseTimeline({ sim }: { sim: SimState }) {
     f.captured && (f.scienceTurns > 12 || sim.turnLogs.some((l) => l.notes.some((n) => /extended mission begins/i.test(n))))
   const complete = isSimComplete(sim)
 
-  const stages: { label: string; state: 'done' | 'active' | 'upcoming' }[] = [
-    { label: 'Build & Test', state: launched ? 'done' : complete ? 'upcoming' : 'active' },
+  // Month boundaries: what happened where it has, the plan where it has not yet
+  const L = Math.max(1, f.launchedTurn ?? f.launchTurn)
+  const C = Math.max(L + 1, f.captureTurn ?? budgets.arrivalTurn ?? L + 1)
+  const lastLogged = sim.turnLogs[sim.turnLogs.length - 1]?.turn ?? 0
+  const E = Math.max(C + 14, sim.currentTurn, lastLogged)
+
+  const segments: Segment[] = [
+    { label: 'Build & Test', first: 1, last: L - 1, state: launched ? 'done' : complete ? 'upcoming' : 'active' },
     {
-      label: `Launch M${f.launchedTurn ?? f.launchTurn}`,
+      label: `Launch M${L}`,
+      first: L,
+      last: L,
       state: launched ? (isLaunchTurn && !complete ? 'active' : 'done') : !complete && sim.phase === 'wait' ? 'active' : 'upcoming',
     },
-    { label: 'Transfer', state: f.captured ? 'done' : launched && !isLaunchTurn && !complete ? 'active' : 'upcoming' },
-    { label: 'Capture', state: f.captured ? (isCaptureTurn && !complete ? 'active' : 'done') : sim.phase === 'capture' ? 'active' : 'upcoming' },
-    { label: '12m Science', state: f.scienceTurns >= 12 ? 'done' : f.captured && !isCaptureTurn && !complete ? 'active' : 'upcoming' },
-    { label: 'Extended', state: extendedActive ? (complete ? 'done' : 'active') : 'upcoming' },
+    { label: 'Transfer', first: L + 1, last: C - 1, state: f.captured ? 'done' : launched && !isLaunchTurn && !complete ? 'active' : 'upcoming' },
+    { label: 'Capture', first: C, last: C, state: f.captured ? (isCaptureTurn && !complete ? 'active' : 'done') : sim.phase === 'capture' ? 'active' : 'upcoming' },
+    {
+      label: '12m Science',
+      first: C + 1,
+      last: C + 12,
+      state: f.scienceTurns >= 12 ? 'done' : f.captured && !isCaptureTurn && !complete ? 'active' : 'upcoming',
+    },
+    { label: 'Extended', first: C + 13, last: E, state: extendedActive ? (complete ? 'done' : 'active') : 'upcoming' },
   ]
 
-  const hoveredLog = hoveredTurn !== null ? sim.turnLogs.find((l) => l.turn === hoveredTurn) : undefined
+  const hoveredLog = hoveredTurn !== null ? logByTurn.get(hoveredTurn) : undefined
+  const dataTarget = difficultyPresets[sim.difficulty]?.dataTarget ?? 300
+  const h = health(sim)
+  const ice = sim.coveragePercent
+  const dataHome = sim.totalDataReturned
 
   return (
-    <div className="hud-panel pointer-events-auto relative rounded-xl px-3 py-1.5 text-white">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <div className="flex flex-wrap items-center gap-1 text-[11px] font-semibold">
-          {stages.map((st, idx) => (
-            <span key={st.label} className="inline-flex items-center gap-1">
-              {idx > 0 && <span className="text-slate-600" aria-hidden="true">→</span>}
-              <span
-                className={`rounded-md px-1.5 py-0.5 transition ${
-                  st.state === 'active'
-                    ? 'bg-sky-500/25 text-sky-200 ring-1 ring-sky-400/50'
-                    : st.state === 'done'
-                      ? 'text-emerald-300'
-                      : 'text-slate-500'
+    <Sheet tone="raised" className="pointer-events-auto w-full max-w-[46rem] px-3 pb-2 pt-1.5 text-paper">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="fp-label text-[0.62rem]">Flight plan</span>
+        <span className="fp-data text-[11px] text-kapton">
+          MONTH <Flap value={String(sim.currentTurn).padStart(2, '0')} />
+        </span>
+      </div>
+      <div className="mt-1 flex items-stretch" aria-label="Monthly mission timeline">
+        {segments.map((seg) => {
+          const months = Math.max(0, seg.last - seg.first + 1)
+          const list = Array.from({ length: months }, (_, k) => seg.first + k)
+          return (
+            <div
+              key={seg.label}
+              className="border-l border-rule-strong pl-1 first:border-l-0 first:pl-0"
+              style={{ flexGrow: Math.max(months, 1), flexBasis: 0 }}
+              data-state={seg.state}
+            >
+              <div
+                className={`fp-label whitespace-nowrap pr-1 text-[0.6rem] leading-none ${
+                  seg.state === 'active' ? 'text-kapton' : seg.state === 'done' ? 'text-paper-dim' : 'text-paper-faint'
                 }`}
               >
-                {st.label}
-              </span>
-            </span>
-          ))}
-        </div>
-        {sim.turnLogs.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1" aria-label="Monthly mission timeline">
-            {sim.turnLogs.map((log) => {
-              const status = pipStatus(log)
-              const noteText = log.notes.join(' ') || log.phase
-              return (
-                <button
-                  key={log.turn}
-                  type="button"
-                  title={`Month ${log.turn}: ${noteText}`}
-                  aria-label={`Month ${log.turn}: ${noteText}`}
-                  onMouseEnter={() => setHoveredTurn(log.turn)}
-                  onMouseLeave={() => setHoveredTurn((cur) => (cur === log.turn ? null : cur))}
-                  onFocus={() => setHoveredTurn(log.turn)}
-                  onBlur={() => setHoveredTurn((cur) => (cur === log.turn ? null : cur))}
-                  className={`h-2.5 w-2.5 rounded-full transition hover:scale-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${PIP_STYLE[status]}`}
-                />
-              )
-            })}
-          </div>
+                {seg.label}
+              </div>
+              <div className={`relative mt-1 h-4 border-t ${seg.state === 'active' ? 'border-kapton' : 'border-rule-strong'}`}>
+                {list.map((m, k) => {
+                  const log = logByTurn.get(m)
+                  const left = `${((k + 0.5) / months) * 100}%`
+                  const now = m === sim.currentTurn
+                  if (!log) {
+                    return <span key={m} aria-hidden="true" className="absolute top-0 h-1.5 w-px bg-rule-strong" style={{ left }} />
+                  }
+                  const status = pipStatus(log)
+                  const noteText = log.notes.join(' ') || log.phase
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      title={`Month ${log.turn}: ${noteText}`}
+                      aria-label={`Month ${log.turn}: ${noteText}`}
+                      onMouseEnter={() => setHoveredTurn(log.turn)}
+                      onMouseLeave={() => setHoveredTurn((cur) => (cur === log.turn ? null : cur))}
+                      onFocus={() => setHoveredTurn(log.turn)}
+                      onBlur={() => setHoveredTurn((cur) => (cur === log.turn ? null : cur))}
+                      className="absolute -top-px flex h-4 w-2 -translate-x-1/2 justify-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-paper"
+                      style={{ left }}
+                    >
+                      <span className={now ? 'h-4 w-[3px] bg-kapton' : TICK_STYLE[status]} />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="h-4 truncate border-b border-rule fp-data text-[10px] leading-4 text-paper-dim">
+        {hoveredLog ? (
+          <>
+            <span className="text-kapton">MONTH {hoveredLog.turn}</span> · {hoveredLog.notes.join(' ') || hoveredLog.phase}
+          </>
+        ) : (
+          <span className="text-paper-faint">Point at a month for its log entry</span>
         )}
       </div>
-      {hoveredLog && (
-        <div className="mt-1 border-t border-white/10 pt-1 font-mono text-[10px] text-slate-200">
-          <span className="font-bold text-sky-300">M{hoveredLog.turn}</span> · {hoveredLog.notes.join(' ') || hoveredLog.phase}
-        </div>
-      )}
-    </div>
+
+      <div className="mt-1.5 grid grid-cols-4 gap-x-4">
+        <Readout label="Phase" value={PHASE_WORD[sim.phase] ?? sim.phase} />
+        <Readout
+          label="Ice mapped"
+          value={`${ice.toFixed(1)}%`}
+          className="text-ice"
+          scale={{ value: ice, limit: 100, target: 70, color: 'var(--color-ice)' }}
+        />
+        <Readout
+          label="Data home"
+          value={`${Math.round(dataHome)} MB`}
+          scale={{ value: dataHome, limit: Math.max(dataTarget * 1.25, dataHome), target: dataTarget, color: 'var(--color-paper-dim)' }}
+        />
+        <Readout label="Health" value={h.word} className={TONE_TEXT[h.tone]} />
+      </div>
+      <Eng as="div" className="mt-1.5 grid grid-cols-4 gap-x-4 border-t border-rule pt-1.5">
+        <Readout
+          label="Δv left"
+          value={`${Math.max(0, f.dvLeft).toFixed(0)} m/s`}
+          className={launched && f.dvLeft < budgets.deltaVStationKeeping * 2 ? 'text-caution' : 'text-paper'}
+        />
+        <Readout label="Main budget" value={`$${f.main.toFixed(1)}M`} />
+        <Readout label="Reserve" value={`$${f.reserve.toFixed(2)}M`} className={f.reserve < 0 ? 'text-nogo' : 'text-paper'} />
+        <Readout label="Science" value={`${Math.round(f.scienceFactor * 100)}% · ${Math.round(f.science.stored)} MB aboard`} />
+      </Eng>
+    </Sheet>
   )
 }
 
 interface FlightAlert {
   key: string
-  tone: 'amber' | 'rose' | 'emerald'
+  tone: 'caution' | 'nogo' | 'go'
   title: string
   impact: string
   cause: string
@@ -133,7 +269,7 @@ function latestFlightAlert(sim: SimState): FlightAlert | null {
       const radHard = sim.design.computer === 'computer-redundant'
       return {
         key: `${log.turn}-radiation-reset`,
-        tone: 'amber',
+        tone: 'caution',
         title: 'Radiation Reset',
         impact: 'Safe mode · 0 MB science recorded this month',
         cause: radHard
@@ -145,7 +281,7 @@ function latestFlightAlert(sim: SimState): FlightAlert | null {
       const bat = getPartById(sim.design.battery)?.name ?? 'Battery'
       return {
         key: `${log.turn}-long-eclipse`,
-        tone: 'amber',
+        tone: 'caution',
         title: 'Long Eclipse Drain',
         impact: 'Battery drained in Earth shadow · 0 MB science this month',
         cause: `${bat} lacked 3h survival margin. The Large Battery Pack (80 Wh) rides out long eclipses.`,
@@ -155,7 +291,7 @@ function latestFlightAlert(sim: SimState): FlightAlert | null {
       const t = sim.flight.testTurns
       return {
         key: `${log.turn}-instrument-degrades`,
-        tone: 'rose',
+        tone: 'nogo',
         title: 'Instrument Degradation',
         impact: `Science sensitivity -20% · now at ${Math.round(sim.flight.scienceFactor * 100)}% output`,
         cause:
@@ -168,7 +304,7 @@ function latestFlightAlert(sim: SimState): FlightAlert | null {
       const station = getGroundStationById(sim.design.groundStation)?.name ?? 'Ground station'
       return {
         key: `${log.turn}-station-outage`,
-        tone: 'amber',
+        tone: 'caution',
         title: 'Ground Station Outage',
         impact: `Contact time halved · ${log.dataSent.toFixed(0)} MB downlinked this month`,
         cause: `${station} dropped offline mid-month. Deep Space Network cuts outage odds to 2%.`,
@@ -181,7 +317,7 @@ function latestFlightAlert(sim: SimState): FlightAlert | null {
     const propName = getPartById(sim.design.propulsion)?.name.replace(/\s*\(.*\)/, '') ?? 'Propulsion'
     return {
       key: `${log.turn}-capture`,
-      tone: 'emerald',
+      tone: 'go',
       title: 'Capture Burn Complete',
       impact: `Entered ${orbitName} · ${Math.max(0, sim.flight.dvLeft).toFixed(0)} m/s delta-v remaining`,
       cause: `${propName} completed lunar orbit insertion.`,
@@ -190,7 +326,7 @@ function latestFlightAlert(sim: SimState): FlightAlert | null {
   if (log.notes.some((n) => n.startsWith('All requirements met'))) {
     return {
       key: `${log.turn}-complete`,
-      tone: 'emerald',
+      tone: 'go',
       title: 'All Requirements Met',
       impact: `${sim.flight.coverage.toFixed(1)}% ice mapped · ${sim.flight.data.toFixed(0)} MB science home`,
       cause: 'Spacecraft, polar orbit, and downlink architecture satisfied every brief requirement.',
@@ -199,7 +335,7 @@ function latestFlightAlert(sim: SimState): FlightAlert | null {
   if (log.notes.some((n) => n.startsWith('Primary mission done'))) {
     return {
       key: `${log.turn}-extended`,
-      tone: 'amber',
+      tone: 'caution',
       title: 'Primary 12-Month Ops Complete',
       impact: `${sim.flight.coverage.toFixed(1)}% ice mapped · ${sim.flight.data.toFixed(0)} MB home — extending ops`,
       cause: 'Targets not yet met at month 12; extending science operations while fuel and budget remain.',
@@ -208,12 +344,18 @@ function latestFlightAlert(sim: SimState): FlightAlert | null {
   return null
 }
 
-const ALERT_TONE: Record<FlightAlert['tone'], string> = {
-  amber: 'border-amber-400/50 border-l-amber-400 text-amber-100',
-  rose: 'border-rose-400/50 border-l-rose-500 text-rose-100',
-  emerald: 'border-emerald-400/50 border-l-emerald-400 text-emerald-100',
+const ALERT_RULE: Record<FlightAlert['tone'], string> = {
+  caution: 'border-l-caution',
+  nogo: 'border-l-nogo',
+  go: 'border-l-go',
+}
+const ALERT_TEXT: Record<FlightAlert['tone'], string> = {
+  caution: 'text-caution',
+  nogo: 'text-nogo',
+  go: 'text-go',
 }
 
+/** The latest telemetry as a ruled slip, its left rule in the status colour */
 function FlightAlertBanner({ sim }: { sim: SimState }) {
   const [dismissedKey, setDismissedKey] = useState<string | null>(null)
   const alert = useMemo(() => latestFlightAlert(sim), [sim])
@@ -222,24 +364,25 @@ function FlightAlertBanner({ sim }: { sim: SimState }) {
   return (
     <div
       role="status"
-      className={`hud-panel pointer-events-auto w-[min(100%,340px)] rounded-xl border-l-4 p-2.5 text-xs shadow-xl ${ALERT_TONE[alert.tone]}`}
+      className={`fp-sheet pointer-events-auto w-[min(100%,360px)] border-l-[3px] px-3 py-2 text-xs ${ALERT_RULE[alert.tone]}`}
+      data-tone="raised"
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2 border-b border-rule pb-1">
         <div className="min-w-0">
-          <div className="font-mono text-[10px] font-bold uppercase tracking-wider opacity-85">Live Orbital Telemetry</div>
-          <div className="font-display text-sm font-bold text-white">{alert.title}</div>
+          <div className={`fp-label text-[0.62rem] ${ALERT_TEXT[alert.tone]}`}>Live orbital telemetry</div>
+          <div className="fp-display text-sm text-paper">{alert.title}</div>
         </div>
         <button
           type="button"
           onClick={() => setDismissedKey(alert.key)}
           aria-label="Dismiss telemetry alert"
-          className="rounded px-1.5 py-0.5 text-xs font-bold text-slate-300 hover:bg-white/10 hover:text-white"
+          className="fp-btn-ghost px-1.5 py-0.5"
         >
           ✕
         </button>
       </div>
-      <div className="mt-1 font-mono text-[11px] font-semibold tabular-nums text-white">{alert.impact}</div>
-      <div className="mt-1 text-[11px] leading-snug text-slate-300">{alert.cause}</div>
+      <div className="mt-1 fp-data text-[11px] text-paper">{alert.impact}</div>
+      <div className="mt-1 text-[11px] leading-snug text-paper-dim">{alert.cause}</div>
     </div>
   )
 }
@@ -261,12 +404,7 @@ function Countdown() {
     return () => cancelAnimationFrame(raf)
   }, [launchAt])
   if (launchAt === null) return null
-  return (
-    <div
-      ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-[18%] text-center font-display text-7xl font-bold tracking-widest text-white drop-shadow-[0_6px_24px_rgba(0,0,0,0.6)]"
-    />
-  )
+  return <div ref={ref} className="fp-display pointer-events-none absolute inset-x-0 top-[18%] text-center text-7xl tracking-widest text-paper" />
 }
 
 /** True while the space view fills the base (launched, launch animation over, Space chosen) */
@@ -286,6 +424,45 @@ function useMonthFraction(sim: SimState): number {
   })
 }
 
+/** A segmented switch: flat ghost buttons on one hairline, the chosen one underlined in Kapton */
+function Segmented<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  className = '',
+}: {
+  label: string
+  options: readonly (readonly [T, string])[]
+  value: T
+  onChange: (v: T) => void
+  className?: string
+}) {
+  return (
+    <div className={`flex border border-rule-strong bg-ink-1 ${className}`} role="radiogroup" aria-label={label}>
+      {options.map(([id, name], i) => (
+        <button
+          key={id}
+          type="button"
+          role="radio"
+          aria-checked={value === id}
+          onClick={() => onChange(id)}
+          className={`fp-btn-ghost flex-1 justify-center rounded-none border-b-2 ${i > 0 ? 'border-l border-l-rule' : ''} ${
+            value === id ? 'border-b-kapton text-paper' : 'border-b-transparent'
+          }`}
+        >
+          {name}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const VIEWS = [
+  ['space', 'Space'],
+  ['island', 'Agency'],
+] as const
+
 /**
  * Switch between the space view and the agency island, once the craft has launched.
  * Shown in the base's mission panel, not over the view.
@@ -296,29 +473,53 @@ export function FlightViewToggle({ sim }: { sim: SimState }) {
   const launching = useUiStore((s) => s.launchAt !== null)
   const webgl = useMemo(() => canUseWebGL(), [])
   if (launching || !webgl || sim.flight.launchedTurn === null) return null
+  return <Segmented label="View" options={VIEWS} value={view} onChange={setView} />
+}
+
+/** Watches lunar orbit capture burn phase for audio tension + subtle hairline burn indicator */
+function CaptureBurnWatch({ phase }: { phase: SimState['phase'] }) {
+  const { quality } = useGraphics()
+  const reduced = prefersReducedMotion()
+  const capturing = phase === 'capture'
+
+  useEffect(() => {
+    if (!capturing) return
+    audio.play('sfx.burn')
+    audio.play('sfx.capture')
+    audio.duckMusic(true)
+    return () => {
+      audio.duckMusic(false)
+    }
+  }, [capturing])
+
+  if (!capturing) return null
+  const animatePulse = quality !== 'low' && !reduced
   return (
-    <div className="flex rounded-full border border-white/15 bg-white/5 p-0.5 text-xs font-semibold text-white" role="radiogroup" aria-label="View">
-      {(['space', 'island'] as const).map((v) => (
-        <button
-          key={v}
-          type="button"
-          role="radio"
-          aria-checked={view === v}
-          onClick={() => setView(v)}
-          className={`flex-1 rounded-full px-3 py-1 ${view === v ? 'bg-orange-500' : 'text-slate-300 hover:bg-white/10'}`}
-        >
-          {v === 'space' ? 'Space' : 'Agency'}
-        </button>
-      ))}
+    <div data-testid="capture-burn" aria-live="polite" className="pointer-events-none absolute inset-0 z-[5]">
+      {animatePulse && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 animate-pulse border border-kapton/40"
+          style={{
+            background: 'radial-gradient(ellipse at center, transparent 66%, rgba(12, 16, 22, 0.36) 88%, rgba(244, 174, 64, 0.14) 100%)',
+          }}
+        />
+      )}
+      <div className="absolute inset-x-0 bottom-[5.25rem] flex justify-center">
+        <div className="flex items-center gap-2 border border-kapton bg-ink-1/90 px-3 py-1 fp-label text-kapton">
+          <span aria-hidden="true" className="h-1.5 w-1.5 bg-kapton" />
+          <span>LOI capture burn · telemetry live</span>
+        </div>
+      </div>
     </div>
   )
 }
 
 /** The three space-view cameras on the base */
-const CAMERAS: [FlightCamMode, string][] = [
-  ['overview', 'Overview'],
-  ['moon', 'Moon'],
-  ['earth', 'Earth'],
+const CAMERAS: readonly (readonly [FlightCamMode, string])[] = [
+  ['overview', 'CAM 1 · WIDE'],
+  ['earth', 'CAM 2 · CRAFT'],
+  ['moon', 'CAM 3 · MOON'],
 ]
 
 /** Over the space view: back to the agency, the three cameras, and where the craft is */
@@ -334,36 +535,39 @@ function SpaceBar({ sim, shot, monthFraction }: { sim: SimState; shot: FlightSho
       : shot.stage === 'orbit'
         ? `In lunar orbit · ice ${Math.round(shot.coverage * 100)}% mapped`
         : ''
-  const pill = 'rounded-full border border-white/15 bg-[#0b1226]/75 text-white shadow-lg backdrop-blur-md'
   return (
     <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-3">
-      <button
-        type="button"
-        onClick={() => setView('island')}
-        className={`${pill} pointer-events-auto px-4 py-2 font-display text-sm font-bold hover:bg-orange-500`}
-      >
+      <button type="button" onClick={() => setView('island')} className="fp-btn-secondary pointer-events-auto bg-ink-1">
         ← Back to agency
       </button>
-      <div className="flex flex-col items-center gap-2">
-        <div className={`${pill} pointer-events-auto flex p-1 text-xs font-semibold`} role="radiogroup" aria-label="Camera">
-          {CAMERAS.map(([id, name]) => (
-            <button
-              key={id}
-              type="button"
-              role="radio"
-              aria-checked={camera === id}
-              onClick={() => setCamera(id)}
-              className={`rounded-full px-3.5 py-1.5 ${camera === id ? 'bg-orange-500' : 'text-slate-300 hover:bg-white/10'}`}
-            >
-              {name}
-            </button>
-          ))}
+      <div className="flex flex-col items-center gap-1.5">
+        <div
+          data-testid="capcom-cams"
+          data-active-cam={camera}
+          className="pointer-events-auto flex items-center gap-2 border border-rule bg-ink-1/95 px-2 py-1"
+        >
+          <span
+            aria-hidden="true"
+            title="Live camera feed"
+            className="h-2 w-2 shrink-0 border border-kapton bg-kapton"
+          />
+          <Segmented label="Camera" options={CAMERAS} value={camera} onChange={setCamera} className="min-w-[22rem]" />
         </div>
-        {caption && <div className={`${pill} px-3 py-1 text-xs tabular-nums text-slate-200`}>{caption}</div>}
-        <div className="text-[10px] text-white/60 drop-shadow">Drag to look around · scroll to zoom</div>
+        {caption && (
+          <div className="border border-rule bg-ink-1 px-3 py-1 fp-data text-xs text-paper">
+            {shot.stage === 'orbit' ? (
+              <>
+                In lunar orbit · ice <span className="text-ice">{Math.round(shot.coverage * 100)}%</span> mapped
+              </>
+            ) : (
+              caption
+            )}
+          </div>
+        )}
+        <div className="fp-label text-[0.6rem] text-paper-dim">Drag to look around · scroll to zoom</div>
       </div>
       {/* Keeps the camera switch centred */}
-      <div className="invisible px-4 py-2 font-display text-sm font-bold" aria-hidden>
+      <div className="fp-btn-secondary invisible" aria-hidden>
         ← Back to agency
       </div>
     </div>
@@ -382,10 +586,20 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   const endLaunch = useUiStore((s) => s.endLaunch)
   const launched = sim.flight.launchedTurn !== null
 
-  // The launch plays once, when the core reports liftoff
+  // The launch plays once, when the core reports liftoff: WebGL rides inside the fairing; non-WebGL falls back to the island countdown
   const wasLaunched = useRef(launched)
   useEffect(() => {
-    if (launched && !wasLaunched.current) startLaunch()
+    if (launched && !wasLaunched.current) {
+      startLaunch()
+      if (canUseWebGL()) {
+        useInsideStore.getState().play({
+          id: 'fairing-ride',
+          caption: 'T-minus 5… inside the payload fairing beside your 6U deployer.',
+          durationS: LAUNCH.durationS,
+          onEnd: () => useUiStore.getState().endLaunch(),
+        })
+      }
+    }
     wasLaunched.current = launched
   }, [launched, startLaunch])
   useEffect(() => {
@@ -407,9 +621,9 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   return (
     <>
       {showSpace ? (
-        <div className="absolute inset-0 bg-black">
+        <div className="absolute inset-0 bg-ink-0">
           <ViewBoundary fallback={island}>
-            <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-slate-400">Pointing the telescope…</div>}>
+            <Suspense fallback={<div className="flex h-full items-center justify-center fp-label">Pointing the telescope…</div>}>
               <FlightView design={sim.design} shot={shot} />
             </Suspense>
           </ViewBoundary>
@@ -417,6 +631,7 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
       ) : (
         island
       )}
+      <CaptureBurnWatch phase={sim.phase} />
       {showSpace ? (
         <SpaceBar sim={sim} shot={shot} monthFraction={monthFraction} />
       ) : (
@@ -426,8 +641,15 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
         </div>
       )}
       <Countdown />
+      {launchAt !== null && canUseWebGL() && (
+        <ViewBoundary fallback={null}>
+          <Suspense fallback={null}>
+            <FairingRide />
+          </Suspense>
+        </ViewBoundary>
+      )}
       {sim.pendingDecision && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-ink-0/70 p-4">
           <div className="w-[min(100%,560px)]">
             <EventCard />
           </div>

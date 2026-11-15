@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import type { TrayGroup, TrayKey, TrayOption } from '../../../viz/spacecraft/trayOptions'
 import { useUiStore } from '../../../state/uiStore'
+import { useDragStore } from '../../interaction/dragStore'
 import { glossaryForPart } from '../../../data/glossary'
 import { audio } from '../../../assets/audio'
 import { choiceArt } from '../../../assets/catalogueArt'
 import { prefersReducedMotion } from '../../../scene/space/quality'
 import { Tooltip } from '../../Tooltip'
+import { Eng } from '../../kit'
 import { TrayCard } from './TrayCard'
 import { optionChips } from './optionChips'
 
@@ -38,6 +40,7 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
   useEffect(() => () => setPreviewPatch(null), [setPreviewPatch])
 
   const clearHover = () => {
+    if (useDragStore.getState().held) return
     onActive(null)
     setPreviewPatch(null)
   }
@@ -69,7 +72,7 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
     <div className="relative">
       <div
         ref={scroller}
-        className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pt-1.5 pb-1 [scrollbar-color:#334155_transparent] [scrollbar-width:thin]"
+        className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pt-1.5 pb-1 [scrollbar-color:var(--color-rule-strong)_transparent] [scrollbar-width:thin]"
         onMouseLeave={clearHover}
         onBlurCapture={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) clearHover()
@@ -83,20 +86,15 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
                 key={g.key}
                 role="radiogroup"
                 aria-label={g.title}
-                className="relative min-w-0 rounded-xl border px-1.5 pt-1 pb-1.5"
+                className="relative min-w-0 border border-rule bg-ink-2 px-1.5 pt-1 pb-1.5"
                 style={{
                   flex: `${n} ${n} 0`,
                   minWidth: n * CARD_MIN + (n - 1) * 5 + 12,
                   maxWidth: n * CARD_MAX + (n - 1) * 5 + 12,
-                  borderColor: `${g.color}40`,
-                  background: `linear-gradient(180deg, ${g.color}1f 0%, ${g.color}08 40%, rgba(2,6,23,0.85) 100%)`,
                 }}
               >
-                <h3
-                  className="mb-1 flex items-center gap-1.5 truncate font-mono text-[10px] font-semibold tracking-[0.1em] uppercase"
-                  style={{ color: g.color }}
-                >
-                  <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: g.color, boxShadow: `0 0 8px ${g.color}` }} aria-hidden />
+                <h3 className="mb-1 flex items-center gap-1.5 truncate fp-label text-[0.65rem] text-paper">
+                  <span className="inline-block h-2.5 w-[3px] shrink-0" style={{ background: g.color }} aria-hidden />
                   {g.key === 'attitude' ? <Tooltip term="adcs">{g.title}</Tooltip> : g.title}
                 </h3>
                 <div className="grid gap-[5px]" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
@@ -132,9 +130,17 @@ export function PartsTray({ groups, selected, onPick, onActive }: PartsTrayProps
           })}
         </div>
       </div>
-      {/* On narrow screens the tray scrolls sideways: a fade says there is more */}
-      {edges.left && <div className="pointer-events-none absolute inset-y-0 -left-1 w-8 bg-gradient-to-r from-[#05070d] to-transparent" aria-hidden />}
-      {edges.right && <div className="pointer-events-none absolute inset-y-0 -right-1 w-10 bg-gradient-to-l from-[#05070d] to-transparent" aria-hidden />}
+      {/* On narrow screens the tray scrolls sideways: a hairline and chevron say there is more */}
+      {edges.left && (
+        <div className="pointer-events-none absolute inset-y-0 -left-1 flex w-4 items-center justify-center border-r border-rule-strong bg-ink-1 text-paper-dim" aria-hidden>
+          ‹
+        </div>
+      )}
+      {edges.right && (
+        <div className="pointer-events-none absolute inset-y-0 -right-1 flex w-4 items-center justify-center border-l border-rule-strong bg-ink-1 text-paper-dim" aria-hidden>
+          ›
+        </div>
+      )}
     </div>
   )
 }
@@ -175,7 +181,6 @@ export function FactStrip({
   /** False when showing the last pick with nothing hovered: stay inside the slot, off the bay's scale */
   expanded?: boolean
 }) {
-  const color = group ? choiceArt(option?.id ?? '')?.accent : undefined
   // glossaryForPart matches "ion" in "lithium-ion": electric propulsion only belongs to the engines
   const terms = glossaryForPart(`${title ?? ''} ${option?.short ?? ''} ${option?.description ?? ''}`).filter(
     (e) => group === 'propulsion' || e.term !== 'Electric Propulsion'
@@ -188,35 +193,34 @@ export function FactStrip({
   return (
     <div className="relative h-[3.4rem]">
       <div
-        className={`absolute inset-x-0 bottom-0 z-10 rounded-t-lg bg-[#05070d] px-1 pt-1 text-xs leading-snug text-slate-400 ${
-          expanded
-            ? 'shadow-[0_-10px_18px_-6px_rgba(5,7,13,0.95)]'
-            : 'top-0 overflow-hidden [mask-image:linear-gradient(180deg,#000_70%,transparent)]'
+        className={`absolute inset-x-0 bottom-0 z-10 bg-ink-1 px-1 pt-1 text-xs leading-snug text-paper-dim ${
+          expanded ? 'border-t border-rule' : 'top-0 overflow-hidden'
         }`}
         aria-live="polite"
       >
         {option ? (
           <>
-            <span className="font-semibold text-slate-200">
+            <span className="font-semibold text-paper">
               {title ? `${title}: ` : ''}
               {option.short}.
             </span>{' '}
-            {group &&
-              optionChips(group, option).map((c) => (
-                <span
-                  key={c.label}
-                  className="mr-1 inline-flex items-baseline gap-1 rounded-md border bg-white/5 px-1.5 py-px align-baseline font-mono"
-                  style={{ borderColor: `${color ?? '#64748b'}55` }}
-                >
-                  <span className="text-[9px] tracking-wider text-slate-500 uppercase">{c.label}</span>
-                  <span className="font-semibold text-slate-100 tabular-nums">{c.value}</span>
-                </span>
-              ))}{' '}
+            {group && (
+              <Eng>
+                {optionChips(group, option).map((c) => (
+                  <span key={c.label} className="mr-1 inline-flex items-baseline gap-1 border border-rule px-1.5 py-px align-baseline">
+                    <span className="fp-label text-[9px] text-paper-faint">{c.label}</span>
+                    <span className="fp-data font-semibold text-paper">{c.value}</span>
+                  </span>
+                ))}{' '}
+              </Eng>
+            )}
             {option.description}
-            <span className="block text-slate-500">{option.facts}</span>
+            <Eng as="span" className="block text-paper-faint">
+              {option.facts}
+            </Eng>
             {/* The jargon in this part, in plain words (QC #54) */}
             {terms.map((e) => (
-              <span key={e.term} className="block text-slate-300">
+              <span key={e.term} className="block text-paper-dim">
                 <span className="font-semibold">{e.term}:</span> {e.definition}
               </span>
             ))}

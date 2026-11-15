@@ -1,13 +1,17 @@
-import { Component, Suspense, useEffect, useMemo, useRef, type ComponentRef, type ReactNode } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, type ComponentRef, type ReactNode, type RefObject } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Html, OrbitControls } from '@react-three/drei'
+import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { ModelId } from '../../assets/manifest'
 import { preloadModel, useModel } from '../../assets/models'
-import { rocketParts, rocketSlots, type RocketConfig, type RocketPart, type RocketSlot } from '../../data/rocket'
-import { layoutRocket, type PlacedPart } from '../../viz/rocket/rocketView'
+import { rocketParts, rocketSlots, type RocketConfig, type RocketSlot } from '../../data/rocket'
+import { layoutRocket, pick, type PlacedPart } from '../../viz/rocket/rocketView'
+import { useDragStore } from '../../ui/interaction/dragStore'
+import { DropSlot } from '../interaction/DropSlot'
+import { HoldStillWhileDragging, SnapNudge, SnapPuff } from '../interaction/snap'
 import { prefersReducedMotion } from '../space/quality'
+import { Effects } from '../space/Effects'
 
 /**
  * The Rocket step's assembly hall: the player's rocket stands on a pad, built from the kit parts.
@@ -17,7 +21,9 @@ import { prefersReducedMotion } from '../space/quality'
 
 /** Scene units per body radius */
 const S = 0.55
-const ACCENT = '#f97316'
+/** Kapton amber: safety markings and the crane hook (FLIGHT PLAN) */
+const ACCENT = '#e8a33d'
+const ACCENT_DIM = '#9a6b26'
 /** Height of the launch table's top above the floor, in scene units: the exhaust passes through its hole */
 const TABLE_Y = 3
 /** Clearance between the engine bells and the table top */
@@ -41,6 +47,7 @@ interface ViewProps {
   activeSlot: RocketSlot | null
   onSlotHover: (slot: RocketSlot | null) => void
   onSlotClick: (slot: RocketSlot) => void
+  onPartDrop?: (slot: RocketSlot, id: string) => void
 }
 
 /* ---------------- one part ---------------- */
@@ -82,7 +89,7 @@ function PartModel({
 
   const group = useRef<THREE.Group>(null)
   const state = useRef({ y: placed.y, drop: reduced ? 0 : DROP, wait: reduced ? 0 : 0.14 * SLOT_INDEX[slot], explode: 0 })
-  const color = useMemo(() => new THREE.Color(slotColor[slot]), [slot])
+  const color = useMemo(() => new THREE.Color(ACCENT), [])
 
   useFrame((frame, dt) => {
     const s = state.current
@@ -109,10 +116,13 @@ function PartModel({
       scale={S}
       visible={false}
       onPointerOver={(e) => {
+        if (useDragStore.getState().held) return
         e.stopPropagation()
         onHover(slot)
       }}
-      onPointerOut={() => onHover(null)}
+      onPointerOut={() => {
+        if (!useDragStore.getState().held) onHover(null)
+      }}
       onClick={(e) => {
         e.stopPropagation()
         onClick(slot)
@@ -186,17 +196,17 @@ function ServiceTowersFallback() {
         <group key={s} position={[s * 7, 0, -4]}>
           <mesh position-y={9} castShadow>
             <boxGeometry args={[0.9, 18, 0.9]} />
-            <meshStandardMaterial color="#1c2638" metalness={0.7} roughness={0.5} />
+            <meshStandardMaterial color="#2a2c30" metalness={0.6} roughness={0.6} />
           </mesh>
           {[2, 6, 10, 14].map((y) => (
             <mesh key={y} position={[-s * 0.9, y, 0]}>
               <boxGeometry args={[1.8, 0.1, 0.5]} />
-              <meshStandardMaterial color="#26334a" metalness={0.6} />
+              <meshStandardMaterial color="#34363b" metalness={0.5} roughness={0.6} />
             </mesh>
           ))}
           <mesh position-y={17.6}>
             <sphereGeometry args={[0.18, 12, 12]} />
-            <meshBasicMaterial color="#ef4444" />
+            <meshBasicMaterial color="#d0533f" />
           </mesh>
         </group>
       ))}
@@ -210,21 +220,23 @@ function Hangar({ topY }: { topY: number }) {
     <group>
       <mesh rotation-x={-Math.PI / 2} receiveShadow>
         <planeGeometry args={[80, 60]} />
-        <meshStandardMaterial color="#0c1322" roughness={0.45} metalness={0.5} />
+        <meshStandardMaterial color="#16181c" roughness={0.78} metalness={0.15} />
       </mesh>
-      <gridHelper args={[80, 80, '#3a2410', '#101a2e']} position-y={0.01} />
+      <gridHelper args={[80, 40, '#2a2620', '#1c1f25']} position-y={0.01} />
+      <SafetyMarkings />
       {/* the launch table: a thick ring on legs, with a hole for the exhaust, over a scorched trench */}
       <mesh position-y={0.02} rotation-x={-Math.PI / 2} receiveShadow>
         <circleGeometry args={[2.6, 48]} />
-        <meshStandardMaterial color="#05070b" roughness={0.9} metalness={0.2} />
+        <meshStandardMaterial color="#0a0b0d" roughness={0.95} metalness={0.05} />
       </mesh>
       <mesh position-y={TABLE_Y} castShadow receiveShadow>
         <latheGeometry args={[TABLE_PROFILE, 64]} />
-        <meshStandardMaterial color="#1a2438" roughness={0.5} metalness={0.7} side={THREE.DoubleSide} />
+        <meshStandardMaterial color="#2b2d31" roughness={0.62} metalness={0.55} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position-y={TABLE_Y + 0.26} rotation-x={Math.PI / 2}>
-        <torusGeometry args={[3.5, 0.05, 8, 96]} />
-        <meshBasicMaterial color={ACCENT} />
+      {/* painted Kapton safety band on the table's rim: matte, lit by the room */}
+      <mesh position-y={TABLE_Y + 0.255} rotation-x={-Math.PI / 2}>
+        <ringGeometry args={[3.2, 3.55, 96]} />
+        <meshStandardMaterial color={ACCENT_DIM} roughness={0.8} metalness={0} />
       </mesh>
       {[
         [-2.4, -2.4],
@@ -234,18 +246,18 @@ function Hangar({ topY }: { topY: number }) {
       ].map(([x, z]) => (
         <mesh key={`${x}${z}`} position={[x, TABLE_Y / 2, z]} castShadow>
           <boxGeometry args={[0.42, TABLE_Y, 0.42]} />
-          <meshStandardMaterial color="#202c42" metalness={0.7} roughness={0.5} />
+          <meshStandardMaterial color="#2a2c30" metalness={0.55} roughness={0.6} />
         </mesh>
       ))}
       {/* back wall with ribs, as in the other factory rooms */}
       <mesh position={[0, 14, -14]}>
         <planeGeometry args={[80, 32]} />
-        <meshStandardMaterial color="#0a0f1c" />
+        <meshStandardMaterial color="#121418" roughness={0.9} />
       </mesh>
       {[-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5].map((i) => (
         <mesh key={i} position={[i * 6, 14, -13.8]}>
           <boxGeometry args={[0.5, 32, 0.6]} />
-          <meshStandardMaterial color="#111a2c" />
+          <meshStandardMaterial color="#1b1d22" roughness={0.85} />
         </mesh>
       ))}
       {/* NASA launch gantry framing the vehicle bay + astronaut technician for scale */}
@@ -254,16 +266,16 @@ function Hangar({ topY }: { topY: number }) {
       {/* the crane rail and hook above the rocket */}
       <mesh position={[0, Math.max(18, topY + 4), 0]}>
         <boxGeometry args={[26, 0.5, 0.7]} />
-        <meshStandardMaterial color="#1f2a3d" metalness={0.7} />
+        <meshStandardMaterial color="#2d2f34" metalness={0.6} roughness={0.55} />
       </mesh>
       <mesh position={[0, Math.max(18, topY + 4) - 0.6, 0]}>
         <boxGeometry args={[1.4, 0.6, 1]} />
-        <meshStandardMaterial color={ACCENT} emissive={ACCENT} emissiveIntensity={0.3} />
+        <meshStandardMaterial color={ACCENT} roughness={0.6} metalness={0.1} />
       </mesh>
       {[-14, -5, 5, 14].map((x) => (
         <mesh key={x} position={[x, 19.5, 2]}>
           <boxGeometry args={[6, 0.1, 0.5]} />
-          <meshBasicMaterial color="#ffe9d2" />
+          <meshBasicMaterial color="#f3e3c4" />
         </mesh>
       ))}
     </group>
@@ -288,11 +300,12 @@ function Lights() {
   }, [])
   return (
     <>
-      <ambientLight intensity={0.25} color="#9fb2d8" />
-      <hemisphereLight args={['#bcd0ff', '#1a1208', 0.5]} />
-      <directionalLight ref={key} position={[8, 16, 9]} intensity={3.2} color="#fff1e0" castShadow />
-      <pointLight position={[-9, 5, 6]} intensity={80} distance={28} color="#ff9a52" />
-      <pointLight position={[8, 3, -6]} intensity={50} distance={24} color="#6ea8ff" />
+      {/* tungsten key from the roof lamps, a cool fluorescent fill, a low sodium kicker */}
+      <ambientLight intensity={0.22} color="#b8b4ac" />
+      <hemisphereLight args={['#d6dde6', '#1a1610', 0.42]} />
+      <directionalLight ref={key} position={[8, 16, 9]} intensity={3.2} color="#ffdcb0" castShadow />
+      <pointLight position={[-9, 5, 6]} intensity={60} distance={28} color="#cfdde6" />
+      <pointLight position={[8, 3, -6]} intensity={40} distance={24} color="#ffb060" />
     </>
   )
 }
@@ -346,31 +359,120 @@ function tagHeight(p: PlacedPart): number {
   return p.y + p.part.height / 2
 }
 
-function Tag({ placed, part, active, onHover, onClick }: { placed: PlacedPart; part: RocketPart; active: boolean; onHover: (s: RocketSlot | null) => void; onClick: (s: RocketSlot) => void }) {
-  const right = placed.slot === 'fins' || placed.slot === 'boosters'
-  const color = slotColor[placed.slot]
+/** World position of a slot's tag; `lift` raises the whole rocket */
+function tagPosition(p: PlacedPart, lift: number): [number, number, number] {
+  const right = p.slot === 'fins' || p.slot === 'boosters'
+  return [right ? 3.4 : -3.4, lift + tagHeight(p) * S, 0]
+}
+
+/**
+ * Projects each tag's anchor to the screen and moves its DOM element there. The tags
+ * themselves live outside the Canvas (see TagOverlay), so tearing the Canvas down
+ * never has to remove DOM nodes it does not own (drei <Html> did, and threw
+ * "removeChild ... not a child of this node" on leaving the step).
+ */
+function TagProjector({ anchors, elements }: { anchors: [number, number, number][]; elements: RefObject<(HTMLDivElement | null)[]> }) {
+  const v = useMemo(() => new THREE.Vector3(), [])
+  useFrame(({ camera, size }) => {
+    const els = elements.current
+    if (!els) return
+    anchors.forEach((a, idx) => {
+      const el = els[idx]
+      if (!el) return
+      v.set(a[0], a[1], a[2]).project(camera)
+      if (v.z > 1) {
+        el.style.visibility = 'hidden'
+        return
+      }
+      const x = ((v.x + 1) / 2) * size.width
+      const y = ((1 - v.y) / 2) * size.height
+      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`
+      el.style.visibility = 'visible'
+    })
+  })
+  return null
+}
+
+function TagOverlay({
+  placed,
+  activeSlot,
+  elements,
+  onHover,
+  onClick,
+}: {
+  placed: PlacedPart[]
+  activeSlot: RocketSlot | null
+  elements: RefObject<(HTMLDivElement | null)[]>
+  onHover: (s: RocketSlot | null) => void
+  onClick: (s: RocketSlot) => void
+}) {
+  const dragging = useDragStore((s) => !!s.held)
   return (
-    <Html position={[right ? 3.4 : -3.4, tagHeight(placed) * S, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
-      <button
-        onMouseEnter={() => onHover(placed.slot)}
-        onMouseLeave={() => onHover(null)}
-        onClick={() => onClick(placed.slot)}
-        className="flex items-center gap-2 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm transition-colors"
-        style={{
-          pointerEvents: 'auto',
-          borderColor: active ? color : `${color}77`,
-          color: active ? '#fff' : '#e2e8f0',
-          background: active ? `${color}55` : 'rgba(2,6,23,0.6)',
-          flexDirection: right ? 'row-reverse' : 'row',
-        }}
-      >
-        <span className="h-2 w-2 flex-none rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
-        <span>
-          <span className="opacity-60">{slotTitle[placed.slot]}: </span>
-          {part.label}
-        </span>
-      </button>
-    </Html>
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {placed.map((p, idx) => {
+        const right = p.slot === 'fins' || p.slot === 'boosters'
+        const color = slotColor[p.slot]
+        const active = activeSlot === p.slot
+        return (
+          <div
+            key={`tag:${p.slot}`}
+            ref={(el) => {
+              elements.current[idx] = el
+            }}
+            className="invisible absolute left-0 top-0"
+          >
+            <button
+              type="button"
+              onMouseEnter={() => onHover(p.slot)}
+              onMouseLeave={() => onHover(null)}
+              onClick={() => onClick(p.slot)}
+              className={`${dragging ? 'pointer-events-none' : 'pointer-events-auto'} flex items-center gap-2 whitespace-nowrap rounded-[2px] border px-2 py-1 font-mono text-[11px] font-medium transition-colors`}
+              style={{
+                borderColor: active ? ACCENT : '#3a4254',
+                color: active ? '#ede6d6' : '#b9b2a3',
+                background: active ? 'rgba(42,30,12,0.94)' : 'rgba(11,14,20,0.86)',
+                flexDirection: right ? 'row-reverse' : 'row',
+              }}
+            >
+              <span className="h-2 w-2 flex-none" style={{ background: color }} />
+              <span>
+                <span style={{ color: '#948d7f' }}>{slotTitle[p.slot]}: </span>
+                {p.part.label}
+              </span>
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Painted hazard dashes and walkway lines on the hangar floor */
+function SafetyMarkings() {
+  const stripes = useMemo(() => {
+    const out: { x: number; z: number; r: number }[] = []
+    // a square keep-out border round the launch table, made of short diagonal dashes
+    const half = 5.4
+    for (let i = -half; i <= half + 0.01; i += 0.9) {
+      out.push({ x: i, z: -half, r: 0 }, { x: i, z: half, r: 0 }, { x: -half, z: i, r: Math.PI / 2 }, { x: half, z: i, r: Math.PI / 2 })
+    }
+    return out
+  }, [])
+  return (
+    <group position-y={0.015}>
+      {stripes.map((st, i) => (
+        <mesh key={i} position={[st.x, 0, st.z]} rotation={[-Math.PI / 2, 0, st.r + 0.6]}>
+          <planeGeometry args={[0.16, 0.6]} />
+          <meshStandardMaterial color={ACCENT_DIM} roughness={0.85} />
+        </mesh>
+      ))}
+      {[-7.2, 7.2].map((x) => (
+        <mesh key={x} position={[x, 0, 6]} rotation-x={-Math.PI / 2}>
+          <planeGeometry args={[0.12, 20]} />
+          <meshStandardMaterial color="#8a8270" roughness={0.9} />
+        </mesh>
+      ))}
+    </group>
   )
 }
 
@@ -381,6 +483,7 @@ type Controls = ComponentRef<typeof OrbitControls>
 function CameraRig({ top, bottom, lift }: { top: number; bottom: number; lift: number }) {
   const controls = useRef<Controls>(null)
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
+  const dragging = useDragStore((s) => !!s.held)
   const settle = useRef(1.4)
   const midY = lift + ((top + bottom) / 2) * S
   const fit = Math.max(16, ((top - bottom) * S * 1.3) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))))
@@ -411,7 +514,7 @@ function CameraRig({ top, bottom, lift }: { top: number; bottom: number; lift: n
       enablePan={false}
       enableDamping
       dampingFactor={0.08}
-      autoRotate
+      autoRotate={!dragging}
       autoRotateSpeed={0.55}
       minPolarAngle={0.5}
       maxPolarAngle={Math.PI / 2 - 0.04}
@@ -424,16 +527,54 @@ function CameraRig({ top, bottom, lift }: { top: number; bottom: number; lift: n
 
 /* ---------------- the scene ---------------- */
 
-function Rocket({ config, exploded, firing, activeSlot, onSlotHover, onSlotClick }: ViewProps) {
-  const layout = useMemo(() => layoutRocket(config), [config])
+type Layout = ReturnType<typeof layoutRocket>
+/** The engine bells hang below the core's base: lift the whole rocket so they clear the table */
+const liftOf = (layout: Layout) => TABLE_Y + 0.26 + GAP - layout.bottom * S
+
+function Rocket({
+  config,
+  layout,
+  exploded,
+  firing,
+  activeSlot,
+  onSlotHover,
+  onSlotClick,
+  onPartDrop,
+  tagEls,
+}: ViewProps & { layout: Layout; tagEls: RefObject<(HTMLDivElement | null)[]> }) {
   const reduced = useMemo(() => prefersReducedMotion(), [])
-  /** The engine bells hang below the core's base: lift the whole rocket so they clear the table */
-  const lift = TABLE_Y + 0.26 + GAP - layout.bottom * S
+  const lift = liftOf(layout)
+  const anchors = useMemo(() => layout.placed.map((p) => tagPosition(p, lift)), [layout, lift])
   const engineWidth = layout.placed.find((p) => p.slot === 'engine')!.part.engines === 9 ? 1 : 0.95
+  const stackMidY = lift + ((layout.top + layout.bottom) / 2) * S
+  const stackH = Math.max(10, (layout.top - layout.bottom + 6) * S)
+  const parsePart = (v: string): [RocketSlot, string] => {
+    const [slot, id] = v.split(':')
+    return [slot as RocketSlot, id]
+  }
   return (
     <>
       <Hangar topY={lift + (layout.top + (exploded ? EXPLODE.nose : 0)) * S} />
       <CameraRig top={exploded ? layout.top + EXPLODE.nose : layout.top} bottom={exploded ? layout.bottom + EXPLODE.engine : layout.bottom} lift={lift} />
+      <HoldStillWhileDragging />
+      <SnapNudge />
+      <SnapPuff at={[0, stackMidY, 0]} scale={16} slots={['rocket:hook']} />
+      <DropSlot
+        id="rocket:hook"
+        accepts={['rocket-part']}
+        position={[0, stackMidY, 0]}
+        size={[7, stackH, 7]}
+        preview={false}
+        refuse={(p) => {
+          const [slot, id] = parsePart(p.value)
+          const r = pick(config, slot, id)
+          return r.config[slot] === id ? null : (r.notes[0] ?? 'Does not fit on this rocket')
+        }}
+        onDrop={(p) => {
+          const [slot, id] = parsePart(p.value)
+          onPartDrop?.(slot, id)
+        }}
+      />
       <group position-y={lift}>
         {layout.placed.map((p) => (
           <Suspense key={`${p.slot}:${p.part.id}`} fallback={null}>
@@ -447,16 +588,16 @@ function Rocket({ config, exploded, firing, activeSlot, onSlotHover, onSlotClick
             />
           </Suspense>
         ))}
-        {layout.placed.map((p) => (
-          <Tag key={`tag:${p.slot}`} placed={p} part={p.part} active={activeSlot === p.slot} onHover={onSlotHover} onClick={onSlotClick} />
-        ))}
         <Plume firing={firing} bottom={layout.bottom} width={engineWidth} />
       </group>
+      <TagProjector anchors={anchors} elements={tagEls} />
     </>
   )
 }
 
 export function RocketBay(props: ViewProps) {
+  const layout = useMemo(() => layoutRocket(props.config), [props.config])
+  const tagEls = useRef<(HTMLDivElement | null)[]>([])
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       <Canvas
@@ -465,8 +606,8 @@ export function RocketBay(props: ViewProps) {
         camera={{ fov: 35, position: [14, 9, 24], near: 0.1, far: 200 }}
         gl={{ antialias: true }}
         onCreated={({ scene, gl }) => {
-          scene.background = new THREE.Color('#05080f')
-          scene.fog = new THREE.Fog('#05080f', 40, 90)
+          scene.background = new THREE.Color('#0d0e10')
+          scene.fog = new THREE.Fog('#0d0e10', 40, 90)
           const pmrem = new THREE.PMREMGenerator(gl)
           scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
           scene.environmentIntensity = 0.55
@@ -474,8 +615,10 @@ export function RocketBay(props: ViewProps) {
         }}
       >
         <Lights />
-        <Rocket {...props} />
+        <Rocket {...props} layout={layout} tagEls={tagEls} />
+        <Effects preset="interior" />
       </Canvas>
+      <TagOverlay placed={layout.placed} activeSlot={props.activeSlot} elements={tagEls} onHover={props.onSlotHover} onClick={props.onSlotClick} />
     </div>
   )
 }

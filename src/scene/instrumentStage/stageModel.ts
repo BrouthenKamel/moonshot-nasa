@@ -16,10 +16,11 @@ const VERY_WEAK = 0.2
 const FALLBACK_ALTITUDE_KM = 15
 
 export const INSTRUMENT_COLORS: Record<string, string> = {
-  'inst-laser': '#22c55e',
-  'inst-ir-spec': '#f59e0b',
-  'inst-neutron': '#a855f7',
-  'inst-camera': '#3b82f6',
+  // FLIGHT PLAN: cyan only for what sees ice (laser, neutron); the rest Kapton and paper
+  'inst-laser': '#5ee6f0',
+  'inst-ir-spec': '#e8a33d',
+  'inst-neutron': '#a9e4e8',
+  'inst-camera': '#d8cfbc',
 }
 
 export const INSTRUMENT_SHORT_NAMES: Record<string, string> = {
@@ -105,7 +106,7 @@ export function stageModel(design: Design, difficulty: Difficulty, whatIf: WhatI
     return {
       id: p.id,
       name: INSTRUMENT_SHORT_NAMES[p.id] ?? p.name,
-      color: INSTRUMENT_COLORS[p.id] ?? '#94a3b8',
+      color: INSTRUMENT_COLORS[p.id] ?? '#b9b2a3',
       strength,
       outOfRange: strength === 0,
       veryWeak: strength > 0 && strength < VERY_WEAK,
@@ -169,4 +170,25 @@ export function activityText(view: InstrumentView, overShadow: boolean): string 
   if (view.veryWeak) return view.heightIsCause ? 'Very weak at this height' : 'Very weak'
   if (overShadow && !view.seesShadow) return 'Blind right now: no sunlight down there'
   return overShadow ? 'Reading the dark crater floor' : 'Reading sunlit ground'
+}
+
+/** 0..1 visibility of cyan ice glints inside shadowed craters when looking through the optical bench. */
+export function iceSparkleStrength(views: readonly InstrumentView[]): number {
+  return views.reduce((best, v) => (v.seesShadow && !v.outOfRange ? Math.max(best, v.strength) : best), 0)
+}
+
+/** Instrument-specific caption inside the Lab look-through view. */
+export function lookThroughCaption(views: readonly InstrumentView[], altitudeKm: number): string {
+  if (views.length === 0) return 'Instrument bay is empty — drag or pick an instrument to look through its optics.'
+  const iceCapable = views.filter((v) => v.seesShadow)
+  if (iceCapable.length > 0) {
+    if (altitudeKm > 20 || iceCapable.every((v) => v.outOfRange)) {
+      return `At ${altitudeKm} km, the return fades to nothing — drop back to ≤20 km to spot cyan ice glints.`
+    }
+    return 'Looking down at 15 km — cyan ice sparkles glint across the dark crater floor.'
+  }
+  if (views.some((v) => v.id === 'inst-ir-spec')) {
+    return "I can't see into the dark — thermal glow dies inside the cold shadow."
+  }
+  return 'Camera view over the rim — sunlight only, no ice signal in the pitch-black crater.'
 }

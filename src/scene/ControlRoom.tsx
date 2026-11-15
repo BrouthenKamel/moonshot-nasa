@@ -3,6 +3,11 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useModel } from '../assets/models'
 import { useGameStore } from '../state/gameStore'
+import { useAgencyStore } from '../state/agencyStore'
+import { useUiStore } from '../state/uiStore'
+import { computeBudgets } from '../sim/budgets'
+import { goNoGo } from '../sim/checks'
+import { Effects } from './space/Effects'
 import { usePlanningOdds } from '../ui/useOdds'
 import { buildPlanningView, type PlanningView } from '../viz/planning/planningView'
 import { paintScreen, SCREEN_W, SCREEN_H, type ScreenAnim } from '../viz/planning/screenPainter'
@@ -40,19 +45,19 @@ function makeCanvasTexture(w: number, h: number) {
   return { canvas, ctx: canvas.getContext('2d') as CanvasRenderingContext2D, texture }
 }
 
-/** Live view of the planning numbers, recomputed when the design or difficulty changes. */
+/** Live view of the planning numbers, recomputed when the design, preview, or difficulty changes. */
 function usePlanningView(): PlanningView {
   const design = useGameStore((s) => s.design)
+  const previewPatch = useUiStore((s) => s.previewPatch)
   const difficulty = useGameStore((s) => s.difficulty)
-  const getBudgets = useGameStore((s) => s.getBudgets)
-  const getGoNoGo = useGameStore((s) => s.getGoNoGo)
+  const day = useAgencyStore((s) => s.day)
+  const active = useMemo(() => (previewPatch ? { ...design, ...previewPatch } : design), [design, previewPatch])
   // The chance of full success at each setting, shown on the knob and fader readouts once worked out
   const odds = usePlanningOdds(design, difficulty)
-  return useMemo(
-    () => buildPlanningView(design, getBudgets(), getGoNoGo().checks, odds),
-    // getBudgets / getGoNoGo read design and difficulty from the store
-    [design, difficulty, getBudgets, getGoNoGo, odds]
-  )
+  return useMemo(() => {
+    const b = computeBudgets(active, difficulty)
+    return buildPlanningView(active, b, goNoGo(active, b, day).checks, odds)
+  }, [active, difficulty, day, odds])
 }
 
 function setPlanning(patch: { testTurns?: number; reservePercent?: number }) {
@@ -66,9 +71,10 @@ function setPlanning(patch: { testTurns?: number; reservePercent?: number }) {
 
 function monitorMaterial(kind: number) {
   const { ctx, texture } = makeCanvasTexture(256, 148)
-  ctx.fillStyle = '#04101f'
+  ctx.fillStyle = '#0b0e14'
   ctx.fillRect(0, 0, 256, 148)
-  const col = ['#38bdf8', '#4ade80', '#fbbf24', '#a78bfa'][kind % 4]
+  // Paper and Kapton traces, with the odd status green: CRT phosphor on a printed-plan palette
+  const col = ['#e8a33d', '#d8cfbc', '#6faf7a', '#b9b2a3'][kind % 4]
   ctx.strokeStyle = col
   ctx.fillStyle = col
   ctx.lineWidth = 2
@@ -95,7 +101,7 @@ function monitorMaterial(kind: number) {
     ctx.globalAlpha = 1
   }
   texture.needsUpdate = true
-  return new THREE.MeshBasicMaterial({ map: texture, toneMapped: false, color: 0xb9c4d6 })
+  return new THREE.MeshBasicMaterial({ map: texture, toneMapped: false, color: 0xc9c0ae })
 }
 
 const ROW_FRONT = [-10.2, -6.8, -3.4, 0, 3.4, 6.8, 10.2]
@@ -103,9 +109,9 @@ const ROW_BACK = [-8.5, -5.1, -1.7, 1.7, 5.1, 8.5]
 
 function OperatorRows() {
   const m = useMemo(() => {
-    const desk = new THREE.MeshStandardMaterial({ color: 0x1c2638, roughness: 0.5, metalness: 0.4 })
-    const bezel = new THREE.MeshStandardMaterial({ color: 0x05080f })
-    const body = new THREE.MeshStandardMaterial({ color: 0x0d1526, roughness: 0.9 })
+    const desk = new THREE.MeshStandardMaterial({ color: 0x1d1f24, roughness: 0.75, metalness: 0.2 })
+    const bezel = new THREE.MeshStandardMaterial({ color: 0x07090d, roughness: 0.8 })
+    const body = new THREE.MeshStandardMaterial({ color: 0x121418, roughness: 0.95 })
     const monitors = Array.from({ length: 10 }, (_, i) => monitorMaterial(i))
     return { desk, bezel, body, monitors }
   }, [])
@@ -179,16 +185,16 @@ function JscMissionControlBackdrop() {
     <group>
       <primitive object={wings.left} position={[-7.6, 0.35, -3.4]} rotation={[0, Math.PI / 2, 0]} scale={0.55} />
       <primitive object={wings.right} position={[7.6, 0.35, -3.4]} rotation={[0, -Math.PI / 2, 0]} scale={0.55} />
-      <ambientLight intensity={0.28} color="#93c5fd" />
-      <directionalLight position={[4, 7.5, 5]} intensity={0.45} color="#cbd5e1" />
+      <ambientLight intensity={0.28} color="#c9c2b4" />
+      <directionalLight position={[4, 7.5, 5]} intensity={0.45} color="#e6dccb" />
     </group>
   )
 }
 
 function Room() {
-  const floor = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x0b1322, roughness: 0.9 }), [])
-  const wall = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x0a1120, roughness: 1 }), [])
-  const strip = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x1d4ed8, toneMapped: false }), [])
+  const floor = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x101114, roughness: 0.95 }), [])
+  const wall = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x0e0f12, roughness: 1 }), [])
+  const strip = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x6b4a1c, toneMapped: false }), [])
   const box = (args: [number, number, number], pos: [number, number, number], mat: THREE.Material, key: string) => (
     <mesh key={key} position={pos} material={mat}>
       <boxGeometry args={args} />
@@ -235,12 +241,12 @@ function BigScreen({ view, reduced }: { view: PlanningView; reduced: boolean }) 
   const alertLight = useRef<THREE.PointLight>(null)
   const glows = useRef<(THREE.PointLight | null)[]>([])
   const halo = useRef<THREE.MeshBasicMaterial>(null)
-  const beaconMat = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x3f0d0d, toneMapped: false }), [])
+  const beaconMat = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x2a110d, toneMapped: false }), [])
   const beacons = useRef<(THREE.Mesh | null)[]>([])
   const mood = useRef({ alert: 0, caution: 0 })
-  const calm = useMemo(() => new THREE.Color(0x9fb4e0), [])
-  const red = useMemo(() => new THREE.Color(0xff5a5a), [])
-  const amber = useMemo(() => new THREE.Color(0xffc978), [])
+  const calm = useMemo(() => new THREE.Color(0xc9c0ae), [])
+  const red = useMemo(() => new THREE.Color(0xd0533f), [])
+  const amber = useMemo(() => new THREE.Color(0xe8a33d), [])
 
   useEffect(() => {
     dirty.current = true
@@ -294,31 +300,32 @@ function BigScreen({ view, reduced }: { view: PlanningView; reduced: boolean }) 
     ambient.current?.color.copy(calm).lerp(amber, m.caution * 0.35).lerp(red, m.alert * (0.45 + 0.4 * pulse))
     if (alertLight.current) alertLight.current.intensity = m.alert * (120 + 260 * pulse)
     glows.current.forEach((l) => l && (l.intensity = 90 * (1 - 0.55 * m.alert)))
-    beaconMat.color.setRGB(0.25 + 0.75 * m.alert * pulse, 0.05, 0.05)
+    beaconMat.color.setRGB(0.16 + 0.65 * m.alert * pulse, 0.07 + 0.25 * m.alert * pulse, 0.05 + 0.2 * m.alert * pulse)
     beacons.current.forEach((b) => b?.scale.setScalar(1 + 0.35 * m.alert * pulse))
-    halo.current?.color.setRGB(0.11 + 0.6 * m.alert, 0.31 * (1 - m.alert), 0.85 * (1 - m.alert))
+    // Warm paper spill from the big screen, reddening on an alert
+    halo.current?.color.setRGB(0.42 + 0.4 * m.alert, 0.33 * (1 - 0.6 * m.alert), 0.2 * (1 - 0.6 * m.alert))
   })
 
   // Narrower than the wall so the taller screen (with its Go / No-Go strip) clears the rows in front
   const w = 20.5, h = (20.5 * SCREEN_H) / SCREEN_W
   return (
     <group>
-      <ambientLight ref={ambient} intensity={0.8} color={0x9fb4e0} />
+      <ambientLight ref={ambient} intensity={0.7} color={0xc9c0ae} />
       {[-8, 0, 8].map((x, i) => (
-        <pointLight key={x} ref={(l) => { glows.current[i] = l }} position={[x, 5.5, -5.5]} intensity={90} distance={30} color={0x4f8df7} />
+        <pointLight key={x} ref={(l) => { glows.current[i] = l }} position={[x, 5.5, -5.5]} intensity={90} distance={30} color={0xf0d9b0} />
       ))}
-      <pointLight ref={alertLight} position={[0, 7.5, -1]} intensity={0} distance={40} color={0xff2a2a} />
+      <pointLight ref={alertLight} position={[0, 7.5, -1]} intensity={0} distance={40} color={0xd0533f} />
       <mesh position={[0, 5.25, -8.7]}>
         <planeGeometry args={[w, h]} />
         <meshBasicMaterial map={screen.texture} toneMapped={false} fog={false} />
       </mesh>
       <mesh position={[0, 5.25, -8.82]}>
         <boxGeometry args={[w + 0.5, h + 0.5, 0.1]} />
-        <meshStandardMaterial color={0x05080f} />
+        <meshStandardMaterial color={0x07090d} roughness={0.85} />
       </mesh>
       <mesh position={[0, 5.25, -8.76]}>
         <planeGeometry args={[w + 3, h + 2.4]} />
-        <meshBasicMaterial ref={halo} color={0x1d4ed8} transparent opacity={0.1} fog={false} />
+        <meshBasicMaterial ref={halo} color={0x6b5433} transparent opacity={0.08} fog={false} />
       </mesh>
       {[-13.2, 13.2].map((x, i) => (
         <mesh key={x} ref={(b) => { beacons.current[i] = b }} position={[x, 9.6, -8.5]} material={beaconMat}>
@@ -351,13 +358,13 @@ function Console({ view, focus, onDragChange }: { view: PlanningView; focus: Con
   }, [view, surface])
   useEffect(() => () => surface.texture.dispose(), [surface])
 
-  const metal = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.6, roughness: 0.35 }), [])
-  const knobLeds = useMemo(() => KNOB_VALUES.map(() => new THREE.MeshBasicMaterial({ color: 0x1e1b4b, toneMapped: false })), [])
-  const faderLeds = useMemo(() => FADER_VALUES.map(() => new THREE.MeshBasicMaterial({ color: 0x422006, toneMapped: false })), [])
+  const metal = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x1a1c20, metalness: 0.5, roughness: 0.5 }), [])
+  const knobLeds = useMemo(() => KNOB_VALUES.map(() => new THREE.MeshBasicMaterial({ color: 0x1a1f2b, toneMapped: false })), [])
+  const faderLeds = useMemo(() => FADER_VALUES.map(() => new THREE.MeshBasicMaterial({ color: 0x2a1d0a, toneMapped: false })), [])
   useEffect(() => {
-    knobLeds.forEach((m, v) => m.color.setHex(v === view.testTurns ? 0xc4b5fd : v < view.testTurns ? 0x6d28d9 : 0x1e1b4b))
+    knobLeds.forEach((m, v) => m.color.setHex(v === view.testTurns ? 0xf2c27a : v < view.testTurns ? 0x9a6b26 : 0x1a1f2b))
     faderLeds.forEach((m, i) =>
-      m.color.setHex(view.reservePercent === 0 ? 0x7f1d1d : FADER_VALUES[i] <= view.reservePercent ? 0xfbbf24 : 0x422006)
+      m.color.setHex(view.reservePercent === 0 ? 0x4a1c15 : FADER_VALUES[i] <= view.reservePercent ? 0xe8a33d : 0x2a1d0a)
     )
   }, [view, knobLeds, faderLeds])
 
@@ -434,9 +441,9 @@ function Console({ view, focus, onDragChange }: { view: PlanningView; focus: Con
     <group>
       <mesh position={[0, 1.45, 2.4]}>
         <boxGeometry args={[5.6, 0.5, 1.0]} />
-        <meshStandardMaterial color={0x1c2638} roughness={0.5} metalness={0.4} />
+        <meshStandardMaterial color={0x1d1f24} roughness={0.75} metalness={0.2} />
       </mesh>
-      <pointLight position={[0, 3.9, 3.4]} intensity={26} distance={6.5} color={0xfff1dc} />
+      <pointLight position={[0, 3.9, 3.4]} intensity={26} distance={6.5} color={0xffdcb0} />
       <group ref={panel} position={PANEL_POS} rotation={[PANEL_TILT, 0, 0]}>
         <mesh position={[0, -0.045, 0]} material={metal}>
           <boxGeometry args={[CONSOLE.width + 0.2, 0.08, CONSOLE.depth + 0.12]} />
@@ -450,15 +457,15 @@ function Console({ view, focus, onDragChange }: { view: PlanningView; focus: Con
         <group ref={knob} position={[K.x, 0, K.z]} rotation={[0, knobAngle(view.testTurns), 0]}>
           <mesh position={[0, 0.05, 0]}>
             <cylinderGeometry args={[0.17, 0.2, 0.1, 40]} />
-            <meshStandardMaterial color={0x64748b} metalness={0.75} roughness={0.3} />
+            <meshStandardMaterial color={0x6a655c} metalness={0.6} roughness={0.4} />
           </mesh>
           <mesh position={[0, 0.11, 0]}>
             <cylinderGeometry args={[0.14, 0.14, 0.02, 40]} />
-            <meshStandardMaterial color={0x1e293b} metalness={0.8} roughness={0.25} />
+            <meshStandardMaterial color={0x22252d} metalness={0.6} roughness={0.4} />
           </mesh>
           <mesh position={[0, 0.125, -0.08]}>
             <boxGeometry args={[0.04, 0.022, 0.13]} />
-            <meshBasicMaterial color={0xc4b5fd} toneMapped={false} />
+            <meshBasicMaterial color={0xe8a33d} toneMapped={false} />
           </mesh>
         </group>
         {KNOB_VALUES.map((v, i) => {
@@ -471,7 +478,7 @@ function Console({ view, focus, onDragChange }: { view: PlanningView; focus: Con
         })}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[K.x, 0.004, K.z]}>
           <ringGeometry args={[0.46, 0.5, 48]} />
-          <meshBasicMaterial ref={focusRing} color={0xc4b5fd} transparent opacity={0} toneMapped={false} />
+          <meshBasicMaterial ref={focusRing} color={0xe8a33d} transparent opacity={0} toneMapped={false} />
         </mesh>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[K.x, 0.05, K.z]} {...handlers('test')}>
           <circleGeometry args={[0.52, 24]} />
@@ -481,16 +488,16 @@ function Console({ view, focus, onDragChange }: { view: PlanningView; focus: Con
         {/* Reserve fader */}
         <mesh position={[faderMid, 0.011, F.z]}>
           <boxGeometry args={[F.x1 - F.x0 + 0.12, 0.02, 0.07]} />
-          <meshStandardMaterial color={0x05080f} />
+          <meshStandardMaterial color={0x07090d} roughness={0.85} />
         </mesh>
         <group ref={faderCap} position={[faderX(view.reservePercent, F.x0, F.x1), 0, F.z]}>
           <mesh position={[0, 0.05, 0]}>
             <boxGeometry args={[0.14, 0.1, 0.28]} />
-            <meshStandardMaterial color={0x94a3b8} metalness={0.75} roughness={0.3} />
+            <meshStandardMaterial color={0x8a8478} metalness={0.6} roughness={0.4} />
           </mesh>
           <mesh position={[0, 0.051, 0]}>
             <boxGeometry args={[0.025, 0.104, 0.284]} />
-            <meshBasicMaterial color={0xfbbf24} toneMapped={false} />
+            <meshBasicMaterial color={0xe8a33d} toneMapped={false} />
           </mesh>
         </group>
         {FADER_VALUES.map((v, i) => (
@@ -499,7 +506,7 @@ function Console({ view, focus, onDragChange }: { view: PlanningView; focus: Con
           </mesh>
         ))}
         <lineSegments rotation={[-Math.PI / 2, 0, 0]} position={[faderMid, 0.006, F.z + 0.03]} geometry={focusOutline}>
-          <lineBasicMaterial ref={focusBar} color={0xfbbf24} transparent opacity={0} toneMapped={false} />
+          <lineBasicMaterial ref={focusBar} color={0xe8a33d} transparent opacity={0} toneMapped={false} />
         </lineSegments>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[faderMid, 0.05, F.z + 0.03]} {...handlers('reserve')}>
           <planeGeometry args={[1.5, 0.62]} />
@@ -510,7 +517,7 @@ function Console({ view, focus, onDragChange }: { view: PlanningView; focus: Con
         {STEP_LAMPS.map((label, i) => (
           <mesh key={label} position={[CONSOLE.lampX0 + i * CONSOLE.lampStep, 0.02, CONSOLE.lampZ]}>
             <sphereGeometry args={[0.03, 10, 10]} />
-            <meshBasicMaterial color={i === 0 ? 0x38bdf8 : 0x172033} toneMapped={false} />
+            <meshBasicMaterial color={i === 0 ? 0xe8a33d : 0x1a1f2b} toneMapped={false} />
           </mesh>
         ))}
       </group>
@@ -561,13 +568,14 @@ export function ControlRoom({ focus }: { focus: ControlFocus }) {
       gl={{ antialias: true }}
       aria-hidden
     >
-      <color attach="background" args={[0x03050a]} />
-      <fog attach="fog" args={[0x03050a, 14, 46]} />
+      <color attach="background" args={[0x07090d]} />
+      <fog attach="fog" args={[0x07090d, 14, 46]} />
       <SeatCamera dragging={dragging} reduced={reduced} />
       <Room />
       <OperatorRows />
       <BigScreen view={view} reduced={reduced} />
       <Console view={view} focus={focus} onDragChange={(d) => (dragging.current = d)} />
+      <Effects preset="interior" />
     </Canvas>
   )
 }

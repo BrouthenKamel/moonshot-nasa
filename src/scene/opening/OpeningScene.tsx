@@ -13,6 +13,8 @@ const EARTH_POS = new THREE.Vector3(-34, 0, 0)
 const TO_EARTH = new THREE.Vector3(-1, 0, 0)
 const ALTITUDE = 1.2
 const RISE_SECONDS = 16
+/** Sideways pan of the view (radians-ish), making room for the title on the left */
+const LOOK_PAN = 0.1
 
 function OrbitCamera({ craft, reduced }: { craft: React.RefObject<THREE.Group | null>; reduced: boolean }) {
   const { camera } = useThree()
@@ -37,14 +39,15 @@ function OrbitCamera({ craft, reduced }: { craft: React.RefObject<THREE.Group | 
     v.dir.set(x, -0.78, 0.36).normalize()
     camera.position.copy(v.dir).multiplyScalar(ALTITUDE)
     camera.up.copy(v.dir)
-    // Look along the ground toward Earth, tilted down to keep the limb in the lower third
+    // Look along the ground toward Earth, tilted down to keep the limb in the lower third and
+    // panned a touch left, so Earth and the craft sit right of the left-aligned title
     v.fwd.copy(TO_EARTH).addScaledVector(v.dir, -TO_EARTH.dot(v.dir)).normalize()
-    v.look.copy(camera.position).addScaledVector(v.fwd, 1).addScaledVector(v.dir, -0.52)
+    v.right.crossVectors(v.fwd, v.dir).normalize()
+    v.look.copy(camera.position).addScaledVector(v.fwd, 1).addScaledVector(v.dir, -0.52).addScaledVector(v.right, -LOOK_PAN)
     camera.lookAt(v.look)
 
     const c = craft.current
     if (c) {
-      v.right.crossVectors(v.fwd, v.dir).normalize()
       const drift = reduced ? 0 : Math.sin(t * 0.11) * 0.02
       c.position
         .copy(camera.position)
@@ -79,8 +82,8 @@ export function OpeningScene() {
     >
       <color attach="background" args={['#000000']} />
       <Suspense fallback={null}>
-        <Starfield brightness={0.9} />
-        <Sun intensity={3.4} fill={0.04} />
+        <Starfield brightness={0.95} />
+        <Sun intensity={3.2} fill={0.05} />
         <Moon iceCoverage={0.5} />
         <group position={EARTH_POS}>
           <Earth radius={3.67} spin={0.004} />
@@ -89,7 +92,7 @@ export function OpeningScene() {
           <CubeSat design={design} scale={0.2} />
         </group>
         <OrbitCamera craft={craft} reduced={reduced} />
-        <Effects bloom={1} vignette={0.8} />
+        <Effects preset="space" vignette={0.8} />
       </Suspense>
     </Canvas>
   )

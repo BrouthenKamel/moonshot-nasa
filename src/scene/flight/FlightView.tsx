@@ -326,20 +326,20 @@ function Director({ design, shot, reduced, camMode, camOffset }: DirectorProps) 
       </group>
       <mesh ref={marker} visible={false}>
         <sphereGeometry args={[0.45, 16, 12]} />
-        <meshBasicMaterial color={new THREE.Color('#fb923c').multiplyScalar(2)} toneMapped={false} />
+        <meshBasicMaterial color={new THREE.Color('#e8a33d').multiplyScalar(1.8)} toneMapped={false} />
       </mesh>
       {/* Beams point along +Z (toward the Moon); scaled in z to reach the ground */}
       <group ref={beams} visible={false}>
         {beamColors.map((color, i) => (
           <mesh key={i} position={[(i - (beamColors.length - 1) / 2) * 0.05, 0, 0.5]} rotation={[-Math.PI / 2, 0, 0]}>
             <coneGeometry args={[0.16 + i * 0.05, 1, 24, 1, true]} />
-            <meshBasicMaterial color={new THREE.Color(color).multiplyScalar(1.4)} transparent opacity={0.16} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
+            <meshBasicMaterial color={new THREE.Color(color).multiplyScalar(1.2)} transparent opacity={0.13} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} />
           </mesh>
         ))}
       </group>
       <mesh ref={link} visible={false}>
         <cylinderGeometry args={[0.0025, 0.0025, 1, 6, 1, true]} />
-        <meshBasicMaterial color={new THREE.Color(0.5, 0.9, 1.1)} transparent opacity={0.4} blending={THREE.AdditiveBlending} depthWrite={false} />
+        <meshBasicMaterial color={new THREE.Color(1.1, 0.95, 0.75)} transparent opacity={0.4} blending={THREE.AdditiveBlending} depthWrite={false} />
       </mesh>
     </>
   )
@@ -471,7 +471,7 @@ export function FlightView({ design, shot, className = '' }: FlightViewProps) {
       >
         <color attach="background" args={['#000000']} />
         <Suspense fallback={null}>
-          <Starfield brightness={0.85} />
+          <Starfield brightness={0.75} />
           <Sun intensity={2.6} fill={0.05} />
           <Moon iceCoverage={shot.coverage} />
           <group position={EARTH_POS}>
@@ -482,13 +482,14 @@ export function FlightView({ design, shot, className = '' }: FlightViewProps) {
               <BennuLandmark reduced={reduced} />
             </Suspense>
           </OptionalModel>
+          {/* Thin, matte lines: paper for the planned path, Kapton for the flown part, the orbit in its own colour */}
           {(shot.stage !== 'orbit' || flightCam === 'overview') && (
-            <Line points={pathPoints} color="#fbbf24" lineWidth={flightCam === 'overview' ? 1.6 : 1.2} dashed dashSize={flightCam === 'overview' ? 0.6 : 0.25} gapSize={flightCam === 'overview' ? 0.45 : 0.2} transparent opacity={0.5} />
+            <Line points={pathPoints} color="#ede6d6" lineWidth={1} dashed dashSize={flightCam === 'overview' ? 0.6 : 0.25} gapSize={flightCam === 'overview' ? 0.45 : 0.2} transparent opacity={0.32} />
           )}
-          {flightCam === 'overview' && shot.transferT > 0 && <Line points={flownPoints} color="#fb923c" lineWidth={3.5} />}
-          <Line points={ringPoints} color={orbitColor} lineWidth={shot.stage === 'orbit' ? 1.6 : 1} transparent opacity={shot.stage === 'orbit' ? 0.75 : 0.3} />
+          {flightCam === 'overview' && shot.transferT > 0 && <Line points={flownPoints} color="#e8a33d" lineWidth={1.8} transparent opacity={0.9} />}
+          <Line points={ringPoints} color={orbitColor} lineWidth={shot.stage === 'orbit' ? 1.2 : 0.9} transparent opacity={shot.stage === 'orbit' ? 0.6 : 0.25} />
           <Director design={design} shot={shot} reduced={reduced} camMode={flightCam} camOffset={camOffset} />
-          <Effects bloom={1} vignette={0.7} />
+          <Effects preset="space" />
         </Suspense>
       </Canvas>
     </div>

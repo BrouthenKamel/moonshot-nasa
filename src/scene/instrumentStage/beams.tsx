@@ -35,7 +35,7 @@ function useAim(pass: Pass, h: number, x: number, shaky: boolean, calm: boolean)
   }
 }
 
-/** Laser: four thin beams, a spot, and a green glow that lights a dark crater floor. */
+/** Laser: four thin beams, a spot, and an ice-cyan glow that lights a dark crater floor. */
 function Laser({ pass, h, x, view, glow, calm }: BeamProps) {
   const aim = useAim(pass, h, x, view.shaky, calm)
   const beams = useRef<(THREE.Mesh | null)[]>([])
@@ -78,12 +78,12 @@ function Laser({ pass, h, x, view, glow, calm }: BeamProps) {
       {[0, 1, 2, 3, 4].map((i) => (
         <mesh key={i} ref={(m) => { beams.current[i] = m }}>
           <cylinderGeometry args={[1, 1, 1, 6, 1, true]} />
-          <meshBasicMaterial color="#86efac" opacity={0} {...additive} />
+          <meshBasicMaterial color="#5ee6f0" opacity={0} {...additive} />
         </mesh>
       ))}
       <mesh ref={spot} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[radius, 40]} />
-        <meshBasicMaterial color="#bbf7d0" map={glow} opacity={0} {...additive} />
+        <meshBasicMaterial color="#b5f4f8" map={glow} opacity={0} {...additive} />
       </mesh>
       <mesh ref={halo} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[radius * 4.5, 40]} />
@@ -92,7 +92,7 @@ function Laser({ pass, h, x, view, glow, calm }: BeamProps) {
       {[0, 1, 2, 3, 4, 5, 6].map((i) => (
         <mesh key={i} ref={(m) => { sparks.current[i] = m }} rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[0.13, 10]} />
-          <meshBasicMaterial color="#e0f2fe" opacity={0} {...additive} />
+          <meshBasicMaterial color="#e0fbff" opacity={0} {...additive} />
         </mesh>
       ))}
     </>
@@ -126,7 +126,7 @@ function InfraRed({ pass, h, x, view, calm }: BeamProps) {
       </mesh>
       <mesh ref={disc} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[radius, 40]} />
-        <meshBasicMaterial color="#fbbf24" opacity={0.5} {...additive} />
+        <meshBasicMaterial color="#e8a33d" opacity={0.5} {...additive} />
       </mesh>
     </>
   )
@@ -159,7 +159,7 @@ function Neutron({ pass, h, x, view, glow, calm }: BeamProps) {
       {[0, 1, 2, 3, 4].map((i) => (
         <mesh key={i} ref={(m) => { rings.current[i] = m }} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.82, 1, 40]} />
-          <meshBasicMaterial color="#d8b4fe" opacity={0} side={THREE.DoubleSide} {...additive} />
+          <meshBasicMaterial color="#a9e4e8" opacity={0} side={THREE.DoubleSide} {...additive} />
         </mesh>
       ))}
       <mesh ref={pad} rotation={[-Math.PI / 2, 0, 0]}>
@@ -199,13 +199,13 @@ function Camera({ pass, h, x, view, calm }: BeamProps) {
     () =>
       new THREE.LineLoop(
         new THREE.BufferGeometry().setFromPoints(corners),
-        new THREE.LineBasicMaterial({ color: '#bfdbfe', transparent: true })
+        new THREE.LineBasicMaterial({ color: '#ede6d6', transparent: true })
       ),
     [corners]
   )
   const edgeLines = useMemo(() => {
     const g = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 8 }, () => new THREE.Vector3()))
-    return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#93c5fd', transparent: true }))
+    return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#b9b2a3', transparent: true }))
   }, [])
   // A four-sided cone, turned so its square base lines up with the frame.
   const pyramidGeo = useMemo(() => new THREE.ConeGeometry(1, 1, 4, 1, true).rotateY(Math.PI / 4), [])
@@ -253,11 +253,11 @@ function Camera({ pass, h, x, view, calm }: BeamProps) {
       </mesh>
       <mesh ref={flash} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[half * 2, half * 1.4]} />
-        <meshBasicMaterial color="#dbeafe" opacity={0} {...additive} />
+        <meshBasicMaterial color="#f3ead6" opacity={0} {...additive} />
       </mesh>
       <mesh ref={snap} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[half * 2, half * 1.4]} />
-        <meshBasicMaterial color="#eff6ff" opacity={0} side={THREE.DoubleSide} {...additive} />
+        <meshBasicMaterial color="#ede6d6" opacity={0} side={THREE.DoubleSide} {...additive} />
       </mesh>
     </>
   )
