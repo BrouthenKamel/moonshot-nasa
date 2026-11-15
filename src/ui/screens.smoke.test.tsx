@@ -54,14 +54,15 @@ describe('screens render', () => {
     expect(html).toContain('POPULARITY')
     expect(html).toContain('Notifications')
     expect(html).not.toMatch(/Aurora-1|Relay Pathfinder|Solar Scout/)
-    expect(html).toContain('Start over')
     expect(html).toContain('Mute sound')
+    expect(html).not.toContain('Agency base · Flight plan')
+    expect(html).not.toContain('Start here')
 
     // Once a mission is chosen, its card shows the stage, the next step and a progress bar
     useWorldStore.getState().openMission()
     const open = renderToString(<App />).replace(/<!-- -->/g, '')
     expect(open).toContain('Lunar Ice Mapper')
-    expect(open).toContain('Month 0')
+    expect(open).not.toContain('Month 0') // one clock in the top bar: the agency day
     expect(open).not.toContain('Mission log') // before launch
     expect(open).toContain('Planning')
     expect(open).toContain('Next: Brief at the Communications Center')
@@ -207,7 +208,7 @@ describe('screens render', () => {
     useWorldStore.getState().openMission() // designing: a mission was chosen (before that, New mission is the only start)
     const html = renderToString(<App />)
     expect(html).toContain('13.2 / 14 kg') // 14.0 before the balance redesign (lighter chemical module)
-    expect(html).toContain('Click a building to walk in')
+    expect(html).not.toContain('Click a building to walk in')
     expect(html).toContain('month 8')
     expect(html).not.toMatch(/\bturns?\b/i)
   })
