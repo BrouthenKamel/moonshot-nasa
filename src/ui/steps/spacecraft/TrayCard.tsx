@@ -11,22 +11,17 @@ function cardChips(key: TrayKey, o: TrayOption): ChoiceStat[] {
 }
 
 /*
- * ChoiceCard at size xs puts its stat chips in two columns, which does not fit a 72-120 px tray
- * card. These scoped overrides (on this wrapper only; ChoiceCard is shared and left as is) make
- * the chips one value per row, keep titles to two lines so cards in a row line up, shorten the art a
- * little and keep the hover lift and zoom still when the player asks for reduced motion.
+ * Scoped overrides for a 72-120 px tray card (on this wrapper only; ChoiceCard is shared and left
+ * as is): titles kept to two lines so cards in a row line up, a slightly shorter art plate, the
+ * stat labels dropped (the unit says what each number is: W, Wh, MB, °, kg, U; the full labels are
+ * in the fact strip and the accessible name), and no hover lift or zoom under reduced motion.
  */
 const COMPACT = [
   'flex min-w-0',
   '[&>button>div]:h-full',
   '[&_.aspect-square]:aspect-[6/5] [&_img]:!p-1',
-  '[&_.font-display.font-bold]:line-clamp-2 [&_.font-display.font-bold]:min-h-[2lh] [&_.font-display.font-bold]:text-[10.5px] [&_.font-display.font-bold]:tracking-tight',
-  '[&_.grid-cols-2]:mt-1 [&_.grid-cols-2]:grid-cols-1 [&_.grid-cols-2]:gap-0.5',
-  '[&_.grid-cols-2>div]:px-1 [&_.grid-cols-2>div]:py-px [&_.grid-cols-2>div]:text-center',
-  // The unit says what each number is (W, Wh, MB, °, kg, U); the full labels are in the fact strip and the accessible name
-  '[&_.grid-cols-2>div>div:first-child]:hidden [&_.grid-cols-2>div>div:last-child]:text-[10.5px] [&_.grid-cols-2>div>div:last-child]:whitespace-nowrap',
-  // A smaller check mark, so it does not cover a third of a 60 px portrait
-  '[&_.h-6.w-6]:right-1 [&_.h-6.w-6]:top-1 [&_.h-6.w-6]:h-4 [&_.h-6.w-6]:w-4 [&_.h-6.w-6]:text-[9px]',
+  '[&_.font-sans.font-bold]:line-clamp-2 [&_.font-sans.font-bold]:min-h-[2lh] [&_.font-sans.font-bold]:text-[10.5px]',
+  '[&_dl]:mt-1 [&_dl>div]:justify-center [&_dt]:hidden [&_dd]:text-[10.5px] [&_dd]:whitespace-nowrap',
   'motion-reduce:[&_button]:!translate-y-0 motion-reduce:[&_img]:!scale-100 motion-reduce:[&_img]:!transition-none',
 ].join(' ')
 

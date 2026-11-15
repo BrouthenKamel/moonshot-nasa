@@ -6,8 +6,10 @@ import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { getPartById, type InstrumentPart } from '../../data/parts'
 import { canUseWebGL } from '../../scene/webgl'
 import { lunarOrbits } from '../../data/orbits'
+import { Eng, Sheet, Stamp, StepHeader, type StampVerdict } from '../kit'
 import { OrbitCardTray } from './launch/OrbitCards'
 import { playPick } from './launch/radioKeys'
+import { SceneTitle } from './launch/SceneTitle'
 import type { LapseClock } from '../../scene/OrbitView'
 import {
   buildOrbitView,
@@ -22,7 +24,6 @@ import {
 
 const OrbitScene = lazy(() => import('../../scene/OrbitView').then((m) => ({ default: m.OrbitScene })))
 
-const ACCENT = '#f97316' // Launch Site role colour
 const LAPSE_MS = 14000
 const HOLD_MS = 3500
 const MIN_SCENE_WIDTH = 900
@@ -32,57 +33,155 @@ const CARDS_MAX_W = 600
 /** Below this width the orbit cards are not centred under the Moon, so they can stay wide enough */
 const CARDS_CENTRED_MIN = 1200
 
-const TONE_TEXT: Record<Tone, string> = { good: 'text-green-400', warn: 'text-amber-400', bad: 'text-red-400' }
-const TONE_CHIP: Record<Tone, string> = {
-  good: 'border-green-400/40 bg-green-500/15 text-green-400',
-  warn: 'border-amber-400/40 bg-amber-500/15 text-amber-400',
-  bad: 'border-red-400/45 bg-red-500/15 text-red-400',
-}
-const DOT: Record<OrbitCheck['status'], string> = { green: 'bg-green-400', yellow: 'bg-amber-400', red: 'bg-red-400' }
-const PANEL = 'hud-panel backdrop-blur-md'
+const STAMP: Record<Tone, StampVerdict> = { good: 'go', warn: 'caution', bad: 'nogo' }
+const SWATCH: Record<OrbitCheck['status'], string> = { green: 'bg-go', yellow: 'bg-caution', red: 'bg-nogo' }
+const STATUS_TEXT: Record<OrbitCheck['status'], string> = { green: 'text-paper-dim', yellow: 'text-caution', red: 'text-nogo' }
 
 function hoveredChoiceId(target: EventTarget | null): string | null {
   return target instanceof Element ? target.closest<HTMLElement>('[data-choice-id]')?.dataset.choiceId ?? null : null
 }
 
+/** The one plain sentence under the ice number: why this orbit maps what it maps */
+function iceWhy(o: OrbitOption): string {
+  if (!o.reachable) return 'The craft never gets into this orbit, so nothing is mapped.'
+  if (!o.iceInstruments.length) return 'No ice instrument on board: nothing here can see into the dark craters.'
+  if (!o.iceInRange) return `Too high: at ${o.altitudeKm} km the ice signal is lost.`
+  if (o.verdict.tone === 'bad') return 'The ice instruments reach, but something else stops the mission.'
+  if (coverageAt(o, MISSION_MONTHS) < COVERAGE_GOAL) return 'Close enough to read the ice, but too few passes to map it in a year.'
+  return 'Low, frequent passes over the pole map the ice in time.'
+}
+
 /* ------------------------------------------------------------------ */
-/* Plain screen: used without 3D, in tests, and in narrow columns      */
+/* The verdict sheet: ice %, one sentence, the Go / No-Go swatches      */
 /* ------------------------------------------------------------------ */
 
-function CheckRows({ checks }: { checks: OrbitCheck[] }) {
+/** Story view: a coloured swatch and the name. Engineer view adds each check's reason. */
+function CheckSwatches({ checks }: { checks: OrbitCheck[] }) {
   return (
-    <ul className="space-y-1.5">
+    <ul className="flex flex-wrap gap-x-3 gap-y-1">
       {checks.map((c) => (
-        <li key={c.resource} className="text-xs leading-snug">
-          <div className="flex items-center gap-2">
-            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${DOT[c.status]}`} aria-hidden />
-            <span className="font-semibold text-slate-200">{c.resource}</span>
+        <li key={c.resource} className="text-xs leading-snug" title={c.reason}>
+          <span className="inline-flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 shrink-0 ${SWATCH[c.status]}`} aria-hidden />
+            <span className={`fp-label text-[0.68rem] ${STATUS_TEXT[c.status]}`}>{c.resource}</span>
             <span className="sr-only">{c.status}</span>
-          </div>
-          {c.status !== 'green' && <p className="mt-0.5 pl-[18px] text-slate-400">{c.reason}</p>}
+          </span>
+          {c.status !== 'green' && (
+            <Eng as="p" className="mt-0.5 basis-full pl-4 text-paper-faint">
+              {c.reason}
+            </Eng>
+          )}
         </li>
       ))}
     </ul>
   )
 }
 
+function VerdictSheet({ o, coverage, className = '' }: { o: OrbitOption; coverage: number; className?: string }) {
+  const final = coverageAt(o, MISSION_MONTHS)
+  return (
+    <Sheet className={`p-3.5 ${className}`}>
+      <div aria-live="polite" className="flex justify-center">
+        <Stamp key={o.verdict.text} verdict={STAMP[o.verdict.tone]} size="sm" animate>
+          {o.verdictCheck && <span className="sr-only">Worst check, {o.verdictCheck}: </span>}
+          {o.verdict.text}
+        </Stamp>
+      </div>
+      <div className="mt-3 flex items-baseline justify-between gap-2">
+        <div className="fp-data text-[38px] leading-none font-semibold text-ice">{Math.round(coverage)}%</div>
+        <div className="text-right text-xs leading-snug text-paper-dim">
+          of the polar ice mapped
+          <br />
+          <span className="fp-data text-paper-faint">goal {COVERAGE_GOAL}%</span>
+          <Eng className="fp-data text-paper-faint"> · {Math.round(final)}% after 12 months</Eng>
+        </div>
+      </div>
+      <div className="relative mt-2 h-1.5 bg-ink-1" aria-hidden>
+        <div className="absolute inset-y-0 left-0 bg-ice" style={{ width: `${Math.max(0, Math.min(100, coverage))}%` }} />
+        <div className="absolute -inset-y-1 w-0.5 bg-paper" style={{ left: `${COVERAGE_GOAL}%` }} />
+      </div>
+      <p className="mt-2.5 text-sm leading-snug text-paper">{iceWhy(o)}</p>
+      <div className="mt-3 border-t border-rule pt-2">
+        <div className="fp-label mb-1.5 text-[0.65rem] text-kapton">Go / No-Go</div>
+        <CheckSwatches checks={o.checks} />
+      </div>
+    </Sheet>
+  )
+}
+
+/** Every figure of the orbit: Engineer view only */
+function OrbitFigures({ o }: { o: OrbitOption }) {
+  const cap = o.captureDeltaV
+  const fits = cap !== null && o.deltaVAvailable >= cap
+  return (
+    <Eng as="div" className="mt-2 space-y-2 border border-rule bg-ink-2 p-3 text-xs">
+      <p className="leading-snug text-paper-dim">
+        <b className="font-semibold text-paper">{o.shortName}.</b> {o.description}
+      </p>
+      <p className="text-[11px] text-paper-faint">Flown by: {lunarOrbits.find((x) => x.id === o.id)?.flownBy}</p>
+      <Row label="Passes over the pole" value={`${o.passesPerTurn} a month`}>
+        <p className="mt-0.5 text-paper-faint">{o.passesLine}</p>
+      </Row>
+      <div className="grid grid-cols-2 gap-x-3">
+        <Row label="In sunlight" value={`${o.sunlitPct}%`}>
+          <Bar pct={o.sunlitPct} tone="bg-paper-dim" />
+        </Row>
+        <Row label="Earth in view" value={`${o.earthPct}%`}>
+          <Bar pct={o.earthPct} tone="bg-paper-dim" />
+        </Row>
+      </div>
+      <p className={o.batteryOk ? 'text-paper-faint' : 'text-nogo'}>
+        {o.eclipseHours > 0
+          ? `Longest shadow ${o.eclipseHours} h per orbit: needs ${o.batteryNeedWh.toFixed(0)} Wh, battery gives ${o.batteryUsableWh.toFixed(0)} Wh.`
+          : 'Never in the Moon’s shadow.'}
+      </p>
+      <Row label="Fuel to get in" value={cap === null ? 'not possible' : `${Math.round(cap).toLocaleString()} of ${Math.round(o.deltaVAvailable).toLocaleString()} m/s`}>
+        <Bar pct={cap === null || o.deltaVAvailable <= 0 ? 100 : (cap / o.deltaVAvailable) * 100} tone={fits ? 'bg-go' : 'bg-nogo'} />
+        <p className={`mt-1 ${fits ? 'text-paper-faint' : 'text-nogo'}`}>
+          {cap === null
+            ? 'This engine cannot get into this orbit.'
+            : !fits
+              ? `Short by ${Math.round(cap - o.deltaVAvailable).toLocaleString()} m/s.`
+              : upkeepLine(o)}
+        </p>
+      </Row>
+    </Eng>
+  )
+}
+
+function Bar({ pct, tone }: { pct: number; tone: string }) {
+  return (
+    <div className="relative mt-1.5 h-1.5 bg-ink-1">
+      <div className={`absolute inset-y-0 left-0 ${tone}`} style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
+    </div>
+  )
+}
+
+function Row({ label, value, children }: { label: string; value: string; children?: ReactNode }) {
+  return (
+    <div className="mt-2 text-xs">
+      <div className="flex justify-between text-paper-dim">
+        <span>{label}</span>
+        <b className="fp-data text-paper">{value}</b>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Plain screen: used without 3D, in tests, and in narrow columns      */
+/* ------------------------------------------------------------------ */
+
 function StepButtons({ overlay }: { overlay: boolean }) {
   const setDesignStep = useGameStore((s) => s.setDesignStep)
   const back = (
-    <button
-      type="button"
-      onClick={() => setDesignStep('spacecraft')}
-      className="tactical-btn-back"
-    >
+    <button type="button" onClick={() => setDesignStep('spacecraft')} className="tactical-btn-back bg-ink-1">
       ← Back
     </button>
   )
   const next = (
-    <button
-      type="button"
-      onClick={() => setDesignStep('ride')}
-      className="tactical-btn-next"
-    >
+    <button type="button" onClick={() => setDesignStep('ride')} className="tactical-btn-next">
       Choose Ride →
     </button>
   )
@@ -127,80 +226,63 @@ function PlainOrbit() {
 
   return (
     <div className="h-full overflow-auto p-4">
-      <div className="mx-auto max-w-3xl space-y-5">
-        <header className="hud-step-header">
-          <div className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--role-accent)]">
-            LAUNCH SITE · LUNAR ICE MAPPER · ORBIT
-          </div>
-          <h1 className="mt-1 font-display text-2xl font-bold text-slate-50">4. Orbit Selection</h1>
-          <p className="mt-1.5 text-sm text-slate-300">
-            Only a polar orbit passes over the south pole. More and lower passes map faster, but the orbit costs more to
-            reach and to hold. The ice instruments only work close to the surface.
-          </p>
-        </header>
+      <div className="mx-auto max-w-3xl space-y-4">
+        <StepHeader step="orbit" title="Orbit" kicker="Launch Site · Lunar Ice Mapper" />
 
-        <div className="hud-panel border-[var(--role-border)] bg-[var(--role-surface)] p-4 text-sm">
-          <div className="font-mono text-xs uppercase tracking-[0.18em] text-[var(--role-accent)]">
-            This orbit with your design
-          </div>
-          <div className="mt-2.5 grid grid-cols-2 gap-4 font-mono text-xs tabular-nums text-orange-100">
+        <VerdictSheet o={view.selected} coverage={coverageAt(view.selected, MISSION_MONTHS)} />
+
+        <Eng as="div" className="block border border-rule bg-ink-2 p-4 text-sm">
+          <div className="fp-label text-kapton">This orbit with your design</div>
+          <div className="mt-2.5 grid grid-cols-2 gap-4 fp-data text-xs text-paper-dim">
             <div>
               Projected ice coverage in 12 clean months:{' '}
-              <span className={activeBudgets.projectedCoverage >= COVERAGE_GOAL ? 'font-bold text-[#22d3ee]' : 'font-bold text-rose-400'}>
+              <span className={activeBudgets.projectedCoverage >= COVERAGE_GOAL ? 'font-bold text-ice' : 'font-bold text-nogo'}>
                 {activeBudgets.projectedCoverage.toFixed(0)}%
               </span>{' '}
               (need {COVERAGE_GOAL}%)
             </div>
             <div>
               Instruments can run:{' '}
-              <span className={activeBudgets.scienceDuty >= 1 ? 'font-bold text-emerald-400' : 'font-bold text-orange-300'}>
+              <span className={activeBudgets.scienceDuty >= 1 ? 'font-bold text-go' : 'font-bold text-caution'}>
                 {Math.round(activeBudgets.scienceDuty * 100)}% of the time
               </span>
             </div>
             <div>
-              Eclipse needs <span className="text-orange-300">{activeBudgets.batteryNeedWh.toFixed(0)} Wh</span>; battery gives{' '}
-              <span className={activeBudgets.batteryOk ? 'font-bold text-emerald-400' : 'font-bold text-rose-400'}>
-                {activeBudgets.batteryUsableWh.toFixed(0)} Wh
-              </span>
+              Eclipse needs <span className="text-paper">{activeBudgets.batteryNeedWh.toFixed(0)} Wh</span>; battery gives{' '}
+              <span className={activeBudgets.batteryOk ? 'font-bold text-go' : 'font-bold text-nogo'}>{activeBudgets.batteryUsableWh.toFixed(0)} Wh</span>
             </div>
             <div>
               {activeBudgets.captureDeltaV === null ? (
                 <>
-                  Holding the orbit: <span className="text-orange-300">{activeBudgets.deltaVStationKeeping} m/s a month</span>
+                  Holding the orbit: <span className="text-paper">{activeBudgets.deltaVStationKeeping} m/s a month</span>
                 </>
               ) : (
-                <span className={activeBudgets.upkeepTurns < MISSION_MONTHS ? 'text-rose-400' : undefined}>
+                <span className={activeBudgets.upkeepTurns < MISSION_MONTHS ? 'text-nogo' : undefined}>
                   {upkeepLine({ upkeepTurns: activeBudgets.upkeepTurns, holdDeltaV: activeBudgets.deltaVStationKeeping })}
                 </span>
               )}
             </div>
           </div>
           {instruments.length > 0 && (
-            <ul className="mt-3 space-y-1 text-xs text-orange-100/80">
+            <ul className="mt-3 space-y-1 text-xs text-paper-dim">
               {instruments.map((i) => (
                 <li key={i.id}>
-                  {i.name}: works at <span className="font-mono tabular-nums">{Math.round((activeBudgets.quality[i.id] ?? 0) * 100)}%</span> quality here
+                  {i.name}: works at <span className="fp-data">{Math.round((activeBudgets.quality[i.id] ?? 0) * 100)}%</span> quality here
                   {!i.seesShadow && ' (cannot see into shadow: does not count as ice coverage)'}
                 </li>
               ))}
             </ul>
           )}
-        </div>
+        </Eng>
 
-        <div className="hud-panel p-4">
+        <Sheet tone="flat" className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <label htmlFor="orbit-timelapse-plain" className="font-mono text-xs uppercase tracking-[0.18em] text-slate-300">
-              Time-Lapse Scrubber · Month <span className="font-bold tabular-nums text-cyan-300">{scrubMonth}</span> / {MISSION_MONTHS}
+            <label htmlFor="orbit-timelapse-plain" className="fp-label text-paper-dim">
+              Time-lapse · month <span className="fp-data text-paper">{scrubMonth}</span> / {MISSION_MONTHS}
             </label>
             <div className="flex items-center gap-3">
-              <span className={`font-mono text-xs font-bold tabular-nums ${scrubbedCoverage >= COVERAGE_GOAL ? 'text-[#22d3ee]' : 'text-amber-300'}`}>
-                {scrubbedCoverage}% mapped
-              </span>
-              <button
-                type="button"
-                onClick={() => setPlaying((p) => !p)}
-                className="rounded border border-slate-600/80 bg-slate-900 px-2.5 py-1 font-mono text-[11px] font-semibold text-slate-200 hover:border-slate-400"
-              >
+              <span className="fp-data text-xs font-semibold text-ice">{scrubbedCoverage}% mapped</span>
+              <button type="button" onClick={() => setPlaying((p) => !p)} className="fp-btn-secondary !px-2.5 !py-1 text-[11px]">
                 {playing ? '❚❚ Pause' : '▶ Play'}
               </button>
             </div>
@@ -216,26 +298,13 @@ function PlainOrbit() {
               setPlaying(false)
               setScrubMonth(Number(e.target.value))
             }}
-            className="tactical-range mt-2"
+            className="tactical-range mt-2 w-full"
           />
-          <div className="relative mt-2 h-2.5 overflow-hidden rounded bg-slate-950">
-            <div
-              className={`h-full transition-all duration-200 ${scrubbedCoverage >= COVERAGE_GOAL ? 'bg-[#22d3ee]' : 'bg-amber-400'}`}
-              style={{ width: `${Math.min(100, scrubbedCoverage)}%` }}
-            />
-            <div className="absolute inset-y-0 w-0.5 bg-[#22d3ee] shadow-[0_0_6px_#22d3ee]" style={{ left: `${COVERAGE_GOAL}%` }} />
+          <div className="relative mt-2 h-1.5 bg-ink-1">
+            <div className="h-full bg-ice transition-all duration-200" style={{ width: `${Math.min(100, scrubbedCoverage)}%` }} />
+            <div className="absolute -inset-y-1 w-0.5 bg-paper" style={{ left: `${COVERAGE_GOAL}%` }} />
           </div>
-        </div>
-
-        <div className="hud-panel p-4" aria-live="polite">
-          <div className={`mb-2 font-mono text-sm font-bold tracking-wider ${TONE_TEXT[view.selected.verdict.tone]}`}>
-            {view.selected.verdictCheck && (
-              <span className="font-semibold text-slate-400">Worst check, {view.selected.verdictCheck}: </span>
-            )}
-            {view.selected.verdict.text}
-          </div>
-          <CheckRows checks={view.selected.checks} />
-        </div>
+        </Sheet>
 
         <SynergyStrip step="orbit" />
         <DesignDeltaLine />
@@ -263,12 +332,7 @@ function PlainOrbit() {
             }}
             full
           />
-          <p className="mt-3 text-sm leading-snug text-slate-300">
-            <b className="font-semibold" style={{ color: view.selected.color }}>
-              {view.selected.shortName}.
-            </b>{' '}
-            {view.selected.description}
-          </p>
+          <OrbitFigures o={view.selected} />
         </div>
 
         <StepButtons overlay={false} />
@@ -281,105 +345,16 @@ function PlainOrbit() {
 /* Scene overlays                                                       */
 /* ------------------------------------------------------------------ */
 
-function Bar({ pct, color, tick }: { pct: number; color: string; tick?: number }) {
-  return (
-    <div className="relative mt-1.5 h-2.5 rounded-full bg-slate-400/20">
-      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color }} />
-      {tick !== undefined && <div className="absolute -inset-y-1 w-0.5 bg-slate-200" style={{ left: `${tick}%` }} />}
-    </div>
-  )
-}
-
-function Row({ label, value, children }: { label: string; value: string; children?: ReactNode }) {
-  return (
-    <div className="mt-3 text-xs">
-      <div className="flex justify-between text-slate-400">
-        <span>{label}</span>
-        <b className="font-mono text-slate-100 tabular-nums">{value}</b>
-      </div>
-      {children}
-    </div>
-  )
-}
-
 function ReadoutPanel({ o, months }: { o: OrbitOption; months: number }) {
-  const now = coverageAt(o, months)
-  const final = coverageAt(o, MISSION_MONTHS)
-  const numberColour = now >= COVERAGE_GOAL ? 'text-[#22d3ee]' : final <= 0 ? 'text-amber-400' : 'text-slate-100'
-  const cap = o.captureDeltaV
-  const fits = cap !== null && o.deltaVAvailable >= cap
   return (
-    <div className={`${PANEL} pointer-events-auto absolute top-16 right-3 bottom-3 w-[290px] overflow-y-auto p-3.5`}>
-      {o.verdictCheck && (
-        <div aria-hidden="true" className="mb-1 text-center font-mono text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-          Worst check: {o.verdictCheck}
-        </div>
-      )}
-      <div aria-live="polite" className={`rounded-lg border px-2.5 py-1.5 text-center font-mono text-[13px] font-bold tracking-wider ${TONE_CHIP[o.verdict.tone]}`}>
-        {o.verdictCheck && <span className="sr-only">Worst check, {o.verdictCheck}: </span>}
-        {o.verdict.text}
-      </div>
-
-      <div className="mt-3 flex items-baseline justify-between">
-        <div className={`font-mono text-[38px] leading-none font-extrabold tabular-nums ${numberColour}`}>{Math.round(now)}%</div>
-        <div className="text-right font-mono text-xs leading-snug tabular-nums text-slate-400">
-          of the polar ice mapped
-          <br />
-          {Math.round(final)}% after 12 months
-        </div>
-      </div>
-      <Bar pct={now} color={now >= COVERAGE_GOAL ? '#22d3ee' : '#fb923c'} tick={COVERAGE_GOAL} />
-      <div className="mt-1 text-right font-mono text-[11px] tabular-nums text-slate-500">goal {COVERAGE_GOAL}%</div>
-
-      <div className="mt-1 rounded-lg border border-slate-700/60 bg-slate-900/60 p-2.5">
-        <div className="mb-1.5 font-mono text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
-          GO / NO-GO
-        </div>
-        <CheckRows checks={o.checks} />
-      </div>
-
-      <div className="mt-3 font-mono text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
-        THIS ORBIT
-      </div>
-      <p className="mt-1 text-xs leading-snug text-slate-300">
-        <b className="font-semibold" style={{ color: o.color }}>
-          {o.shortName}.
-        </b>{' '}
-        {o.description}
-      </p>
-      <p className="mt-1 text-[11px] text-slate-500">Flown by: {lunarOrbits.find((x) => x.id === o.id)?.flownBy}</p>
-
-      <Row label="Passes over the pole" value={`${o.passesPerTurn} a month`}>
-        <p className="mt-0.5 text-slate-500">{o.passesLine}</p>
-      </Row>
-      <div className="grid grid-cols-2 gap-x-3">
-        <Row label="In sunlight" value={`${o.sunlitPct}%`}>
-          <Bar pct={o.sunlitPct} color="#fbbf24" />
-        </Row>
-        <Row label="Earth in view" value={`${o.earthPct}%`}>
-          <Bar pct={o.earthPct} color="#60a5fa" />
-        </Row>
-      </div>
-      <p className={`mt-1 text-xs ${o.batteryOk ? 'text-slate-500' : 'text-red-400'}`}>
-        {o.eclipseHours > 0
-          ? `Longest shadow ${o.eclipseHours} h per orbit: needs ${o.batteryNeedWh.toFixed(0)} Wh, battery gives ${o.batteryUsableWh.toFixed(0)} Wh.`
-          : 'Never in the Moon’s shadow.'}
-      </p>
-      <Row label="Fuel to get in" value={cap === null ? 'not possible' : `${Math.round(cap).toLocaleString()} of ${Math.round(o.deltaVAvailable).toLocaleString()} m/s`}>
-        <Bar pct={cap === null || o.deltaVAvailable <= 0 ? 100 : (cap / o.deltaVAvailable) * 100} color={fits ? '#4ade80' : '#f87171'} />
-        <p className={`mt-1 ${fits ? 'text-slate-500' : 'text-red-400'}`}>
-          {cap === null
-            ? 'This engine cannot get into this orbit.'
-            : !fits
-              ? `Short by ${Math.round(cap - o.deltaVAvailable).toLocaleString()} m/s.`
-              : upkeepLine(o)}
-        </p>
-      </Row>
-
+    <div className="pointer-events-auto absolute top-16 right-3 max-h-[calc(100%-5rem)] w-[290px] overflow-y-auto">
+      <VerdictSheet o={o} coverage={coverageAt(o, months)} />
+      <OrbitFigures o={o} />
     </div>
   )
 }
 
+/** The pole pass from the side: how high the craft flies against the height the ice instruments can read from */
 function SidePanel({ o }: { o: OrbitOption }) {
   const yOf = (km: number) => 128 - km * 1.05
   const ice = o.iceInstruments
@@ -391,48 +366,47 @@ function SidePanel({ o }: { o: OrbitOption }) {
     : low === top
       ? `ice instruments work up to ${top} km`
       : `ice instruments work up to ${low} to ${top} km`
-  const band = ice.length ? '#22d3ee' : '#94a3b8'
+  const band = ice.length ? 'var(--color-ice)' : 'var(--color-paper-faint)'
   const inRange = o.iceInRange
-  const beam = !ice.length ? '#94a3b8' : inRange ? '#22d3ee' : '#fbbf24'
+  const beam = !ice.length ? 'var(--color-paper-faint)' : inRange ? 'var(--color-ice)' : 'var(--color-caution)'
   const y = yOf(Math.min(o.altitudeKm, 110))
   return (
-    <div className={`${PANEL} pointer-events-auto absolute top-16 left-3 w-[270px] p-3`}>
-      <h3 className="mb-1.5 text-[11px] font-semibold tracking-widest" style={{ color: ACCENT }}>
-        THE POLE PASS, SEEN FROM THE SIDE
-      </h3>
+    <Sheet className="pointer-events-auto absolute top-16 left-3 w-[270px] p-3">
+      <h3 className="fp-label mb-1.5 text-[0.65rem] text-kapton">The pole pass, seen from the side</h3>
       <svg viewBox="0 0 246 150" width="246" height="150" role="img" aria-label={`Pass height ${o.altitudeKm} km; ${label}`}>
-        <rect x="0" y={yOf(top)} width="246" height={yOf(0) - yOf(top)} fill={band} fillOpacity={0.1} />
-        <rect x="0" y={yOf(low)} width="246" height={yOf(0) - yOf(low)} fill={band} fillOpacity={0.13} />
+        <rect x="0" y={yOf(top)} width="246" height={yOf(0) - yOf(top)} fill={band} fillOpacity={0.08} />
+        <rect x="0" y={yOf(low)} width="246" height={yOf(0) - yOf(low)} fill={band} fillOpacity={0.1} />
         <line x1="0" x2="246" y1={yOf(top)} y2={yOf(top)} stroke={band} strokeDasharray="4 4" />
-        <text x="242" y={yOf(top) - 4} fill={ice.length ? '#67e8f9' : '#94a3b8'} fontSize="11" textAnchor="end">
+        <text x="242" y={yOf(top) - 4} fill={band} fontSize="11" textAnchor="end">
           {label}
         </text>
-        <path d="M0 128 L60 128 Q78 128 86 140 L128 140 Q136 128 154 128 L246 128 L246 150 L0 150 Z" fill="#6b7280" />
-        <path d="M86 140 L128 140 L128 150 L86 150 Z" fill="#0b1226" />
-        <text x="107" y="148" fill="#e0fbff" fontSize="10" textAnchor="middle">
+        <path d="M0 128 L60 128 Q78 128 86 140 L128 140 Q136 128 154 128 L246 128 L246 150 L0 150 Z" fill="var(--color-ink-3)" stroke="var(--color-rule-strong)" />
+        <path d="M86 140 L128 140 L128 150 L86 150 Z" fill="var(--color-ink-0)" />
+        <text x="107" y="148" fill="var(--color-ice)" fontSize="10" textAnchor="middle">
           ice?
         </text>
         <line x1="107" x2="107" y1={y + 6} y2="138" stroke={beam} strokeWidth="2" strokeDasharray={inRange ? undefined : '3 4'} />
-        <line x1="20" x2="226" y1={y} y2={y} stroke={o.color} strokeWidth="2" />
-        <rect x="100" y={y - 5} width="14" height="10" rx="2" fill="#fff" />
-        <text x="22" y={y - 6} fill={o.color} fontSize="12" fontWeight="700">
+        <line x1="20" x2="226" y1={y} y2={y} stroke={o.color} strokeWidth="1.5" />
+        <rect x="100" y={y - 5} width="14" height="10" fill="var(--color-paper)" />
+        <text x="22" y={y - 6} fill="var(--color-paper)" fontSize="12" fontWeight="700">
           {o.altitudeKm} km
         </text>
       </svg>
-      <p className="mt-1.5 text-xs leading-snug text-slate-300">
-        {!ice.length ? (
-          'No ice instrument on board: nothing here can see into the dark craters.'
-        ) : inRange ? (
-          <>
-            <span className="text-green-400">Close enough.</span> At {o.altitudeKm} km the ice instruments read the crater floor.
-          </>
-        ) : (
-          <>
-            <span className="text-amber-400">Too high.</span> At {o.altitudeKm} km the ice signal is lost: this orbit maps no ice.
-          </>
-        )}
-      </p>
-    </div>
+      {/* The no-instrument case is said once, in the verdict sheet */}
+      {ice.length > 0 && (
+        <p className="mt-1.5 text-xs leading-snug text-paper-dim">
+          {inRange ? (
+            <>
+              <span className="text-go">Close enough.</span> The ice instruments read the crater floor.
+            </>
+          ) : (
+            <>
+              <span className="text-caution">Too high.</span> The ice signal is lost on the way up.
+            </>
+          )}
+        </p>
+      )}
+    </Sheet>
   )
 }
 
@@ -599,48 +573,49 @@ function OrbitStage({ onSceneError, width }: { onSceneError: () => void; width: 
         }}
       >
         <SceneBoundary onError={onSceneError}>
-          <Suspense fallback={<div className="flex h-full items-center justify-center text-slate-500">Pointing the telescope…</div>}>
+          <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Pointing the telescope…</div>}>
             <OrbitScene view={view} lapse={clock} reduced={reduced} onPick={pick} />
           </Suspense>
         </SceneBoundary>
       </div>
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-3 left-1/2 -translate-x-1/2 text-center">
-          <div className="font-mono text-xs font-semibold tracking-[0.2em] whitespace-nowrap" style={{ color: ACCENT }}>
-            LAUNCH SITE · LUNAR ICE MAPPER · ORBIT
-          </div>
-          <div className={`${PANEL} pointer-events-auto mt-1.5 inline-flex flex-col items-center gap-1.5 px-3.5 py-2 font-mono text-xs tracking-widest whitespace-nowrap text-slate-300`}>
-            {o.reachable ? (
-              <>
-                <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={togglePlay}
-                    aria-label={playing ? 'Pause time-lapse' : 'Play time-lapse'}
-                    className="rounded border border-slate-600/80 bg-slate-900/90 px-2 py-0.5 text-[10px] font-semibold text-cyan-300 hover:border-cyan-400/60"
-                  >
-                    {playing ? '❚❚ PAUSE' : '▶ PLAY'}
-                  </button>
-                  <span>
-                    TIME-LAPSE · MONTH <b className="text-slate-50 tabular-nums">{months}</b> OF 12
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  aria-label="Time-lapse month scrubber"
-                  min={0}
-                  max={MISSION_MONTHS}
-                  step={0.25}
-                  value={shownMonths}
-                  onChange={(e) => scrub(Number(e.target.value))}
-                  className="tactical-range w-52"
-                />
-              </>
-            ) : (
-              <span className="text-rose-400">THE CRAFT NEVER ARRIVES IN THIS ORBIT</span>
-            )}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-500">Drag to look around, scroll to zoom. Heights are exaggerated.</div>
+          <SceneTitle step="orbit" title="Orbit" className="pointer-events-auto text-left">
+            <div className="mt-1.5 flex flex-col items-center gap-1 border-t border-rule pt-1.5 fp-data text-xs whitespace-nowrap text-paper-dim">
+              {o.reachable ? (
+                <>
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={togglePlay}
+                      aria-label={playing ? 'Pause time-lapse' : 'Play time-lapse'}
+                      className="fp-btn-ghost !px-2 !py-0.5 text-[10px]"
+                    >
+                      {playing ? '❚❚ Pause' : '▶ Play'}
+                    </button>
+                    <span>
+                      Time-lapse · month <b className="text-paper">{months}</b> of 12
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    aria-label="Time-lapse month scrubber"
+                    min={0}
+                    max={MISSION_MONTHS}
+                    step={0.25}
+                    value={shownMonths}
+                    onChange={(e) => scrub(Number(e.target.value))}
+                    className="tactical-range w-52"
+                  />
+                </>
+              ) : (
+                <span className="text-nogo">The craft never arrives in this orbit</span>
+              )}
+            </div>
+          </SceneTitle>
+          <Eng as="div" className="mt-1 text-[11px] text-paper-faint">
+            Drag to look around, scroll to zoom. Heights are exaggerated.
+          </Eng>
         </div>
         <ReadoutPanel o={o} months={shownMonths} />
         {side && <SidePanel o={o} />}
@@ -693,7 +668,7 @@ export function OrbitScreen() {
   const wide = width === null || width >= MIN_SCENE_WIDTH
 
   return (
-    <div ref={wrap} className="relative h-full min-h-[520px] w-full overflow-hidden bg-[#03050a]">
+    <div ref={wrap} className="relative h-full min-h-[520px] w-full overflow-hidden bg-ink-0">
       {scene && wide ? <OrbitStage onSceneError={() => setScene(false)} width={width} /> : <PlainOrbit />}
     </div>
   )

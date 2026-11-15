@@ -200,9 +200,9 @@ export function EngineNote({ className = '' }: { className?: string }) {
   const engine = getPartById(design.propulsion) as PropulsionPart | undefined
   return (
     <div className={className}>
-      <div className="text-[9px] font-semibold tracking-widest text-slate-500 uppercase">Engine</div>
-      <div className="text-[11px] leading-tight font-semibold hyphens-auto text-slate-200">{engine ? engine.name.replace(/\s*\(.*\)$/, '') : 'None'}</div>
-      <div className="mt-0.5 text-[10px] leading-tight text-slate-500">chosen at the Factory</div>
+      <div className="fp-label text-[9px] text-paper-faint">Engine</div>
+      <div className="text-[11px] leading-tight font-semibold hyphens-auto text-paper">{engine ? engine.name.replace(/\s*\(.*\)$/, '') : 'None'}</div>
+      <div className="mt-0.5 text-[10px] leading-tight text-paper-faint">chosen at the Factory</div>
     </div>
   )
 }

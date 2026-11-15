@@ -18,11 +18,11 @@ export interface Plaque {
 }
 
 const PLAQUE: Record<PlaqueTone, string> = {
-  good: 'border-green-400/45 bg-green-500/15 text-green-300',
-  warn: 'border-amber-400/45 bg-amber-500/15 text-amber-300',
-  bad: 'border-red-400/50 bg-red-500/20 text-red-300',
+  good: 'border-go/60 text-go',
+  warn: 'border-caution/60 text-caution',
+  bad: 'border-nogo/60 text-nogo',
 }
-const PLAQUE_DOT: Record<PlaqueTone, string> = { good: 'bg-green-400', warn: 'bg-amber-400', bad: 'bg-red-400' }
+const PLAQUE_DOT: Record<PlaqueTone, string> = { good: 'bg-go', warn: 'bg-caution', bad: 'bg-nogo' }
 
 export interface LaunchCardProps extends Omit<ChoiceCardProps, 'look' | 'ariaLabel'> {
   /** Show the choice's 3D portrait (the launch vehicle) as an inset */
@@ -55,16 +55,16 @@ export function LaunchCard({ inset = false, plaque, insetSize = 64, sounds = tru
           alt=""
           aria-hidden
           draggable={false}
-          className="pointer-events-none absolute -top-4 -left-2 z-10 object-contain drop-shadow-[0_6px_10px_rgba(0,0,0,0.7)] transition-transform duration-300 ease-out group-hover/lc:-translate-y-1.5 group-hover/lc:scale-110 motion-reduce:transition-none motion-reduce:group-hover/lc:transform-none"
+          className="pointer-events-none absolute -top-4 -left-2 z-10 object-contain transition-transform duration-300 ease-out group-hover/lc:-translate-y-1.5 group-hover/lc:scale-110 motion-reduce:transition-none motion-reduce:group-hover/lc:transform-none"
           style={{ width: insetSize, height: insetSize }}
         />
       )}
       {plaque && (
         <div
           aria-hidden
-          className={`mt-1.5 flex items-center justify-center gap-1.5 rounded-md border px-1.5 py-0.5 text-center text-[10px] leading-tight font-bold tracking-wide backdrop-blur ${PLAQUE[plaque.tone]}`}
+          className={`mt-1.5 flex items-center justify-center gap-1.5 border bg-ink-1 px-1.5 py-0.5 text-center fp-label text-[10px] leading-tight ${PLAQUE[plaque.tone]}`}
         >
-          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${PLAQUE_DOT[plaque.tone]}`} />
+          <span className={`h-1.5 w-1.5 shrink-0 ${PLAQUE_DOT[plaque.tone]}`} />
           {plaque.text}
         </div>
       )}
