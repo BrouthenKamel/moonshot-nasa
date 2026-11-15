@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CAMPAIGN, type CampaignMission } from '../../campaign/missions'
-import { buildUpMission, gateProgress, ladder, minimumShare, nextMission, type Rung } from '../../campaign/progress'
+import { buildUpMission, gateDistance, gateProgress, ladder, minimumShare, nextMission, unlockNote, type Rung } from '../../campaign/progress'
 import { useCampaignStore } from '../../state/campaignStore'
 import { useWorldStore } from '../../state/worldStore'
 import { useGameStore } from '../../state/gameStore'
@@ -164,6 +164,9 @@ export function CampaignLadder() {
   const selected = picked && picked.forNext === nextIdx ? picked.idx : nextIdx
   const setSelected = (idx: number) => setPicked({ idx, forNext: nextIdx })
   const gate = gateProgress(progress, funds, popularity)
+  // "Unlocked!" on the rung the last flight opened (after a report or a campaign mission's result)
+  const unlockedBy = useCampaignStore((s) => s.unlockedBy)
+  const note = unlockNote(progress, unlockedBy, funds, popularity)
   const iceFlying = !!simState && !isSimComplete(simState)
 
   useEffect(() => {
@@ -226,6 +229,26 @@ export function CampaignLadder() {
               </Stamp>
             )}
           </div>
+
+          {note && note.mission.id === m.id && (
+            <p data-testid="unlock-note" className={`campaign-enter mt-3 border-l-2 pl-2 text-sm ${note.met ? 'border-go text-go' : 'border-kapton text-kapton'}`}>
+              {note.text}
+            </p>
+          )}
+
+          {/* A locked rung: how far the agency is from its gate */}
+          {rung.state === 'locked' && m.gate && (
+            <div className="mt-4" data-testid="gate-distance">
+              <p className="fp-data text-xs text-paper-dim">{gateDistance(m.gate, funds, popularity)}</p>
+              <div className="mt-1.5 grid grid-cols-2 gap-2" aria-hidden="true">
+                {[Math.min(1, funds / m.gate.funds), Math.min(1, popularity / m.gate.popularity)].map((share, i) => (
+                  <div key={i} className="h-1 bg-ink-0">
+                    <div className={`h-full ${share >= 1 ? 'bg-go' : 'bg-paper-faint'}`} style={{ width: `${Math.round(share * 100)}%` }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {isNext && gate && (
             <div className="mt-4 space-y-3">

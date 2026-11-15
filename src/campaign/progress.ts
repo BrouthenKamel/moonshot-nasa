@@ -168,3 +168,35 @@ export function hqProgress(progress: CampaignProgress): { satellites: number; mo
   const f = (id: CampaignMissionId) => (isFlown(progress, id) ? 1 : 0)
   return { satellites: f('ice-mapper'), moon: (f('moon-landing') + f('moon-base')) / 2, mars: f('mars-base') }
 }
+
+const fundsText = (x: number) => `$${(Math.floor(x * 10) / 10).toFixed(1)}M`
+const gateFunds = (x: number) => `$${Math.round(x)}M`
+const pct = (x: number) => `${Math.floor(x)}%`
+
+/** How far the agency is from a gate, for a locked rung: "Funds $18.4M of $35M · Popularity 68% of 70%" */
+export function gateDistance(gate: Gate, funds: number, popularity: number): string {
+  return `Funds ${fundsText(funds)} of ${gateFunds(gate.funds)} · Popularity ${pct(popularity)} of ${gate.popularity}%`
+}
+
+/**
+ * The "Unlocked!" line on the rung a flight just opened: the mission after `unlockedBy`, when that
+ * flight made it the next step and its gate is still ahead of the player. Null otherwise (a failed
+ * flight, a rung already started, the end of the ladder).
+ */
+export function unlockNote(
+  progress: CampaignProgress,
+  unlockedBy: CampaignMissionId | null,
+  funds: number,
+  popularity: number
+): { mission: CampaignMission; met: boolean; text: string } | null {
+  if (!unlockedBy) return null
+  const flown = CAMPAIGN.find((m) => m.id === unlockedBy)
+  const mission = flown ? CAMPAIGN[flown.n] : undefined
+  if (!mission?.gate || nextMission(progress)?.id !== mission.id || progress.opened.includes(mission.id)) return null
+  const g = mission.gate
+  const met = gateMet(g, funds, popularity)
+  const popShort = popularity < g.popularity
+  const needs = `${gateFunds(g.funds)}${popShort ? ` and ${g.popularity}% popularity` : ''}`
+  const have = `${fundsText(funds)}${popShort ? ` and ${pct(popularity)}` : ''}`
+  return { mission, met, text: met ? `Unlocked! The ${mission.name} is ready to plan.` : `Unlocked! Needs ${needs}: you have ${have}.` }
+}
