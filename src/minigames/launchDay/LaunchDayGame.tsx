@@ -28,7 +28,19 @@ import {
  * drawn here is read from the LaunchState, so the picture is always the flight the logic flew.
  */
 
-const SKY_GROUND = '#4f6a3e'
+/**
+ * The look (Integration review, 15 Nov): the game's dark cinematic palette, not a flat daytime blue.
+ * A dusk launch like the campaign's liftoff show: blue-ink sky over a muted dusk horizon, dark ground,
+ * a few dark clouds lit faintly from below the horizon.
+ */
+const SKY_GROUND = '#232a20'
+/** Sky colours at the pad (top, horizon); both fade to near black by about 70 km */
+const SKY_PAD = { top: [20, 27, 48], horizon: [96, 76, 92] } as const
+const SKY_SPACE = { top: [2, 4, 12], horizon: [10, 18, 42] } as const
+/** How many clouds, and their colour (body, the faint lit edge on top) */
+const CLOUD_COUNT = 14
+const CLOUD_BODY = 'rgba(46,52,68,0.82)'
+const CLOUD_EDGE = 'rgba(150,122,132,0.28)'
 /** Height the rocket is drawn at, as a share of the view (capped, so it stays a sprite on tall screens) */
 const ROCKET_SHARE = 0.5
 /** Pixels on the timeline per second of flight */
@@ -75,11 +87,12 @@ function drawSky(
   const dpr = Math.min(window.devicePixelRatio || 1, 2)
   const hkm = s.h / 1e3
 
-  // Blue at the pad, black by about 70 km
+  // Dusk at the pad, black by about 70 km
   const k = clamp(hkm / 70, 0, 1)
+  const mix = (a: readonly number[], b: readonly number[]) => `rgb(${a.map((v, i) => lerp(k, 0, 1, v, b[i]) | 0).join(',')})`
   const g = ctx.createLinearGradient(0, 0, 0, H)
-  g.addColorStop(0, `rgb(${lerp(k, 0, 1, 70, 2) | 0},${lerp(k, 0, 1, 140, 4) | 0},${lerp(k, 0, 1, 230, 12) | 0})`)
-  g.addColorStop(1, `rgb(${lerp(k, 0, 1, 160, 10) | 0},${lerp(k, 0, 1, 200, 20) | 0},${lerp(k, 0, 1, 240, 50) | 0})`)
+  g.addColorStop(0, mix(SKY_PAD.top, SKY_SPACE.top))
+  g.addColorStop(1, mix(SKY_PAD.horizon, SKY_SPACE.horizon))
   ctx.fillStyle = g
   ctx.fillRect(0, 0, W, H)
 
@@ -119,15 +132,20 @@ function drawSky(
   }
 
   if (hkm < 14) {
-    ctx.fillStyle = 'rgba(255,255,255,0.9)'
     for (const c of clouds) {
       const cs = 0.09 * dpr * c.d
       const cy = ry + (s.h - c.h) * cs
       const cx = rx + (c.x * W - s.x * cs * 0.3)
       const cw = c.w * W * c.d
       if (cy > -60 * dpr && cy < H + 60 * dpr) {
+        ctx.fillStyle = CLOUD_BODY
         ctx.beginPath()
-        ctx.ellipse(cx, cy, cw, cw * 0.3, 0, 0, Math.PI * 2)
+        ctx.ellipse(cx, cy, cw, cw * 0.26, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // The edge the low sun still reaches
+        ctx.fillStyle = CLOUD_EDGE
+        ctx.beginPath()
+        ctx.ellipse(cx, cy - cw * 0.1, cw * 0.82, cw * 0.12, 0, 0, Math.PI * 2)
         ctx.fill()
       }
     }
@@ -442,7 +460,7 @@ export function LaunchDayGame({
   )
   const clouds = useMemo(
     () =>
-      Array.from({ length: 40 }, () => ({
+      Array.from({ length: CLOUD_COUNT }, () => ({
         x: Math.random() * 3 - 1.5,
         h: 800 + Math.random() * 5000,
         w: 0.035 + Math.random() * 0.06,

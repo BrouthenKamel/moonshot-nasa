@@ -139,6 +139,34 @@ describe('tapping', () => {
     expect(s.engineOn).toBe(false)
   })
 
+  // Integration review, 15 Nov: a tap before the prompt used to count as an early OFF and fire the event
+  it('calls any tap earlier than a good one too early, and keeps the event waiting', () => {
+    const s = newLaunch()
+    flyUntil(s, (s) => s.t >= -3 - 1.8)
+    const fb = press(s)!
+    expect(fb.grade).toBe('early')
+    expect(fb.big).toBe('TOO EARLY')
+    expect(fb.small).toMatch(/^1\.\d s early/)
+    expect(s.idx).toBe(0)
+    expect(s.engineOn).toBe(false)
+  })
+
+  it('says how late an OFF tap was, with its points', () => {
+    const s = newLaunch()
+    flyUntil(s, (s) => s.t >= -3 + 1.5)
+    const fb = press(s)!
+    expect(fb.grade).toBe('off')
+    expect(fb.small).toMatch(/^1\.\d s late · \+100$/)
+  })
+
+  it('says how late the computer was when it took over', () => {
+    const s = newLaunch()
+    let fb: ReturnType<typeof step> = null
+    while (s.idx === 0) fb = step(s, 0.05) ?? fb
+    expect(fb!.grade).toBe('off')
+    expect(fb!.small).toMatch(/^3\.\d s late · \+100$/)
+  })
+
   it('hands the event to the computer two seconds after the mark', () => {
     const s = newLaunch()
     flyUntil(s, (s) => s.idx > 0)
