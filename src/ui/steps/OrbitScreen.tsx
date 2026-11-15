@@ -2,6 +2,7 @@ import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from '
 import { useGameStore } from '../../state/gameStore'
 import { getOrbitById, polarOrbitId, polarOrbitKm } from '../../data/orbits'
 import { canUseWebGL } from '../../scene/webgl'
+import { COVERAGE_TARGET } from '../../sim/evaluate'
 import { ORBIT_MAX_KM, ORBIT_MIN_KM, kmAt, orbitPlan, positionOf, type OrbitPlan } from '../../viz/orbit/orbitPlan'
 import {
   PANEL_PX,
@@ -30,7 +31,7 @@ const OrbitPlannerScene = lazy(() =>
  * is the logic core's.
  */
 
-const GOAL = 70 // % of the ice map the brief asks for
+const GOAL = COVERAGE_TARGET // % of the ice map the brief asks for: the sim's one target
 /** Room on the right the slider and the dashboard take, with their margins */
 const RIGHT_PX = PANEL_PX + SLIDER_PX + 40
 

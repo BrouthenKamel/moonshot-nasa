@@ -8,7 +8,7 @@ import { getRideById } from '../../data/rides'
 import type { Report, RequirementResult } from '../../sim/types'
 import { useGameStore } from '../../state/gameStore'
 import { STEP_NAMES, buildingForStep, buildingName } from '../../viz/missionMap'
-import { Eng, Flap, Sheet, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
+import { DetailsPanel, DetailsToggle, Eng, Flap, Sheet, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
 import { FixItPanel, RelaunchButton } from './FixItPanel'
 import { ArtemisDebrief } from './ArtemisDebrief'
 import { classifyCause } from './fixIt'
@@ -22,13 +22,37 @@ const TONE = {
   failed: { label: 'Mission Failed', text: 'text-nogo', stamp: 'nogo', tag: 'nogo', ring: 'border-nogo outline-nogo' },
 } as const satisfies Record<Report['outcome'], { label: string; text: string; stamp: StampVerdict; tag: TagTone; ring: string }>
 
-const SCORE_PARTS: { key: keyof Report['score']; label: string; max: number; bar: string }[] = [
-  { key: 'coverage', label: 'Ice mapped', max: 400, bar: 'bg-ice' },
-  { key: 'data', label: 'Science data', max: 250, bar: 'bg-paper-dim' },
+const SCORE_PARTS: { key: keyof Report['score']; label: string; max: number; bar: string; main?: boolean }[] = [
+  { key: 'coverage', label: 'Ice mapped', max: 400, bar: 'bg-ice', main: true },
+  { key: 'data', label: 'Science data', max: 250, bar: 'bg-paper-dim', main: true },
   { key: 'lifetime', label: 'Months in orbit', max: 150, bar: 'bg-paper-dim' },
   { key: 'context', label: 'Sunlit-ground map', max: 100, bar: 'bg-paper-dim' },
   { key: 'money', label: 'Money left', max: 100, bar: 'bg-kapton' },
 ]
+
+function ScoreBars({ parts, report }: { parts: typeof SCORE_PARTS; report: Report }) {
+  return (
+    <>
+      {parts.map((p) => {
+        const v = report.score[p.key] ?? 0
+        return (
+          <div key={p.key}>
+            <div className="flex justify-between gap-2 text-[11px] text-paper-dim">
+              <span>{p.label}</span>
+              <span className="fp-data text-paper">
+                {v} / {p.max}
+              </span>
+            </div>
+            <div className="relative mt-1 h-2 overflow-hidden border border-rule bg-ink-0">
+              <div className={`bar-in h-full ${p.bar}`} style={{ width: `${(v / p.max) * 100}%` }} />
+              <div className="hud-bar-segments pointer-events-none absolute inset-0" />
+            </div>
+          </div>
+        )
+      })}
+    </>
+  )
+}
 
 /** The medals stamp down one after another, after the patch and the score have landed */
 const MEDAL_DELAY = [
@@ -239,51 +263,17 @@ export function ReportScreen() {
           </div>
         </div>
 
-        {/* Medals: one per requirement met, plus the bonus ones */}
-        <div className="mt-7 border-t border-rule pt-4">
-          <div className="flex items-baseline justify-between gap-2">
-            <div className="fp-label">Medals</div>
-            <div className="fp-data text-xs text-paper-faint">
-              {wonCount} / {won.length}
-            </div>
+        {/* Medals: only the count here; the chips are under Details */}
+        <div className="mt-7 flex items-baseline justify-between gap-2 border-t border-rule pt-4">
+          <div className="fp-label">Medals</div>
+          <div className="fp-data text-xs text-paper-faint">
+            {wonCount} of {won.length}
           </div>
-          <ul className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-3">
-            {won.map((m, i) => (
-              <li key={m.id} title={m.how}>
-                {m.earned ? (
-                  <Stamp verdict={m.tone} size="sm" animate className={MEDAL_DELAY[i % MEDAL_DELAY.length]}>
-                    {m.name}
-                  </Stamp>
-                ) : (
-                  <Tag className="opacity-40">{m.name}</Tag>
-                )}
-                <Eng as="div" className="mt-1 max-w-[11rem] text-[10px] text-paper-faint">
-                  {m.how}
-                </Eng>
-              </li>
-            ))}
-          </ul>
         </div>
 
         {/* Where the points came from */}
-        <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-rule pt-4 sm:grid-cols-5">
-          {SCORE_PARTS.map((p) => {
-            const v = report.score[p.key] ?? 0
-            return (
-              <div key={p.key}>
-                <div className="flex justify-between gap-2 text-[11px] text-paper-dim">
-                  <span>{p.label}</span>
-                  <span className="fp-data text-paper">
-                    {v} / {p.max}
-                  </span>
-                </div>
-                <div className="relative mt-1 h-2 overflow-hidden border border-rule bg-ink-0">
-                  <div className={`bar-in h-full ${p.bar}`} style={{ width: `${(v / p.max) * 100}%` }} />
-                  <div className="hud-bar-segments pointer-events-none absolute inset-0" />
-                </div>
-              </div>
-            )
-          })}
+        <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-rule pt-4">
+          <ScoreBars parts={SCORE_PARTS.filter((p) => p.main)} report={report} />
         </div>
         {(report.scoreNotes ?? []).length > 0 && (
           <div className="mt-5 border-l-2 border-caution bg-ink-1 p-3.5 text-sm">
@@ -302,9 +292,49 @@ export function ReportScreen() {
         )}
       </Sheet>
 
-      <ArtemisDebrief report={report} />
-
       <FixItPanel report={report} />
+
+      <div className="flex flex-wrap gap-3">
+        {currentReport && <RelaunchButton report={currentReport} />}
+        {currentReport && simState && simState.turnLogs.length > 0 && (
+          <button type="button" onClick={() => openReplay()} className="fp-btn-secondary flex-1 justify-center py-3">
+            Watch replay
+          </button>
+        )}
+        <button type="button" onClick={newGame} className="fp-btn-secondary flex-1 justify-center py-3">
+          New Mission
+        </button>
+        <DetailsToggle id="report" />
+      </div>
+
+      <DetailsPanel id="report">
+        <div className="space-y-6">
+          <Sheet className="p-5">
+          <div>
+            <div className="fp-label">Medals</div>
+          <ul className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-3">
+            {won.map((m, i) => (
+              <li key={m.id} title={m.how}>
+                {m.earned ? (
+                  <Stamp verdict={m.tone} size="sm" animate className={MEDAL_DELAY[i % MEDAL_DELAY.length]}>
+                    {m.name}
+                  </Stamp>
+                ) : (
+                  <Tag className="opacity-40">{m.name}</Tag>
+                )}
+                <Eng as="div" className="mt-1 max-w-[11rem] text-[10px] text-paper-faint">
+                  {m.how}
+                </Eng>
+              </li>
+            ))}
+          </ul>
+          </div>
+            <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-rule pt-4 sm:grid-cols-3">
+              <ScoreBars parts={SCORE_PARTS.filter((p) => !p.main)} report={report} />
+            </div>
+          </Sheet>
+
+          <ArtemisDebrief report={report} />
 
       {/* Decision -> Physics -> Outcome, as flight-plan line items */}
       <div className="space-y-3">
@@ -430,18 +460,6 @@ export function ReportScreen() {
         </div>
       </Sheet>
 
-      <div className="flex flex-wrap gap-3">
-        {currentReport && <RelaunchButton report={currentReport} />}
-        {currentReport && simState && simState.turnLogs.length > 0 && (
-          <button type="button" onClick={() => openReplay()} className="fp-btn-secondary flex-1 justify-center py-3">
-            Watch replay
-          </button>
-        )}
-        <button type="button" onClick={newGame} className="fp-btn-secondary flex-1 justify-center py-3">
-          New Mission
-        </button>
-      </div>
-
       <ShareCode />
 
       {runHistory.length > 1 && (
@@ -479,6 +497,8 @@ export function ReportScreen() {
           </div>
         </Sheet>
       )}
+        </div>
+      </DetailsPanel>
     </div>
   )
 }

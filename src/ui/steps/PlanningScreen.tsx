@@ -12,7 +12,8 @@ import { prefersReducedMotion } from '../../scene/space/quality'
 import type { ControlFocus } from '../../scene/ControlRoom'
 import { useDragStore } from '../interaction/dragStore'
 import { useDragPart, useDropTarget } from '../interaction/drag'
-import { Btn, Eng, LineItem, Sheet, STEP_QUESTION, StepHeader, stepNumber } from '../kit'
+import { Btn, Details, DetailsPanel, DetailsToggle, Eng, LineItem, Sheet, STEP_QUESTION, StepHeader, stepNumber } from '../kit'
+import { PLAN_DETAILS_ID } from '../../viz/planning/planningView'
 
 const ControlRoom = lazy(() => import('../../scene/ControlRoom').then((m) => ({ default: m.ControlRoom })))
 
@@ -350,7 +351,11 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
         </Sheet>
       </Eng>
 
-      {!hidden && <ScheduleAndReserveVisuals testMonths={p.testTurns} />}
+      {!hidden && (
+        <Details id={PLAN_DETAILS_ID} panelClassName="pt-3">
+          <ScheduleAndReserveVisuals testMonths={p.testTurns} />
+        </Details>
+      )}
 
       <Sheet className="p-5">
         <LineItem n={`${N}.4`} label={<label htmlFor="planning-test">Test time</label>} aside={<Eng>0.4 M per test month</Eng>} />
@@ -449,61 +454,28 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
   )
 }
 
-function PlanningQuickHudOverlay({ onFocus }: { onFocus: (f: ControlFocus) => void }) {
-  const design = useGameStore((s) => s.design)
-  const updateDesign = useGameStore((s) => s.updateDesign)
-  const difficulty = useGameStore((s) => s.difficulty)
-  const setPreviewPatch = useUiStore((s) => s.setPreviewPatch)
-  const odds = usePlanningOdds(design, difficulty)
-  const p = design.planning
-  const set = (patch: Partial<typeof p>) => updateDesign({ planning: { ...p, ...patch } })
-  const chance = odds?.test?.[p.testTurns]
-
+/**
+ * Over the 3D room: the desk's knob and fader are the only controls (Jakob, 15 Nov: "remove the panel at
+ * the bottom that duplicates the desk controls"; the desk readouts already show the chance of full
+ * success). Keyboard and screen-reader users reach the same two values through PlanningControls' range
+ * inputs, which light up the matching desk control when focused. What stays here: the Details toggle in
+ * the corner beside the desk and the Details panel above the desk (schedule wall, reserve box, and the
+ * "what this choice changed" line, which would otherwise sit over the desk's own readouts).
+ */
+function PlanningQuickHudOverlay() {
+  const testMonths = useGameStore((s) => s.design.planning.testTurns)
   return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-3 flex flex-col items-center gap-2">
-      <div className="pointer-events-auto w-full max-w-4xl">
-        <ScheduleAndReserveVisuals testMonths={p.testTurns} compact />
+    <>
+      <div className="pointer-events-auto absolute right-3 bottom-3">
+        <DetailsToggle id={PLAN_DETAILS_ID} />
       </div>
-      <DesignDeltaLine className="pointer-events-auto max-w-3xl" />
-      <Sheet className="pointer-events-auto flex w-full max-w-4xl flex-wrap items-end justify-between gap-4 px-4 py-3">
-        <div className="space-y-1.5">
-          <div className="fp-label text-[10px] text-paper-faint">{N}.4 Test blocks (drag onto schedule)</div>
-          <Segmented
-            field="test"
-            ariaLabel="Test months"
-            options={TEST_MONTH_OPTIONS}
-            unit={(v) => `${v} mo`}
-            current={p.testTurns}
-            planning={p}
-            oddsByValue={odds?.test}
-            onPick={(v) => set({ testTurns: v })}
-            onHover={(v) => setPreviewPatch(v === null ? null : { planning: { ...p, testTurns: v } })}
-            onFocusField={onFocus}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <div className="fp-label text-[10px] text-paper-faint">{N}.5 Reserve coins (drag into box)</div>
-          <Segmented
-            field="reserve"
-            ariaLabel="Budget reserve"
-            options={RESERVE_OPTIONS}
-            unit={(v) => `${v}%`}
-            recommended={turnConstants.recommendedReservePercent}
-            current={p.reservePercent}
-            planning={p}
-            oddsByValue={odds?.reserve}
-            onPick={(v) => set({ reservePercent: v })}
-            onHover={(v) => setPreviewPatch(v === null ? null : { planning: { ...p, reservePercent: v } })}
-            onFocusField={onFocus}
-          />
-        </div>
-        {chance !== undefined && (
-          <div aria-hidden="true" className="fp-data text-sm text-paper">
-            {`Chance of full success: about ${percent(chance)}`}
-          </div>
-        )}
-      </Sheet>
-    </div>
+      <div className="pointer-events-none absolute inset-x-3 bottom-14 flex justify-center">
+        <DetailsPanel id={PLAN_DETAILS_ID} className="pointer-events-auto w-full max-w-4xl">
+          <ScheduleAndReserveVisuals testMonths={testMonths} compact />
+          <DesignDeltaLine className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 border border-rule bg-ink-1/95 px-3 py-2 text-xs" />
+        </DetailsPanel>
+      </div>
+    </>
   )
 }
 
@@ -564,7 +536,7 @@ export function PlanningScreen() {
         </Suspense>
       </RoomBoundary>
       <PlanningControls hidden onFocus={setFocus} />
-      <PlanningQuickHudOverlay onFocus={setFocus} />
+      <PlanningQuickHudOverlay />
       <StepButtons overlay />
     </div>
   )

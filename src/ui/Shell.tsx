@@ -5,7 +5,6 @@ import { buildingForStep } from '../viz/missionMap'
 import type { BuildingId } from '../data/agency'
 import type { DesignStep } from '../sim/types'
 import { Header } from './Header'
-import { MissionVitalityCluster } from './hud/MissionVitalityCluster'
 
 export type BuildingRole = 'ground' | 'science' | 'space' | 'launch'
 
@@ -53,9 +52,6 @@ export function Shell({ children }: ShellProps) {
         >
           {children}
         </main>
-
-        {/* Full-Fidelity Mission Vitality HUD Dialog (toggled via HUD button or 'H') */}
-        {showDesignUI && <MissionVitalityCluster />}
       </div>
     </div>
   )

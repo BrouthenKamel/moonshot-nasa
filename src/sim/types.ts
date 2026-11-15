@@ -165,6 +165,8 @@ export interface CheckResult {
   margin: number
   unit: string
   reason: string
+  /** One short line for the Go/No-Go card when the reason needs its numbers to be read; the reason sits behind Details */
+  headline?: string
   fixStep?: DesignStep
 }
 

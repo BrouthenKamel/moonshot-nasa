@@ -15,6 +15,18 @@ export const PLANNING_BUILDING = buildings.find((x) => x.id === 'comms-center')?
  * two limits: the array in full sun minus the bus, and the power left averaged over the orbit (shadow
  * and radio time). The sentence names whichever one stops the instruments, with at most three numbers.
  */
+/** The power row's one line: which limit stops the instruments, no numbers (screen budget) */
+export function powerHeadline(b: Budgets): string {
+  const leftInSun = b.powerGenerated - b.busPower
+  if (b.scienceDuty <= 0) {
+    if (leftInSun <= 0) return 'The array cannot even carry the bus'
+    if (b.observingShare <= 0) return 'This orbit never passes over the pole'
+    return 'No power left for the instruments in this orbit’s shadow'
+  }
+  if (b.instrumentPower > 0 && leftInSun / b.instrumentPower <= b.scienceDuty + 1e-9) return 'The array is too small to run every instrument at once'
+  return 'Shadow and radio time leave the instruments part-time'
+}
+
 export function powerShortReason(b: Budgets): string {
   const pct = Math.round(b.scienceDuty * 100)
   const leftInSun = b.powerGenerated - b.busPower
@@ -50,9 +62,14 @@ function check(
   limit: number,
   unit: string,
   reason: string,
-  fixStep?: DesignStep
+  fixStep?: DesignStep,
+  headline?: string
 ): CheckResult {
-  return { resource, status, value, limit, margin: limit - value, unit, reason, fixStep: status === 'green' ? undefined : fixStep }
+  return {
+    resource, status, value, limit, margin: limit - value, unit, reason,
+    ...(headline && status !== 'green' ? { headline } : {}),
+    fixStep: status === 'green' ? undefined : fixStep,
+  }
 }
 
 /**
@@ -138,6 +155,7 @@ export function goNoGo(
   // Propulsion, ride and transfer: can the craft get into the science orbit at all?
   const need = (b.captureDeltaV ?? 0) + b.deltaVStationKeeping * turns
   let reason = ''
+  let headline: string | undefined
   let fix: DesignStep = 'spacecraft'
   if (!propulsion || propulsion.propellantMass <= 0) {
     status = 'red'
@@ -160,6 +178,7 @@ export function goNoGo(
     fix = 'orbit'
   } else if (b.thrustLevel === 0) {
     status = 'red'
+    headline = 'The array is too small to run the ion engine'
     reason = `The ion engine needs ${propulsion.minThrustPower} W. While thrusting it may use three quarters of the ${b.powerGenerated} W array, and the bus takes its share of that first: ${Math.max(0, b.thrustPower).toFixed(0)} W are left for the engine. Fit the large solar array.`
   } else if (b.deltaVAvailable < b.captureDeltaV) {
     status = 'red'
@@ -175,18 +194,22 @@ export function goNoGo(
           : `${(b.deltaVAvailable - need).toFixed(0)} m/s to spare after capture and ${turns} months of upkeep.`
     fix = 'orbit'
   }
-  checks.push(check('Delta-v', status, need, b.deltaVAvailable, 'm/s', reason, fix))
+  checks.push(check('Delta-v', status, need, b.deltaVAvailable, 'm/s', reason, fix, headline))
+  headline = undefined
 
   // Power
   if (b.scienceDuty <= 0) {
     status = 'red'
     reason = powerZeroReason(b)
+    headline = powerHeadline(b)
   } else if (!b.batteryOk) {
     status = 'red'
+    headline = 'The battery cannot get through each eclipse'
     reason = `Each orbit has an eclipse that needs ${b.batteryNeedWh.toFixed(0)} Wh; the battery gives ${b.batteryUsableWh.toFixed(0)} Wh. Fit a larger battery or choose an orbit with less shadow.`
   } else if (b.scienceDuty < 1) {
     status = 'yellow'
     reason = powerShortReason(b)
+    headline = powerHeadline(b)
   } else if (!b.batteryLongOk) {
     status = 'yellow'
     reason = `The battery cannot carry the bus through a long eclipse: ${C.longEclipseHours} hours of shadow need ${b.batteryLongNeedWh.toFixed(0)} Wh, the battery gives ${b.batteryUsableWh.toFixed(0)} Wh. Science stops in those months.`
@@ -194,7 +217,8 @@ export function goNoGo(
     status = 'green'
     reason = `Instruments can run all the time; the battery covers the eclipses.`
   }
-  checks.push(check('Power', status, b.powerConsumed, b.powerGenerated, 'W', reason, 'spacecraft'))
+  checks.push(check('Power', status, b.powerConsumed, b.powerGenerated, 'W', reason, 'spacecraft', headline))
+  headline = undefined
 
   // Comms
   fix = 'comms'

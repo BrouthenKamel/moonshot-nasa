@@ -7,6 +7,9 @@ import type { Budgets, CheckResult, Design } from '../../sim/types'
  * from the game's own budgets and Go/No-Go checks (one source of truth).
  */
 
+/** The Details control the Plan screen and its big screen share (src/ui/kit/Details.tsx) */
+export const PLAN_DETAILS_ID = 'plan'
+
 export type StatusLevel = 'nominal' | 'caution' | 'alert'
 
 export interface CostBlock {

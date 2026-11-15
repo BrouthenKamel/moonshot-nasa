@@ -9,7 +9,8 @@ import { computeBudgets } from '../sim/budgets'
 import { goNoGo } from '../sim/checks'
 import { Effects } from './space/Effects'
 import { usePlanningOdds } from '../ui/useOdds'
-import { buildPlanningView, type PlanningView } from '../viz/planning/planningView'
+import { useDetailsOpen } from '../ui/kit/detailsState'
+import { buildPlanningView, PLAN_DETAILS_ID, type PlanningView } from '../viz/planning/planningView'
 import { paintScreen, SCREEN_W, SCREEN_H, type ScreenAnim } from '../viz/planning/screenPainter'
 import { paintConsole, CONSOLE, STEP_LAMPS } from '../viz/planning/consolePainter'
 import {
@@ -224,7 +225,7 @@ function Room() {
 
 const ALERT_LEVEL = { nominal: 0, caution: 1, alert: 2 } as const
 
-function BigScreen({ view, reduced }: { view: PlanningView; reduced: boolean }) {
+function BigScreen({ view, reduced, detail }: { view: PlanningView; reduced: boolean; detail: boolean }) {
   const screen = useMemo(() => makeCanvasTexture(SCREEN_W, SCREEN_H), [])
   const anim = useRef<ScreenAnim>({
     time: 0,
@@ -250,7 +251,7 @@ function BigScreen({ view, reduced }: { view: PlanningView; reduced: boolean }) 
 
   useEffect(() => {
     dirty.current = true
-  }, [view])
+  }, [view, detail])
   useEffect(() => () => screen.texture.dispose(), [screen])
 
   useFrame((state, delta) => {
@@ -286,7 +287,7 @@ function BigScreen({ view, reduced }: { view: PlanningView; reduced: boolean }) 
 
     // Repaint only while something on the screen changes
     if (moving || blinking || dirty.current) {
-      paintScreen(screen.ctx, view, a)
+      paintScreen(screen.ctx, view, a, { detail })
       screen.texture.needsUpdate = true
       dirty.current = false
     }
@@ -560,6 +561,8 @@ export function ControlRoom({ focus }: { focus: ControlFocus }) {
   const view = usePlanningView()
   const dragging = useRef(false)
   const reduced = useMemo(() => prefersReducedMotion(), [])
+  // The Plan screen's Details control also decides how much the big screen shows
+  const detail = useDetailsOpen(PLAN_DETAILS_ID)
   return (
     <Canvas
       className="!absolute inset-0"
@@ -573,7 +576,7 @@ export function ControlRoom({ focus }: { focus: ControlFocus }) {
       <SeatCamera dragging={dragging} reduced={reduced} />
       <Room />
       <OperatorRows />
-      <BigScreen view={view} reduced={reduced} />
+      <BigScreen view={view} reduced={reduced} detail={detail} />
       <Console view={view} focus={focus} onDragChange={(d) => (dragging.current = d)} />
       <Effects preset="interior" />
     </Canvas>
