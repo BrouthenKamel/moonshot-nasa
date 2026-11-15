@@ -12,7 +12,7 @@ import { prefersReducedMotion } from '../../scene/space/quality'
 import type { ControlFocus } from '../../scene/ControlRoom'
 import { useDragStore } from '../interaction/dragStore'
 import { useDragPart, useDropTarget } from '../interaction/drag'
-import { Btn, Details, DetailsPanel, DetailsToggle, Eng, LineItem, Sheet, STEP_QUESTION, StepHeader, stepNumber } from '../kit'
+import { Btn, Details, DetailsPanel, DetailsToggle, Eng, LineItem, Sheet, STEP_QUESTION, StepHeader, nextLabel, stepNumber, stepTitle } from '../kit'
 import { PLAN_DETAILS_ID } from '../../viz/planning/planningView'
 
 const ControlRoom = lazy(() => import('../../scene/ControlRoom').then((m) => ({ default: m.ControlRoom })))
@@ -340,7 +340,7 @@ function PlanningControls({ hidden, onFocus }: { hidden: boolean; onFocus: (f: C
 
   return (
     <div className={hidden ? 'sr-only' : 'mx-auto max-w-3xl space-y-4'}>
-      <StepHeader step="planning" kicker="Comms Center" title="Mission planning" />
+      <StepHeader step="planning" kicker="Comms Center" title={stepTitle('planning')} />
 
       <Eng as="div" className="block">
         <Sheet tone="flat" className="p-4">
@@ -488,7 +488,7 @@ function StepButtons({ overlay }: { overlay: boolean }) {
   )
   const next = (
     <Btn variant="primary" type="button" onClick={() => setDesignStep('instruments')}>
-      Select instruments →
+      {nextLabel('planning')}
     </Btn>
   )
   if (overlay)
@@ -499,7 +499,7 @@ function StepButtons({ overlay }: { overlay: boolean }) {
           <Sheet tone="inset" className="px-4 py-2 text-center">
             <div className="flex items-baseline justify-center gap-2">
               <span className="fp-data text-xs text-paper-faint">{String(N).padStart(2, '0')}</span>
-              <span className="fp-display text-base text-paper">Mission planning</span>
+              <span className="fp-display text-base text-paper">{stepTitle('planning')}</span>
             </div>
             <div className="text-xs text-paper-dim">{STEP_QUESTION.planning}</div>
           </Sheet>

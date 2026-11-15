@@ -14,7 +14,7 @@ import { POLL_TIMING, pollEnd } from '../../viz/gonogo/pollEnd'
 import { InlineCaptions } from '../kit/Captions'
 import { fixLocation } from '../../viz/missionMap'
 import { checkHeadline } from '../../viz/gonogo/checkHeadline'
-import { Details, Eng, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
+import { Details, Eng, Stamp, Tag, stepTitle, type StampVerdict, type TagTone } from '../kit'
 import { Tooltip } from '../Tooltip'
 import { goCall } from './gonogo/headline'
 import { useSuccessEstimate } from '../useOdds'
@@ -435,7 +435,7 @@ export function GoNoGoScreen() {
   return (
     <div className="grid h-full min-h-[560px] grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_minmax(0,1fr)] gap-x-4 gap-y-3 overflow-hidden p-4">
       <div className="col-start-1 row-start-1 flex min-w-0 flex-col gap-3">
-        <h2 className="fp-label text-[0.7rem] tracking-[0.16em] text-paper">Go / No-Go poll · each station answers for its checks</h2>
+        <h2 className="fp-label text-[0.7rem] tracking-[0.16em] text-paper">{stepTitle('go-nogo')} · each station answers for its checks</h2>
         <div className="grid grid-cols-4 gap-3">
           {st.map((s, i) => (
             <PollLamp key={s.role} station={s} run={run} active={step === i} stamp={step === null ? 'static' : step >= i ? 'thunk' : 'none'} />

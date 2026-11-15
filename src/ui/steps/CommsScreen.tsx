@@ -10,6 +10,7 @@ import type { Budgets, Design } from '../../sim/types'
 type DesignPatch = Partial<Design>
 import { hoursAfterSwitch } from './comms/hours'
 import { PickRow, PickTile, SignalPath, type PickTone } from './comms/CommsPick'
+import { nextLabel, stepTitle } from '../kit/stepNumbers'
 import { PlanChecks, PlanHeadline, PlanMeter, PlanNav, PlanOdds, PlanPanel, PlanRow, PlanRows } from './plan/PlanPanel'
 
 /*
@@ -176,7 +177,7 @@ export function CommsScreen() {
       </div>
 
       <PlanPanel>
-        <PlanHeadline kicker="Communications · data home" value={Math.round(b.downlinkPerTurn).toLocaleString('en-US')} unit="MB/month" line={line} />
+        <PlanHeadline kicker={stepTitle('comms')} value={Math.round(b.downlinkPerTurn).toLocaleString('en-US')} unit="MB/month" line={line} />
         <PlanMeter label="Of the data made, gets home" pct={share} tone={tone} />
         <PlanRows>
           <PlanRow label="Link" value={b.linkKbps > 0 ? `${b.linkKbps} kbps` : 'none'} tone={b.linkKbps > 0 ? undefined : 'red'} />
@@ -193,7 +194,7 @@ export function CommsScreen() {
         />
         <PlanChecks checks={commsChecks} />
         <PlanOdds />
-        <PlanNav back={{ label: '← Back', to: 'ride' }} next={{ label: 'Launch review →', to: 'go-nogo' }} />
+        <PlanNav back={{ label: '← Back', to: 'ride' }} next={{ label: nextLabel('comms'), to: 'go-nogo' }} />
       </PlanPanel>
     </div>
   )

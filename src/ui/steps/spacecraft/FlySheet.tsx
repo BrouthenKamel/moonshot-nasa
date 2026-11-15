@@ -33,8 +33,9 @@ function flyVerdict(view: BayView): { verdict: StampVerdict; word: string } {
 }
 
 /**
- * "Does it fly?": one needle per margin the Factory can turn red, and one stamp.
- * Story view: needles, words and the stamp. Engineer view adds each row's numbers and reason.
+ * "Does it fly?": one stamp, and a needle only for the margins that are red or tight (or would turn
+ * so under the hovered part). The rest fold into one "all OK" line. Engineer view adds each shown
+ * row's numbers and reason.
  */
 export function FlySheet({ view, preview, className = '' }: { view: BayView; preview?: BayView | null; className?: string }) {
   const v = flyVerdict(view)
@@ -42,6 +43,8 @@ export function FlySheet({ view, preview, className = '' }: { view: BayView; pre
     const p = preview?.rows.find((x) => x.key === r.key)
     return p ? { value: p.value, status: p.tone } : null
   }
+  const shown = view.rows.filter((r) => r.tone !== 'green' || (ghost(r)?.status ?? 'green') !== 'green')
+  const okCount = view.rows.length - shown.length
   return (
     <Sheet className={`p-3 ${className}`}>
       <div className="flex items-center justify-between gap-2 border-b border-rule pb-2">
@@ -50,17 +53,31 @@ export function FlySheet({ view, preview, className = '' }: { view: BayView; pre
           {v.word}
         </Stamp>
       </div>
-      <ul className="mt-2.5 space-y-2.5">
-        {view.rows.map((r) => (
-          <li key={r.key} title={r.reason || r.title}>
-            <MarginTick label={LABEL[r.key]} value={r.value} limit={r.limit} unit={UNIT[r.key]} status={r.tone} preview={ghost(r)} />
-            <Eng as="div" className="mt-0.5 fp-data text-[10.5px] text-paper-dim">
-              {r.text}
-              {r.tone !== 'green' && r.reason && <span className="block text-paper-faint">{r.reason}</span>}
-            </Eng>
-          </li>
-        ))}
-      </ul>
+      {shown.length > 0 && (
+        <ul className="mt-2.5 space-y-2.5">
+          {shown.map((r) => (
+            <li key={r.key} title={r.reason || r.title}>
+              <MarginTick label={LABEL[r.key]} value={r.value} limit={r.limit} unit={UNIT[r.key]} status={r.tone} preview={ghost(r)} />
+              <Eng as="div" className="mt-0.5 fp-data text-[10.5px] text-paper-dim">
+                {r.text}
+                {r.tone !== 'green' && r.reason && <span className="block text-paper-faint">{r.reason}</span>}
+              </Eng>
+            </li>
+          ))}
+        </ul>
+      )}
+      {okCount > 0 && (
+        <p
+          className="mt-2 text-xs text-paper-dim"
+          data-testid="fly-all-ok"
+          title={view.rows
+            .filter((r) => !shown.includes(r))
+            .map((r) => LABEL[r.key])
+            .join(', ')}
+        >
+          {shown.length === 0 ? `All ${view.rows.length} checks OK.` : `${okCount === 1 ? 'The other check' : `The other ${okCount}`}: all OK.`}
+        </p>
+      )}
     </Sheet>
   )
 }

@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import { canUseWebGL } from '../../scene/webgl'
 import { getPartById, type PropulsionPart } from '../../data/parts'
@@ -11,13 +11,20 @@ import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { trayGroups, type TrayKey } from '../../viz/spacecraft/trayOptions'
 import { TONE_COLORS } from '../../viz/spacecraft/boardPainter'
 import type { ViewPreset } from '../../scene/spacecraft/SpacecraftStage'
-import { Eng, Sheet, Stamp } from '../kit'
+import { Btn, Eng, STEP_NAMES, Sheet, Stamp, nextLabel, stepTitle } from '../kit'
+import { normalizeRocket, rocketExplainer, type ExplainerItem } from '../../viz/rocket/rocketView'
+import type { RocketFocus } from '../../scene/rocket/RocketBay'
+import { prefersReducedMotion } from '../../scene/space/quality'
+import { interceptStepLeave } from '../interaction/stepLeave'
+import type { DesignStep } from '../../sim/types'
+import { hasSeenRocketLoad, markRocketLoadSeen } from './spacecraft/rocketLoadSeen'
 import { PartsTray, FactStrip, type ActiveOption } from './spacecraft/PartsTray'
 import { BoardText } from './spacecraft/BoardText'
 import { FlySheet } from './spacecraft/FlySheet'
 import { SceneTitle } from './launch/SceneTitle'
 
 const SpacecraftStage = lazy(() => import('../../scene/spacecraft/SpacecraftStage').then((m) => ({ default: m.SpacecraftStage })))
+const RocketBay = lazy(() => import('../../scene/rocket/RocketBay').then((m) => ({ default: m.RocketBay })))
 
 /** Falls back to the plain board if the 3D bay throws. */
 class BayBoundary extends Component<{ children: ReactNode; onError: () => void }, { failed: boolean }> {
@@ -130,10 +137,186 @@ function PowerBudgetSplitBar() {
   )
 }
 
+/** The camera and display controls of the bay, folded behind one "Look around" button */
+function LookAround({
+  preset,
+  setPreset,
+  deployed,
+  toggleDeployed,
+  panels,
+  togglePanels,
+  sunLamp,
+  toggleSunLamp,
+  integrated,
+  explode,
+  setExplode,
+}: {
+  preset: ViewPreset
+  setPreset: (v: ViewPreset) => void
+  deployed: boolean
+  toggleDeployed: () => void
+  panels: boolean
+  togglePanels: () => void
+  sunLamp: boolean
+  toggleSunLamp: () => void
+  integrated: boolean
+  explode: number
+  setExplode: (x: number) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: PointerEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false)
+    }
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('pointerdown', close)
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.removeEventListener('pointerdown', close)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [open])
+  const ghost = (on: boolean) => `fp-btn-ghost justify-start ${on ? '!bg-ink-3 !text-kapton' : ''}`
+  return (
+    <div ref={box} className="flex flex-col items-start gap-2">
+      <Btn
+        variant="secondary"
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        data-testid="look-around"
+        className={`bg-ink-1 ${open ? '!border-kapton !text-kapton' : ''}`}
+      >
+        Look around {open ? '▴' : '▾'}
+      </Btn>
+      {open && (
+        <Sheet tone="flat" className="flex w-40 flex-col bg-ink-1/95 p-1">
+          <div role="group" aria-label="Camera" className="flex flex-col">
+            {VIEWS.map((v) => (
+              <button key={v.id} type="button" onClick={() => setPreset(v.id)} aria-pressed={preset === v.id} className={ghost(preset === v.id)}>
+                {v.label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-1 flex flex-col border-t border-rule pt-1">
+            <button type="button" onClick={toggleDeployed} aria-pressed={deployed} className={ghost(false)}>
+              {deployed ? 'Fold wings' : 'Deploy wings'}
+            </button>
+            <button type="button" onClick={togglePanels} aria-pressed={panels} className={ghost(panels)} data-testid="close-panels">
+              {panels ? 'Open the panels' : 'Close the panels'}
+            </button>
+            <button type="button" onClick={toggleSunLamp} aria-pressed={sunLamp} className={ghost(sunLamp)} data-testid="sun-lamp">
+              Sun lamp: {sunLamp ? 'On' : 'Off'}
+            </button>
+            {integrated && (
+              <div className="px-2 py-1">
+                <Stamp verdict="go" size="sm" animate>
+                  INTEGRATED
+                </Stamp>
+              </div>
+            )}
+            <label className="flex flex-col gap-1 px-2 py-1.5">
+              <span className="fp-label text-[0.62rem] text-paper-faint">Exploded view</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={explode}
+                onChange={(e) => setExplode(Number(e.target.value))}
+                className="tactical-range w-full"
+                aria-label="Exploded view"
+              />
+            </label>
+          </div>
+        </Sheet>
+      )}
+    </div>
+  )
+}
+
+/** The rocket explained, part by part: chips along the bottom, the picked one's words above them */
+function RocketExplainer({ items, focus, onFocus, loading }: { items: ExplainerItem[]; focus: RocketFocus; onFocus: (f: RocketFocus) => void; loading: boolean }) {
+  const shown = items.find((i) => i.id === focus)
+  return (
+    // the left gutter keeps the chips clear of the CAPCOM card in the bottom-left corner
+    <div className="space-y-2 border-t border-rule bg-ink-1 px-3 pt-2 pb-3 md:pl-52" data-testid="rocket-explainer">
+      <div className="min-h-[3.4rem] px-1 text-xs leading-snug text-paper-dim" aria-live="polite">
+        {loading ? (
+          <span>Your CubeSat, sealed in its deployer, is lifted up beside the rocket and lowered into the payload fairing at the top.</span>
+        ) : shown ? (
+          <>
+            <span className="font-semibold text-paper">
+              {shown.title}: {shown.label}.
+            </span>{' '}
+            {shown.what}
+            {shown.example && <span className="block text-paper-faint">{shown.example}</span>}
+          </>
+        ) : (
+          <span>
+            This is the standard rocket your CubeSat rides to space. Pick a part, here or on the rocket, to see what it does. Nothing to choose:
+            the launch provider flies it.
+          </span>
+        )}
+      </div>
+      <div role="group" aria-label="Parts of the rocket" className="flex flex-wrap gap-1.5">
+        {items.map((i) => (
+          <button
+            key={i.id}
+            type="button"
+            disabled={loading}
+            onClick={() => onFocus(i.id)}
+            aria-pressed={focus === i.id}
+            className={`fp-btn-ghost border border-rule px-2.5 py-1 text-xs disabled:opacity-40 ${focus === i.id ? '!border-kapton !bg-ink-3 !text-kapton' : ''}`}
+          >
+            {i.id === 'payload' ? i.label : i.title}
+          </button>
+        ))}
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => onFocus('whole')}
+          aria-pressed={focus === 'whole'}
+          className={`fp-btn-ghost border border-rule px-2.5 py-1 text-xs disabled:opacity-40 ${focus === 'whole' ? '!border-kapton !bg-ink-3 !text-kapton' : ''}`}
+        >
+          Whole rocket
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** The plain-text rocket explainer, when there is no WebGL */
+function RocketText({ items }: { items: ExplainerItem[] }) {
+  return (
+    <div className="mx-auto max-w-2xl space-y-3 p-6 pt-16 text-paper">
+      <Sheet className="space-y-2 p-4">
+        <div className="fp-label text-kapton">Inside the rocket, top to bottom</div>
+        {items.map((i) => (
+          <div key={i.id} className="border-b border-rule pb-1.5 text-sm">
+            <span className="font-semibold">
+              {i.title}: {i.label}.
+            </span>{' '}
+            <span className="text-paper-dim">{i.what}</span>
+          </div>
+        ))}
+      </Sheet>
+    </div>
+  )
+}
+
+/** Building the craft; the carry into the rocket; the craft inside the rocket, explained */
+type Phase = 'build' | 'loading' | 'inside'
+
 /**
- * Step 4 in the Factory: the assembly bay. The 6U craft hovers over a turntable, built from real
- * hardware models, and every choice changes it; the sheet on the right asks the one question:
- * does it fly?
+ * The Craft step, in the Factory: the 6U craft hovers over a turntable, built from real hardware
+ * models, with the launch rocket standing behind it as a scale model. The sheet on the right asks
+ * the one question: does it fly? When it is done, the craft is carried into the rocket's fairing
+ * and the rocket is explained part by part. The rocket is the standard one: nothing to choose.
  */
 export function SpacecraftScreen() {
   const design = useGameStore((s) => s.design)
@@ -142,6 +325,8 @@ export function SpacecraftScreen() {
   const { view, preview, budgets } = useBayView()
   const groups = useMemo(() => trayGroups(budgets), [budgets])
   const craft = useMemo(() => buildCraft(design), [design])
+  const rocket = useMemo(() => normalizeRocket(design.rocket).config, [design.rocket])
+  const explainer = useMemo(() => rocketExplainer(rocket), [rocket])
   const { previewBudgets } = useDesignPreview()
   const activeBudgets = previewBudgets ?? budgets
   const [room, setRoom] = useState(canUseWebGL)
@@ -155,6 +340,65 @@ export function SpacecraftScreen() {
   const [preset, setPreset] = useState<ViewPreset>('closeup')
   const [hoverSlot, setHoverSlot] = useState<CraftSlot | null>(null)
   const [pickedSlot, setPickedSlot] = useState<CraftSlot | null>(null)
+  const [phase, setPhase] = useState<Phase>('build')
+  const [focus, setFocus] = useState<RocketFocus>('payload')
+  const [seen, setSeen] = useState(hasSeenRocketLoad)
+  /** Where the player is headed once the craft is in the rocket */
+  const [exitTo, setExitTo] = useState<DesignStep>('orbit')
+
+  /**
+   * Leaving the Craft step loads the craft into the rocket on the way out, then shows the rocket
+   * explained, before the next step opens. The first time it plays in full, whichever way the
+   * player leaves. After that, "Next" plays a quicker carry that one click or Esc skips, and a tab
+   * jump goes straight through, so moving between tabs never gets in the way.
+   */
+  const leave = (to: DesignStep, via: 'next' | 'tab'): boolean => {
+    if (seen && via === 'tab') return false
+    audio.play('sfx.select')
+    setExitTo(to)
+    setFocus('payload')
+    // No 3D, or the player asked for less motion: straight to the craft inside the rocket
+    setPhase(room && !prefersReducedMotion() ? 'loading' : 'inside')
+    return true
+  }
+  const goOn = () => setDesignStep(exitTo)
+  const loaded = () => {
+    markRocketLoadSeen()
+    setSeen(true)
+    setPhase('inside')
+  }
+
+  // The dock's tabs ask this step before they move on (see stepLeave.ts); refs keep the latest state
+  const leaveRef = useRef(leave)
+  const phaseRef = useRef(phase)
+  useEffect(() => {
+    leaveRef.current = leave
+    phaseRef.current = phase
+  })
+  useEffect(
+    () =>
+      interceptStepLeave((to) => {
+        if (to === 'spacecraft' || to === 'rocket') return false
+        // Already in the carry or the explainer: a tab goes straight there
+        if (phaseRef.current !== 'build') return false
+        return leaveRef.current(to, 'tab')
+      }),
+    [],
+  )
+
+  // Esc skips straight on: during a repeat carry, or from the explainer
+  const goOnRef = useRef(goOn)
+  useEffect(() => {
+    goOnRef.current = goOn
+  })
+  useEffect(() => {
+    if (phase === 'build' || (phase === 'loading' && !seen)) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') goOnRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [phase, seen])
 
   const togglePanels = () => {
     const closing = !panels
@@ -195,7 +439,60 @@ export function SpacecraftScreen() {
   const instruments = design.instruments.map((id) => getPartById(id)?.name ?? id)
   const radio = getPartById(design.radio)?.name ?? design.radio
 
-  const ghost = (on: boolean) => `fp-btn-ghost justify-start ${on ? '!bg-ink-3 !text-kapton' : ''}`
+  if (phase !== 'build') {
+    const loading = phase === 'loading'
+    return (
+      <div className="flex h-full min-h-[560px] w-full flex-col bg-ink-0" data-testid="craft-in-rocket">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          {room ? (
+            <BayBoundary onError={() => setRoom(false)}>
+              <Suspense fallback={<div className="flex h-full items-center justify-center text-paper-faint">Opening the rocket hall…</div>}>
+                <RocketBay
+                  config={rocket}
+                  activeSlot={focus === 'payload' || focus === 'whole' ? null : focus}
+                  onSlotHover={() => {}}
+                  onSlotClick={(slot) => !loading && setFocus(slot)}
+                  payload={loading ? 'loading' : 'inside'}
+                  speed={seen ? 2.5 : 1}
+                  focus={focus}
+                  onLoaded={loaded}
+                />
+              </Suspense>
+            </BayBoundary>
+          ) : (
+            <div className="h-full overflow-auto">
+              <RocketText items={explainer} />
+            </div>
+          )}
+
+          <div className="pointer-events-none absolute top-3 left-1/2 z-10 hidden -translate-x-1/2 md:block">
+            <SceneTitle step="spacecraft" title={`${STEP_NAMES.spacecraft}: into the rocket`} question="What carries the craft to space, and where does it ride?" />
+          </div>
+
+          <div className="absolute top-3 left-3 z-10 flex flex-col items-start gap-2">
+            <button type="button" onClick={() => setPhase('build')} className="tactical-btn-back bg-ink-1">
+              ← Back to the craft
+            </button>
+          </div>
+
+          <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-2">
+            {loading ? (
+              seen && (
+                <Btn variant="secondary" type="button" onClick={goOn} className="bg-ink-1" data-testid="skip-load" title="Skip (Esc)">
+                  Skip to {STEP_NAMES[exitTo]} ▸▸
+                </Btn>
+              )
+            ) : (
+              <button type="button" onClick={goOn} className="tactical-btn-next" data-testid="explainer-next">
+                {`Next: ${STEP_NAMES[exitTo]} →`}
+              </button>
+            )}
+          </div>
+        </div>
+        <RocketExplainer items={explainer} focus={focus} onFocus={setFocus} loading={loading} />
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full min-h-[560px] w-full flex-col bg-ink-0">
@@ -219,6 +516,7 @@ export function SpacecraftScreen() {
                 propellantMassKg={activeBudgets.propellantMass}
                 sunLamp={sunLamp}
                 selected={selected}
+                rocket={rocket}
                 onHover={setHoverSlot}
                 onSelect={(slot) => {
                   setPickedSlot(slot)
@@ -236,62 +534,39 @@ export function SpacecraftScreen() {
 
         {room && (
           <div className="pointer-events-none absolute top-3 left-1/2 z-10 hidden -translate-x-1/2 md:block">
-            <SceneTitle step="spacecraft" title="Spacecraft" />
+            <SceneTitle step="spacecraft" title={stepTitle('spacecraft')} />
+          </div>
+        )}
+        {room && (
+          <div className="pointer-events-none absolute right-[3%] bottom-1.5 z-10 bg-ink-1/85 px-1.5 py-0.5 fp-data text-[10px] text-paper-dim" data-testid="model-rocket-caption">
+            Your ride (scale model) · the craft goes in the top
           </div>
         )}
 
         <div className="absolute top-3 left-3 z-10 flex flex-col items-start gap-2">
-          <button type="button" onClick={() => setDesignStep('rocket')} className="tactical-btn-back bg-ink-1">
+          <button type="button" onClick={() => setDesignStep('instruments')} className="tactical-btn-back bg-ink-1">
             ← Back
           </button>
           {room && (
-            <Sheet tone="flat" className="flex w-40 flex-col bg-ink-1/90 p-1">
-              <div role="group" aria-label="Camera" className="flex flex-col">
-                <span className="fp-label px-2 pt-1 pb-0.5 text-[0.62rem] text-paper-faint">Camera</span>
-                {VIEWS.map((v) => (
-                  <button key={v.id} type="button" onClick={() => setPreset(v.id)} aria-pressed={preset === v.id} className={ghost(preset === v.id)}>
-                    {v.label}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-1 flex flex-col border-t border-rule pt-1">
-                <button type="button" onClick={() => setDeployed((v) => !v)} aria-pressed={deployed} className={ghost(false)}>
-                  {deployed ? 'Fold wings' : 'Deploy wings'}
-                </button>
-                <button type="button" onClick={togglePanels} aria-pressed={panels} className={ghost(panels)} data-testid="close-panels">
-                  {panels ? 'Open the panels' : 'Close the panels'}
-                </button>
-                <button type="button" onClick={() => setSunLamp((v) => !v)} aria-pressed={sunLamp} className={ghost(sunLamp)} data-testid="sun-lamp">
-                  Sun lamp: {sunLamp ? 'On' : 'Off'}
-                </button>
-                {integrated && (
-                  <div className="px-2 py-1">
-                    <Stamp verdict="go" size="sm" animate>
-                      INTEGRATED
-                    </Stamp>
-                  </div>
-                )}
-                <label className="flex flex-col gap-1 px-2 py-1.5">
-                  <span className="fp-label text-[0.62rem] text-paper-faint">Exploded view</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={explode}
-                    onChange={(e) => setExplode(Number(e.target.value))}
-                    className="tactical-range w-full"
-                    aria-label="Exploded view"
-                  />
-                </label>
-              </div>
-            </Sheet>
+            <LookAround
+              preset={preset}
+              setPreset={setPreset}
+              deployed={deployed}
+              toggleDeployed={() => setDeployed((v) => !v)}
+              panels={panels}
+              togglePanels={togglePanels}
+              sunLamp={sunLamp}
+              toggleSunLamp={() => setSunLamp((v) => !v)}
+              integrated={integrated}
+              explode={explode}
+              setExplode={setExplode}
+            />
           )}
         </div>
 
         <div className="absolute top-3 right-3 z-10 flex w-64 flex-col items-end gap-3">
-          <button type="button" onClick={() => setDesignStep('orbit')} className="tactical-btn-next">
-            Select Orbit →
+          <button type="button" onClick={() => leave('orbit', 'next')} className="tactical-btn-next" data-testid="craft-next">
+            {nextLabel('spacecraft')}
           </button>
           {room && (
             <div className="w-full">

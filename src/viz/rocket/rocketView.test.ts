@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { assets } from '../../assets/manifest'
 import { BODY_RADIUS_M, DEFAULT_ROCKET, partsForSlot, rocketParts, rocketSlots } from '../../data/rocket'
-import { blockedReason, layoutRocket, normalizeRocket, optionsFor, pick, rocketChecks, rocketStats } from './rocketView'
+import { blockedReason, layoutRocket, normalizeRocket, optionsFor, pick, rocketChecks, rocketExplainer, rocketStats } from './rocketView'
 
 describe('rocket catalogue', () => {
   it('has a default that is made of real parts', () => {
@@ -92,5 +92,14 @@ describe('stats and checks', () => {
     expect(ok.every((c) => c.tone === 'green')).toBe(true)
     const odd = rocketChecks({ ...DEFAULT_ROCKET, stage2: 'none', nose: 'nose_capsule' })
     expect(odd.map((c) => c.tone)).toEqual(['yellow', 'yellow'])
+  })
+})
+
+describe('rocketExplainer', () => {
+  it('explains the payload first, then each part of the standard rocket from the top down', () => {
+    const items = rocketExplainer(DEFAULT_ROCKET)
+    expect(items.map((i) => i.id)).toEqual(['payload', 'nose', 'stage2', 'stage1', 'boosters', 'engine'])
+    expect(items.every((i) => i.what.length > 20)).toBe(true)
+    expect(items[1].label).toBe('Payload fairing')
   })
 })
