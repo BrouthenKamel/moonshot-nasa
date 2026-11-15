@@ -9,7 +9,7 @@ import { fillWhen } from '../../../sim/budgets'
 import { useDropTarget } from '../../interaction/drag'
 import type { Budgets, CheckResult, BarStatus } from '../../../sim/types'
 import { Eng, LineItem, Stamp, stepNumber, type StampVerdict } from '../../kit'
-import { aimIndexForKey } from './consoleControls'
+import { aimIndexForKey, dishPriceLine, dishTradeoff } from './consoleControls'
 
 const N = stepNumber('comms')
 
@@ -200,6 +200,7 @@ export function LinkConsole({
     groundStations.findIndex((g) => g.id === stationId),
   )
   const shownIdx = aimingIdx ?? currentIdx
+  const shownStation = groundStations[shownIdx]
   const dishPct = groundStations.length > 1 ? (shownIdx / (groundStations.length - 1)) * 100 : 50
 
   const handleAimDown = useCallback(
@@ -279,11 +280,16 @@ export function LinkConsole({
         <Portrait id={stationId} label="On Earth" caption={stationName} dropHandlers={globeDrop.handlers} dropState={globeDrop.state} />
       </div>
 
-      {/* Dish aim gimbal: drag handle across ground networks to aim at the Moon */}
-      <div className="mt-3 border border-rule bg-ink-1 px-3 py-2">
-        <div className="flex items-center justify-between gap-2 text-[11px]">
-          <span className="fp-label text-[10px] text-paper-faint">Dish aim on Earth</span>
-          <span className="fp-data text-paper-dim">{groundStations[shownIdx]?.name ?? stationName}</span>
+      {/* Dish size: the ground station, as a track from the smallest dish to the biggest. A bigger
+          dish carries more data but books fewer hours and costs more, so the row says both. */}
+      <div className="mt-3 border border-rule bg-ink-1 px-3 py-2" data-testid="dish-size">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[11px]">
+          <span className="fp-label text-[10px] text-paper-faint">Dish size</span>
+          {shownStation && (
+            <span className="fp-data text-paper-dim" data-testid="dish-tradeoff">
+              <span className="text-paper">{dishTradeoff(shownStation)}</span> · {dishPriceLine(budgets.groundCostPerTurn)}
+            </span>
+          )}
         </div>
         <div ref={aimRailRef} className="relative mt-2 h-7">
           <div className="pointer-events-none absolute inset-x-3 top-1/2 h-px -translate-y-1/2 bg-rule-strong" />
@@ -299,15 +305,32 @@ export function LinkConsole({
           </div>
           <button
             type="button"
+            role="slider"
             data-testid="dish-aim-handle"
-            aria-label={`Aim dish toward ground network (currently ${stationName}). Arrow keys to change.`}
+            aria-label="Dish size"
+            aria-valuemin={0}
+            aria-valuemax={groundStations.length - 1}
+            aria-valuenow={shownIdx}
+            aria-valuetext={shownStation ? `${shownStation.name}: ${dishTradeoff(shownStation)}, ${dishPriceLine(budgets.groundCostPerTurn)}` : stationName}
             onPointerDown={handleAimDown}
             onKeyDown={handleAimKey}
             style={{ left: `calc(12px + (100% - 24px) * ${dishPct / 100})`, touchAction: 'none' }}
-            className="absolute top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 cursor-grab border border-kapton bg-ink-2 px-2 py-0.5 fp-data text-[10px] font-semibold text-kapton hover:bg-kapton hover:text-kapton-ink active:cursor-grabbing"
+            className="absolute top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 cursor-grab whitespace-nowrap border border-kapton bg-ink-2 px-2 py-0.5 fp-data text-[10px] font-semibold text-kapton hover:bg-kapton hover:text-kapton-ink active:cursor-grabbing"
           >
-            ◎ Aim dish
+            ◎ {shownStation?.shortName ?? stationName}
           </button>
+        </div>
+        {/* The sizes on the track, from the station data */}
+        <div className="relative mx-3 mt-0.5 h-4 fp-data text-[10px] text-paper-faint" aria-hidden="true">
+          {groundStations.map((gs, idx) => (
+            <span
+              key={gs.id}
+              className={`absolute whitespace-nowrap ${idx === 0 ? '' : idx === groundStations.length - 1 ? '-translate-x-full' : '-translate-x-1/2'} ${idx === shownIdx ? 'text-paper' : ''}`}
+              style={{ left: `${groundStations.length > 1 ? (idx / (groundStations.length - 1)) * 100 : 50}%` }}
+            >
+              {gs.shortName}
+            </span>
+          ))}
         </div>
       </div>
 

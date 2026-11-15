@@ -40,6 +40,26 @@ describe('Comms screen cuts', () => {
     expect(html).not.toContain('Arrow keys to switch')
   })
 
+  it('names the dish size as a choice: the sizes on the track, the trade-off and the price', () => {
+    const html = render()
+    const row = html.slice(html.indexOf('data-testid="dish-size"'), html.indexOf('data-testid="contact-time"'))
+    expect(row).toContain('Dish size')
+    expect(row).not.toContain('Aim dish')
+    for (const label of ['University 4 m', 'Partner 21 m', 'DSN 34 m']) expect(row).toContain(label)
+    // The new design books the Partner 21 m dish for 1 h a day at $0.03M per hour
+    expect(row).toContain('64 kbps · up to 2 h a day')
+    expect(row).toContain('$0.03M a month')
+    expect(row).toMatch(/role="slider"[^>]*aria-label="Dish size"/)
+  })
+
+  it('keeps the station cards behind Details, so the dish size is the one control by default', () => {
+    const html = render()
+    const panel = html.slice(html.indexOf('data-testid="details-panel-comms-stations"'))
+    expect(html).toContain('data-testid="details-toggle-comms-stations"')
+    expect(panel).toContain('id="station-tray-title"')
+    expect(panel.slice(0, 400)).toContain('inert')
+  })
+
   it('shows one stat per radio and station card', () => {
     const html = render()
     const stats = (from: string, to: string) => {

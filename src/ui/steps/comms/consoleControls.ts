@@ -28,3 +28,14 @@ export function aimIndexForKey(key: string, current: number, count: number): num
   if (key === 'End') return last
   return null
 }
+
+/** What a dish size gives and what it limits, in the player's words: "64 kbps · up to 2 h a day" */
+export function dishTradeoff(station: { rateKbps: number; contactHoursPerDay: number }): string {
+  const hours = station.contactHoursPerDay <= 1 ? '1 hour a day at most' : `up to ${station.contactHoursPerDay} h a day`
+  return `${station.rateKbps} kbps · ${hours}`
+}
+
+/** The dish's running cost: "$0.03M a month" */
+export function dishPriceLine(costPerMonth: number): string {
+  return `$${costPerMonth.toFixed(2)}M a month`
+}

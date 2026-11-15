@@ -7,6 +7,7 @@ import { z } from 'zod'
 export const GroundStationSchema = z.object({
   id: z.string(),
   name: z.string(),
+  shortName: z.string(), // the label on the Comms console's dish-size track
   description: z.string(),
   rateKbps: z.number(), // with a patch antenna at lunar distance
   contactHoursPerDay: z.number(), // most hours a day you can book
@@ -21,6 +22,7 @@ export const groundStations: GroundStation[] = [
   {
     id: 'ground-small',
     name: "Team's Own Dish (about 4 m)",
+    shortName: 'University 4 m',
     description:
       'A small university dish. Cheap and yours all day, but at lunar distance it hears only 2 kbps.',
     rateKbps: 2,
@@ -33,6 +35,7 @@ export const groundStations: GroundStation[] = [
   {
     id: 'ground-medium',
     name: 'Partner 21 m Dish',
+    shortName: 'Partner 21 m',
     description:
       "A partner's large dish, like Morehead State's 21 m antenna that tracked Lunar IceCube. 64 kbps, up to 2 hours a day.",
     rateKbps: 64,
@@ -45,6 +48,7 @@ export const groundStations: GroundStation[] = [
   {
     id: 'ground-dsn',
     name: 'Deep Space Network, 34 m',
+    shortName: 'DSN 34 m',
     description:
       "NASA's Deep Space Network: 128 kbps and very reliable, but expensive and oversubscribed, so an hour a day at most.",
     rateKbps: 128,

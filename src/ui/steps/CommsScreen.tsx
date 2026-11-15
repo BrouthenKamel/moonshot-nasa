@@ -12,7 +12,7 @@ import { RadioTray } from './comms/RadioTray'
 import { StationTray } from './comms/StationTray'
 import { hoursAfterSwitch } from './comms/hours'
 import { ContactSlider } from './comms/ContactSlider'
-import { Btn, StepHeader } from '../kit'
+import { Btn, Details, StepHeader } from '../kit'
 
 function hoveredChoiceId(target: EventTarget | null): string | null {
   return target instanceof Element ? target.closest<HTMLElement>('[data-choice-id]')?.dataset.choiceId ?? null : null
@@ -148,11 +148,16 @@ export function CommsScreen() {
             if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !useDragStore.getState().held) setPreviewPatch(null)
           }}
         >
-          <StationTray
-            design={design}
-            difficulty={difficulty}
-            onPick={(s) => updateDesign({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })}
-          />
+          {/* The dish-size track in the console is the one control by default; the cards compare the stations in full */}
+          <Details id="comms-stations" label="Compare ground stations" openLabel="Hide ground stations">
+            <div className="pt-3">
+              <StationTray
+                design={design}
+                difficulty={difficulty}
+                onPick={(s) => updateDesign({ groundStation: s.id, contactHours: hoursAfterSwitch(design, s) })}
+              />
+            </div>
+          </Details>
         </div>
 
         <div className="flex justify-end">
