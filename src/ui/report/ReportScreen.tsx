@@ -238,12 +238,12 @@ export function ReportScreen() {
           </div>
           <div className="flex-1 text-center sm:text-left">
             <div className="fp-label">Lunar Ice Mapper · mission report</div>
-            <div className="mt-3">
+            <div className="mt-4 mb-3">
               <Stamp verdict={tone.stamp} size="lg" animate className="max-sm:!text-2xl">
                 {tone.label}
               </Stamp>
             </div>
-            <div className="mt-4 text-paper-dim">{report.outcomeReason}</div>
+            <div className="mt-6 text-paper-dim">{report.outcomeReason}</div>
             <div className="mt-5 flex items-end justify-center gap-6 sm:justify-start">
               <div className="border-l-2 border-kapton pl-3">
                 <div className="fp-label text-[10px]">Mission rating</div>
@@ -270,10 +270,13 @@ export function ReportScreen() {
             {wonCount} of {won.length}
           </div>
         </div>
+        {wonCount < won.length && (
+          <div className="mt-1 text-xs text-paper-dim">Missing: {won.filter((m) => !m.earned).map((m) => m.name).join(', ')}</div>
+        )}
 
         {/* Where the points came from */}
         <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-rule pt-4">
-          <ScoreBars parts={SCORE_PARTS.filter((p) => p.main)} report={report} />
+          <ScoreBars parts={SCORE_PARTS.filter((p) => p.main || (report.score[p.key] ?? 0) < p.max)} report={report} />
         </div>
         {(report.scoreNotes ?? []).length > 0 && (
           <div className="mt-5 border-l-2 border-caution bg-ink-1 p-3.5 text-sm">
@@ -330,7 +333,7 @@ export function ReportScreen() {
           </ul>
           </div>
             <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-rule pt-4 sm:grid-cols-3">
-              <ScoreBars parts={SCORE_PARTS.filter((p) => !p.main)} report={report} />
+              <ScoreBars parts={SCORE_PARTS.filter((p) => !p.main && (report.score[p.key] ?? 0) >= p.max)} report={report} />
             </div>
           </Sheet>
 

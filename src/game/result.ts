@@ -15,6 +15,9 @@ export interface MissionResult {
   /** Money, $M: negative is spent */
   money: { label: string; amount: number }[]
   moneyNet: number
+  /** The mission budget and how much of it was left ($M): the same framing as the report's "Money left" */
+  budget: number
+  moneyLeft: number
   /** Popularity, percentage points */
   popularity: { label: string; amount: number }[]
   popularityNet: number
@@ -55,6 +58,8 @@ export function missionResult(world: Pick<World, 'mission' | 'research'>): Missi
     launched: m.last.launched,
     money,
     moneyNet: money.reduce((s, r) => s + r.amount, 0),
+    budget: m.budget,
+    moneyLeft: refund,
     popularity,
     popularityNet: popularity.reduce((s, r) => s + r.amount, 0),
     papers,
