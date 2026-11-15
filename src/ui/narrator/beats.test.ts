@@ -136,14 +136,18 @@ describe('pickBeat', () => {
     expect(pickBeat(input({ screen: 'replay', sim: sim({ phase: 'complete' }), report: report({}) }))).toBeNull()
   })
 
-  it('names the cause of a red bar on the step that fixes it, instead of the generic tip', () => {
+  it('names the cause of a red bar: alone on the step that fixes it, with where to fix it on any other', () => {
     const red = { ...gng.blockers[0], resource: 'Delta-v', reason: 'The tank gives 55 m/s; capturing needs 60. Carry more propellant.', headline: undefined, fixStep: 'orbit' as const }
     const withRed = { ...gng, canGo: false, blockers: [red] }
     const here = pickBeat(input({ screen: 'design', designStep: 'orbit', goNoGo: withRed }))
     expect(here?.id).toBe('blocker')
     expect(here?.text).toBe('The tank gives 55 m/s; capturing needs 60.')
-    // another step keeps its own tip
-    expect(pickBeat(input({ screen: 'design', designStep: 'planning', goNoGo: withRed }))?.id).toBe('step-planning')
+    // another step: never its generic tip while a blocker exists, and it says where to fix it
+    const there = pickBeat(input({ screen: 'design', designStep: 'spacecraft', goNoGo: withRed }))
+    expect(there?.id).toBe('blocker')
+    expect(there?.text).toBe('The tank gives 55 m/s; capturing needs 60; fix it at the Launch Site.')
+    // Go / No-Go keeps its own line
+    expect(pickBeat(input({ screen: 'design', designStep: 'go-nogo', goNoGo: withRed }))?.id).toBe('go-nogo')
   })
 
   it('uses a check headline when it has one, and remembers each cause under its own key', () => {

@@ -8,6 +8,7 @@
 import type { Budgets, DesignStep, GoNoGoResult, Report, SimState } from '../../sim/types'
 import type { Screen } from '../../state/gameStore'
 import { craftWasLost } from '../../sim/evaluate'
+import { buildingForStep, buildingName } from '../../viz/missionMap'
 
 export const NARRATOR_NAME = 'Commander Rosa Vega'
 export const NARRATOR_ROLE = 'Retired astronaut, now the agency’s mission mentor'
@@ -200,19 +201,22 @@ function firstSentence(text: string): string {
 }
 
 /**
- * A red bar the player can fix on this very step: the mentor says its cause instead of the generic
- * tip. It reads the Go / No-Go checks (headline, else the first sentence of the reason), so no
- * screen writes its own line, and it names the step the check points at (`fixStep`).
+ * The first red Go / No-Go bar, on any step: the mentor says its cause instead of the generic tip.
+ * It reads the checks (headline, else the first sentence of the reason), so no screen writes its
+ * own line. On the step that fixes it the line stands alone; on any other step it adds where to
+ * fix it ("...; fix it at the Launch Site"), using the map's building names. Go / No-Go keeps its
+ * own beat, which already counts the red bars.
  */
 function blockerBeat(i: NarratorInput): Beat | null {
-  const blocker = i.goNoGo.blockers.find((c) => c.fixStep === i.designStep)
+  if (i.designStep === 'go-nogo') return null
+  const blocker = i.goNoGo.blockers[0]
   if (!blocker) return null
-  return {
-    id: 'blocker',
-    key: `blocker:${i.designStep}:${blocker.resource}`,
-    scope: 'game',
-    text: blocker.headline ?? firstSentence(blocker.reason),
-  }
+  const line = blocker.headline ?? firstSentence(blocker.reason)
+  const text =
+    blocker.fixStep && blocker.fixStep !== i.designStep
+      ? `${line.replace(/[.!?]$/, '')}; fix it at the ${buildingName(buildingForStep(blocker.fixStep))}.`
+      : line
+  return { id: 'blocker', key: `blocker:${i.designStep}:${blocker.resource}`, scope: 'game', text }
 }
 
 /** The beat for the current moment, or null when the narrator has nothing to say */
