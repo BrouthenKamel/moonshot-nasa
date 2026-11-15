@@ -23,7 +23,11 @@ export function pollEnd(result: GoNoGoResult, doomed: boolean, stations: Station
   return { kind: 'caution', text: `Go with a caution on ${list(names)}.` }
 }
 
-/** Only the first poll on entry plays at full length; a re-poll after a design change runs about 3× faster */
+/**
+ * Only the first poll on entry plays at full length; a re-poll after a design change runs about 3× faster.
+ * The full poll is paced by its own voice lines (it waits for each one); `full` is its nominal pace,
+ * the yardstick for the re-poll's timers.
+ */
 export const POLL_TIMING = {
   full: { open: 2600, gap: 1700, end: 600 },
   fast: { open: 2600 / 3, gap: 1700 / 3, end: 600 / 3 },
