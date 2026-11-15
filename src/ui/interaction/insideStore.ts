@@ -14,6 +14,8 @@ export interface InsideShot {
   durationS: number
   /** Called once when the shot ends, skipped or not */
   onEnd?: (skipped: boolean) => void
+  /** Join the shot's own sequence this many seconds in (its earlier beats were shown another way) */
+  startAtS?: number
 }
 
 interface InsideState {
@@ -31,7 +33,7 @@ export const useInsideStore = create<InsideState>()((set, get) => ({
   shot: null,
   startedAt: 0,
   caption: '',
-  play: (shot) => set({ shot, caption: shot.caption, startedAt: performance.now() }),
+  play: (shot) => set({ shot, caption: shot.caption, startedAt: performance.now() - (shot.startAtS ?? 0) * 1000 }),
   setCaption: (caption) => set({ caption }),
   end: (skipped = false) => {
     const { shot } = get()

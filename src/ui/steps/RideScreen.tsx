@@ -1,5 +1,6 @@
 import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
+import { useUiStore } from '../../state/uiStore'
 import { canUseWebGL } from '../../scene/webgl'
 import { LOW_ENERGY_DAYS, timedTransferDays, timedTransferId } from '../../data/transfers'
 import { getRideById } from '../../data/rides'
@@ -253,7 +254,7 @@ function RideList({ onNext }: { onNext: () => void }) {
       </div>
       <div className="flex gap-2 pt-1">
         <button type="button" onClick={onNext} className="tactical-btn-next flex-[2]">
-          Plan the transfer →
+          Next: Transfer →
         </button>
       </div>
     </div>
@@ -277,7 +278,9 @@ function LaunchView({ onNext, webgl, onSceneError }: { onNext: () => void; webgl
 }
 
 export function RideScreen() {
-  const [view, setView] = useState<'launch' | 'transfer'>('launch')
+  // Which view shows is the top bar's: its Ride and Transfer stages both open this step
+  const view = useUiStore((s) => s.rideView)
+  const setView = useUiStore((s) => s.setRideView)
   // The 3D views start only in a browser with WebGL; server rendering and tests take the plain path
   const [webgl, setWebgl] = useState(canUseWebGL)
 

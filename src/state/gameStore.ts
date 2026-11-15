@@ -83,6 +83,8 @@ export interface GameState {
   startSimulation: () => void
   advanceTurn: (action?: TurnAction) => void
   flyOn: () => void // fly until the mission ends or an event card needs the player
+  /** Jump to the end of the phase the flight is in (testing, the wait for the ride, the trip...), stopping early for an event card */
+  skipPhase: () => void
   /** Turn-by-turn flight: while on, each tick flies one turn and it switches off at a milestone */
   autoFly: boolean
   startAutoFly: () => void
@@ -352,6 +354,18 @@ export const useGameStore = create<GameState>()(
         const { simState, pendingAction } = get()
         if (!simState || isSimComplete(simState) || simState.pendingDecision) return
         get().applyFlight(flyUntilDecision(simState, pendingAction))
+      },
+
+      skipPhase: () => {
+        const { simState, pendingAction } = get()
+        if (!simState || isSimComplete(simState) || simState.pendingDecision) return
+        let s = simState
+        // A phase lasts a few months at most; the guard only stops a runaway loop
+        for (let i = 0; i < 60; i++) {
+          s = stepTurn(s, pendingAction)
+          if (s.phase !== simState.phase || s.pendingDecision || isSimComplete(s)) break
+        }
+        get().applyFlight(s)
       },
 
       startAutoFly: () => {

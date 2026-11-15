@@ -10,17 +10,15 @@ import { audio } from '../../assets/audio'
 import { DesignDeltaLine, SynergyStrip } from '../../viz/DesignDeltaLine'
 import { trayGroups, type TrayKey } from '../../viz/spacecraft/trayOptions'
 import { TONE_COLORS } from '../../viz/spacecraft/boardPainter'
-import { Btn, Eng, STEP_NAMES, Sheet, nextLabel, stepTitle } from '../kit'
+import { Btn, Eng, STEP_NAMES, Sheet, nextLabel } from '../kit'
 import { normalizeRocket, rocketExplainer, type ExplainerItem } from '../../viz/rocket/rocketView'
 import type { RocketFocus } from '../../scene/rocket/RocketBay'
 import { prefersReducedMotion } from '../../scene/space/quality'
-import { interceptStepLeave } from '../interaction/stepLeave'
 import type { DesignStep } from '../../sim/types'
 import { hasSeenRocketLoad, markRocketLoadSeen } from './spacecraft/rocketLoadSeen'
 import { PartsTray, FactStrip, type ActiveOption } from './spacecraft/PartsTray'
 import { BoardText } from './spacecraft/BoardText'
 import { FlySheet } from './spacecraft/FlySheet'
-import { SceneTitle } from './launch/SceneTitle'
 
 /** The Factory's parts on a new mission's craft, which "Reset to starter" puts back */
 const STARTER: Record<TrayKey, string> = (() => {
@@ -238,14 +236,11 @@ export function SpacecraftScreen() {
   const [hallReady, setHallReady] = useState(false)
 
   /**
-   * Leaving the Craft step loads the craft into the rocket on the way out, then shows the rocket
-   * explained, before the next step opens. The first time it plays at full length, whichever way
-   * the player leaves; after that, "Next" plays a quicker carry and a tab jump goes straight
-   * through, so moving between tabs never gets in the way. A button to go on (and Esc) is there
-   * from the first frame, while the rocket is still loading too, so the player is never held.
+   * "Rocket view" carries the craft into the rocket and shows the rocket explained; from there the
+   * player goes on to Orbit or back to the craft. "Next: Orbit" and the stage tabs go straight to
+   * the step. A button to go on (and Esc) is there from the first frame, while the rocket loads too.
    */
-  const leave = (to: DesignStep, via: 'next' | 'tab'): boolean => {
-    if (seen && via === 'tab') return false
+  const leave = (to: DesignStep): boolean => {
     audio.play('sfx.select')
     setExitTo(to)
     setFocus('payload')
@@ -265,24 +260,6 @@ export function SpacecraftScreen() {
     setSeen(true)
     setPhase('inside')
   }
-
-  // The dock's tabs ask this step before they move on (see stepLeave.ts); refs keep the latest state
-  const leaveRef = useRef(leave)
-  const phaseRef = useRef(phase)
-  useEffect(() => {
-    leaveRef.current = leave
-    phaseRef.current = phase
-  })
-  useEffect(
-    () =>
-      interceptStepLeave((to) => {
-        if (to === 'spacecraft' || to === 'rocket') return false
-        // Already in the carry or the explainer: a tab goes straight there
-        if (phaseRef.current !== 'build') return false
-        return leaveRef.current(to, 'tab')
-      }),
-    [],
-  )
 
   // Esc goes straight on, like the button: during the carry (loading or not) and from the explainer
   const goOnRef = useRef(goOn)
@@ -364,10 +341,6 @@ export function SpacecraftScreen() {
             </div>
           )}
 
-          <div className="pointer-events-none absolute top-3 left-1/2 z-10 hidden -translate-x-1/2 md:block">
-            <SceneTitle step="spacecraft" title={`${STEP_NAMES.spacecraft}: into the rocket`} question="What carries the craft to space, and where does it ride?" />
-          </div>
-
           <div className="absolute top-3 left-3 z-10 flex flex-col items-start gap-2">
             <button type="button" onClick={() => setPhase('build')} className="tactical-btn-back bg-ink-1">
               ← Back to the craft
@@ -436,21 +409,31 @@ export function SpacecraftScreen() {
           </div>
         )}
 
+        {/* The part under the pointer (or the last pick), floating over the bay's top-left corner */}
         {room && (
-          <div className="pointer-events-none absolute top-3 left-1/2 z-10 hidden -translate-x-1/2 md:block">
-            <SceneTitle step="spacecraft" title={stepTitle('spacecraft')} />
+          <div className="absolute left-3 top-3 z-10 flex max-h-[calc(100%-3rem)] w-[21rem] flex-col gap-2 overflow-hidden rounded-xl hud-panel p-3">
+            <FactStrip option={activeOption} title={activeGroup?.title} group={activeGroup?.key} floating />
+            <SynergyStrip step="spacecraft" compact />
+            <DesignDeltaLine />
           </div>
         )}
+
         {room && (
           <div className="pointer-events-none absolute left-[3%] bottom-1.5 z-10 bg-ink-1/85 px-1.5 py-0.5 fp-data text-[10px] text-paper-dim" data-testid="model-rocket-caption">
             Your ride (scale model) · the craft goes in the top
           </div>
         )}
 
-        <div className="absolute top-3 right-3 z-10 flex w-64 flex-col items-end gap-3">
-          <button type="button" onClick={() => leave('orbit', 'next')} className="tactical-btn-next" data-testid="craft-next">
-            {nextLabel('spacecraft')}
-          </button>
+        <div className="absolute top-3 right-3 z-10 flex w-72 flex-col items-end gap-3">
+          <div className="flex gap-2">
+            {/* The craft carried into the rocket and the rocket explained; from there, on to Orbit or back here */}
+            <button type="button" onClick={() => leave('orbit')} className="tactical-btn-back whitespace-nowrap bg-ink-1" data-testid="craft-rocket-view">
+              Rocket view
+            </button>
+            <button type="button" onClick={() => setDesignStep('orbit')} className="tactical-btn-next whitespace-nowrap" data-testid="craft-next">
+              {nextLabel('spacecraft')}
+            </button>
+          </div>
           {room && (
             <div className="w-full">
               <FlySheet view={view} preview={preview} onReset={atStarter ? undefined : resetToStarter} />
@@ -470,9 +453,14 @@ export function SpacecraftScreen() {
 
       <div className="space-y-1.5 border-t border-rule bg-ink-1 px-3 pt-2 pb-3">
         <PowerBudgetSplitBar />
-        <SynergyStrip step="spacecraft" compact />
-        <DesignDeltaLine />
-        <FactStrip option={activeOption} title={activeGroup?.title} group={activeGroup?.key} expanded={hover !== null} />
+        {/* Without the 3D bay the details stay above the tray */}
+        {!room && (
+          <>
+            <SynergyStrip step="spacecraft" compact />
+            <DesignDeltaLine />
+            <FactStrip option={activeOption} title={activeGroup?.title} group={activeGroup?.key} expanded={hover !== null} />
+          </>
+        )}
         <PartsTray groups={groups} selected={selected} onPick={pick} onActive={setHover} />
       </div>
     </div>

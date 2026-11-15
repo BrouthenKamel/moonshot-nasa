@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { buildBayView, type BayView } from './bayView'
-import { computeBudgets, createDefaultDesign } from '../../sim/budgets'
+import { computeBudgets } from '../../sim/budgets'
 import { goNoGo } from '../../sim/checks'
-import { flashlightDesign } from '../../sim/fixtures'
+import { flashlightDesign, iceCubeStart } from '../../sim/fixtures'
 import type { Budgets, Design } from '../../sim/types'
 
 function view(design: Design, patch: Partial<Budgets> = {}): BayView {
@@ -10,7 +10,7 @@ function view(design: Design, patch: Partial<Budgets> = {}): BayView {
   return buildBayView(design, b, goNoGo(design, b).checks)
 }
 const row = (v: BayView, key: string) => v.rows.find((r) => r.key === key)!
-const base = createDefaultDesign()
+const base = iceCubeStart()
 
 describe('buildBayView', () => {
   it('stack heights sum to totalVolume / 2', () => {

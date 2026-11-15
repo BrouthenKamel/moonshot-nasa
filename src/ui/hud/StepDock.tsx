@@ -2,25 +2,44 @@ import { useMemo } from 'react'
 import { useGameStore } from '../../state/gameStore'
 import type { DesignStep } from '../../sim/types'
 import { audio } from '../../assets/audio'
-import { STEP_NAMES, TAB_STEPS, stepNumber } from '../kit/stepNumbers'
+import { useUiStore } from '../../state/uiStore'
+import { STEP_NAMES, TAB_STEPS } from '../kit/stepNumbers'
 import { buildingForStep, buildingName } from '../../viz/missionMap'
 import { goToStep } from '../interaction/stepLeave'
 
-/** One tab per step, in play order, named as everywhere else; the tooltip says which building holds it */
-const STATIONS = TAB_STEPS.map((id) => ({
-  id,
-  num: String(stepNumber(id)),
-  label: STEP_NAMES[id],
-  stationName: buildingName(buildingForStep(id)),
-}))
+/**
+ * The mission design's stages as one bar across the screen, in play order: the current one is
+ * highlighted, and each shows its state (red no-go, yellow risk, green go, grey not visited yet).
+ */
+interface Stage {
+  id: DesignStep
+  /** The Ride step's view this stage opens: Ride is the launch, Transfer the flight time */
+  view?: 'launch' | 'transfer'
+  label: string
+  stationName: string
+}
+const STATIONS: (Stage & { num: string })[] = TAB_STEPS.flatMap((id): Stage[] => {
+  const stationName = buildingName(buildingForStep(id))
+  return id === 'ride'
+    ? [
+        { id, view: 'launch', label: STEP_NAMES.ride, stationName },
+        { id, view: 'transfer', label: 'Transfer', stationName },
+      ]
+    : [{ id, label: STEP_NAMES[id], stationName }]
+}).map((s, i) => ({ ...s, num: String(i + 1) }))
 
 export function StepDock({ className = '' }: { className?: string }) {
   const designStep = useGameStore((s) => s.designStep)
   const setDesignStep = useGameStore((s) => s.setDesignStep)
   const getGoNoGo = useGameStore((s) => s.getGoNoGo)
   const visitedSteps = useGameStore((s) => s.visitedSteps)
+  const rideView = useUiStore((s) => s.rideView)
+  const setRideView = useUiStore((s) => s.setRideView)
+  // The statuses follow the design as it changes, not only the step
+  const design = useGameStore((s) => s.design)
 
-  const checks = useMemo(() => getGoNoGo(), [getGoNoGo, designStep])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- getGoNoGo reads the design from the store
+  const checks = useMemo(() => getGoNoGo(), [getGoNoGo, design])
   const blockerSteps = useMemo(
     () => new Set(checks.blockers.map((b) => b.fixStep).filter((s): s is DesignStep => !!s)),
     [checks]
@@ -31,49 +50,44 @@ export function StepDock({ className = '' }: { className?: string }) {
   )
 
   return (
-    <nav
-      aria-label="Mission Sequencer"
-      className={`flex items-center gap-1 rounded-xl bg-ink-2/70 p-1 border border-rule/50 select-none ${className}`}
-    >
+    <nav aria-label="Mission design stages" className={`flex w-full items-stretch bg-ink-0/60 select-none ${className}`}>
       {STATIONS.map((station) => {
-        const isCurrent = station.id === (designStep === 'rocket' ? 'spacecraft' : designStep)
+        const isCurrent = station.id === (designStep === 'rocket' ? 'spacecraft' : designStep) && (!station.view || station.view === rideView)
         const hasBlocker = blockerSteps.has(station.id)
         const hasWarning = warningSteps.has(station.id)
         const isVisited = visitedSteps.includes(station.id)
 
-        let badgeDot = 'bg-rule'
-        if (hasBlocker) badgeDot = 'bg-nogo animate-pulse'
-        else if (hasWarning) badgeDot = 'bg-caution'
-        else if (isVisited) badgeDot = 'bg-go'
+        // Red when a check fixed here is no-go, yellow when one is a risk, green once visited and clear
+        const status = hasBlocker
+          ? { bar: 'bg-nogo', dot: 'bg-nogo animate-pulse', word: 'No-go', text: 'text-nogo' }
+          : hasWarning
+            ? { bar: 'bg-caution', dot: 'bg-caution', word: 'Risk', text: 'text-caution' }
+            : isVisited
+              ? { bar: 'bg-go', dot: 'bg-go', word: 'Go', text: 'text-go' }
+              : { bar: 'bg-rule', dot: 'bg-rule', word: 'Not yet', text: 'text-paper-faint' }
 
         return (
           <button
-            key={station.id}
+            key={station.label}
             type="button"
             aria-current={isCurrent ? 'step' : undefined}
+            title={`${station.label} at the ${station.stationName}: ${status.word}`}
             onClick={() => {
               audio.play('sfx.click')
-              // the step on screen may play its way out first (the Craft step's carry into the rocket)
+              if (station.view) setRideView(station.view)
               goToStep(station.id, setDesignStep)
             }}
-            className={`group relative flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono transition-all duration-150 ${
-              isCurrent
-                ? 'bg-kapton text-ink-0 font-bold shadow-md shadow-kapton/20 scale-[1.02]'
-                : 'text-paper-dim hover:text-paper hover:bg-ink-3/80'
+            className={`group relative flex min-w-0 flex-1 items-center justify-center gap-2 border-r border-rule/60 px-2 py-2 last:border-r-0 transition-colors ${
+              isCurrent ? 'bg-kapton/15 text-paper' : 'text-paper-dim hover:bg-ink-2 hover:text-paper'
             }`}
           >
-            <span className="text-[11px] opacity-70">{station.num}.</span>
-            <span className="font-semibold tracking-wide">{station.label}</span>
-            <span
-              className={`h-1.5 w-1.5 rounded-full transition-colors ${badgeDot} ${
-                isCurrent && !hasBlocker ? 'bg-ink-0' : ''
-              }`}
-            />
-
-            {/* Hover station facility tooltip */}
-            <div className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-ink-0 border border-rule text-[10px] font-mono text-paper-dim opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl z-50">
-              {station.stationName}
-            </div>
+            <span className={`fp-data text-[0.7rem] ${isCurrent ? 'text-kapton' : 'text-paper-faint'}`}>{station.num}</span>
+            <span className={`truncate text-[0.8rem] font-semibold tracking-wide ${isCurrent ? 'text-kapton' : ''}`}>{station.label}</span>
+            <span className={`h-2 w-2 shrink-0 rounded-full ${status.dot}`} aria-hidden />
+            <span className="sr-only">{status.word}</span>
+            {/* The stage's status along its foot; the current stage has a bright top edge too */}
+            <span className={`absolute inset-x-0 bottom-0 h-[3px] ${status.bar} ${isCurrent ? '' : 'opacity-70'}`} aria-hidden />
+            {isCurrent && <span className="absolute inset-x-0 top-0 h-[2px] bg-kapton" aria-hidden />}
           </button>
         )
       })}

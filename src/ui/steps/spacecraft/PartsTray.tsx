@@ -174,12 +174,15 @@ export function FactStrip({
   title,
   group,
   expanded = true,
+  floating = false,
 }: {
   option: TrayOption | null
   title?: string
   group?: TrayKey
   /** False when showing the last pick with nothing hovered: stay inside the slot, off the bay's scale */
   expanded?: boolean
+  /** Inside a panel floating over the bay: no fixed slot, the text simply takes the lines it needs */
+  floating?: boolean
 }) {
   // glossaryForPart matches "ion" in "lithium-ion": electric propulsion only belongs to the engines
   const terms = glossaryForPart(`${title ?? ''} ${option?.short ?? ''} ${option?.description ?? ''}`).filter(
@@ -191,11 +194,15 @@ export function FactStrip({
    * floor on the tray's own background; otherwise it stays in the slot and fades out at the bottom.
    */
   return (
-    <div className="relative h-[3.4rem]">
+    <div className={floating ? '' : 'relative h-[3.4rem]'}>
       <div
-        className={`absolute inset-x-0 bottom-0 z-10 bg-ink-1 px-1 pt-1 text-xs leading-snug text-paper-dim ${
-          expanded ? 'border-t border-rule' : 'top-0 overflow-hidden'
-        }`}
+        className={
+          floating
+            ? 'text-xs leading-snug text-paper-dim'
+            : `absolute inset-x-0 bottom-0 z-10 bg-ink-1 px-1 pt-1 text-xs leading-snug text-paper-dim ${
+                expanded ? 'border-t border-rule' : 'top-0 overflow-hidden'
+              }`
+        }
         aria-live="polite"
       >
         {option ? (
