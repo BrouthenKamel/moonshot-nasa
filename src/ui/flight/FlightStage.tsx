@@ -10,7 +10,6 @@ import { isSimComplete } from '../../sim/simulate'
 import { craftWasLost, failedLabel } from '../../sim/evaluate'
 import type { Budgets, SimState, TurnLog } from '../../sim/types'
 import { LAUNCH, useUiStore, type FlightCamMode } from '../../state/uiStore'
-import { useInsideStore } from '../interaction/insideStore'
 import { flightShot, type FlightShot } from '../../viz/flight/flightDirector'
 import type { FlightTimeline } from '../../scene/flight/FlightView'
 import { useWorldStore } from '../../state/worldStore'
@@ -24,7 +23,7 @@ import { FlightControls } from './FlightControls'
 import { FirstMappingPass } from '../../minigames/iceMapper'
 
 const FlightView = lazy(() => import('../../scene/flight/FlightView').then((m) => ({ default: m.FlightView })))
-const FairingRide = lazy(() => import('../../scene/launch/FairingRide').then((m) => ({ default: m.FairingRide })))
+const LaunchDayGame = lazy(() => import('../../minigames/launchDay').then((m) => ({ default: m.LaunchDayGame })))
 
 class ViewBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -648,36 +647,23 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
   const startLaunch = useUiStore((s) => s.startLaunch)
   const endLaunch = useUiStore((s) => s.endLaunch)
   const launched = sim.flight.launchedTurn !== null
+  // Launch Day: the player flies the ride to orbit once, when the core reports liftoff
+  const [flyingLaunch, setFlyingLaunch] = useState(false)
 
   // The launch plays once, when the core reports liftoff: first the countdown and the liftoff from the
-  // island's pad; once the rocket is out of sight, (with WebGL) the ride inside the fairing, already
-  // above the atmosphere: staging, the fairing opening, the CubeSat leaving. Then the space view.
+  // island's pad; once the rocket is out of sight, Launch Day (PR 84, by KrabbyKrabby): the player flies
+  // the ride to orbit. Finishing it ends the launch, which opens the space view.
   const wasLaunched = useRef(launched)
   useEffect(() => {
     if (launched && !wasLaunched.current) startLaunch()
     wasLaunched.current = launched
   }, [launched, startLaunch])
+  // Nothing should strand the flight on the pad: if the game is not up, the countdown still ends on its own
   useEffect(() => {
     if (launchAt === null) return
-    const since = performance.now() - launchAt
-    const webgl = canUseWebGL()
-    const toFairing = window.setTimeout(() => {
-      if (!webgl) return endLaunch()
-      useInsideStore.getState().play({
-        id: 'fairing-ride',
-        caption: 'Above the atmosphere, inside the payload fairing beside your 6U deployer.',
-        startAtS: LAUNCH.fairingFromS,
-        durationS: LAUNCH.fairingS - LAUNCH.fairingFromS,
-        onEnd: () => useUiStore.getState().endLaunch(),
-      })
-    }, Math.max(0, LAUNCH.islandS * 1000 - since))
-    // The safety net, should the fairing ride never end itself
-    const done = window.setTimeout(endLaunch, Math.max(0, (LAUNCH.durationS + 2) * 1000 - since))
-    return () => {
-      window.clearTimeout(toFairing)
-      window.clearTimeout(done)
-    }
-  }, [launchAt, endLaunch])
+    const toGame = window.setTimeout(() => setFlyingLaunch(true), Math.max(0, LAUNCH.islandS * 1000 - (performance.now() - launchAt)))
+    return () => window.clearTimeout(toGame)
+  }, [launchAt])
 
   const terminal = isSimComplete(sim) ? (sim.phase === 'failed' ? 'failed' : 'complete') : undefined
   const monthFraction = useMonthFraction(sim)
@@ -714,10 +700,17 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
         </div>
       )}
       <Countdown />
-      {launchAt !== null && canUseWebGL() && (
+      {/* The launch itself, played. Finishing it ends the launch, which opens the space view. */}
+      {flyingLaunch && (
         <ViewBoundary fallback={null}>
           <Suspense fallback={null}>
-            <FairingRide />
+            <LaunchDayGame
+              design={sim.design}
+              onDone={() => {
+                setFlyingLaunch(false)
+                endLaunch()
+              }}
+            />
           </Suspense>
         </ViewBoundary>
       )}
