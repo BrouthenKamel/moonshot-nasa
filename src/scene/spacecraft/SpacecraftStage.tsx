@@ -729,7 +729,7 @@ const MODEL_ROCKET_M = 0.1
 const MODEL_ROCKET_DIST = 0.4
 
 /**
- * The launch rocket as a small turning model, held in the lower right of the view wherever the
+ * The launch rocket as a small turning model, held in the lower left of the view wherever the
  * camera orbits: context while the craft is built, so the player sees what it will ride in.
  * It stands upright in the room and is drawn over it, so a wing swinging past never hides it.
  */
@@ -744,7 +744,7 @@ function RocketBesideCamera({ config }: { config: RocketConfig }) {
     const cam = camera as THREE.PerspectiveCamera
     const h = MODEL_ROCKET_DIST * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))
     const w = h * (size.width / Math.max(1, size.height))
-    at.set(0.82 * w, -0.78 * h, -MODEL_ROCKET_DIST).applyMatrix4(cam.matrixWorld)
+    at.set(-0.82 * w, -0.78 * h, -MODEL_ROCKET_DIST).applyMatrix4(cam.matrixWorld)
     g.position.copy(at)
     g.visible = !inside
     if (spin.current) spin.current.rotation.y += dt * 0.5

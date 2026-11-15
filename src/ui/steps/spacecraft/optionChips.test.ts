@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { computeBudgets } from '../../../sim/budgets'
 import { trayGroups } from '../../../viz/spacecraft/trayOptions'
 import { useGameStore } from '../../../state/gameStore'
-import { optionChips } from './optionChips'
+import { allStats, cardChips, optionChips } from './optionChips'
 
 describe('optionChips', () => {
   const s = useGameStore.getState()
@@ -24,5 +24,16 @@ describe('optionChips', () => {
     expect(chips[0].label).toBe('Fuelled')
     expect(chips[0].value).toMatch(/^\d+(\.\d)? kg$/)
     expect(chips.find((c) => c.label === 'Dry')).toBeDefined()
+  })
+
+  it('puts one number on each card, its trade, and every number in the tooltip', () => {
+    const trade = { solar: / W$/, battery: / Wh$/, computer: / MB$/, attitude: /°$/, propulsion: / kg$/ } as const
+    for (const g of groups)
+      for (const o of g.options) {
+        const chips = cardChips(g.key, o)
+        expect(chips).toHaveLength(1)
+        expect(chips[0].value).toMatch(trade[g.key])
+        expect(allStats(g.key, o).split(' · ')).toHaveLength(optionChips(g.key, o).length)
+      }
   })
 })

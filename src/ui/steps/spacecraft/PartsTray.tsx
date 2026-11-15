@@ -204,15 +204,16 @@ export function FactStrip({
               {title ? `${title}: ` : ''}
               {option.short}.
             </span>{' '}
+            {/* every number of the part, labelled: the card itself shows only its trade */}
             {group && (
-              <Eng>
+              <span>
                 {optionChips(group, option).map((c) => (
                   <span key={c.label} className="mr-1 inline-flex items-baseline gap-1 border border-rule px-1.5 py-px align-baseline">
                     <span className="fp-label text-[9px] text-paper-faint">{c.label}</span>
                     <span className="fp-data font-semibold text-paper">{c.value}</span>
                   </span>
                 ))}{' '}
-              </Eng>
+              </span>
             )}
             {option.description}
             <Eng as="span" className="block text-paper-faint">
