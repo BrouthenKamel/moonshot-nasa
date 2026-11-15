@@ -53,10 +53,12 @@ describe('PlanVSlider marks', () => {
 describe('transferBlocker', () => {
   const ok = { checks: [{ label: 'Fuel', status: 'green', reason: '' }], ionEngine: false, days: 20, minDays: 4, cruiseMonths: 1 } as unknown as TransferPlan
   it('is null when nothing is red', () => expect(transferBlocker(ok)).toBeNull())
-  it('blocks on a red check', () =>
+  it('blocks on a red Fuel check', () =>
     expect(transferBlocker({ ...ok, checks: [{ label: 'Fuel', status: 'red', reason: 'x' }] })).toBe('Fix the transfer first'))
   it('does not block on a yellow check', () =>
     expect(transferBlocker({ ...ok, checks: [{ label: 'Fuel', status: 'yellow', reason: 'x' }] })).toBeNull())
+  it('does not block on a red Budget row: Comms costs are set on the next screen', () =>
+    expect(transferBlocker({ ...ok, checks: [{ label: 'Budget', status: 'red', reason: 'x' }] })).toBeNull())
   it('blocks an ion engine on a fast flight', () =>
     expect(transferBlocker({ ...ok, ionEngine: true, days: 4, minDays: 90 })).toBe('Fix the transfer first'))
   it('blocks when the Moon is never reached', () => expect(transferBlocker({ ...ok, cruiseMonths: null })).toBe('Fix the transfer first'))

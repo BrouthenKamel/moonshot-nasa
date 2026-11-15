@@ -36,8 +36,15 @@ export const lunahMapDesign: Design = {
   orbit: 'orbit-elliptical',
 }
 
-/** Lunar IceCube-like (the starting design): flies well, but the IR spectrometer cannot see into shadow. */
-export const iceCubeDesign: Design = createDefaultDesign()
+/**
+ * Lunar IceCube-like: the starting craft with the IR spectrometer, which flies well but cannot see
+ * into shadow (the starting design until 15 Nov, when the laser became the default). Tests that teach
+ * "a craft that cannot meet the brief" use this.
+ */
+export function iceCubeStart(): Design {
+  return { ...createDefaultDesign(), instruments: ['inst-ir-spec'] }
+}
+export const iceCubeDesign: Design = iceCubeStart()
 
 /**
  * One winning design per architecture the balance aims for
@@ -50,7 +57,8 @@ export const archetypes: Record<string, Design> = {
   express: {
     ...flashlightDesign,
     instruments: ['inst-neutron'],
-    battery: 'battery-small',
+    // Medium battery since 15 Nov: the 15 km orbit's shadow is worked out from physics (0.84 h, was a listed 0.6 h)
+    battery: 'battery-medium',
     attitude: 'attitude-basic',
     propulsion: 'prop-chemical-large',
     orbit: 'orbit-elliptical',
@@ -88,7 +96,8 @@ export const archetypes: Record<string, Design> = {
    */
   ambitious: {
     ...lunahMapDesign,
-    planning: { ...lunahMapDesign.planning, testTurns: 1, reservePercent: 5 },
+    // 4% reserve since 15 Nov: the ion spiral into the 15 km orbit is worked out (1,265 m/s, was a listed 1,000), a little longer and dearer
+    planning: { ...lunahMapDesign.planning, testTurns: 1, reservePercent: 4 },
     instruments: ['inst-neutron', 'inst-ir-spec'],
     battery: 'battery-medium',
     propulsion: 'prop-ion',
@@ -128,16 +137,21 @@ export const archetypes: Record<string, Design> = {
     propulsion: 'prop-chemical-large',
     groundStation: 'ground-dsn', // the most reliable link: money the lean craft can afford
   },
-  /** Rushed: no testing and no reserve, made up for with a radiation-hard computer and a direct transfer (no cruise to go wrong in) */
+  /**
+   * Rushed: no testing and no reserve, made up for with a radiation-hard computer and the lander's
+   * short low-energy loop (two months of cruise). Since 15 Nov the 15 km orbit's shadow is worked out
+   * (0.84 h, was a listed 0.6 h): it needs the large battery, and the gentler low-energy capture
+   * leaves the small tank enough for its extra mass (the direct transfer did not).
+   */
   rushed: {
     ...flashlightDesign,
     planning: { ...flashlightDesign.planning, testTurns: 0, reservePercent: 0 },
-    battery: 'battery-medium',
+    battery: 'battery-large',
     computer: 'computer-redundant',
     attitude: 'attitude-basic',
     orbit: 'orbit-elliptical',
     ride: 'ride-commercial',
-    transfer: 'transfer-direct',
+    transfer: 'transfer-low-energy',
   },
   /** Pictures for the public beside the neutron map: the camera's data needs the 2-hour booking */
   outreach: {

@@ -295,3 +295,54 @@ describe('gameStore without team mode', () => {
     for (const key of ['mode', 'players', 'signOffs', 'setMode', 'setPlayers', 'toggleSignOff']) expect(key in state).toBe(false)
   })
 })
+
+// The flight's skip button: one press jumps to the end of the phase the flight is in
+describe('skipPhase', () => {
+  beforeEach(reset)
+
+  it('jumps to the next phase in one press, unless an event card stops it first', () => {
+    useGameStore.getState().startSimulation()
+    for (let press = 0; press < 12; press++) {
+      const before = useGameStore.getState().simState!
+      // In orbit the skip is a time-lapse (tested below), not a jump
+      if (isSimComplete(before) || before.phase === 'orbit') break
+      if (before.pendingDecision) {
+        useGameStore.getState().answerEvent(before.pendingDecision.options[0].id)
+        continue
+      }
+      useGameStore.getState().skipPhase()
+      const after = useGameStore.getState().simState!
+      expect(after.currentTurn).toBeGreaterThan(before.currentTurn)
+      // Stopped where it should: a new phase, a card for the player, or the end
+      expect(after.phase !== before.phase || !!after.pendingDecision || isSimComplete(after)).toBe(true)
+      // ...and never before: every month it skipped stayed in the starting phase
+      const skipped = after.turnLogs.slice(before.turnLogs.length, -1)
+      for (const log of skipped) expect(log.phase ?? before.phase).toBe(before.phase)
+    }
+  })
+})
+
+describe('skipPhase in orbit', () => {
+  beforeEach(reset)
+
+  it('plays the mapping months as a time-lapse to the end, stopping only for a card', () => {
+    useGameStore.getState().startSimulation()
+    // Fly to the science orbit, answering every card on standing orders
+    for (let i = 0; i < 80; i++) {
+      const s = useGameStore.getState().simState!
+      if (s.phase === 'orbit' || isSimComplete(s)) break
+      if (s.pendingDecision) useGameStore.getState().answerEvent(s.pendingDecision.options[0].id)
+      else useGameStore.getState().advanceTurn()
+    }
+    const start = useGameStore.getState().simState!
+    if (start.phase !== 'orbit') return // this seed's craft never reached orbit: nothing to time-lapse
+    useGameStore.getState().skipPhase()
+    expect(useGameStore.getState().autoFly).toBe(true)
+    // The ticks run month by month; a minor event (an outage) no longer stops it
+    for (let i = 0; i < 40 && useGameStore.getState().autoFly; i++) useGameStore.getState().autoFlyTick()
+    const end = useGameStore.getState().simState!
+    expect(end.currentTurn).toBeGreaterThan(start.currentTurn)
+    expect(isSimComplete(end) || !!end.pendingDecision).toBe(true)
+    expect(useGameStore.getState().autoFlyToEnd).toBe(false)
+  })
+})

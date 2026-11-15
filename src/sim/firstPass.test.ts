@@ -32,11 +32,13 @@ describe('first pass: floor, ceiling and mix', () => {
     expect(passMix(50, 40, 40)).toBe(0) // nothing to gain
   })
 
-  it('a rate at mix 0 is today; at mix 1 it is the no-overlap ceiling, never above it', () => {
+  // 15 Nov: the best pass targets the shadowed craters, worth two months of the autopilot (1 - (1 - r)^2)
+  it('a rate at mix 0 is today; at mix 1 it is two months of the autopilot, never above it', () => {
     expect(passRate(0.2, 0)).toBeCloseTo(0.2)
-    expect(passRate(0.2, 1)).toBeCloseTo(-Math.log(0.8))
+    expect(passRate(0.2, 1)).toBeCloseTo(1 - 0.8 * 0.8)
     expect(passRate(0.2, 7)).toBeCloseTo(passRate(0.2, 1))
-    expect(passRate(0.9, 1)).toBe(1)
+    expect(passRate(0.9, 1)).toBeCloseTo(0.99)
+    expect(passRate(1, 1)).toBe(1)
     expect(passRate(0, 1)).toBe(0)
   })
 

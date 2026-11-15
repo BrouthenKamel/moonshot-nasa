@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { computeBudgets, createDefaultDesign } from '../../sim/budgets'
+import { computeBudgets } from '../../sim/budgets'
 import { cannotMeetBrief, goNoGo } from '../../sim/checks'
-import { archetypes, flashlightDesign } from '../../sim/fixtures'
+import { archetypes, flashlightDesign, iceCubeStart } from '../../sim/fixtures'
 import { getAsset } from '../../assets/manifest'
 import type { Design } from '../../sim/types'
 import { POLL_TIMING, pollEnd } from './pollEnd'
@@ -14,7 +14,7 @@ const endOf = (d: Design) => {
 
 describe('the poll closes with the same word as the stamp (QC, 15 Nov)', () => {
   it('a craft that cannot meet the brief: "Go with a caution on Science", never "all stations are go"', () => {
-    const { r, end } = endOf(createDefaultDesign())
+    const { r, end } = endOf(iceCubeStart())
     expect(r.canGo).toBe(true)
     expect(cannotMeetBrief(r)).toBe(true)
     expect(end).toEqual({ kind: 'caution', text: 'Go with a caution on Science.' })

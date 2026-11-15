@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { missionById, pickedOption, planOf, type CampaignMission } from '../../campaign/missions'
 import { outcomeOdds } from '../../campaign/flight'
+import { chanceParts, riskSentence } from '../../campaign/why'
 import { agencyShare, canAfford } from '../../campaign/ledger'
 import { useCampaignStore, type ActiveMission } from '../../state/campaignStore'
 import { useWorldStore } from '../../state/worldStore'
@@ -21,6 +22,7 @@ import { DetailsPanel, DetailsToggle } from '../kit'
 
 const money = (m: number) => `$${m.toFixed(m >= 100 ? 0 : 1)}M`
 const pct = (x: number) => `${Math.round(x * 100)}%`
+const signedPoints = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '±0')
 
 const THEME: Record<CampaignMission['id'], string> = {
   'ice-mapper': 'campaign-theme-moon',
@@ -40,8 +42,14 @@ function Frame({
   back,
   details,
   outcome,
+  secondary,
+  chips,
 }: {
   outcome?: Outcome
+  /** A second, quieter action next to the main one (the result screen's two ways out) */
+  secondary?: { label: string; onClick: () => void }
+  /** The design's picks as chips above the title, to jump between choices */
+  chips?: ReactNode
   mission: CampaignMission
   step: string
   title: string
@@ -61,10 +69,14 @@ function Frame({
           <div className="fp-label text-[0.65rem] text-kapton">
             Mission {mission.n} · {mission.name} · {step}
           </div>
-          <button type="button" onClick={abandon} className="fp-btn-ghost !py-1 text-xs">
-            Back to the campaign
-          </button>
+          {/* Before launch the mission can be left; afterwards the result screen has its own way out */}
+          {!secondary && (
+            <button type="button" onClick={abandon} className="fp-btn-ghost !py-1 text-xs">
+              Back to the campaign
+            </button>
+          )}
         </header>
+        {chips}
         <div key={title} className="campaign-enter mt-6 flex-1">
           {kicker && <div className="fp-label text-[0.62rem] text-paper-faint">{kicker}</div>}
           <h1 className="fp-display mt-1 text-3xl text-paper">{title}</h1>
@@ -89,11 +101,16 @@ function Frame({
               </button>
             )}
             {details && <DetailsToggle id={`campaign-${mission.id}-${step}`} />}
+            {secondary && (
+              <button type="button" onClick={secondary.onClick} className="fp-btn-secondary ml-auto">
+                {secondary.label}
+              </button>
+            )}
             <button
               type="button"
               disabled={!action.onClick}
               onClick={action.onClick}
-              className="fp-btn-primary ml-auto min-w-48 justify-center disabled:cursor-not-allowed disabled:opacity-40"
+              className={`fp-btn-primary min-w-48 justify-center disabled:cursor-not-allowed disabled:opacity-40 ${secondary ? '' : 'ml-auto'}`}
             >
               {action.label}
             </button>
@@ -106,6 +123,32 @@ function Frame({
         </footer>
       </div>
     </div>
+  )
+}
+
+/** The mission's picks as chips ("Engine · Methane-oxygen"): click one to jump to that choice */
+function PickChips({ a, mission, current }: { a: ActiveMission; mission: CampaignMission; current: number | 'go' }) {
+  const goTo = useCampaignStore((s) => s.goTo)
+  return (
+    <nav aria-label="Your choices" className="mt-4 flex flex-wrap gap-2">
+      {mission.choices.map((c, i) => {
+        const on = current === i
+        return (
+          <button
+            key={c.id}
+            type="button"
+            aria-current={on ? 'step' : undefined}
+            onClick={() => goTo({ kind: 'choice', index: i })}
+            className={`fp-label border px-2.5 py-1 text-[0.62rem] transition-colors ${
+              on ? 'border-kapton bg-ink-2 text-paper' : 'border-rule bg-ink-1/80 text-paper-dim hover:border-rule-strong hover:text-paper'
+            }`}
+          >
+            <span className="text-paper-faint">{c.short} · </span>
+            {pickedOption(c, a.picks).name}
+          </button>
+        )
+      })}
+    </nav>
   )
 }
 
@@ -151,6 +194,7 @@ function Choice({ a, mission, index }: { a: ActiveMission; mission: CampaignMiss
       mission={mission}
       step={`Design ${index + 1} of ${mission.choices.length}`}
       title={choice.question}
+      chips={<PickChips a={a} mission={mission} current={index} />}
       numbers={[
         { label: 'Budget', value: money(plan.budget) },
         { label: 'Chance of success', value: pct(plan.success), tone: plan.success >= 0.7 ? 'text-go' : plan.success >= 0.5 ? 'text-caution' : 'text-nogo' },
@@ -247,6 +291,7 @@ function Go({ a, mission }: { a: ActiveMission; mission: CampaignMission }) {
       step="Go / No-Go"
       kicker={mission.rocketName}
       title="Go for launch?"
+      chips={<PickChips a={a} mission={mission} current="go" />}
       numbers={[
         { label: 'You pay at Go', value: money(share), tone: ok ? 'text-paper' : 'text-nogo' },
         { label: 'Chance of success', value: pct(plan.success), tone: plan.success >= 0.7 ? 'text-go' : plan.success >= 0.5 ? 'text-caution' : 'text-nogo' },
@@ -278,14 +323,19 @@ function Go({ a, mission }: { a: ActiveMission; mission: CampaignMission }) {
         </div>
       }
     >
-      <ul className="space-y-2">
-        {mission.choices.map((c) => (
-          <li key={c.id} className="flex items-baseline justify-between gap-4 border-b border-rule pb-2">
-            <span className="text-sm text-paper-faint">{c.question}</span>
-            <span className="fp-display text-right text-base text-paper">{pickedOption(c, a.picks).name}</span>
-          </li>
-        ))}
-      </ul>
+      {/* Where the chance comes from: each pick's real delta in points */}
+      <div className="max-w-xl border-l-2 border-kapton/60 pl-3">
+        <div className="fp-label text-[0.62rem] text-paper-faint">Where your chance comes from</div>
+        <p data-testid="chance-line" className="fp-data mt-1 text-lg text-paper">
+          {chanceParts(mission, a.picks).map((p, i) => (
+            <span key={p.choiceId}>
+              {i > 0 && <span className="text-paper-faint"> · </span>}
+              {p.short} <span className={p.points < 0 ? 'text-nogo' : p.points > 0 ? 'text-go' : 'text-paper-dim'}>{signedPoints(p.points)}</span>
+            </span>
+          ))}
+        </p>
+        <p className="mt-1 text-xs text-paper-dim">Points of your chance of success, from each choice. Click a choice above to change it.</p>
+      </div>
     </Frame>
   )
 }
@@ -365,6 +415,7 @@ const OUTCOME = {
 
 function Result({ a, mission }: { a: ActiveMission; mission: CampaignMission }) {
   const finish = useCampaignStore((s) => s.finish)
+  const relaunch = useCampaignStore((s) => s.relaunch)
   const r = a.result!
   const look = OUTCOME[r.outcome]
   const line = a.flight!.failedAt === 'launch' ? a.flight!.beats[0].line : (a.flight!.beats.find((b) => b.phase === 'landing')?.line ?? '')
@@ -383,7 +434,9 @@ function Result({ a, mission }: { a: ActiveMission; mission: CampaignMission }) 
         { label: 'Popularity', value: signed(r.popularityNet, (v) => `${Math.round(v)}%`), tone: r.popularityNet >= 0 ? 'text-go' : 'text-nogo' },
         { label: 'Science', value: `${r.science} pts`, tone: 'text-ice' },
       ]}
-      action={{ label: 'Back to the campaign →', onClick: finish }}
+      // A failure or a partial invites another try with the choices kept; a success heads back up the ladder
+      action={r.outcome === 'success' ? { label: 'Back to the campaign →', onClick: finish } : { label: 'Change and relaunch', onClick: relaunch }}
+      secondary={r.outcome === 'success' ? { label: 'Change and relaunch', onClick: relaunch } : { label: 'Back to the campaign', onClick: finish }}
       details={
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -418,6 +471,10 @@ function Result({ a, mission }: { a: ActiveMission; mission: CampaignMission }) 
         </Stamp>
         <p className="text-lg text-paper-dim">{line}</p>
       </div>
+      {/* Why: the biggest risks taken, with their real chance deltas */}
+      <p data-testid="risk-sentence" className="mt-6 max-w-xl border-l-2 border-kapton/60 pl-3 text-base text-paper">
+        {riskSentence(mission, a.flight!, a.picks)}
+      </p>
     </Frame>
   )
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { assetUrl } from '../../assets'
 import { audio } from '../../assets/audio'
 import { getGroundStationById } from '../../data/ground'
-import { getOrbitById } from '../../data/orbits'
+import { getOrbitById, orbitHeightText } from '../../data/orbits'
 import { getPartById } from '../../data/parts'
 import { getRideById } from '../../data/rides'
 import type { Report, RequirementResult } from '../../sim/types'
@@ -140,7 +140,8 @@ function shortPartName(id: string): string {
 
 function metChain(req: RequirementResult, report: Report): { decision: string; physics: string } {
   const d = report.design
-  const orbitName = getOrbitById(d.orbit)?.name.replace(/\s*\(.*\)/, '') ?? d.orbit
+  const orbit = getOrbitById(d.orbit)
+  const orbitName = orbit ? orbitHeightText(orbit) : d.orbit
   const propName = shortPartName(d.propulsion)
   const rideName = getRideById(d.ride)?.name.replace(/\s*\(.*\)/, '') ?? d.ride
   const radioName = shortPartName(d.radio)
@@ -227,7 +228,8 @@ export function ReportScreen() {
   const best = runHistory.reduce((m, r) => Math.max(m, r.report.score.total), 0)
   const playerPropulsion = shortPartName(report.design.propulsion)
   const playerInstruments = report.design.instruments.map(shortPartName).join(' + ') || 'None'
-  const playerOrbit = getOrbitById(report.design.orbit)?.name.replace(/\s*\(.*\)/, '') ?? report.design.orbit
+  const playerOrbitData = getOrbitById(report.design.orbit)
+  const playerOrbit = playerOrbitData ? orbitHeightText(playerOrbitData) : report.design.orbit
   const won = medals(report)
   const wonCount = won.filter((m) => m.earned).length
 

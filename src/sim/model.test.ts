@@ -29,11 +29,12 @@ describe('calculator reproduces the logic map', () => {
     expect(flashlight.deltaVAvailable).toBeCloseTo(306, 0) // was 227
     expect(flashlight.totalCost).toBeCloseTo(20.0, 1) // was 21.0
 
-    expect(computeBudgets(lunahMapDesign, 'engineer').transferTurns).toBe(10) // Lunar IceCube plan 9, LunaH-Map 15
+    // 12 since 15 Nov: the ion spiral into the 15 km orbit is worked out (1,265 m/s, was a listed 1,000)
+    expect(computeBudgets(lunahMapDesign, 'engineer').transferTurns).toBe(12) // Lunar IceCube plan 9, LunaH-Map 15
     const icecube = computeBudgets(iceCubeDesign, 'engineer')
     // Balance redesign: the IR spectrometer is 2.4 kg and 2.2 M (was 3.2 kg and 3.0 M), so it fits beside an ice instrument
     expect(icecube.totalMass).toBeCloseTo(12.0, 1) // was 12.8
-    expect(icecube.totalCost).toBeCloseTo(21.3, 1) // was 24.9
+    expect(icecube.totalCost).toBeCloseTo(21.8, 1) // was 24.9; 21.3 before the 15 km orbit was worked out (15 Nov: two more months of cruise)
   })
 
   it('counts propellant in the mass and the reserve inside the budget', () => {

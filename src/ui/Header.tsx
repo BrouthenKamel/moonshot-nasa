@@ -4,73 +4,70 @@ import { useGameStore } from '../state/gameStore'
 import { lunarIceMapperBrief } from '../data/brief'
 import { StepDock } from './hud/StepDock'
 import { ResourceStrip } from './hud/ResourceStrip'
+import { goToStep } from './interaction/stepLeave'
 
 export function Header() {
   const screen = useGameStore((s) => s.screen)
   const simState = useGameStore((s) => s.simState)
   const setScreen = useGameStore((s) => s.setScreen)
+  const designStep = useGameStore((s) => s.designStep)
+  const setDesignStep = useGameStore((s) => s.setDesignStep)
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-rule bg-ink-1 px-4 py-2 select-none">
-      {/* Left: Mission Brand & Location */}
-      <div className="flex items-center gap-3">
-        <span className="h-3 w-1 shrink-0 bg-[var(--role-accent)]" aria-hidden="true" />
-        <h1 className="fp-display text-lg text-paper">Moonshot</h1>
-        {screen !== 'title' && (
-          <span className="fp-label hidden sm:inline">
-            {lunarIceMapperBrief.name}
-          </span>
-        )}
-      </div>
-
-      {/* Center: the mission sequencer and the resource strip */}
-      {screen === 'design' && (
+    <header className="border-b border-rule bg-ink-1 select-none">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2">
+        {/* Left: the game, the mission and the way back to the base */}
         <div className="flex items-center gap-3">
-          <div className="hidden md:flex">
-            <StepDock />
-          </div>
-          <ResourceStrip />
+          <span className="h-3 w-1 shrink-0 bg-[var(--role-accent)]" aria-hidden="true" />
+          <h1 className="fp-display text-lg text-paper">Moonshot</h1>
+          {screen !== 'title' && <span className="fp-label hidden sm:inline">{lunarIceMapperBrief.name}</span>}
+          {screen !== 'title' && (
+            <button onClick={() => setScreen('base')} className="fp-btn-secondary ml-2">
+              ← Agency base
+            </button>
+          )}
+          {/* The success numbers stay one click away while designing */}
+          {screen === 'design' && designStep !== 'brief' && (
+            <button type="button" onClick={() => goToStep('brief', setDesignStep)} className="fp-btn-ghost" title="Re-read the mission brief and what counts as success">
+              Brief
+            </button>
+          )}
         </div>
-      )}
 
-      {/* Right: Simulation Telemetry & Utility Controls */}
-      <div className="flex items-center gap-3">
-        {screen === 'simulation' && simState && (
-          <div className="flex flex-wrap items-stretch text-xs">
-            <span className="flex flex-col border-l border-rule px-2.5 leading-tight">
-              <span className="fp-label text-[0.58rem] text-paper-faint">Clock</span>
-              <span className="fp-data text-paper">{`Month ${simState.currentTurn}`}</span>
-            </span>
-            <span className="flex flex-col border-l border-rule px-2.5 leading-tight">
-              <span className="fp-label text-[0.58rem] text-paper-faint">Phase</span>
-              <span className="fp-data capitalize text-paper">{simState.phase}</span>
-            </span>
-            <span className="hidden flex-col border-l border-rule px-2.5 leading-tight md:flex">
-              <span className="fp-label text-[0.58rem] text-paper-faint">Ice</span>
-              <span className="fp-data text-ice">{simState.coveragePercent.toFixed(0)}%</span>
-            </span>
-            <span className="eng-only hidden flex-col border-l border-rule px-2.5 leading-tight md:flex">
-              <span className="fp-label text-[0.58rem] text-paper-faint">Data</span>
-              <span className="fp-data text-paper">{simState.totalDataReturned.toFixed(0)} MB</span>
-            </span>
-            <span className="eng-only hidden flex-col border-l border-rule px-2.5 leading-tight lg:flex">
-              <span className="fp-label text-[0.58rem] text-paper-faint">Delta-v</span>
-              <span className="fp-data text-paper">{Math.max(0, simState.fuelRemaining).toFixed(0)} m/s</span>
-            </span>
-          </div>
-        )}
-
-        {screen !== 'title' && (
-          <button
-            onClick={() => setScreen('base')}
-            className="fp-btn-secondary"
-          >
-            ← Agency base
-          </button>
-        )}
-        <EngineerSwitch />
-        <AudioControls />
+        {/* Right: the mission's readout, then the view and sound settings */}
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {screen === 'simulation' && simState && (
+            <div className="flex flex-wrap items-stretch text-xs">
+              <span className="flex flex-col border-l border-rule px-2.5 leading-tight">
+                <span className="fp-label text-[0.58rem] text-paper-faint">Clock</span>
+                <span className="fp-data text-paper">{`Month ${simState.currentTurn}`}</span>
+              </span>
+              <span className="flex flex-col border-l border-rule px-2.5 leading-tight">
+                <span className="fp-label text-[0.58rem] text-paper-faint">Phase</span>
+                <span className="fp-data capitalize text-paper">{simState.phase}</span>
+              </span>
+              <span className="hidden flex-col border-l border-rule px-2.5 leading-tight md:flex">
+                <span className="fp-label text-[0.58rem] text-paper-faint">Ice</span>
+                <span className="fp-data text-ice">{simState.coveragePercent.toFixed(0)}%</span>
+              </span>
+              <span className="eng-only hidden flex-col border-l border-rule px-2.5 leading-tight md:flex">
+                <span className="fp-label text-[0.58rem] text-paper-faint">Data</span>
+                <span className="fp-data text-paper">{simState.totalDataReturned.toFixed(0)} MB</span>
+              </span>
+              <span className="eng-only hidden flex-col border-l border-rule px-2.5 leading-tight lg:flex">
+                <span className="fp-label text-[0.58rem] text-paper-faint">Delta-v</span>
+                <span className="fp-data text-paper">{Math.max(0, simState.fuelRemaining).toFixed(0)} m/s</span>
+              </span>
+            </div>
+          )}
+          {screen === 'design' && <ResourceStrip />}
+          <EngineerSwitch />
+          <AudioControls />
+        </div>
       </div>
+
+      {/* The mission design's stages, across the whole screen */}
+      {screen === 'design' && <StepDock className="border-t border-rule" />}
     </header>
   )
 }

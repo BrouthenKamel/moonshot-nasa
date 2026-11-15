@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Eng, Tag } from '../../ui/kit'
 import { COVERAGE_TARGET, activityText, passesText, type StageForecast, type InstrumentView } from './stageModel'
 
@@ -44,9 +45,10 @@ export function TitleLine() {
 }
 
 /** Story: the coverage dial and one verdict. Engineer: what the forecast is made of. */
-export function ForecastPanel({ forecast, altitudeKm }: { forecast: StageForecast; altitudeKm: number }) {
+/** `inline` draws no sheet of its own: it sits inside the parent's panel (the Science step's one dashboard) */
+export function ForecastPanel({ forecast, altitudeKm, inline = false }: { forecast: StageForecast; altitudeKm: number; inline?: boolean }) {
   return (
-    <div className={`hud-fade pointer-events-none absolute left-3 top-3 max-w-sm p-2.5 pr-4 ${panel}`}>
+    <div className={`hud-fade pointer-events-none ${inline ? '' : `absolute left-3 top-3 max-w-sm p-2.5 pr-4 ${panel}`}`}>
       <div className="flex items-center gap-3">
         <Ring value={forecast.coverage} ok={forecast.meetsTarget} />
         <div className="text-xs text-paper-dim">
@@ -90,11 +92,12 @@ function countsAsText(v: InstrumentView): string {
   return 'pictures only: adds no ice coverage'
 }
 
-export function ReadOuts({ views, overShadow }: { views: InstrumentView[]; overShadow: boolean }) {
+/** `top` puts them in the top-right corner, for a stage with the instrument picks along its foot */
+export function ReadOuts({ views, overShadow, top = false }: { views: InstrumentView[]; overShadow: boolean; top?: boolean }) {
   return (
-    <div className="hud-fade pointer-events-none absolute bottom-3 right-3 flex w-80 flex-col items-end gap-1.5">
+    <div className={`hud-fade pointer-events-none absolute right-3 flex w-80 flex-col items-end gap-1.5 ${top ? 'top-3' : 'bottom-3'}`}>
       <PassChip overShadow={overShadow} />
-      {views.length === 0 && <div className={`w-full px-3 py-2 text-sm text-paper-dim ${panel}`}>The instrument bay is empty. Pick one or two below.</div>}
+      {views.length === 0 && <div className={`w-full px-3 py-2 text-sm text-paper-dim ${panel}`}>The instrument bay is empty. Pick one or two.</div>}
       {views.map((v) => {
         const text = activityText(v, overShadow)
         const tone = v.outOfRange || v.veryWeak ? 'text-nogo' : text.startsWith('Blind') ? 'text-paper-faint' : v.countsAs === 'ice' ? 'text-ice' : 'text-paper'
@@ -121,6 +124,19 @@ export function ReadOuts({ views, overShadow }: { views: InstrumentView[]; overS
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * The top-left dashboard of the Science stage: the forecast, and under it whatever `topLeft` holds.
+ * It needs no 3D, so the screen shows it at once while the scene loads (LiveForecastCorner).
+ */
+export function ForecastCorner({ forecast, altitudeKm, topLeft }: { forecast: StageForecast; altitudeKm: number; topLeft?: ReactNode }) {
+  return (
+    <div className="hud-panel pointer-events-none absolute left-3 top-3 flex w-[23rem] max-w-[40%] flex-col gap-2.5 rounded-xl p-3.5">
+      <ForecastPanel forecast={forecast} altitudeKm={altitudeKm} inline />
+      {topLeft && <div className="border-t border-rule pt-2.5">{topLeft}</div>}
     </div>
   )
 }

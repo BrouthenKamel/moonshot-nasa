@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useGameStore } from '../../state/gameStore'
+import { lostForWantOfReserve } from '../../sim/evaluate'
+import { decisionTiming } from '../../viz/decisionTiming'
+import { RESERVE_FIX, fixLabel } from '../report/fixIt'
 import { useWorldStore, type Speed } from '../../state/worldStore'
 import { fundingPerDay, grantShare, missionFunding, popularityEffects } from '../../game/economy'
 import { lunarPapers } from '../../game/research'
@@ -12,7 +15,7 @@ import { difficultyPresets } from '../../data/brief'
 import { computeBudgets } from '../../sim/budgets'
 import { isSimComplete } from '../../sim/simulate'
 import type { SimState } from '../../sim/types'
-import { FlightViewToggle } from '../flight/FlightStage'
+import { FlightPlan, FlightViewToggle } from '../flight/FlightStage'
 import { STAGE_NAMES, missionClockLabel, type MissionLogEntry, type MissionStage, type MissionStatusView } from '../../viz/missionMap'
 import { Eng, Sheet, Stamp, Tag, type StampVerdict, type TagTone } from '../kit'
 
@@ -88,6 +91,8 @@ export function AgencyClock() {
   const speed = useWorldStore((s) => s.speed)
   const setSpeed = useWorldStore((s) => s.setSpeed)
   const waiting = useGameStore((s) => !!s.simState?.pendingDecision)
+  // A card on launch day reads against a mission panel that still says "Building": name the day
+  const timing = useGameStore((s) => decisionTiming(s.simState))
   const buttons: [Speed, keyof typeof PATHS, string][] = [
     ['paused', 'pause', 'Pause time'],
     ['normal', 'play', 'Play: 1 day a second'],
@@ -99,6 +104,11 @@ export function AgencyClock() {
         {/* Plain text, not a Flap: the day ticks every second and a constant roll would blur it */}
         <span className={waiting ? 'text-caution' : ''}>{`Day ${day}`}</span>
       </Readout>
+      {timing && (
+        <span data-testid="decision-timing" className="fp-label whitespace-nowrap border border-caution px-2 py-1 text-[0.62rem] text-caution">
+          {timing}
+        </span>
+      )}
       <div className="flex border border-rule" role="radiogroup" aria-label="Time speed">
         {buttons.map(([s, icon, label], i) => (
           <button
@@ -381,13 +391,8 @@ export function MissionPanel({
       )}
 
       {sim ? (
-        <div className="mt-3 border-y border-rule py-1">
-          <Stat label="Ice mapped" value={`${sim.coveragePercent.toFixed(0)}%`} tone="text-ice" />
-          <Eng as="div" className="mt-1 grid grid-cols-3 border-t border-rule pt-1">
-            <Stat label="Data home" value={`${Math.round(sim.totalDataReturned)} MB`} />
-            <Stat label="Fuel (delta-v)" value={`${Math.max(0, sim.flight.dvLeft).toFixed(0)} m/s`} />
-            <Stat label="Budget left" value={`${Math.max(0, sim.flight.main).toFixed(1)}M`} />
-          </Eng>
+        <div className="mt-3 border-y border-rule py-2">
+          <FlightPlan sim={sim} />
         </div>
       ) : (
         <div className="mt-3 grid grid-cols-3 border-y border-rule py-1">
@@ -613,6 +618,7 @@ export function MissionResultDialog({
   const research = useWorldStore((s) => s.research)
   const seen = useWorldStore((s) => s.resultSeenSeed)
   const markSeen = useWorldStore((s) => s.markResultSeen)
+  const reviseAt = useGameStore((s) => s.reviseAt)
   const result = useMemo(() => missionResult({ mission, research }), [mission, research])
   if (!result || !mission || seen === mission.seed || !sim || sim.seed !== mission.seed) return null
 
@@ -621,6 +627,8 @@ export function MissionResultDialog({
   // (the same end reason the report gives: failedLine)
   const line = result.outcome !== 'failed' ? look.line : failedLine(sim.flight.end, sim.phase === 'failed', result.coverage)
   const close = () => markSeen(mission.seed)
+  // Lost for want of a reserve ("Accept the loss"): one link to where the reserve is set (QC, 15 Nov)
+  const reserveFix = result.outcome === 'failed' && lostForWantOfReserve(sim)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-0/80 p-4" onClick={close}>
       <Sheet
@@ -669,6 +677,22 @@ export function MissionResultDialog({
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {reserveFix && (
+          <div className="mx-5 mt-3">
+            <button
+              type="button"
+              data-testid="reserve-fix"
+              onClick={() => {
+                close()
+                reviseAt(RESERVE_FIX.step)
+              }}
+              className="text-sm font-semibold text-kapton underline decoration-2 underline-offset-4 hover:text-paper"
+            >
+              {fixLabel({ step: RESERVE_FIX.step, action: RESERVE_FIX.action, buildingName: '' })}
+            </button>
           </div>
         )}
 

@@ -131,29 +131,21 @@ function FairingStage({ engineScale }: { engineScale: number }) {
     const t = reduced ? 9.5 : elapsed.current
     if (t < 0) return
 
-    // Audio beats synced to the sequence (once per shot)
+    // Audio beats synced to the sequence (once per shot). A shot that joins part-way (the launch
+    // after the island's liftoff) passes the beats it starts after without playing them.
     const c = cues.current
-    if (!c.countdown && t >= 0.05) {
-      c.countdown = true
-      audio.say('voice.countdown')
+    const beat = (key: keyof typeof c, at: number, play: () => void) => {
+      if (c[key] || t < at) return
+      c[key] = true
+      if (t < at + 0.6) play()
     }
-    if (!c.ignition && t >= 2.0) {
-      c.ignition = true
-      audio.play('sfx.ignition')
-    }
-    if (!c.staging && t >= 6.2) {
-      c.staging = true
-      audio.play('sfx.snap')
-    }
-    if (!c.sep && t >= 7.5) {
-      c.sep = true
-      audio.play('sfx.reveal')
-    }
-    if (!c.deploy && t >= 9.15) {
-      c.deploy = true
-      audio.play('sfx.go')
-      audio.say('voice.liftoff')
-    }
+    beat('countdown', 0.05, () => audio.say('voice.countdown'))
+    beat('ignition', 2.0, () => audio.play('sfx.ignition'))
+    beat('staging', 6.2, () => audio.play('sfx.snap'))
+    beat('sep', 7.5, () => audio.play('sfx.reveal'))
+    // The CubeSat leaves the deployer: a chime only (the liftoff call belongs to the pad, which the
+    // launch now shows first on the island)
+    beat('deploy', 9.15, () => audio.play('sfx.go'))
 
     // Fairing separation after t = 7.5s
     const easeSep = separation(t)

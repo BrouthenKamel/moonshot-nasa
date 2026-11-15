@@ -15,7 +15,7 @@ import {
   type InstrumentPart,
   getPartById,
 } from '../data/parts'
-import { getOrbitById, type LunarOrbit } from '../data/orbits'
+import { getOrbitById, polarOrbitId, type LunarOrbit } from '../data/orbits'
 import { getRideById } from '../data/rides'
 import { getTransferById } from '../data/transfers'
 import { getGroundStationById } from '../data/ground'
@@ -197,6 +197,19 @@ export function scienceTotals(design: Design, st: ScienceState): [number, number
 }
 
 /**
+ * Ice coverage the craft has observed, home or not, in %: the same combination as scienceTotals but
+ * over what was seen. What it shows above scienceTotals' ice is on board, waiting for a downlink.
+ */
+export function observedIce(design: Design, st: ScienceState): number {
+  let unseen = 1
+  for (const id of design.instruments) {
+    const inst = getPartById(id) as InstrumentPart | undefined
+    if (inst?.seesShadow) unseen *= 1 - (st.observed[id] ?? 0) / 100
+  }
+  return 100 * (1 - unseen)
+}
+
+/**
  * Compute all resource budgets from a design.
  */
 export function computeBudgets(design: Design, difficulty: Difficulty): Budgets {
@@ -323,7 +336,9 @@ export function computeBudgets(design: Design, difficulty: Difficulty): Budgets 
     let q = iceSignal(limit, altitude)
     if (!precise) q *= inst.qualityWithoutPrecisePointing
     quality[inst.id] = q
-    coverageRate[inst.id] = 1 - Math.exp(-(orbit?.passesPerTurn ?? 0) * inst.footprint * q * scienceDuty)
+    // At most C.mappingPassesCap passes a month map: the rest go to downlink, charging and orbit trims
+    const mappingPasses = Math.min(orbit?.passesPerTurn ?? 0, C.mappingPassesCap)
+    coverageRate[inst.id] = 1 - Math.exp(-mappingPasses * inst.footprint * q * scienceDuty)
     dataPerTurn += inst.dataPerTurn * scienceDuty
   }
 
@@ -440,9 +455,9 @@ export function computeBudgets(design: Design, difficulty: Difficulty): Budgets 
 }
 
 /**
- * The design a new game starts from: a Lunar IceCube-like craft (ion engine,
- * IR spectrometer, elliptical orbit). It can fly, but the IR spectrometer
- * cannot see into the shadowed craters: the first lesson of the game.
+ * The design a new game starts from: a Lunar IceCube-like ion craft with the laser reflectometer,
+ * in the Orbit step's own 15 km polar orbit (LunaH-Map's 15 x 3,150 km). Left as it is, it can fly
+ * the mission. (Until 15 Nov it carried the IR spectrometer, blind in shadow, as the first lesson.)
  */
 export function createDefaultDesign(): Design {
   return {
@@ -453,7 +468,9 @@ export function createDefaultDesign(): Design {
       // (it costs 21.3 M of the 25 M since the balance redesign; 24.9 M before)
       reservePercent: 0,
     },
-    instruments: ['inst-ir-spec'],
+    // The laser sees into the shadowed craters: left as it is, the starting craft can fly the mission
+    // (all checks go, about 92% full success). It was the IR spectrometer, a trap, before 15 Nov.
+    instruments: ['inst-laser'],
     structure: 'bus-6u',
     solar: 'solar-2wing',
     battery: 'battery-large',
@@ -461,7 +478,7 @@ export function createDefaultDesign(): Design {
     computer: 'computer-basic',
     attitude: 'attitude-basic',
     propulsion: 'prop-ion-large',
-    orbit: 'orbit-elliptical',
+    orbit: polarOrbitId(15),
     ride: 'ride-lunar',
     transfer: 'transfer-low-energy',
     groundStation: 'ground-medium',

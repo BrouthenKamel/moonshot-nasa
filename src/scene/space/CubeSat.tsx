@@ -46,15 +46,17 @@ interface CubeSatProps {
   scale?: number
   /** Scenes that animate every frame pass burn and deploy here instead, to avoid re-rendering */
   live?: React.RefObject<{ burn: number; deploy: number }>
+  /** How strongly the metals mirror the studio light (a close hero shot wants more) */
+  reflections?: number
 }
 
 /**
  * The player's 6U CubeSat, showing exactly the parts they chose. +Z is the instrument end,
  * -Z the engine. Wings and dish fold through the model's `pivot_` nodes.
  */
-export function CubeSat({ design, deploy = 1, burn = 0, scale = 1, live }: CubeSatProps) {
+export function CubeSat({ design, deploy = 1, burn = 0, scale = 1, live, reflections = 0.55 }: CubeSatProps) {
   const model = useModel('model.cubesat-6u')
-  useStudioReflections(model, 0.55)
+  useStudioReflections(model, reflections)
   const reduced = useMemo(() => prefersReducedMotion(), [])
   const current = useRef(live ? live.current.deploy : deploy)
   const plume = useRef<THREE.Mesh>(null)

@@ -15,7 +15,8 @@ export interface DifficultyPreset {
 }
 
 /**
- * Engineer is the brief from the logic map: 25 M, about what Lunar IceCube cost.
+ * Engineer is the brief from the logic map: 25 M, a small lunar CubeSat budget (a game value, not a
+ * mission's published cost).
  * Cadet gives room for an electric design with margin; Flight Director leaves
  * only the cheapest families (chemical engine to the halo loop).
  */
@@ -32,7 +33,7 @@ export const difficultyPresets: Record<Difficulty, DifficultyPreset> = {
   engineer: {
     id: 'engineer',
     name: 'Engineer',
-    description: 'The real brief: a Lunar IceCube-sized budget',
+    description: 'The real brief: a small lunar CubeSat budget',
     budgetCap: 25,
     dataTarget: 300,
     eventOddsMultiplier: 1.0,
@@ -174,6 +175,13 @@ export const modelConstants = {
   thrustDuty: 0.6, // G, reproduces Lunar IceCube's 9-month plan
   cruiseTurns: 4, // S, CAPSTONE took 12 to 20 weeks
   spiralFreeDeltaV: 100, // G, m/s the low-energy path gives for free
+  // G (15 Nov): mapping passes a month count at most this many. In a low polar orbit the craft passes
+  // the pole about 150 times a month, but between low passes it has to point at Earth to downlink,
+  // recharge the battery and trim the orbit, so it maps on a fraction of them. Without this cap a
+  // 15 km orbit mapped about 80% in its first month, leaving eleven months with nothing to do;
+  // with it a good design reaches the 70% target in about five to seven months. The halo loop
+  // (4.5 passes a month) is unaffected.
+  mappingPassesCap: 24,
   arrivalExcessSpeedKms: 0.85, // D
   courseCorrectionDirect: 30, // G, m/s
   courseCorrectionLowEnergy: 50, // G, m/s

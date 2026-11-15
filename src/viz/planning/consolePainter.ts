@@ -19,6 +19,15 @@ export const CONSOLE = {
   lampStep: 0.65,
 } as const
 
+/**
+ * Panel z of the console's printed rows, top to bottom: the column titles (TITLE_Z), the recommended-reserve
+ * note, the value scale. The 3D handle (z ±0.14 around the fader) and the value lamps (fader + 0.2)
+ * sit below the scale, so nothing on the desk ever covers the note.
+ */
+export const TITLE_Z = -0.27
+export const RECOMMENDED_Z = -0.17
+export const FADER_SCALE_Z = CONSOLE.fader.z - 0.2
+
 export const STEP_LAMPS = ['1 PLAN', '2 INSTRUMENTS', '3 SPACECRAFT', '4 ORBIT', '5 RIDE', '6 COMMS', '7 GO / NO-GO']
 
 const FONT = '"Archivo", "Helvetica Neue", Arial, sans-serif'
@@ -49,7 +58,7 @@ export function paintConsole(ctx: CanvasRenderingContext2D, view: PlanningView):
   const title = (text: string, x: number, color: string) => {
     ctx.font = `800 32px ${FONT}`
     ctx.fillStyle = color
-    ctx.fillText(text, px(x), pz(-0.27))
+    ctx.fillText(text, px(x), pz(TITLE_Z))
   }
   // With an odds line (chance of full success now and at the neighbouring settings) the box grows downwards
   const readout = (text: string, x: number, color: string, odds?: string) => {
@@ -112,15 +121,16 @@ export function paintConsole(ctx: CanvasRenderingContext2D, view: PlanningView):
     const recommended = v === turnConstants.recommendedReservePercent
     ctx.font = `700 28px ${FONT}`
     ctx.fillStyle = v === view.reservePercent ? '#f2e3c2' : '#827c70'
-    ctx.fillText(String(v), px(x), pz(fader.z - 0.2))
+    ctx.fillText(String(v), px(x), pz(FADER_SCALE_Z))
     ctx.fillStyle = recommended ? '#e8a33d' : '#3a3c42'
     ctx.fillRect(px(x) - (recommended ? 4 : 2), pz(fader.z - 0.13), recommended ? 8 : 4, 18)
   }
-  // The recommended reserve, under the fader (CubeSat 101 advice, QC #57)
-  const rx = faderX(turnConstants.recommendedReservePercent, fader.x0, fader.x1)
+  // The recommended reserve (CubeSat 101 advice, QC #57), above the fader: between the title and
+  // the scale, centred on the fader. Under the fader it sat on the row of value lamps and in the
+  // handle's path, which hid letters at every setting (Ideas round 22). The amber tick marks the value.
   ctx.font = `700 22px ${FONT}`
   ctx.fillStyle = '#e8a33d'
-  ctx.fillText(`${turnConstants.recommendedReservePercent}% RECOMMENDED (CUBESAT 101)`, px(rx), pz(fader.z + 0.2))
+  ctx.fillText(`${turnConstants.recommendedReservePercent}% RECOMMENDED (CUBESAT 101)`, px(fx), pz(RECOMMENDED_Z), px(fader.x1 + 0.1) - px(fader.x0 - 0.1))
   readout(view.readouts.reserve, fx, '#f0c070', view.readouts.reserveOdds)
   ctx.restore()
 }

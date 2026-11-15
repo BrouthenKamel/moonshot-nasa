@@ -254,7 +254,8 @@ export function missionStatus(input: { budgets: Budgets; visited: DesignStep[]; 
     return {
       stage: 'building',
       progress: clamp(sim.currentTurn / Math.max(1, f.launchTurn)),
-      next: `In the Factory · the ride leaves in month ${f.launchTurn}`,
+      // Ready craft wait at the launch site; the rest is still being built or tested in the Factory
+      next: sim.phase === 'wait' ? `Ready at the launch site · the ride leaves in month ${f.launchTurn}` : `In the Factory · the ride leaves in month ${f.launchTurn}`,
       opens: null,
     }
   }

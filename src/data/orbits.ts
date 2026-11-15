@@ -44,23 +44,6 @@ export const lunarOrbits: LunarOrbit[] = [
     insertionDeltaV: { chemical_direct: 430, chemical_low_energy: 60, electric_low_energy: 250 },
   },
   {
-    id: 'orbit-elliptical',
-    name: 'Elliptical Polar (15 x 3,150 km)',
-    altitude: 15,
-    farPointKm: 3150,
-    type: 'elliptical',
-    description:
-      "LunaH-Map's plan: swoops to 15 km over the pole about 141 times a month. Many low passes, but costly to reach.",
-    flownBy: 'LunaH-Map (planned)',
-    passesPerTurn: 141,
-    sunlitShare: 0.85,
-    eclipseHours: 0.6,
-    earthVisible: 0.8,
-    stationKeepingDeltaV: 5,
-    observingShare: 0.08,
-    insertionDeltaV: { electric_low_energy: 1000 },
-  },
-  {
     id: 'orbit-100km',
     name: 'Circular Polar (100 km)',
     altitude: 100,
@@ -170,6 +153,32 @@ export function polarOrbit(km: number): LunarOrbit {
     observingShare: Math.round(nearPole * 1000) / 1000,
     insertionDeltaV: {},
   }
+}
+
+/**
+ * LunaH-Map's planned 15 x 3,150 km orbit, by name. It is the polar orbit the Orbit step's slider
+ * makes at 15 km, worked out the same way, so a craft has the same numbers whichever way it was
+ * chosen (before 15 Nov it had its own hand-entered figures: 141 passes, 1,000 m/s for an ion engine).
+ */
+export const ellipticalOrbit: LunarOrbit = {
+  ...polarOrbit(15),
+  id: 'orbit-elliptical',
+  name: 'Elliptical Polar (15 x 3,150 km)',
+  description: "LunaH-Map's plan: swoops to 15 km over the pole about 150 times a month. Many low passes, but costly to reach.",
+  flownBy: 'LunaH-Map (planned)',
+}
+lunarOrbits.splice(1, 0, ellipticalOrbit)
+
+/**
+ * An orbit in words by its height, not its family: "15 km over the pole, far side 3,150 km".
+ * Used wherever a player-facing line names the orbit they chose.
+ */
+export function orbitHeightText(orbit: LunarOrbit): string {
+  const km = (n: number) => `${n.toLocaleString('en-US')} km`
+  const far = orbit.farPointKm
+  if (orbit.type === 'halo') return `a loop dipping to ${km(orbit.altitude)} over the pole`
+  if (far === null || far <= orbit.altitude) return `${km(orbit.altitude)} over the pole (a circle)`
+  return `${km(orbit.altitude)} over the pole (far side ${km(far)})`
 }
 
 export function getOrbitById(id: string): LunarOrbit | undefined {

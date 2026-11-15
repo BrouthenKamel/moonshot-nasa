@@ -39,8 +39,8 @@ describe('computeSynergies', () => {
       const design = { ...createDefaultDesign(), instruments: ['inst-laser'], orbit }
       return computeSynergies(design, computeBudgets(design, FIXED_DIFFICULTY)).find((b) => b.id === 'altitude-match')?.title
     }
-    expect(at('orbit-elliptical')).toBe('Elliptical Polar: closest pass 15 km')
-    expect(at('orbit-polar-15')).toBe('Elliptical Polar: closest pass 15 km')
+    expect(at('orbit-elliptical')).toBe('Closest pass 15 km over the pole')
+    expect(at('orbit-polar-15')).toBe('Closest pass 15 km over the pole')
     expect(at('orbit-polar-15')).not.toMatch(/lock/i)
   })
 

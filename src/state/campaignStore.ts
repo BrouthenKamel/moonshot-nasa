@@ -44,6 +44,8 @@ interface CampaignState {
   ladderOpen: boolean
   /** The mission whose flight just opened the next rung (the ladder says "Unlocked!"), until the ladder closes */
   unlockedBy: CampaignMissionId | null
+  /** The choices of each mission's last flight (a relaunch and the "try again" line start from them) */
+  lastPicks: Partial<Record<CampaignMissionId, Picks>>
   active: ActiveMission | null
   /** A payoff to play over the base (mission 1's ice map) */
   pendingPayoff: { kind: PayoffKind; outcome: Outcome } | null
@@ -67,6 +69,8 @@ interface CampaignState {
   payoffDone: () => void
   /** Leave the result: back to the ladder */
   finish: () => void
+  /** From a result: back to the first design screen of the same mission, choices kept */
+  relaunch: () => void
   abandon: () => void
   clearPayoff: () => void
   resetCampaign: () => void
@@ -83,6 +87,7 @@ export const useCampaignStore = create<CampaignState>()(
       progress: emptyProgress(),
       ladderOpen: false,
       unlockedBy: null,
+      lastPicks: {},
       active: null,
       pendingPayoff: null,
       bookedSeeds: [],
@@ -103,7 +108,7 @@ export const useCampaignStore = create<CampaignState>()(
           useWorldStore.getState().openMission()
           return
         }
-        set({ active: { missionId: id, picks: defaultPicks(mission), stage: { kind: 'brief' }, flight: null, paid: 0, result: null } })
+        set((s) => ({ active: { missionId: id, picks: s.lastPicks[id] ?? defaultPicks(mission), stage: { kind: 'brief' }, flight: null, paid: 0, result: null } }))
       },
 
       pick: (choiceId, optionId) =>
@@ -121,7 +126,7 @@ export const useCampaignStore = create<CampaignState>()(
         const { world: after, paid } = approveCampaignMission(world, mission, plan)
         useWorldStore.setState(after)
         const flight = flyMission(mission, a.picks, generateSeed())
-        set({ active: { ...a, flight, paid, stage: { kind: 'liftoff' } } })
+        set((s) => ({ active: { ...a, flight, paid, stage: { kind: 'liftoff' } }, lastPicks: { ...s.lastPicks, [a.missionId]: a.picks } }))
       },
 
       liftoffDone: () => {
@@ -151,14 +156,20 @@ export const useCampaignStore = create<CampaignState>()(
       },
 
       finish: () => set((s) => ({ active: null, ladderOpen: true, unlockedBy: s.active?.missionId ?? null })),
+      relaunch: () =>
+        set((s) =>
+          s.active?.result
+            ? { active: { missionId: s.active.missionId, picks: s.active.picks, stage: { kind: 'choice', index: 0 }, flight: null, paid: 0, result: null } }
+            : {}
+        ),
       abandon: () => set((s) => (s.active && !s.active.flight ? { active: null, ladderOpen: true } : {})),
       clearPayoff: () => set({ pendingPayoff: null }),
-      resetCampaign: () => set({ progress: emptyProgress(), active: null, pendingPayoff: null, ladderOpen: false, unlockedBy: null, bookedSeeds: [] }),
+      resetCampaign: () => set({ progress: emptyProgress(), active: null, pendingPayoff: null, ladderOpen: false, unlockedBy: null, lastPicks: {}, bookedSeeds: [] }),
     }),
     {
       name: 'moonshot-campaign-proto',
       version: 1,
-      partialize: (s) => ({ progress: s.progress, active: s.active, bookedSeeds: s.bookedSeeds }),
+      partialize: (s) => ({ progress: s.progress, active: s.active, bookedSeeds: s.bookedSeeds, lastPicks: s.lastPicks }),
     }
   )
 )

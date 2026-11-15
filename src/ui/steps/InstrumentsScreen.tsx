@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FocusEvent, type MouseEvent } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { computeBudgets } from '../../sim/budgets'
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
@@ -11,10 +11,9 @@ import { instruments, type InstrumentPart } from '../../data/parts'
 import { useAgencyStore } from '../../state/agencyStore'
 import { instrumentLock, lockedInDesign, toggleUnlocked } from '../../scene/instrumentStage/labLocks'
 import { ChoiceCard } from '../kit/ChoiceCard'
-import { Btn, Eng, LineItem, Sheet, StepHeader, Tag, nextLabel, stepNumber, stepTitle } from '../kit'
+import { Btn, Eng, LineItem, Sheet, Tag, nextLabel, stepNumber } from '../kit'
+import { InstrumentSpec, ScienceDock } from './instruments/ScienceDock'
 import { audio } from '../../assets/audio'
-import { assetUrl } from '../../assets/url'
-import { choiceArt } from '../../assets/catalogueArt'
 import { MAX_INSTRUMENTS } from '../../scene/instrumentStage/stageModel'
 import { InstrumentCardFoot } from '../../scene/instrumentStage/InstrumentCardFoot'
 import {
@@ -28,6 +27,8 @@ import {
   rowFocusKey,
 } from '../../scene/instrumentStage/instrumentCards'
 
+import { LiveForecastCorner } from '../../scene/instrumentStage/LiveForecastCorner'
+
 const InstrumentStage = lazy(() => import('../../scene/instrumentStage/InstrumentStage'))
 const N = stepNumber('instruments')
 
@@ -37,89 +38,22 @@ function Fallen({ onFall }: { onFall: () => void }) {
   return <DesignDiagramPanel step="instruments" />
 }
 
-/** The Research Lab simulator (it carries the instrument cards), or the flat diagram where 3D cannot run. */
-function Stage({
-  onFall,
-  onPreview,
-}: {
-  onFall: () => void
-  onPreview: (id: string | null) => void
-}) {
-  const flat = <DesignDiagramPanel step="instruments" />
-  if (!canUseWebGL()) return flat
-
-  const pickId = (target: EventTarget | null) =>
-    target instanceof Element ? target.closest<HTMLElement>('[data-choice-id]')?.dataset.choiceId ?? null : null
-
+/** The Research Lab simulator filling the screen; the picks are laid over its foot (ScienceDock) */
+function Stage({ onFall, topLeft }: { onFall: () => void; topLeft?: ReactNode }) {
   return (
-    <div
-      onMouseOver={(e: MouseEvent<HTMLDivElement>) => onPreview(pickId(e.target))}
-      onMouseLeave={() => onPreview(null)}
-      onFocus={(e: FocusEvent<HTMLDivElement>) => onPreview(pickId(e.target))}
-      onBlurCapture={(e: FocusEvent<HTMLDivElement>) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onPreview(null)
-      }}
-    >
-      <StageBoundary fallback={<Fallen onFall={onFall} />}>
-        <Suspense fallback={<div className="mb-4 h-[46vh] min-h-[340px] border border-rule bg-ink-1" />}>
-          <InstrumentStage />
-        </Suspense>
-      </StageBoundary>
-    </div>
-  )
-}
-
-/** With the stage running, the cards live on its bar; here the player can read each instrument's full entry. */
-function BriefTabs({
-  shown,
-  chosen,
-  onShow,
-  onPreview,
-}: {
-  shown: string
-  chosen: string[]
-  onShow: (id: string) => void
-  onPreview: (id: string | null) => void
-}) {
-  return (
-    <div
-      role="group"
-      aria-label="Read an instrument's file"
-      className="flex flex-wrap border border-rule"
-      onMouseLeave={() => onPreview(null)}
-      onBlurCapture={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onPreview(null)
-      }}
-    >
-      {instruments.map((inst) => {
-        const on = inst.id === shown
-        const portrait = choiceArt(inst.id)?.portrait
-        return (
-          <button
-            key={inst.id}
-            type="button"
-            aria-pressed={on}
-            onClick={() => onShow(inst.id)}
-            onPointerEnter={() => {
-              audio.play('sfx.hover')
-              onPreview(inst.id)
-            }}
-            onFocus={() => onPreview(inst.id)}
-            className={`flex items-center gap-2 border-r border-rule py-1 pl-1 pr-3 text-xs font-semibold last:border-r-0 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-kapton ${
-              on ? 'bg-ink-3 text-paper' : 'text-paper-dim hover:text-paper'
-            }`}
-          >
-            {portrait ? (
-              <img src={assetUrl(portrait)} alt="" className="h-7 w-7 bg-ink-1 object-contain" />
-            ) : (
-              <span className="h-2 w-2" style={{ background: instrumentColor(inst.id) }} />
-            )}
-            {instrumentShortName(inst)}
-            {chosen.includes(inst.id) && <span className="fp-data text-[10px] text-kapton">aboard</span>}
-          </button>
-        )
-      })}
-    </div>
+    <StageBoundary fallback={<Fallen onFall={onFall} />}>
+      <Suspense
+        fallback={
+          <div className="absolute inset-0 flex items-center justify-center text-paper-faint">
+            {/* The forecast needs no 3D: it is there at once, as the stage will draw it */}
+            <LiveForecastCorner topLeft={topLeft} />
+            Finding the south pole…
+          </div>
+        }
+      >
+        <InstrumentStage fill topLeft={topLeft} />
+      </Suspense>
+    </StageBoundary>
   )
 }
 
@@ -245,6 +179,9 @@ export function InstrumentsScreen() {
   useEffect(() => () => setPreviewPatch(null), [setPreviewPatch])
 
   const lockedAboard = lockedInDesign(design.instruments, day)
+  // The instrument under the pointer on the stage's picks: its details float top left
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const hovered = instruments.find((i) => i.id === hoveredId)
   const [inspected, setInspected] = useState<string | null>(null)
   // The stage's bar picks when 3D runs; the cards here pick when it cannot (and in tests)
   const [stageFell, setStageFell] = useState(false)
@@ -260,45 +197,56 @@ export function InstrumentsScreen() {
   const budgets = useMemo(() => computeBudgets(design, difficulty), [design, difficulty])
   const count = design.instruments.length
 
+  // One screen: the stage fills it, the picks sit along its foot and nothing scrolls
+  if (!picksHere)
+    return (
+      <div className="relative h-full min-h-[560px] overflow-hidden bg-[#03050a]">
+        <Stage onFall={onFall} topLeft={hovered && <InstrumentSpec inst={hovered} on={design.instruments.includes(hovered.id)} />} />
+        <ScienceDock
+          chosen={design.instruments}
+          day={day}
+          onToggle={toggleInstrument}
+          onHover={(id) => {
+            setHoveredId(id)
+            handlePreview(id)
+          }}
+          next={{ label: nextLabel('instruments'), onClick: () => setDesignStep('spacecraft') }}
+        />
+      </div>
+    )
+
+  // Without 3D (and in tests): the cards, the hovered one's entry and the way on
   return (
-    <>
-      <StepHeader step="instruments" title={stepTitle('instruments')} className="mx-auto mb-4 max-w-3xl">
+    <div className="mx-auto max-w-3xl space-y-4 px-4 py-4">
+      <div className="flex items-baseline justify-between gap-3">
         <span className="fp-data text-sm text-paper">{`${count} of ${MAX_INSTRUMENTS} instruments`}</span>
         <Eng className="fp-data text-xs text-paper-dim">
-          · {totalMass.toFixed(1)} kg · {budgets.instrumentPower} W · {budgets.dataPerTurn.toFixed(0)} MB/month
+          {totalMass.toFixed(1)} kg · {budgets.instrumentPower} W · {budgets.dataPerTurn.toFixed(0)} MB/month
         </Eng>
-      </StepHeader>
-      <Stage onFall={onFall} onPreview={handlePreview} />
-      <div className="mx-auto max-w-3xl space-y-4">
-        <SynergyStrip step="instruments" />
-
-        {picksHere && <DesignDeltaLine />}
-
-        {lockedAboard.map((lock) => {
-          const name = instruments.find((i) => i.id === lock.id)?.name ?? lock.id
-          return (
-            <div key={lock.id} className="border-l-2 border-caution bg-ink-2 p-4 text-sm text-paper">
-              <span className="font-semibold">{name} is in your design but the Research Lab has not unlocked it yet.</span> {lock.text}. It stays in
-              your design; Go / No-Go blocks the launch until the lab reaches LV {lock.neededLevel} or you remove it.
-            </div>
-          )
-        })}
-
-        {picksHere ? (
-          <InstrumentHand chosen={design.instruments} day={day} onToggle={toggleInstrument} onInspect={setInspected} onPreview={handlePreview} />
-        ) : (
-          <BriefTabs shown={brief.id} chosen={design.instruments} onShow={setInspected} onPreview={handlePreview} />
-        )}
-        <InstrumentBrief instrument={brief} selected={design.instruments.includes(brief.id)} />
-
-        {count === 0 && <div className="border-l-2 border-nogo bg-ink-2 p-3 text-sm text-paper">Select at least one instrument to continue.</div>}
-
-        <div className="flex justify-end pt-1">
-          <Btn variant="primary" type="button" onClick={() => setDesignStep('spacecraft')} disabled={count === 0}>
-            {nextLabel('instruments')}
-          </Btn>
-        </div>
       </div>
-    </>
+      <SynergyStrip step="instruments" />
+      <DesignDeltaLine />
+
+      {lockedAboard.map((lock) => {
+        const name = instruments.find((i) => i.id === lock.id)?.name ?? lock.id
+        return (
+          <div key={lock.id} className="border-l-2 border-caution bg-ink-2 p-4 text-sm text-paper">
+            <span className="font-semibold">{name} is in your design but the Research Lab has not unlocked it yet.</span> {lock.text}. It stays in
+            your design; Go / No-Go blocks the launch until the lab reaches LV {lock.neededLevel} or you remove it.
+          </div>
+        )
+      })}
+
+      <InstrumentHand chosen={design.instruments} day={day} onToggle={toggleInstrument} onInspect={setInspected} onPreview={handlePreview} />
+      <InstrumentBrief instrument={brief} selected={design.instruments.includes(brief.id)} />
+
+      {count === 0 && <div className="border-l-2 border-nogo bg-ink-2 p-3 text-sm text-paper">Select at least one instrument to continue.</div>}
+
+      <div className="flex justify-end pt-1">
+        <Btn variant="primary" type="button" onClick={() => setDesignStep('spacecraft')} disabled={count === 0}>
+          {nextLabel('instruments')}
+        </Btn>
+      </div>
+    </div>
   )
 }

@@ -25,8 +25,8 @@ export const sources = {
   },
   ionThrusterIsp: {
     tag: 'sourced',
-    reference: 'Lunar Flashlight mission data, BIT-3 ion thruster',
-    notes: 'Isp ~2200s for iodine propulsion',
+    reference: 'Busek BIT-3 iodine ion thruster, as flown on Lunar IceCube',
+    notes: 'Isp ~2200s for iodine propulsion (Lunar Flashlight flew green-propellant thrusters, not BIT-3)',
   },
   chemicalThrusterIsp: {
     tag: 'sourced',
@@ -63,9 +63,9 @@ export const sources = {
 
   // Mission costs
   cubesatCost: {
-    tag: 'sourced',
-    reference: 'CubeSat 101, typical 6U mission costs',
-    notes: '$5-15M for small lunar CubeSat missions',
+    tag: 'gameplay-tuned',
+    reference: 'Game value: a small lunar CubeSat budget ($25M cap)',
+    notes: 'Not from CubeSat 101, which gives no lunar mission costs; part prices are tuned for play',
   },
   dsnCost: {
     tag: 'gameplay-tuned',

@@ -91,18 +91,16 @@ function whyNoCapture(state: SimState, b: Budgets): string[] {
   const f = state.flight
   const out: string[] = []
   if (f.end === 'lost contact after deployment') {
+    // With no reserve the player had no choice at all: the reserve is the cause to fix first (QC, 15 Nov)
+    if (lostForWantOfReserve(state)) out.push('There was no reserve to pay for emergency tracking, so the search never started.')
     out.push('Contact was lost right after deployment, as happened to Lunar IceCube.')
     if (f.testTurns < 2)
       out.push(`Only ${countOf(f.testTurns, 'test month')} had been flown: that made this x${f.testFactor} as likely. More testing lowers the odds.`)
     // Say what the player actually chose at the card (QC #35)
+    // (with no reserve there was no choice: the first line already says so)
     const choice = state.allEvents.find((e) => e.eventId === 'no-signal')?.choiceId
-    out.push(
-      choice === 'give-up'
-        ? 'You chose to stop searching; the craft was lost.'
-        : choice === 'recover'
-          ? 'Emergency tracking did not find the craft.'
-          : 'There was no reserve to pay for emergency tracking.'
-    )
+    if (choice === 'give-up') out.push('You chose to stop searching; the craft was lost.')
+    else if (choice === 'recover') out.push('Emergency tracking did not find the craft.')
   } else if (f.end === 'not enough delta-v left to capture') {
     out.push(
       `Only ${Math.max(0, f.dvLeft).toFixed(0)} m/s was left at the Moon; capture needed ${(b.captureDeltaV ?? 0).toFixed(0)}. The design carried ${b.deltaVAvailable.toFixed(0)}.`
@@ -238,6 +236,16 @@ export function endingSentence(end: string): string {
 }
 
 /** Ends where the craft itself was lost; any other failure leaves a working craft (e.g. the money ran out) */
+/**
+ * The craft was lost because no reserve could pay for emergency tracking: the no-signal card offered only
+ * "Accept the loss". The report's first cause and the result card's one link point at the reserve.
+ */
+export function lostForWantOfReserve(state: SimState): boolean {
+  if (state.flight.end !== 'lost contact after deployment') return false
+  const ev = state.allEvents.find((e) => e.eventId === 'no-signal')
+  return !!ev && ev.choiceId === undefined
+}
+
 export function craftWasLost(end: string): boolean {
   return (
     end === 'lost contact after deployment' ||

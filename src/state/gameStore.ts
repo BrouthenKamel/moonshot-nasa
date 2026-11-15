@@ -83,8 +83,12 @@ export interface GameState {
   startSimulation: () => void
   advanceTurn: (action?: TurnAction) => void
   flyOn: () => void // fly until the mission ends or an event card needs the player
+  /** Jump to the end of the phase the flight is in (testing, the wait for the ride, the trip...), stopping early for an event card */
+  skipPhase: () => void
   /** Turn-by-turn flight: while on, each tick flies one turn and it switches off at a milestone */
   autoFly: boolean
+  /** Auto-fly runs to the end of the mission (the mapping time-lapse) instead of stopping at the next milestone */
+  autoFlyToEnd: boolean
   startAutoFly: () => void
   stopAutoFly: () => void
   autoFlyTick: () => void
@@ -214,6 +218,7 @@ export const useGameStore = create<GameState>()(
       simState: null,
       pendingAction: getDefaultAction(),
       autoFly: false,
+      autoFlyToEnd: false,
       currentReport: null,
       runHistory: [],
       previousBudgets: null,
@@ -354,23 +359,41 @@ export const useGameStore = create<GameState>()(
         get().applyFlight(flyUntilDecision(simState, pendingAction))
       },
 
+      skipPhase: () => {
+        const { simState, pendingAction } = get()
+        if (!simState || isSimComplete(simState) || simState.pendingDecision) return
+        // Mapping is worth watching: the months play as a time-lapse (about half a second each), the
+        // ice map filling, stopping only for an event card or the end
+        if (simState.phase === 'orbit') {
+          set({ autoFly: true, autoFlyToEnd: true })
+          return
+        }
+        let s = simState
+        // A phase lasts a few months at most; the guard only stops a runaway loop
+        for (let i = 0; i < 60; i++) {
+          s = stepTurn(s, pendingAction)
+          if (s.phase !== simState.phase || s.pendingDecision || isSimComplete(s)) break
+        }
+        get().applyFlight(s)
+      },
+
       startAutoFly: () => {
         const { simState } = get()
         if (!simState || isSimComplete(simState) || simState.pendingDecision) return
-        set({ autoFly: true })
+        set({ autoFly: true, autoFlyToEnd: false })
       },
 
-      stopAutoFly: () => set({ autoFly: false }),
+      stopAutoFly: () => set({ autoFly: false, autoFlyToEnd: false }),
 
       autoFlyTick: () => {
         const { simState, pendingAction, autoFly } = get()
         if (!autoFly || !simState || isSimComplete(simState) || simState.pendingDecision) {
-          if (autoFly) set({ autoFly: false })
+          if (autoFly) set({ autoFly: false, autoFlyToEnd: false })
           return
         }
         const next = stepTurn(simState, pendingAction)
         get().applyFlight(next)
-        if (isMilestone(simState, next)) set({ autoFly: false })
+        if (get().autoFlyToEnd ? isSimComplete(next) || !!next.pendingDecision : isMilestone(simState, next)) set({ autoFly: false, autoFlyToEnd: false })
       },
 
       answerEvent: (choiceId) => {
