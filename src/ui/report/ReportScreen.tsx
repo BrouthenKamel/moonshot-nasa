@@ -14,6 +14,8 @@ import { ArtemisDebrief } from './ArtemisDebrief'
 import { classifyCause } from './fixIt'
 import { gradeFor } from './grade'
 import { medals } from './medals'
+import { useCampaignStore } from '../../state/campaignStore'
+import { useWorldStore } from '../../state/worldStore'
 
 /** The outcome as a stamp: the patch gets a double ring in the same ink, no glow */
 const TONE = {
@@ -175,6 +177,17 @@ export function ReportScreen() {
   const currentReport = useGameStore((s) => s.currentReport)
   const runHistory = useGameStore((s) => s.runHistory)
   const newGame = useGameStore((s) => s.newGame)
+  const setScreen = useGameStore((s) => s.setScreen)
+  const openLadderAfter = useCampaignStore((s) => s.openLadderAfter)
+  // New mission goes where the base's New mission goes: the campaign ladder, which says what the
+  // Ice Mapper just unlocked (nothing after a failure)
+  const toLadder = () => {
+    // The player has read the report: the base's result pop-up for this flight must not cover the ladder
+    const flown = useWorldStore.getState().mission
+    if (flown) useWorldStore.getState().markResultSeen(flown.seed)
+    setScreen('base')
+    openLadderAfter('ice-mapper')
+  }
   const loadDesignFromHistory = useGameStore((s) => s.loadDesignFromHistory)
   const openReplay = useGameStore((s) => s.openReplay)
   const reviseAt = useGameStore((s) => s.reviseAt)
@@ -304,7 +317,7 @@ export function ReportScreen() {
             Watch replay
           </button>
         )}
-        <button type="button" onClick={newGame} className="fp-btn-secondary flex-1 justify-center py-3">
+        <button type="button" onClick={toLadder} className="fp-btn-secondary flex-1 justify-center py-3">
           New Mission
         </button>
         <DetailsToggle id="report" />

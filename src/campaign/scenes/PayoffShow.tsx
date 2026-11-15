@@ -1,4 +1,4 @@
-import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { audio } from '../../assets'
 import { Effects } from '../../scene/space/Effects'
@@ -10,6 +10,7 @@ import { LandingScene } from './payoffLanding'
 import { BaseScene } from './payoffBase'
 import { MarsScene } from './payoffMars'
 import type { PayoffShowProps } from './types'
+import { preloadPayoff } from './preloadPayoff'
 
 /**
  * After a mission's flight: a 10–16 s cinematic of what it achieved (or how it failed).
@@ -32,6 +33,9 @@ export function PayoffShow({ kind, outcome, onDone }: PayoffShowProps) {
   const time = useRef<number>(hold ?? 0) as ShowTime
   const [beat, setBeat] = useState<Beat | null>(() => beatAt(beats, time.current))
   const [canvasFailed, setCanvasFailed] = useState(false)
+  // The scene is ready once everything it suspends on (textures, models) has loaded
+  const [ready, setReady] = useState(false)
+  useEffect(() => preloadPayoff(kind), [kind])
 
   const finished = useRef(false)
   const finish = useCallback(() => {
@@ -46,6 +50,11 @@ export function PayoffShow({ kind, outcome, onDone }: PayoffShowProps) {
     const played = new Set<number>()
     const startWall = performance.now()
     const id = window.setInterval(() => {
+      // Still loading: no captions, no sounds; give up after a while so the show can never hang
+      if (!ready && !canvasFailed) {
+        if (performance.now() - startWall > LOAD_TIMEOUT_MS) finish()
+        return
+      }
       if (hold === null && canvasFailed) time.current += 0.1
       const t = time.current
       setBeat(beatAt(beats, t))
@@ -70,7 +79,7 @@ export function PayoffShow({ kind, outcome, onDone }: PayoffShowProps) {
       }
     }, 100)
     return () => window.clearInterval(id)
-  }, [beats, cues, end, finish, hold, reduced, frozenAt, canvasFailed, time])
+  }, [beats, cues, end, finish, hold, reduced, frozenAt, canvasFailed, time, ready])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -94,12 +103,15 @@ export function PayoffShow({ kind, outcome, onDone }: PayoffShowProps) {
           aria-hidden
         >
           <ShowClock.Provider value={time}>
-            <Ticker time={time} running={hold === null} />
-            {kind === 'ice-map' && <IceMapScene outcome={outcome} />}
-            {kind === 'moon-landing' && <LandingScene outcome={outcome} />}
-            {kind === 'moon-base' && <BaseScene outcome={outcome} />}
-            {kind === 'mars-base' && <MarsScene outcome={outcome} />}
-            <Effects preset={preset} />
+            <Ticker time={time} running={hold === null && ready} />
+            <Suspense fallback={null}>
+              {kind === 'ice-map' && <IceMapScene outcome={outcome} />}
+              {kind === 'moon-landing' && <LandingScene outcome={outcome} />}
+              {kind === 'moon-base' && <BaseScene outcome={outcome} />}
+              {kind === 'mars-base' && <MarsScene outcome={outcome} />}
+              <Effects preset={preset} />
+              <Ready onReady={setReady} />
+            </Suspense>
           </ShowClock.Provider>
         </Canvas>
       </CanvasBoundary>
@@ -109,7 +121,12 @@ export function PayoffShow({ kind, outcome, onDone }: PayoffShowProps) {
       </button>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-ink-0/90 via-ink-0/50 to-transparent px-8 pb-10 pt-24 text-center">
-        {beat && (
+        {!ready && !canvasFailed && (
+          <p className="fp-label animate-pulse text-paper-faint" aria-live="polite">
+            Receiving pictures…
+          </p>
+        )}
+        {(ready || canvasFailed) && beat && (
           <div key={beat.at} className="mx-auto max-w-3xl animate-[payoff-in_600ms_ease-out]" aria-live="polite">
             <p className="fp-label text-kapton">{beat.kicker}</p>
             <p className="mt-2 text-xl text-paper md:text-2xl">{beat.text}</p>
@@ -121,12 +138,21 @@ export function PayoffShow({ kind, outcome, onDone }: PayoffShowProps) {
   )
 }
 
+/** Longest wait for the scene's textures before the show gives up and ends */
+const LOAD_TIMEOUT_MS = 20_000
+
 function safePlay(id: Parameters<typeof audio.play>[0]) {
   try {
     audio.play(id)
   } catch {
     // sound is optional
   }
+}
+
+/** Mounts only once everything in its Suspense boundary has loaded */
+function Ready({ onReady }: { onReady: (ready: boolean) => void }) {
+  useEffect(() => onReady(true), [onReady])
+  return null
 }
 
 /** Advances the show clock with the frame (so the scene and captions share one clock) */
