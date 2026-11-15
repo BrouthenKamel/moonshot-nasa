@@ -28,7 +28,7 @@ const PHASE_TEXT: Record<string, string> = {
   capture: 'Capture burn',
   orbit: 'Mapping in the science orbit',
   complete: 'Mission over',
-  failed: 'Mission lost',
+  failed: 'Mission failed',
 }
 
 function SimStat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone: string }) {

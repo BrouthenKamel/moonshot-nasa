@@ -29,7 +29,7 @@ const PHASE_NAME: Record<TurnLog['phase'], string> = {
   capture: 'Capture',
   orbit: 'Science orbit',
   complete: 'Complete',
-  failed: 'Lost',
+  failed: 'Failed',
 }
 
 /** Each month tick's name, for the tooltip and for screen readers (QC #40) */

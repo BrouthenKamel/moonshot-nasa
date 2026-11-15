@@ -28,7 +28,7 @@ const PHASE_NAME: Record<TurnLog['phase'], string> = {
   capture: 'Capture',
   orbit: 'Science orbit',
   complete: 'Complete',
-  failed: 'Lost',
+  failed: 'Failed',
 }
 
 function Stat({ label, value, tone = 'text-paper' }: { label: string; value: string; tone?: string }) {

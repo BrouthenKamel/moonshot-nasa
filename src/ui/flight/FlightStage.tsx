@@ -55,7 +55,7 @@ const PHASE_WORD: Record<SimState['phase'], string> = {
   capture: 'Capture',
   orbit: 'Mapping',
   complete: 'Mission over',
-  failed: 'Lost',
+  failed: 'Failed',
 }
 
 type SegState = 'done' | 'active' | 'upcoming'
@@ -70,7 +70,7 @@ interface Segment {
 /** One word for how the craft is doing */
 function health(sim: SimState): { word: string; tone: 'go' | 'caution' | 'nogo' } {
   const f = sim.flight
-  if (sim.phase === 'failed' || !f.alive) return { word: 'Lost', tone: 'nogo' }
+  if (sim.phase === 'failed' || !f.alive) return { word: 'Stopped', tone: 'nogo' }
   const last = sim.turnLogs[sim.turnLogs.length - 1]
   if (f.reserve < 0 || (f.launchedTurn !== null && f.dvLeft <= 0)) return { word: 'Strained', tone: 'nogo' }
   if ((last && last.events.length > 0) || f.scienceFactor < 1) return { word: 'Watch', tone: 'caution' }
