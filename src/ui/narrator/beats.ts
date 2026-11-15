@@ -8,6 +8,7 @@
 import type { Budgets, DesignStep, GoNoGoResult, Report, SimState } from '../../sim/types'
 import type { Screen } from '../../state/gameStore'
 import { craftWasLost } from '../../sim/evaluate'
+import { STEP_NAMES } from '../kit/stepNumbers'
 
 export const NARRATOR_NAME = 'Commander Rosa Vega'
 export const NARRATOR_ROLE = 'Retired astronaut, now the agency’s mission mentor'
@@ -76,7 +77,7 @@ function stepBeat(step: DesignStep, i: NarratorInput): Beat {
         'step-brief',
         shadow
           ? 'The brief is short: map the ice, get the data home, stay in budget. You already carry an instrument that can see into the dark.'
-          : 'Our starting design carries an IR spectrometer, like Lunar IceCube. Before you launch, stop at the Research Lab and check whether it can see into the dark craters.'
+          : `Our starting design carries an IR spectrometer, like Lunar IceCube. Before you launch, stop at ${STEP_NAMES.instruments} in the Research Lab and check whether it can see into the dark craters.`
       )
     case 'planning':
       return game(
