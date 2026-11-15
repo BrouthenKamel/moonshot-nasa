@@ -157,6 +157,20 @@ export function ReportScreen() {
   const simState = useGameStore((s) => s.simState)
   const report = currentReport ?? runHistory[0]?.report
 
+  useEffect(() => {
+    if (!report) return
+    if (report.outcome === 'success') {
+      audio.play('sfx.go')
+      audio.say('voice.end-success')
+    } else if (report.outcome === 'partial') {
+      audio.play('sfx.select')
+      audio.say('voice.end-partial')
+    } else {
+      audio.play('sfx.error')
+      audio.say('voice.end-failed')
+    }
+  }, [report?.outcome])
+
   if (!report) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -178,19 +192,6 @@ export function ReportScreen() {
   const playerOrbit = getOrbitById(report.design.orbit)?.name.replace(/\s*\(.*\)/, '') ?? report.design.orbit
   const won = medals(report)
   const wonCount = won.filter((m) => m.earned).length
-
-  useEffect(() => {
-    if (report.outcome === 'success') {
-      audio.play('sfx.go')
-      audio.say('voice.end-success')
-    } else if (report.outcome === 'partial') {
-      audio.play('sfx.select')
-      audio.say('voice.end-partial')
-    } else {
-      audio.play('sfx.error')
-      audio.say('voice.end-failed')
-    }
-  }, [report.outcome])
 
   return (
     <div data-role="ground" className="mx-auto max-w-4xl space-y-6 pb-10">
