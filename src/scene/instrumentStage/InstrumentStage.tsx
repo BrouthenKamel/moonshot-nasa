@@ -1,18 +1,16 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useMemo, useState, useSyncExternalStore } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
 import { getOrbitById } from '../../data/orbits'
-import { audio } from '../../assets/audio'
 import { useDropTarget } from '../../ui/interaction/drag'
-import { useInsidePlaying, useInsideStore } from '../../ui/interaction/insideStore'
 import { Scene } from './Scene'
 import { Effects } from '../space/Effects'
-import { BenchControls, ForecastPanel, LabDials, ReadOuts, TitleLine } from './Overlays'
+import { ForecastPanel, ReadOuts, TitleLine } from './Overlays'
 import { InstrumentBar } from './InstrumentBar'
 import { DesignDeltaLine } from '../../viz/DesignDeltaLine'
 import { satHeight, type Pass } from './frame'
-import { lookThroughCaption, stageModel, whatIfFromDesign, type WhatIf } from './stageModel'
+import { stageModel } from './stageModel'
 import { instrumentLock, toggleUnlocked } from './labLocks'
 import { useAgencyStore } from '../../state/agencyStore'
 
@@ -32,8 +30,6 @@ export default function InstrumentStage() {
   const updateDesign = useGameStore((s) => s.updateDesign)
   const day = useAgencyStore((s) => s.day)
 
-  // The dials start from the design each time the player enters the lab.
-  const [whatIf, setWhatIf] = useState<WhatIf>(() => whatIfFromDesign(design))
   const [overShadow, setOverShadow] = useState(false)
   const still = useSyncExternalStore(subscribeMotion, reducedMotion, () => false)
   const [pass] = useState<Pass>(() => ({ offset: 18 }))
@@ -45,27 +41,8 @@ export default function InstrumentStage() {
   }))
 
   const liveDesign = useMemo(() => (previewPatch ? { ...design, ...previewPatch } : design), [design, previewPatch])
-  const model = useMemo(() => stageModel(liveDesign, difficulty, whatIf), [liveDesign, difficulty, whatIf])
+  const model = useMemo(() => stageModel(liveDesign, difficulty), [liveDesign, difficulty])
   const h = satHeight(model.altitudeKm)
-  const looking = useInsidePlaying('lab-look-through')
-  const caption = useMemo(() => lookThroughCaption(model.instruments, model.altitudeKm), [model.instruments, model.altitudeKm])
-
-  useEffect(() => {
-    if (looking) useInsideStore.getState().setCaption(caption)
-  }, [looking, caption])
-
-  const toggleAltitude = useCallback(() => {
-    setWhatIf((w) => ({ ...w, orbit: model.altitudeKm > 20 ? 'orbit-elliptical' : 'orbit-100km' }))
-  }, [model.altitudeKm])
-
-  const toggleLookThrough = useCallback(() => {
-    if (looking) {
-      useInsideStore.getState().end(true)
-      return
-    }
-    audio.play('sfx.reveal')
-    useInsideStore.getState().play({ id: 'lab-look-through', caption, durationS: 18 })
-  }, [looking, caption])
 
   const cradleDrop = useDropTarget({
     id: 'lab:cradle',
@@ -100,17 +77,8 @@ export default function InstrumentStage() {
           <Scene pass={pass} h={h} views={model.instruments} still={still} onShadow={setOverShadow} />
           <Effects preset="space" bloom={0.35} />
         </Canvas>
-        <ForecastPanel forecast={model.forecast} />
-        <LabDials whatIf={whatIf} onChange={(change) => setWhatIf((w) => ({ ...w, ...change }))} />
-        <ReadOuts views={model.instruments} overShadow={overShadow} isWhatIf={model.forecast.isWhatIf} />
-        <BenchControls
-          altitudeKm={model.altitudeKm}
-          coverage={model.forecast.coverage}
-          looking={looking}
-          hasInstruments={model.instruments.length > 0}
-          onToggleAltitude={toggleAltitude}
-          onToggleLookThrough={toggleLookThrough}
-        />
+        <ForecastPanel forecast={model.forecast} altitudeKm={model.altitudeKm} />
+        <ReadOuts views={model.instruments} overShadow={overShadow} />
         <div className="hud-fade pointer-events-none absolute right-3 bottom-3 hidden rounded bg-slate-950/70 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-500 sm:block">
           drag to look around
         </div>
@@ -119,7 +87,6 @@ export default function InstrumentStage() {
         chosen={design.instruments}
         day={day}
         onToggle={(id) => updateDesign({ instruments: toggleUnlocked(design.instruments, id, day) })}
-        onLookThrough={toggleLookThrough}
       />
       <DesignDeltaLine className="mt-2 flex flex-wrap gap-x-4 gap-y-1 rounded-lg bg-slate-900/70 px-3 py-2 text-xs" />
     </div>

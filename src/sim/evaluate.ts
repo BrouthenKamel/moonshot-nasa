@@ -177,7 +177,7 @@ function whyCoverageShort(state: SimState, b: Budgets): string[] {
     )
   if (best.maxAltitudeKm !== null && orbit && orbit.altitude > best.maxAltitudeKm) {
     out.push(
-      `Too high: the ${noun} only works below ${best.maxAltitudeKm} km and this orbit passes the pole at ${orbit.altitude} km, so it maps nothing there.`
+      `Too high: the ${noun} works best below ${best.maxAltitudeKm} km and this orbit passes the pole at ${orbit.altitude} km, where its signal is ${b.quality[best.id] > 0 ? 'weak, so it maps far less' : 'lost, so it maps nothing'}.`
     )
   }
   const attitude = getPartById(state.design.attitude) as AttitudePart | undefined
