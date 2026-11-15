@@ -722,17 +722,19 @@ export function LaunchDayGame({
             <tr className="border-b border-rule">
               <td className="py-1 pr-2 text-paper">Orbit</td>
               <td className="py-1 text-paper-dim" colSpan={2}>
-                {result.orbit.perigeeKm.toFixed(0)} × {result.orbit.apogeeKm.toFixed(0)} km {result.stable ? '✅' : '⚠️'}
+                {result.orbit.perigeeKm.toFixed(0)} × {result.orbit.apogeeKm.toFixed(0)} km · {result.stable ? 'the planned orbit' : 'not the planned orbit'}
               </td>
             </tr>
             <tr>
               <td className="py-1 pr-2 text-paper">Best combo</td>
               <td className="py-1 text-paper-dim" colSpan={2}>
-                ×{result.bestCombo} · fuel left for the Moon trip: {result.fuelLeftPct.toFixed(0)}%
+                ×{result.bestCombo} · Rocket's fuel left at cutoff: {result.fuelLeftPct.toFixed(0)}%
               </td>
             </tr>
           </tbody>
         </table>
+        {/* Honest about what the score is (Integration decision, 15 Nov): nothing here reaches the mission */}
+        <p className="mt-2 text-xs text-paper-faint">This is your score for the ride. It does not change the CubeSat's fuel or its mission.</p>
         <details className="mt-3 text-xs">
           <summary className="cursor-pointer fp-label text-ice">📘 Launch logbook: what you just did, for real</summary>
           {EVENTS.map((e) => (

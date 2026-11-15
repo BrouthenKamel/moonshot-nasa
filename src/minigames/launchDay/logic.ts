@@ -636,10 +636,12 @@ export function summarize(s: LaunchState): LaunchResult {
   const stable = orbit.bound && orbit.perigeeKm > 120 && orbit.apogeeKm < 600
   const perfects = Object.values(s.grades).filter((g) => g === 'perfect').length
   const stars: 1 | 2 | 3 = !stable ? 1 : perfects >= 6 && s.stress < 0.5 ? 3 : perfects >= 3 ? 2 : 1
+  // Launch Day is scored, not simulated into the mission (Integration decision, 15 Nov): the verdict talks
+  // about the flying, never about what happens to the CubeSat
   const verdict = !orbit.bound || orbit.perigeeKm < 0
-    ? 'The orbit dips into the atmosphere, so the CubeSat would re-enter within a day. Tap CUTOFF a touch later next time.'
+    ? 'Cutoff came too early for a real orbit; the ride\'s computer finished the job. Tap CUTOFF a touch later next time.'
     : !stable
-      ? 'In orbit, but not the one we planned. The mission can adapt.'
+      ? 'In orbit, but not the planned one: a real upper stage would trim it. Tap CUTOFF closer to 7.8 km/s next time.'
       : stars === 3
         ? 'A textbook flight. The flight director is grinning.'
         : 'A good flight. The CubeSat is where it needs to be.'
