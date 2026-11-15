@@ -29,7 +29,8 @@ const render = (design: Design) => {
 /** What a player sees before opening Details, in the story view (engineer-only figures are hidden by CSS) */
 const visibleText = (html: string) =>
   html
-    .replace(/<details[\s\S]*<\/details>/, '')
+    // The Details panel is the screen's last element: everything from it on is behind Details
+    .replace(/<div[^>]*data-testid="details-panel-gonogo"[\s\S]*$/, '')
     // The step header's "08" is shared step chrome (renumbered by stepNumbers.ts, PR 72), not a figure of this screen
     .replace(/(<h1[^>]*>[\s\S]*?)\b\d{2}\b/, '$1')
     .replace(/<(\w+) class="eng-only[^"]*"[^>]*>[^<]*<\/\1>/g, '')
@@ -73,7 +74,9 @@ describe('Go/No-Go screen cuts', () => {
 
   it('every check stays reachable behind Details, passed ones included (checklist)', () => {
     const html = render(flashlightDesign)
-    const details = html.match(/<details[\s\S]*<\/details>/)![0]
+    const details = html.match(/data-testid="details-panel-gonogo"[\s\S]*$/)![0]
+    const toggle = html.match(/<button[^>]*data-testid="details-toggle-gonogo"[^>]*>/)![0]
+    expect(toggle).toContain('aria-expanded="false"')
     for (const c of useGameStore.getState().getGoNoGo().checks) expect(details).toContain(`>${c.resource}<`)
     expect(details).toContain('Passed (')
     expect(visibleText(html)).not.toContain('Passed (')
