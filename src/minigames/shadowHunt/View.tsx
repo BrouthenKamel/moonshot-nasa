@@ -104,30 +104,41 @@ export const ShadowHuntView: FC<MinigameProps> = ({ design, onComplete, onExit, 
     setNote('Full lap. Tap the craters that never saw the Sun and tag three.')
   }, [tag.swept])
 
+  // Drag like grabbing the Moon: the surface follows the cursor, so the Sun moves the opposite way
+  // round it. Listeners live on the window (not pointer capture) so clicks still reach the 3D pins.
+  const onWinMove = useCallback(
+    (e: PointerEvent) => {
+      if (!drag.current) return
+      const dx = e.clientX - drag.current.x
+      const dy = e.clientY - drag.current.y
+      drag.current = { x: e.clientX, y: e.clientY }
+      target.current = {
+        lon: wrapLon(target.current.lon - dx * LON_PER_PX),
+        lat: clampLat(target.current.lat + dy * LAT_PER_PX),
+      }
+      if (!tiltNoted.current && Math.abs(target.current.lat) >= AXIAL_TILT_DEG - 0.05) {
+        tiltNoted.current = true
+        setNote('That is the Moon’s biggest tilt, 1.5 degrees. The Sun barely rises at the pole.')
+      }
+      poke()
+    },
+    [poke],
+  )
+  const onWinUp = useCallback(() => {
+    drag.current = null
+    window.removeEventListener('pointermove', onWinMove)
+    window.removeEventListener('pointerup', onWinUp)
+    window.removeEventListener('pointercancel', onWinUp)
+  }, [onWinMove])
   const down = (e: ReactPointerEvent) => {
     if (phase !== 'shadow') return
     drag.current = { x: e.clientX, y: e.clientY }
-    e.currentTarget.setPointerCapture(e.pointerId)
+    window.addEventListener('pointermove', onWinMove)
+    window.addEventListener('pointerup', onWinUp)
+    window.addEventListener('pointercancel', onWinUp)
     poke()
   }
-  const move = (e: ReactPointerEvent) => {
-    if (!drag.current) return
-    const dx = e.clientX - drag.current.x
-    const dy = e.clientY - drag.current.y
-    drag.current = { x: e.clientX, y: e.clientY }
-    target.current = {
-      lon: wrapLon(target.current.lon + dx * LON_PER_PX),
-      lat: clampLat(target.current.lat - dy * LAT_PER_PX),
-    }
-    if (!tiltNoted.current && Math.abs(target.current.lat) >= AXIAL_TILT_DEG - 0.05) {
-      tiltNoted.current = true
-      setNote('That is the Moon’s biggest tilt, 1.5 degrees. The Sun barely rises at the pole.')
-    }
-    poke()
-  }
-  const up = () => {
-    drag.current = null
-  }
+  useEffect(() => onWinUp, [onWinUp])
 
   const select = (s: Site) => {
     poke()
@@ -212,9 +223,6 @@ export const ShadowHuntView: FC<MinigameProps> = ({ design, onComplete, onExit, 
       <div
         className="absolute inset-0 touch-none"
         onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={up}
-        onPointerCancel={up}
         style={{ cursor: phase === 'shadow' ? 'grab' : undefined }}
       >
         <Canvas camera={{ position: [0, -0.2, 6.2], fov: 38, near: 0.05 }} dpr={[1, 1.75]} gl={{ antialias: true }}>
