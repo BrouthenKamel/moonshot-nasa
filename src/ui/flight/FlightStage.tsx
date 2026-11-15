@@ -17,7 +17,7 @@ import { useWorldStore } from '../../state/worldStore'
 import { DAYS_PER_TURN } from '../../game/world'
 import { audio } from '../../assets/audio'
 import { prefersReducedMotion, useGraphics } from '../../scene/space/quality'
-import { Eng, Flap, Sheet } from '../kit'
+import { Eng, Flap } from '../kit'
 import { EventCard } from './EventCard'
 import { FlightControls } from './FlightControls'
 import { FirstMappingPass } from '../../minigames/iceMapper'
@@ -111,10 +111,11 @@ function Readout({
 }
 
 /**
- * The flight plan as a ruled strip: phases as labelled segments, a tick per month (flown months
- * tinted by what happened), the current month in Kapton; under it the readouts.
+ * The flight plan for the mission panel on the right: the month, a slim strip of the phases (a tick
+ * per month, flown months tinted by what happened, the current one in Kapton; point at one for its
+ * log entry), then the readouts. Engineer view adds fuel, money and the science factor.
  */
-function MissionPhaseTimeline({ sim }: { sim: SimState }) {
+export function FlightPlan({ sim }: { sim: SimState }) {
   const [hoveredTurn, setHoveredTurn] = useState<number | null>(null)
   const budgets = useMemo(() => computeBudgets(sim.design, sim.difficulty), [sim.design, sim.difficulty])
   const logByTurn = useMemo(() => new Map(sim.turnLogs.map((l) => [l.turn, l])), [sim.turnLogs])
@@ -133,9 +134,9 @@ function MissionPhaseTimeline({ sim }: { sim: SimState }) {
   const E = Math.max(C + 14, sim.currentTurn, lastLogged)
 
   const segments: Segment[] = [
-    { label: 'Build & Test', first: 1, last: L - 1, state: launched ? 'done' : complete ? 'upcoming' : 'active' },
+    { label: 'Build & test', first: 1, last: L - 1, state: launched ? 'done' : complete ? 'upcoming' : 'active' },
     {
-      label: `Launch M${L}`,
+      label: `Launch, month ${L}`,
       first: L,
       last: L,
       state: launched ? (isLaunchTurn && !complete ? 'active' : 'done') : !complete && sim.phase === 'wait' ? 'active' : 'upcoming',
@@ -143,13 +144,14 @@ function MissionPhaseTimeline({ sim }: { sim: SimState }) {
     { label: 'Transfer', first: L + 1, last: C - 1, state: f.captured ? 'done' : launched && !isLaunchTurn && !complete ? 'active' : 'upcoming' },
     { label: 'Capture', first: C, last: C, state: f.captured ? (isCaptureTurn && !complete ? 'active' : 'done') : sim.phase === 'capture' ? 'active' : 'upcoming' },
     {
-      label: '12m Science',
+      label: '12 months of science',
       first: C + 1,
       last: C + 12,
       state: f.scienceTurns >= 12 ? 'done' : f.captured && !isCaptureTurn && !complete ? 'active' : 'upcoming',
     },
-    { label: 'Extended', first: C + 13, last: E, state: extendedActive ? (complete ? 'done' : 'active') : 'upcoming' },
+    { label: 'Extended mission', first: C + 13, last: E, state: extendedActive ? (complete ? 'done' : 'active') : 'upcoming' },
   ]
+  const active = segments.find((g) => g.state === 'active')
 
   const hoveredLog = hoveredTurn !== null ? logByTurn.get(hoveredTurn) : undefined
   const dataTarget = difficultyPresets[sim.difficulty]?.dataTarget ?? 300
@@ -158,75 +160,63 @@ function MissionPhaseTimeline({ sim }: { sim: SimState }) {
   const dataHome = sim.totalDataReturned
 
   return (
-    <Sheet tone="raised" className="pointer-events-auto w-full max-w-[46rem] px-3 pb-2 pt-1.5 text-paper">
+    <div className="text-paper">
       <div className="flex items-baseline justify-between gap-3">
         <span className="fp-label text-[0.62rem]">Flight plan</span>
         <span className="fp-data text-[11px] text-kapton">
           MONTH <Flap value={String(sim.currentTurn).padStart(2, '0')} />
         </span>
       </div>
-      <div className="mt-1 flex items-stretch" aria-label="Monthly mission timeline">
+      <div className="mt-1.5 flex items-stretch gap-px" aria-label="Monthly mission timeline">
         {segments.map((seg) => {
           const months = Math.max(0, seg.last - seg.first + 1)
           const list = Array.from({ length: months }, (_, k) => seg.first + k)
           return (
             <div
               key={seg.label}
-              className="border-l border-rule-strong pl-1 first:border-l-0 first:pl-0"
+              title={seg.label}
+              className={`relative h-4 border-t-2 ${seg.state === 'active' ? 'border-kapton' : seg.state === 'done' ? 'border-paper-dim' : 'border-rule-strong'}`}
               style={{ flexGrow: Math.max(months, 1), flexBasis: 0 }}
               data-state={seg.state}
             >
-              <div
-                className={`fp-label whitespace-nowrap pr-1 text-[0.6rem] leading-none ${
-                  seg.state === 'active' ? 'text-kapton' : seg.state === 'done' ? 'text-paper-dim' : 'text-paper-faint'
-                }`}
-              >
-                {seg.label}
-              </div>
-              <div className={`relative mt-1 h-4 border-t ${seg.state === 'active' ? 'border-kapton' : 'border-rule-strong'}`}>
-                {list.map((m, k) => {
-                  const log = logByTurn.get(m)
-                  const left = `${((k + 0.5) / months) * 100}%`
-                  const now = m === sim.currentTurn
-                  if (!log) {
-                    return <span key={m} aria-hidden="true" className="absolute top-0 h-1.5 w-px bg-rule-strong" style={{ left }} />
-                  }
-                  const status = pipStatus(log)
-                  const noteText = log.notes.join(' ') || log.phase
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      title={`Month ${log.turn}: ${noteText}`}
-                      aria-label={`Month ${log.turn}: ${noteText}`}
-                      onMouseEnter={() => setHoveredTurn(log.turn)}
-                      onMouseLeave={() => setHoveredTurn((cur) => (cur === log.turn ? null : cur))}
-                      onFocus={() => setHoveredTurn(log.turn)}
-                      onBlur={() => setHoveredTurn((cur) => (cur === log.turn ? null : cur))}
-                      className="absolute -top-px flex h-4 w-2 -translate-x-1/2 justify-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-paper"
-                      style={{ left }}
-                    >
-                      <span className={now ? 'h-4 w-[3px] bg-kapton' : TICK_STYLE[status]} />
-                    </button>
-                  )
-                })}
-              </div>
+              {list.map((m, k) => {
+                const log = logByTurn.get(m)
+                const left = `${((k + 0.5) / months) * 100}%`
+                const now = m === sim.currentTurn
+                if (!log) return <span key={m} aria-hidden="true" className="absolute top-0 h-1 w-px bg-rule-strong" style={{ left }} />
+                const noteText = log.notes.join(' ') || log.phase
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    title={`Month ${log.turn}: ${noteText}`}
+                    aria-label={`Month ${log.turn}: ${noteText}`}
+                    onMouseEnter={() => setHoveredTurn(log.turn)}
+                    onMouseLeave={() => setHoveredTurn((cur) => (cur === log.turn ? null : cur))}
+                    onFocus={() => setHoveredTurn(log.turn)}
+                    onBlur={() => setHoveredTurn((cur) => (cur === log.turn ? null : cur))}
+                    className="absolute top-0 flex h-4 w-2 -translate-x-1/2 justify-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-paper"
+                    style={{ left }}
+                  >
+                    <span className={now ? 'h-4 w-[3px] bg-kapton' : TICK_STYLE[pipStatus(log)]} />
+                  </button>
+                )
+              })}
             </div>
           )
         })}
       </div>
-      <div className="h-4 truncate border-b border-rule fp-data text-[10px] leading-4 text-paper-dim">
+      <div className="h-4 truncate fp-data text-[10px] leading-4 text-paper-dim">
         {hoveredLog ? (
           <>
             <span className="text-kapton">MONTH {hoveredLog.turn}</span> · {hoveredLog.notes.join(' ') || hoveredLog.phase}
           </>
         ) : (
-          <span className="text-paper-faint">Point at a month for its log entry</span>
+          <span className={active ? 'text-kapton' : 'text-paper-faint'}>{active ? active.label : complete ? 'Flight over' : ''}</span>
         )}
       </div>
 
-      <div className="mt-1.5 grid grid-cols-4 gap-x-4">
-        <Readout label="Phase" value={sim.phase === 'failed' ? failedLabel(sim.flight.end) : (PHASE_WORD[sim.phase] ?? sim.phase)} />
+      <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-rule pt-1.5">
         <Readout
           label="Ice mapped"
           value={`${ice.toFixed(1)}%`}
@@ -238,9 +228,10 @@ function MissionPhaseTimeline({ sim }: { sim: SimState }) {
           value={`${Math.round(dataHome)} MB`}
           scale={{ value: dataHome, limit: Math.max(dataTarget * 1.25, dataHome), target: dataTarget, color: 'var(--color-paper-dim)' }}
         />
+        <Readout label="Phase" value={sim.phase === 'failed' ? failedLabel(sim.flight.end) : (PHASE_WORD[sim.phase] ?? sim.phase)} />
         <Readout label="Health" value={h.word} className={TONE_TEXT[h.tone]} />
       </div>
-      <Eng as="div" className="mt-1.5 grid grid-cols-4 gap-x-4 border-t border-rule pt-1.5">
+      <Eng as="div" className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-rule pt-1.5">
         <Readout
           label="Δv left"
           value={`${Math.max(0, f.dvLeft).toFixed(0)} m/s`}
@@ -250,7 +241,7 @@ function MissionPhaseTimeline({ sim }: { sim: SimState }) {
         <Readout label="Reserve" value={`$${f.reserve.toFixed(2)}M`} className={f.reserve < 0 ? 'text-nogo' : 'text-paper'} />
         <Readout label="Science" value={`${Math.round(f.scienceFactor * 100)}% · ${Math.round(f.science.stored)} MB aboard`} />
       </Eng>
-    </Sheet>
+    </div>
   )
 }
 
@@ -617,7 +608,8 @@ function SpaceBar({ sim, shot, monthFraction }: { sim: SimState; shot: FlightSho
  * The flight in the base's centre panel: before launch the island (the craft is built in the
  * Factory), the launch on the island's pad, then the space view.
  * Space view: the scene, its cameras and Back to agency, nothing else.
- * Agency view: the island, with the phase timeline and the latest telemetry alert between the side panels.
+ * Agency view: the island, with the latest telemetry alert between the side panels (the flight plan is in
+ * the mission panel on the right).
  */
 export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode }) {
   const launchAt = useUiStore((s) => s.launchAt)
@@ -686,7 +678,6 @@ export function FlightStage({ sim, island }: { sim: SimState; island: ReactNode 
         <SpaceBar sim={sim} shot={shot} monthFraction={monthFraction} />
       ) : (
         <div className={`pointer-events-none absolute inset-x-3 ${between} top-3 z-10 flex flex-col items-center gap-2`}>
-          <MissionPhaseTimeline sim={sim} />
           <FlightAlertBanner sim={sim} />
         </div>
       )}

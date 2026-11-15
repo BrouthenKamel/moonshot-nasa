@@ -54,15 +54,54 @@ function OrbitCamera({ craft, reduced }: { craft: React.RefObject<THREE.Group | 
         .addScaledVector(v.fwd, 0.36)
         .addScaledVector(v.right, 0.1 + drift)
         .addScaledVector(v.dir, -0.2)
-      // Nose along the flight path, wings tipped toward the camera so the solar cells show
+      // The instrument end (lenses, laser, gold foil) turned three-quarters toward the camera,
+      // wings tipped toward it too so the solar cells show
       const roll = reduced ? 0 : Math.sin(t * 0.09) * 0.12
-      v.z.copy(v.fwd).addScaledVector(v.right, -0.55).normalize()
+      v.z.copy(v.fwd).multiplyScalar(-0.75).addScaledVector(v.right, -0.7).addScaledVector(v.dir, 0.15).normalize()
       v.y.copy(v.dir).multiplyScalar(0.75).addScaledVector(v.fwd, -0.6).addScaledVector(v.right, -0.25 + roll)
       v.y.addScaledVector(v.z, -v.y.dot(v.z)).normalize()
       v.x.crossVectors(v.y, v.z)
       v.m.makeBasis(v.x, v.y, v.z)
       c.quaternion.setFromRotationMatrix(v.m)
     }
+  })
+  return null
+}
+
+/**
+ * The title's craft in a satin finish: in this close hero shot the Sun's mirror reflection in the
+ * glassy cells and the white panels blew out into a glare. Only this copy of the model changes
+ * (its materials are cloned), the flight views keep theirs.
+ */
+const MATTE: Record<string, { roughness?: number; metalness?: number; color?: string }> = {
+  solar_cell: { roughness: 0.55, metalness: 0.3 },
+  busbar_silver: { roughness: 0.5, metalness: 0.6 },
+  panel_white: { roughness: 0.75, metalness: 0.05, color: '#c4c8ce' },
+  aluminium: { roughness: 0.5 },
+  dish_white: { roughness: 0.7, color: '#d6d9de' },
+}
+
+function MatteFinish({ craft }: { craft: React.RefObject<THREE.Group | null> }) {
+  const done = useRef(false)
+  useFrame(() => {
+    const root = craft.current
+    if (done.current || !root) return
+    let found = false
+    root.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      const m = mesh.material as THREE.MeshStandardMaterial | undefined
+      const finish = m && !Array.isArray(m) ? MATTE[m.name] : undefined
+      if (!mesh.isMesh || !finish || m!.userData.matte) return
+      const c = m!.clone()
+      c.userData.matte = true
+      if (finish.roughness !== undefined) c.roughness = finish.roughness
+      if (finish.metalness !== undefined) c.metalness = finish.metalness
+      if (finish.color) c.color.set(finish.color)
+      mesh.material = c
+      found = true
+    })
+    // The model arrives a moment after the scene: keep looking until its materials are there
+    if (found) done.current = true
   })
   return null
 }
@@ -84,15 +123,16 @@ export function OpeningScene() {
       <Suspense fallback={null}>
         <Starfield brightness={0.95} />
         <Sun intensity={3.2} fill={0.05} />
-        <Moon iceCoverage={0.5} />
+        <Moon iceCoverage={0.5} segments={256} detail />
         <group position={EARTH_POS}>
           <Earth radius={3.67} spin={0.004} />
         </group>
         <group ref={craft}>
-          <CubeSat design={design} scale={0.2} />
+          <CubeSat design={design} scale={0.23} />
+          <MatteFinish craft={craft} />
         </group>
         <OrbitCamera craft={craft} reduced={reduced} />
-        <Effects preset="space" vignette={0.8} />
+        <Effects preset="space" bloom={0.35} vignette={0.8} />
       </Suspense>
     </Canvas>
   )
