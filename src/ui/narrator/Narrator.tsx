@@ -7,10 +7,13 @@ import { useNarratorPrefs } from './narratorPrefs'
 import { Portrait } from './Portrait'
 
 /**
- * The mission mentor: a small portrait with a speech bubble in the bottom-left corner.
+ * The mission mentor: a small portrait with a radio-transcript slip in the bottom-left corner.
  * Shows the line for the current moment once, never takes focus, and closes with ×,
  * Escape or a click on the bubble. Mounted once over every screen (src/App.tsx).
  */
+/** The speaker line on the transcript slip: "CAPCOM · Rosa Vega" */
+const SPEAKER = NARRATOR_NAME.replace(/^Commander\s+/, '')
+
 export function Narrator() {
   const screen = useGameStore((s) => s.screen)
   const designStep = useGameStore((s) => s.designStep)
@@ -85,17 +88,20 @@ export function Narrator() {
             data-beat={beat.id}
             className={inRail ? 'pointer-events-auto flex flex-col items-start gap-1.5' : 'pointer-events-auto flex items-end gap-2'}
           >
-            <div className="shrink-0 drop-shadow-lg">
+            <div className="shrink-0">
               <Portrait />
             </div>
             <div
               onClick={close}
-              className={`relative cursor-pointer rounded-2xl border ${inRail ? 'w-full rounded-tl-sm text-[13px]' : 'flex-1 rounded-bl-sm text-sm'} border-orange-400/60 bg-[#fbf7ef] px-3 pb-2.5 pt-2 text-[#14213d] shadow-xl`}
+              style={{ borderLeft: '2px solid var(--color-kapton)' }}
+              className={`fp-sheet relative cursor-pointer ${inRail ? 'w-full text-[13px]' : 'flex-1 text-sm'} px-3 pb-2.5 pt-2 text-paper`}
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="font-display text-xs font-semibold uppercase tracking-wide text-orange-700">
-                  {NARRATOR_NAME}
-                  <span className="sr-only">: {NARRATOR_ROLE}.</span>
+                <div className="fp-label text-kapton">
+                  <span aria-hidden="true">CAPCOM · {SPEAKER}</span>
+                  <span className="sr-only">
+                    {NARRATOR_NAME}: {NARRATOR_ROLE}.
+                  </span>
                 </div>
                 <div className="-mr-1 -mt-0.5 flex items-center" onClick={(e) => e.stopPropagation()}>
                   <button
@@ -104,7 +110,7 @@ export function Narrator() {
                     aria-haspopup="menu"
                     aria-expanded={menuOpen}
                     onClick={() => setMenuOpen((o) => !o)}
-                    className="rounded px-1.5 text-base leading-none text-slate-500 hover:bg-black/5 hover:text-slate-800"
+                    className="px-1.5 text-base leading-none text-paper-faint hover:bg-ink-3 hover:text-paper"
                   >
                     <span aria-hidden="true">⋯</span>
                   </button>
@@ -112,12 +118,12 @@ export function Narrator() {
                     type="button"
                     aria-label="Close tip"
                     onClick={close}
-                    className="rounded px-1.5 text-base leading-none text-slate-500 hover:bg-black/5 hover:text-slate-800"
+                    className="px-1.5 text-base leading-none text-paper-faint hover:bg-ink-3 hover:text-paper"
                   >
                     <span aria-hidden="true">×</span>
                   </button>
                   {menuOpen && (
-                    <div role="menu" className="absolute right-2 top-8 z-10 rounded-lg border border-slate-300 bg-white py-1 shadow-lg">
+                    <div role="menu" className="absolute right-2 top-8 z-10 border border-rule-strong bg-ink-3 py-1">
                       <button
                         type="button"
                         role="menuitem"
@@ -125,7 +131,7 @@ export function Narrator() {
                           setTipsOff(true)
                           close()
                         }}
-                        className="block w-full whitespace-nowrap px-3 py-1.5 text-left text-sm hover:bg-slate-100"
+                        className="block w-full whitespace-nowrap px-3 py-1.5 text-left text-sm text-paper hover:bg-ink-2"
                       >
                         Don’t show tips
                       </button>
@@ -133,7 +139,7 @@ export function Narrator() {
                   )}
                 </div>
               </div>
-              <p className="mt-0.5 leading-snug">{beat.text}</p>
+              <p className="mt-1 leading-snug text-paper">{beat.text}</p>
             </div>
           </section>
         )}
@@ -144,7 +150,7 @@ export function Narrator() {
           onClick={() => setTipsOff(false)}
           aria-label={`Show tips from ${NARRATOR_NAME} again`}
           title="Show tips again"
-          className="pointer-events-auto rounded-full opacity-60 hover:opacity-100 focus:opacity-100"
+          className="pointer-events-auto opacity-60 hover:opacity-100 focus:opacity-100"
         >
           <Portrait size={32} />
         </button>
