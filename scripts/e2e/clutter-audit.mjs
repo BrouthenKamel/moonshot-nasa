@@ -32,7 +32,7 @@
  * Run it on two branches and compare the two .md tables for a before/after.
  */
 import { spawn, execSync } from 'node:child_process'
-import { mkdirSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
+import { mkdirSync, writeFileSync, existsSync, readdirSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join, dirname, resolve } from 'node:path'
 import { homedir } from 'node:os'
@@ -484,18 +484,23 @@ async function click(locator) {
 const pause = (page) => stores(page, `s.world.getState().setSpeed('paused')`)
 const settle = (page, ms = SETTLE_MS) => page.waitForTimeout(ms)
 
-/** The nine steps in play order, numbered as their own headers number them (00 Brief … 08 Go/No-Go) */
-const STEPS = [
-  ['brief', 'Brief'],
-  ['planning', 'Planning'],
-  ['instruments', 'Instruments'],
-  ['rocket', 'Rocket'],
-  ['spacecraft', 'Spacecraft'],
-  ['orbit', 'Orbit'],
-  ['ride', 'Ride'],
-  ['comms', 'Comms'],
-  ['go-nogo', 'Go/No-Go'],
-]
+/**
+ * The steps in play order with their player-facing names, read from the game's own single source
+ * (src/ui/kit/stepNumbers.ts: STEP_ORDER and STEP_NAMES), so a renamed or folded step is followed
+ * here without editing the audit
+ */
+function readSteps() {
+  const src = readFileSync(join(ROOT, 'src/ui/kit/stepNumbers.ts'), 'utf8')
+  const order = src.match(/STEP_ORDER[^=]*=\s*\[([^\]]*)\]/)
+  if (!order) throw new Error('src/ui/kit/stepNumbers.ts: STEP_ORDER not found; update readSteps() in the audit')
+  const ids = [...order[1].matchAll(/'([\w-]+)'/g)].map((m) => m[1])
+  const names = src.slice(src.indexOf('STEP_NAMES'))
+  return ids.map((id) => {
+    const m = names.match(new RegExp(`['"]?${id}['"]?\\s*:\\s*'([^']+)'`))
+    return [id, m ? m[1] : id]
+  })
+}
+const STEPS = readSteps()
 
 /** Each screen: id, name, how to reach it from the screen before (screens run in this order) */
 const SCREENS = [
@@ -505,7 +510,7 @@ const SCREENS = [
     name: 'Title (opening curtain)',
     go: async (page, url) => {
       await page.goto(url)
-      await page.getByRole('button').first().waitFor({ timeout: 60_000 })
+      await page.getByRole('button').first().waitFor({ timeout: 180_000 })
       // Load what the run imports later now: Vite may reload the page the first time it optimizes a
       // dependency, and that must happen here, not in the middle of a measurement
       await page
@@ -518,7 +523,7 @@ const SCREENS = [
       await page.waitForTimeout(1500)
       await page.evaluate(() => localStorage.clear())
       await page.reload()
-      await page.getByRole('button').first().waitFor({ timeout: 60_000 })
+      await page.getByRole('button').first().waitFor({ timeout: 180_000 })
     },
   },
   {
@@ -527,7 +532,7 @@ const SCREENS = [
     name: 'Base map (no mission)',
     go: async (page) => {
       await click(page.getByRole('button').first())
-      await page.getByRole('button', { name: /new mission/i }).first().waitFor({ timeout: 60_000 })
+      await page.getByRole('button', { name: /new mission/i }).first().waitFor({ timeout: 180_000 })
       await pause(page)
     },
   },
@@ -553,18 +558,12 @@ const SCREENS = [
     leave: (page) => click(page.getByRole('button', { name: /settings/i }).first()),
   },
   {
+    // HQ and "New mission" both open the campaign since the campaign ladder replaced the new-mission dialog
     id: 'panel-campaign',
-    expect: `return h.onTop('[role=dialog]') ? '' : 'no dialog on top'`,
+    expect: `return h.onTop('[role=dialog][aria-label="Campaign"]') ? '' : 'the campaign is not on top'`,
     name: 'Agency panel: Headquarters (campaign)',
     go: (page) => click(page.locator('button', { hasText: /headquarters/i }).first()),
-    leave: (page) => click(page.getByRole('button', { name: 'Close' }).first()),
-  },
-  {
-    id: 'panel-new-mission',
-    expect: `return h.onTop('[role=dialog]') ? '' : 'no dialog on top'`,
-    name: 'Agency panel: New mission',
-    go: (page) => click(page.getByRole('button', { name: /new mission/i }).first()),
-    leave: (page) => click(page.getByRole('button', { name: 'Close' }).first()),
+    leave: (page) => click(page.locator('[role=dialog][aria-label="Campaign"] button', { hasText: /close/i }).first()),
   },
   {
     id: 'base-mission',
@@ -575,7 +574,7 @@ const SCREENS = [
   ...STEPS.flatMap(([step, label], i) => [
     {
       id: `design-${step}`,
-      name: `Step ${String(i).padStart(2, '0')}: ${label}`,
+      name: `Step ${i}: ${label}`,
       go: (page) => stores(page, `s.game.getState().setDesignStep(a); s.game.getState().setScreen('design')`, step),
       expect: `const g = s.game.getState(); return g.screen === 'design' && g.designStep === ${JSON.stringify(step)} && h.onTop('[data-role]') ? '' : \`screen \${g.screen}, step \${g.designStep}\``,
     },
@@ -584,7 +583,7 @@ const SCREENS = [
       ? [
           {
             id: 'design-ride-transfer',
-            name: `Step ${String(i).padStart(2, '0')}b: Ride, transfer stage`,
+            name: `Step ${i}b: ${label}, transfer stage`,
             go: async (page) => {
               const next = page.getByRole('button', { name: /plan the transfer/i }).first()
               if (!(await next.isVisible().catch(() => false)))
@@ -613,7 +612,7 @@ const SCREENS = [
   {
     id: 'launch',
     expect: `const g = s.game.getState(); const i = await h.inside(); return g.simState?.flight.launchedTurn != null && (i.shot || s.ui.getState().launchAt !== null) ? '' : \`no launch is playing (launched in month \${g.simState?.flight.launchedTurn}, month \${g.simState?.currentTurn}, phase \${g.simState?.phase}, card \${g.simState?.pendingDecision?.key ?? 'none'})\``,
-    name: 'Launch (ride inside the fairing)',
+    name: 'Liftoff (ride inside the fairing)',
     go: async (page) => {
       // Fly the build and test months one by one (React must see liftoff happen to start the launch);
       // liftoff plays the fairing shot, or the island countdown without WebGL
@@ -679,27 +678,29 @@ const SCREENS = [
             g().startSimulation()
             ${reseed('2000 + attempt')}
           }
+          // A card before arrival: once the craft is in lunar orbit the first mapping pass (a mini-game)
+          // takes the screen, so a flight that gets there without a card is tried again on the next seed
           for (let i = 0; i < 60 && !g().simState.pendingDecision; i++) {
             const sim = g().simState
-            if (sim.phase === 'complete' || sim.phase === 'failed') break
+            if (sim.phase === 'complete' || sim.phase === 'failed' || sim.flight.captured) break
             g().flyOn()
           }
-          if (g().simState.pendingDecision) break
+          if (g().simState.pendingDecision && !g().simState.flight.captured) break
         }
         // The flights tried before this one finished and went into the run history: the report
         // should show a first play's history (this flight only)
         g().clearHistory()
         ${SKIP_LAUNCH}
-        return !!g().simState.pendingDecision
+        return !!g().simState.pendingDecision && !g().simState.flight.captured
         `,
       )
       await pause(page)
-      if (!ok) console.warn('  ! no event card came up in 30 flights; measured the flight without one')
+      if (!ok) throw new Error('flight-event: no event card came up before arrival in 30 seeded flights')
     },
   },
   {
     id: 'mission-result',
-    expect: `const g = s.game.getState(); const sim = g.simState; return sim && (sim.phase === 'complete' || sim.phase === 'failed') && h.onTop('[role=dialog]') ? '' : \`phase \${sim?.phase}, or no result pop-up on top\``,
+    expect: `const g = s.game.getState(); const sim = g.simState; return sim && (sim.phase === 'complete' || sim.phase === 'failed') && h.buttonOnTop(/see the report/i) ? '' : \`phase \${sim?.phase}, or no result pop-up with "See the report" on top\``,
     name: 'Mission result pop-up',
     go: async (page) => {
       await stores(
@@ -709,7 +710,11 @@ const SCREENS = [
         for (let i = 0; i < 200; i++) {
           const sim = g().simState
           if (sim.phase === 'complete' || sim.phase === 'failed') break
-          if (sim.pendingDecision) g().answerEvent(sim.pendingDecision.options[0].id)
+          // On arrival the flight waits for the first mapping pass (the Ice Mapper mini-game): record it
+          // as skipped, as its own Skip does
+          const passDue = sim.phase === 'orbit' && sim.flight.captured && sim.flight.scienceTurns === 0 && sim.firstPass === undefined
+          if (passDue) s.game.setState({ simState: { ...sim, firstPass: { how: 'skipped', mix: 0 } } })
+          else if (sim.pendingDecision) g().answerEvent(sim.pendingDecision.options[0].id)
           else g().flyOn()
         }
         ${SKIP_LAUNCH}
@@ -811,7 +816,12 @@ async function main() {
       await screen.go(page, url)
       await settle(page, screen.wait ?? SETTLE_MS)
       // Fail loudly rather than measure the wrong screen
-      const wrong = screen.expect ? await stores(page, screen.expect) : ''
+      // (retried for up to 15 s: a pop-up may still be animating in on a busy machine)
+      let wrong = screen.expect ? await stores(page, screen.expect) : ''
+      for (let t = 0; wrong && t < 15; t++) {
+        await page.waitForTimeout(1000)
+        wrong = await stores(page, screen.expect)
+      }
       if (wrong) {
         await page.screenshot({ path: join(OUT, `${screen.id}.WRONG.png`), timeout: 20_000 }).catch(() => {})
         throw new Error(`${screen.id}: expected screen is not on top (${wrong}); see ${join(OUT, screen.id)}.WRONG.png. No baseline written.`)
