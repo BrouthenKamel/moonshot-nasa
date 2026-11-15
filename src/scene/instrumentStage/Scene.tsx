@@ -10,8 +10,6 @@ import { Beam } from './beams'
 import { InstrumentModel } from './InstrumentModel'
 import { FAR_PLANE_NEAR_EDGE, SAT_SCALE, TILE_COPIES, advancePass, holdOverCrater, groundAt, lookY, makeGlowTexture, slotX, targetZ, type Pass } from './frame'
 import { iceSparkleStrength, type InstrumentView } from './stageModel'
-import { useInsidePath } from '../interaction/InsideCam'
-import { useInsidePlaying } from '../../ui/interaction/insideStore'
 
 const TAU = Math.PI * 2
 
@@ -113,12 +111,7 @@ function Driver({ pass, h, still, onShadow }: { pass: Pass; h: number; still: bo
 /** Moves camera and look-at point with the satellite when the altitude changes. */
 function Rig({ h }: { h: number }) {
   const cur = useRef(h)
-  const looking = useInsidePlaying('lab-look-through')
   useFrame((state) => {
-    if (looking) {
-      cur.current = h
-      return
-    }
     const d = (h - cur.current) * 0.07
     if (Math.abs(d) < 1e-4) return
     cur.current += d
@@ -129,20 +122,6 @@ function Rig({ h }: { h: number }) {
       controls.update()
     }
   })
-  return null
-}
-
-/** Cuts the camera under the CubeSat payload aperture looking down across shadowed crater floors. */
-function LookThroughRig({ h }: { h: number }) {
-  const keys = useMemo(
-    () => [
-      { t: 0, pos: [0.35, h - 0.65, 0.25] as [number, number, number], target: [0, -0.1, targetZ(h)] as [number, number, number], fov: 48 },
-      { t: 0.65, pos: [0, h - 0.9, -0.35] as [number, number, number], target: [0, -0.5, targetZ(h)] as [number, number, number], fov: 42 },
-      { t: 18, pos: [0, h - 0.9, -0.35] as [number, number, number], target: [0, -0.5, targetZ(h)] as [number, number, number], fov: 42 },
-    ],
-    [h],
-  )
-  useInsidePath('lab-look-through', keys, { still: 1, endAfterS: 18 })
   return null
 }
 
@@ -362,7 +341,6 @@ export function Scene({ pass, h, views, still, onShadow }: SceneProps) {
       <pointLight position={[2.5, h + 2.5, 5]} intensity={45} distance={9} decay={2} color="#e6dccb" />
       <Driver pass={pass} h={h} still={still} onShadow={onShadow} />
       <Rig h={h} />
-      <LookThroughRig h={h} />
       <Sky glow={glow} />
       <SceneBoundary>
         <Suspense fallback={null}>

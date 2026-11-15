@@ -1,4 +1,4 @@
-import { Btn, Eng, Tag } from '../../ui/kit'
+import { Eng, Tag } from '../../ui/kit'
 import { COVERAGE_TARGET, activityText, passesText, type StageForecast, type InstrumentView } from './stageModel'
 
 /** A matte read-out sheet over the 3D stage: ink, hairline, no blur */
@@ -44,7 +44,7 @@ export function TitleLine() {
 }
 
 /** Story: the coverage dial and one verdict. Engineer: what the forecast is made of. */
-export function ForecastPanel({ forecast }: { forecast: StageForecast }) {
+export function ForecastPanel({ forecast, altitudeKm }: { forecast: StageForecast; altitudeKm: number }) {
   return (
     <div className={`hud-fade pointer-events-none absolute left-3 top-3 max-w-sm p-2.5 pr-4 ${panel}`}>
       <div className="flex items-center gap-3">
@@ -64,6 +64,7 @@ export function ForecastPanel({ forecast }: { forecast: StageForecast }) {
           </Eng>
         </div>
       </div>
+      <div className="mt-2 text-[11px] text-paper-faint">Tested at your planned orbit, {altitudeKm} km over the pole: change it in Orbit</div>
       {forecast.reasons.length > 0 && (
         <ul className="mt-2 space-y-1 border-t border-rule pt-2 text-xs text-caution">
           {forecast.reasons.map((r) => (
@@ -120,39 +121,6 @@ export function ReadOuts({ views, overShadow }: { views: InstrumentView[]; overS
           </div>
         )
       })}
-    </div>
-  )
-}
-
-/** Optical bench: the Look-through trigger and one quiet line saying which orbit the lab tests at. */
-export function BenchControls({
-  altitudeKm,
-  looking,
-  hasInstruments,
-  onToggleLookThrough,
-}: {
-  altitudeKm: number
-  looking: boolean
-  hasInstruments: boolean
-  onToggleLookThrough: () => void
-}) {
-  return (
-    <div
-      className={`pointer-events-auto flex flex-col gap-1.5 border border-rule bg-ink-1/90 px-3 py-2 text-xs transition-all ${
-        looking ? 'fixed bottom-16 left-4 z-[160]' : 'absolute bottom-3 left-3 z-10'
-      }`}
-    >
-      <Btn
-        type="button"
-        data-testid="look-through-btn"
-        variant={looking ? 'primary' : undefined}
-        onClick={onToggleLookThrough}
-        disabled={!hasInstruments}
-        className="px-2.5 py-1 text-xs"
-      >
-        {looking ? 'Exit optics' : 'Look through'}
-      </Btn>
-      <div className="text-[11px] text-paper-dim">Tested at your planned orbit, {altitudeKm} km over the pole: change it in Orbit</div>
     </div>
   )
 }

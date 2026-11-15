@@ -159,23 +159,7 @@ export function activityText(view: InstrumentView, overShadow: boolean): string 
   return overShadow ? 'Reading the dark crater floor' : 'Reading sunlit ground'
 }
 
-/** 0..1 visibility of cyan ice glints inside shadowed craters when looking through the optical bench. */
+/** 0..1 visibility of cyan ice glints inside shadowed craters over the shadowed craters. */
 export function iceSparkleStrength(views: readonly InstrumentView[]): number {
   return views.reduce((best, v) => (v.seesShadow && !v.outOfRange ? Math.max(best, v.strength) : best), 0)
-}
-
-/** Instrument-specific caption inside the Lab look-through view. */
-export function lookThroughCaption(views: readonly InstrumentView[], altitudeKm: number): string {
-  if (views.length === 0) return 'Instrument bay is empty — drag or pick an instrument to look through its optics.'
-  const iceCapable = views.filter((v) => v.seesShadow)
-  if (iceCapable.length > 0) {
-    if (altitudeKm > 20 || iceCapable.every((v) => v.outOfRange)) {
-      return `At ${altitudeKm} km, the return fades to nothing — drop back to ≤20 km to spot cyan ice glints.`
-    }
-    return 'Looking down at 15 km — cyan ice sparkles glint across the dark crater floor.'
-  }
-  if (views.some((v) => v.id === 'inst-ir-spec')) {
-    return "I can't see into the dark — thermal glow dies inside the cold shadow."
-  }
-  return 'Camera view over the rim — sunlight only, no ice signal in the pitch-black crater.'
 }
