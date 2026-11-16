@@ -66,7 +66,7 @@ export function FixAction({ cause, onBefore, className = 'fp-btn-primary' }: { c
             }}
             className="fp-btn-primary"
           >
-            Relaunch now
+            Relaunch: check and go
           </button>
         </div>
       )}

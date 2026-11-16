@@ -40,6 +40,17 @@ export function PayoffShow({ kind, outcome, cause, onDone }: PayoffShowProps) {
   // No stale voice-loop caption (e.g. "Radiation hit…") over the show; the flight's queued lines are dropped
   useHideCaptions()
 
+  // Full contrast the first time a payoff is shown in this browser, then dimmed
+  const [firstShow] = useState(() => {
+    try {
+      const seen = window.localStorage.getItem('moonshot-payoff-esc-hint') === '1'
+      window.localStorage.setItem('moonshot-payoff-esc-hint', '1')
+      return !seen
+    } catch {
+      return false
+    }
+  })
+
   const finished = useRef(false)
   const finish = useCallback(() => {
     if (finished.current) return
@@ -120,7 +131,7 @@ export function PayoffShow({ kind, outcome, cause, onDone }: PayoffShowProps) {
       </CanvasBoundary>
 
       <button type="button" className="fp-btn-ghost absolute right-5 top-5 z-10" onClick={finish}>
-        Skip ▸ <span className="ml-1 text-[0.62rem] opacity-70">Esc to skip</span>
+        Skip ▸ <span data-testid="esc-hint" className={`ml-1 text-[0.62rem] ${firstShow ? 'opacity-100' : 'opacity-60'}`}>Esc to skip</span>
       </button>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-ink-0/90 via-ink-0/50 to-transparent px-8 pb-10 pt-24 text-center">
