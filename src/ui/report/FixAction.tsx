@@ -50,11 +50,25 @@ export function FixAction({ cause, onBefore, className = 'fp-btn-primary' }: { c
         </button>
       )}
       {changes && (
-        <ul data-testid="fix-changes" className="text-xs text-go" role="status">
-          {changes.map((c) => (
-            <li key={c}>Changed · {c}</li>
-          ))}
-        </ul>
+        <div className="flex flex-wrap items-center gap-3">
+          <ul data-testid="fix-changes" className="text-xs text-go" role="status">
+            {changes.map((c) => (
+              <li key={c}>Changed · {c}</li>
+            ))}
+          </ul>
+          {/* Straight to Go with the fixed design */}
+          <button
+            type="button"
+            data-testid="relaunch-now"
+            onClick={() => {
+              onBefore?.()
+              reviseAt('go-nogo')
+            }}
+            className="fp-btn-primary"
+          >
+            Relaunch now
+          </button>
+        </div>
       )}
     </div>
   )

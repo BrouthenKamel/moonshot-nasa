@@ -51,9 +51,12 @@ function FixHintBanner({ designStep }: { designStep: DesignStep }) {
   }, [hint, designStep, setFixHint])
   if (!hint || hint.step !== designStep) return null
   return (
-    <div role="note" data-testid="fix-hint" className="border-b border-kapton/40 bg-kapton/10 px-4 py-1.5 text-xs text-paper">
-      <span className="fp-label mr-2 text-kapton">Fix this here</span>
-      {hint.why}
+    // Floats over the scene: a strip in the page flow pushed the tray and Next off a 800x600 screen
+    <div className="pointer-events-none fixed inset-x-0 top-[10.5rem] z-40 flex justify-center px-4">
+      <div role="note" data-testid="fix-hint" className="max-w-md border border-kapton/60 bg-ink-1/95 px-3 py-1.5 text-xs text-paper">
+        <span className="fp-label mr-2 text-kapton">Fix this here</span>
+        {hint.why}
+      </div>
     </div>
   )
 }

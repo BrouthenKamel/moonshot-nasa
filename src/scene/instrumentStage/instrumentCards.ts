@@ -6,6 +6,7 @@ import type { ChoiceStat } from '../../ui/kit/ChoiceCard'
 import { audio } from '../../assets/audio'
 import { choiceArt } from '../../assets/catalogueArt'
 import type { InstrumentPart } from '../../data/parts'
+import type { CheckResult } from '../../sim/types'
 import type { InstrumentLock } from './labLocks'
 import { INSTRUMENT_COLORS, INSTRUMENT_SHORT_NAMES } from './stageModel'
 
@@ -18,14 +19,22 @@ export function readsLabel(inst: InstrumentPart): string {
   return inst.kind === 'context' ? 'Maps sunlit ground, not ice' : 'Pictures only, maps no ice'
 }
 
+const TRAY_BLOCKERS: Record<string, string> = { Mass: 'Over mass', Volume: 'Over volume', Power: 'Short of power', Budget: 'Over budget' }
+
 /**
- * The one line under the tray when the design is over mass with an ice-seeing instrument aboard beside one
- * that maps no ice: names that instrument so the player can click it off. Never swaps for them.
+ * The one line under the tray when a pick put the design over a limit the tray can move (mass, volume, power,
+ * budget), with an ice-seeing instrument aboard beside one that maps no ice: the sim's own blocker sentence, then
+ * the instrument to click off ("Over volume: the parts need 6.40 U but the box holds 6 U: remove the IR spectrometer
+ * (click it)"). Never swaps for the player.
  */
-export function overMassHint(chosen: InstrumentPart[], totalMass: number, massLimit: number): string | null {
-  if (totalMass <= massLimit || !chosen.some((p) => p.seesShadow)) return null
+export function trayBlockerHint(chosen: InstrumentPart[], checks: ReadonlyArray<Pick<CheckResult, 'resource' | 'status' | 'reason'>>): string | null {
+  if (!chosen.some((p) => p.seesShadow)) return null
   const blind = chosen.find((p) => !p.seesShadow)
-  return blind ? `Over mass: remove the ${instrumentShortName(blind)} (click it)` : null
+  const blocker = checks.find((c) => c.status === 'red' && TRAY_BLOCKERS[c.resource])
+  if (!blind || !blocker) return null
+  const first = blocker.reason.split(/(?<=\.)\s/)[0].replace(/\.$/, '')
+  const sentence = first.charAt(0).toLowerCase() + first.slice(1)
+  return `${TRAY_BLOCKERS[blocker.resource]}: ${sentence}: remove the ${instrumentShortName(blind)} (click it)`
 }
 
 /** The key lesson, in a few words: does it see into the shadowed craters, and from how high */
