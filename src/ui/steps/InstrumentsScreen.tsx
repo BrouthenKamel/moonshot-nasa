@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { computeBudgets } from '../../sim/budgets'
+import { goNoGo } from '../../sim/checks'
 import { useGameStore } from '../../state/gameStore'
 import { useUiStore } from '../../state/uiStore'
 import { useDragStore } from '../interaction/dragStore'
@@ -23,7 +24,7 @@ import {
   instrumentColor,
   instrumentShortName,
   lessonText,
-  overMassHint,
+  trayBlockerHint,
   playToggle,
   rowFocusKey,
 } from '../../scene/instrumentStage/instrumentCards'
@@ -197,10 +198,9 @@ export function InstrumentsScreen() {
   const difficulty = useGameStore((s) => s.difficulty)
   const budgets = useMemo(() => computeBudgets(design, difficulty), [design, difficulty])
   const count = design.instruments.length
-  const overMass = overMassHint(
+  const overMass = trayBlockerHint(
     instruments.filter((i) => design.instruments.includes(i.id)),
-    budgets.totalMass,
-    budgets.massLimit,
+    goNoGo(design, budgets, day).checks,
   )
 
   // One screen: the stage fills it, the picks sit along its foot and nothing scrolls

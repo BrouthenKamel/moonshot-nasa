@@ -120,7 +120,7 @@ export function PayoffShow({ kind, outcome, cause, onDone }: PayoffShowProps) {
       </CanvasBoundary>
 
       <button type="button" className="fp-btn-ghost absolute right-5 top-5 z-10" onClick={finish}>
-        Skip ▸
+        Skip ▸ <span className="ml-1 text-[0.62rem] opacity-70">Esc to skip</span>
       </button>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-ink-0/90 via-ink-0/50 to-transparent px-8 pb-10 pt-24 text-center">

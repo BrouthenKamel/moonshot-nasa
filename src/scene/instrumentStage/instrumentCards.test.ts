@@ -4,7 +4,7 @@ const played = vi.hoisted(() => [] as string[])
 vi.mock('../../assets/audio', () => ({ audio: { play: (id: string) => played.push(id) } }))
 
 import { instruments } from '../../data/parts'
-import { blockedThud, instrumentCardView, instrumentStats, lessonText, overMassHint, rowFocusKey } from './instrumentCards'
+import { blockedThud, instrumentCardView, instrumentStats, lessonText, trayBlockerHint, rowFocusKey } from './instrumentCards'
 
 const byId = (id: string) => instruments.find((i) => i.id === id)!
 const open = { id: '', neededLevel: 1, labLevel: 1, locked: false, text: '' }
@@ -47,15 +47,18 @@ describe('instrument cards', () => {
   })
 })
 
-describe('overMassHint', () => {
+describe('trayBlockerHint', () => {
   const laser = byId('inst-laser')
   const ir = byId('inst-ir-spec')
-  it('names the instrument that maps no ice when an ice instrument pushed the design over mass', () => {
-    expect(overMassHint([ir, laser], 12, 10)).toBe('Over mass: remove the IR spectrometer (click it)')
+  const volume = { resource: 'Volume', status: 'red' as const, reason: 'The parts need 6.40 U but the box holds 6 U. Drop an instrument or the dish.' }
+  const mass = { resource: 'Mass', status: 'red' as const, reason: 'The fuelled craft weighs 15.0 kg; the limit is 14 kg. Choose lighter parts.' }
+  it('uses the sim\'s own sentence and names the instrument that maps no ice', () => {
+    expect(trayBlockerHint([ir, laser], [volume])).toBe('Over volume: the parts need 6.40 U but the box holds 6 U: remove the IR spectrometer (click it)')
+    expect(trayBlockerHint([ir, laser], [mass])).toMatch(/^Over mass: the fuelled craft weighs 15.0 kg; the limit is 14 kg: remove the IR spectrometer/)
   })
-  it('says nothing under the limit, or with no blind instrument to remove', () => {
-    expect(overMassHint([ir, laser], 9, 10)).toBeNull()
-    expect(overMassHint([laser, byId('inst-neutron')], 12, 10)).toBeNull()
-    expect(overMassHint([ir], 12, 10)).toBeNull()
+  it('says nothing when nothing is red, or there is no blind instrument to remove', () => {
+    expect(trayBlockerHint([ir, laser], [{ ...volume, status: 'green' as const }])).toBeNull()
+    expect(trayBlockerHint([laser, byId('inst-neutron')], [volume])).toBeNull()
+    expect(trayBlockerHint([ir], [volume])).toBeNull()
   })
 })
