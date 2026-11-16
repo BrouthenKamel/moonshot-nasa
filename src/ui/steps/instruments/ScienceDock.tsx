@@ -145,6 +145,7 @@ export function ScienceDock({
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   const hover = onHover
+  const fixHint = useUiStore((s) => s.fixHint)
   return (
     <div className="pointer-events-none absolute bottom-4 left-20 right-4 z-10 flex items-end gap-3">
       <div
@@ -154,6 +155,13 @@ export function ScienceDock({
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) hover(null)
         }}
       >
+        {/* The hint ladder's note: at the tray's left edge, tray width, just above "Pick up to 2" */}
+        {fixHint?.step === 'instruments' && (
+          <div role="note" data-testid="fix-hint" className="pointer-events-none absolute bottom-full left-0 mb-2 w-full border border-kapton/60 bg-ink-1/95 px-3 py-1.5 text-xs text-paper">
+            <span className="fp-label mr-2 text-kapton">Fix this here</span>
+            {fixHint.why}
+          </div>
+        )}
         <div className="flex items-baseline justify-between gap-4">
           <span className="fp-label text-[0.68rem] tracking-[0.16em] text-paper">Pick up to {MAX_INSTRUMENTS}</span>
           <span className="fp-data text-[0.68rem] text-paper-faint">

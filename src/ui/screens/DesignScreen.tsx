@@ -49,7 +49,8 @@ function FixHintBanner({ designStep }: { designStep: DesignStep }) {
   useEffect(() => {
     if (hint && hint.step !== designStep) setFixHint(null)
   }, [hint, designStep, setFixHint])
-  if (!hint || hint.step !== designStep) return null
+  // The Science step anchors it to its own tray (ScienceDock); the others float it over the scene
+  if (!hint || hint.step !== designStep || designStep === 'instruments') return null
   return (
     // Floats over the scene: a strip in the page flow pushed the tray and Next off a 800x600 screen
     <div className="pointer-events-none fixed inset-x-0 top-[10.5rem] z-40 flex justify-center px-4">
